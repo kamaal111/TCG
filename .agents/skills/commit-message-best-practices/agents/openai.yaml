@@ -1,0 +1,4 @@
+interface:
+  display_name: 'Commit Message Best Practices'
+  short_description: 'High-signal git commit messages and PR descriptions'
+  default_prompt: 'Use $commit-message-best-practices when preparing commits, squashing history, or drafting commit and PR text in this repository.'

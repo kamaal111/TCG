@@ -1,0 +1,31 @@
+{
+  "configurations" : [
+    {
+      "id" : "4832E10E-1D17-449E-BC08-2FB2D4ABAAE7",
+      "name" : "Test Scheme Action",
+      "options" : {
+
+      }
+    }
+  ],
+  "defaultOptions" : {
+    "codeCoverage" : false,
+    "performanceAntipatternCheckerEnabled" : true,
+    "targetForVariableExpansion" : {
+      "containerPath" : "container:TCG.xcodeproj",
+      "identifier" : "000000000000000100000000",
+      "name" : "TCG"
+    },
+    "testInteropMode" : "complete"
+  },
+  "testTargets" : [
+    {
+      "target" : {
+        "containerPath" : "container:Modules\/TCGApp",
+        "identifier" : "TCGAppTests",
+        "name" : "TCGAppTests"
+      }
+    }
+  ],
+  "version" : 1
+}

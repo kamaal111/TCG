@@ -1,0 +1,23 @@
+services:
+  db:
+    image: postgres:18
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${TCG_DB_NAME:-tcg}
+      POSTGRES_USER: ${TCG_DB_USER:-tcg_user}
+      POSTGRES_PASSWORD: ${TCG_DB_PASSWORD:-tcg_password}
+      PGDATA: /var/lib/postgresql/18/docker
+    ports:
+      - '${TCG_DB_PORT:-5432}:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${TCG_DB_USER:-tcg_user} -d ${TCG_DB_NAME:-tcg}']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+volumes:
+  postgres_data:
+    driver: local

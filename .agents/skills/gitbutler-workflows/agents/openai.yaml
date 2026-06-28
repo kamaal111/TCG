@@ -1,0 +1,4 @@
+interface:
+  display_name: 'GitButler Workflows'
+  short_description: 'Safe branch, staging, and commit workflows for GitButler'
+  default_prompt: 'Use $gitbutler-workflows when creating branches, staging work, committing, amending, or pushing in this GitButler-managed repository.'

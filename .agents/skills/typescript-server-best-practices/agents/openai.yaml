@@ -1,0 +1,4 @@
+interface:
+  display_name: 'TypeScript Server Best Practices'
+  short_description: 'Reusable API and service-layer patterns'
+  default_prompt: 'Use $typescript-server-best-practices when changing a TypeScript server with routes, validation, services, repositories, or API tests.'

@@ -1,0 +1,32 @@
+{
+  "name": "tcg-server",
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "dev": "node --watch --inspect .",
+    "start": "node .",
+    "test": "vitest --run",
+    "typecheck": "tsc"
+  },
+  "dependencies": {
+    "@better-auth/drizzle-adapter": "workspace:*",
+    "@hono/node-server": "workspace:*",
+    "@hono/zod-openapi": "workspace:*",
+    "@kamaalio/kamaal": "workspace:*",
+    "better-auth": "workspace:*",
+    "drizzle-orm": "workspace:*",
+    "hono": "workspace:*",
+    "pg": "workspace:*",
+    "pino": "workspace:*",
+    "zod": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "workspace:*",
+    "@types/pg": "workspace:*",
+    "@vitest/coverage-v8": "workspace:*",
+    "drizzle-kit": "workspace:*",
+    "pino-pretty": "workspace:*",
+    "typescript": "workspace:*",
+    "vitest": "workspace:*"
+  }
+}

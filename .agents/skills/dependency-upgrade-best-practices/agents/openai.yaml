@@ -1,0 +1,4 @@
+interface:
+  display_name: 'Dependency Upgrade Best Practices'
+  short_description: 'Reusable dependency upgrade workflow'
+  default_prompt: 'Use $dependency-upgrade-best-practices when upgrading dependencies, validating the result, and fixing breakages introduced by version changes.'

@@ -1,0 +1,42 @@
+import type { Context, Input, Next } from 'hono';
+import type { RequestIdVariables } from 'hono/request-id';
+import type { Logger } from 'pino';
+
+import type { Database } from './db/index.ts';
+import type { Auth } from './auth/better-auth.ts';
+
+export interface InjectedContext {
+  db: Database;
+  auth: Auth;
+}
+
+interface LoggingVariables {
+  logger: Logger;
+}
+
+interface RequestLifecycleVariables {
+  requestFailed?: boolean;
+}
+
+export type HonoVariables = RequestIdVariables &
+  InjectedContext &
+  LoggingVariables &
+  RequestLifecycleVariables & { session?: { user: { id: string } } };
+
+export interface HonoEnvironment {
+  Variables: HonoVariables;
+}
+
+export type HonoContext<P extends string = string, I extends Input = Record<string, unknown>> = Context<
+  HonoEnvironment,
+  P,
+  I
+>;
+
+export function injectRequestContext({ db, auth }: InjectedContext) {
+  return async (c: HonoContext, next: Next) => {
+    c.set('db', db);
+    c.set('auth', auth);
+    await next();
+  };
+}

@@ -1,0 +1,12 @@
+[
+  {
+    "label": "Attach to dev-server",
+    "adapter": "JavaScript",
+    "type": "node",
+    "request": "attach",
+    "address": "127.0.0.1",
+    "restart": true,
+    "timeout": 10000,
+    "port": 9229
+  }
+]
