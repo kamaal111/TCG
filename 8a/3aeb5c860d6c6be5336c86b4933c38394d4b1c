@@ -1,0 +1,19 @@
+app/.swift-format
+  s_573bf835f72d5d::t_a8fd07e23b3509 1
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "8a3aeb5c860d6c6be5336c86b4933c38394d4b1c",
+  "prompts": {},
+  "sessions": {
+    "s_573bf835f72d5d": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f0ef6-f2c2-7d00-99d0-b6ef7c26b426",
+        "model": "gpt-5.4-mini"
+      },
+      "human_author": "Kamaal Farah <kamaal.f1@gmail.com>"
+    }
+  }
+}
