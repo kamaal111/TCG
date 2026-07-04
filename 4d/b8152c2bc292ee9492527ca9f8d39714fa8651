@@ -1,0 +1,48 @@
+app/.swift-format
+  s_573bf835f72d5d::t_a8fd07e23b3509 1
+server/tsconfig.json
+  s_902f623503702b::t_326df2517f5198 1,9,11-16
+  s_902f623503702b::t_b386c0b3663c47 5
+  s_902f623503702b::t_3be6b1e0eb7e1f 6-8
+  s_902f623503702b::t_56253c8921aa25 10
+  s_902f623503702b::t_a0b6a6a90793c6 2-4
+package.json
+  s_902f623503702b::t_0427dd95b1cbe5 40
+  s_902f623503702b::t_35b50cdfc1d72b 37-39
+  s_902f623503702b::t_5d6d664e6fe3bd 41-43
+  s_902f623503702b::t_63e355c1c4fac8 34-36
+  s_902f623503702b::t_84d6683b98579a 44
+server/src/index.ts
+  s_902f623503702b::t_b386c0b3663c47 4
+  s_902f623503702b::t_0b296705773353 5-7
+  s_902f623503702b::t_e716e52314341a 1-3
+  s_902f623503702b::t_d6552474c866bd 8-10
+AGENTS.md
+  s_902f623503702b::t_31ddfb626c4b8e 1-72
+app/Modules/TCGApp/Tests/TCGAppTests/TCGAppTests.swift
+  s_902f623503702b::t_adbcde1cd52a8c 1-12
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "4db8152c2bc292ee9492527ca9f8d39714fa8651",
+  "prompts": {},
+  "sessions": {
+    "s_573bf835f72d5d": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f0ef6-f2c2-7d00-99d0-b6ef7c26b426",
+        "model": "gpt-5.4-mini"
+      },
+      "human_author": "Kamaal Farah <kamaal.f1@gmail.com>"
+    },
+    "s_902f623503702b": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f2d43-6a09-7142-985a-7e71740344dd",
+        "model": "gpt-5.4"
+      },
+      "human_author": null
+    }
+  }
+}
