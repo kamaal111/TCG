@@ -1,0 +1,139 @@
+server/src/exceptions/handler.ts
+  s_3faf20e573143f::t_19b2b4257b52f6 58
+  s_3faf20e573143f::t_a3f3d297521bf7 1-2
+  s_3faf20e573143f::t_99dc628114728e 3-5
+  s_3faf20e573143f::t_31c0920c71007b 62
+  s_3faf20e573143f::t_493170388f48d6 67-69,74
+  s_3faf20e573143f::t_1e69dea8643dca 66
+  s_3faf20e573143f::t_aaefa6ba8b13b7 6
+  s_3faf20e573143f::t_a0ea160d04c6ff 53
+  s_3faf20e573143f::t_6b896260a1ab05 54-55
+  s_3faf20e573143f::t_bb2dd2f6eb9df4 56-57
+  s_3faf20e573143f::t_fa7913a70c7511 7-52
+  s_3faf20e573143f::t_4550afdddcc379 59-61
+  s_3faf20e573143f::t_5ec35cf8f40c6c 63-65,70
+  s_3faf20e573143f::t_cad13d404fce5c 71-73
+  s_3faf20e573143f::t_50f940f1139b82 75-76
+.zed/debug.json
+  s_ec5bf5db133ea6::t_58bb32ce27de0e 1-2,4,15-16
+  s_ec5bf5db133ea6::t_f02c03ec134373 3,5-12,14
+  s_ec5bf5db133ea6::t_2b7073635aaa71 13
+AGENTS.md
+  s_902f623503702b::t_31ddfb626c4b8e 1-72
+app/Modules/TCGApp/Tests/TCGAppTests/TCGAppTests.swift
+  s_902f623503702b::t_adbcde1cd52a8c 1-12
+server/tsconfig.json
+  s_902f623503702b::t_56253c8921aa25 10
+  s_902f623503702b::t_326df2517f5198 1,9,11-16
+  s_902f623503702b::t_a0b6a6a90793c6 2-4
+  s_902f623503702b::t_3be6b1e0eb7e1f 6-8
+  s_902f623503702b::t_b386c0b3663c47 5
+.zed/tasks.json
+  s_ec5bf5db133ea6::t_83af2381093cab 2-15,17,19,21-22,24-26
+  s_ec5bf5db133ea6::t_89c9da31e84799 1
+  s_ec5bf5db133ea6::t_8f47004f65fee3 16
+  s_ec5bf5db133ea6::t_0165fd8592018c 18
+  s_ec5bf5db133ea6::t_1e01a66f85607f 20
+  s_ec5bf5db133ea6::t_aa3a5b26892f4c 23
+  s_ec5bf5db133ea6::t_864dd3d6ed4f7a 27-28
+server/src/index.ts
+  s_902f623503702b::t_e716e52314341a 1-2
+  s_902f623503702b::t_d6552474c866bd 4
+  s_902f623503702b::t_0b296705773353 3
+.env.example
+  s_ec5bf5db133ea6::t_2feadfc809bad6 1-7
+server/src/exceptions/index.ts
+  s_3faf20e573143f::t_e05165fc7f68c9 58-63
+  s_3faf20e573143f::t_18cd9ccc88a409 54-55
+  s_3faf20e573143f::t_42cfac38271b27 1-2
+  s_3faf20e573143f::t_8c0f3940def66f 6-8
+  s_3faf20e573143f::t_d103d8a856b8ec 47-49,56-57,64-66
+  s_3faf20e573143f::t_63715326015c0a 9-46,50
+  s_3faf20e573143f::t_cf0873655505fb 51-53
+  s_3faf20e573143f::t_690a6e1d2443cf 3-5
+server/drizzle.config.ts
+  s_ed0e8e114112f3::t_aa62ce89801390 1-3
+  s_ed0e8e114112f3::t_9b13cebe5231d3 4-6
+  s_ed0e8e114112f3::t_9a8ad9ede71dd9 7
+  s_ed0e8e114112f3::t_86da119e24a1ed 8-10
+app/.swift-format
+  s_573bf835f72d5d::t_a8fd07e23b3509 1
+justfile
+  s_ec5bf5db133ea6::t_1d887eb492bf03 45
+  s_ec5bf5db133ea6::t_f2f54acb2a19ef 46-49
+  s_ec5bf5db133ea6::t_a6c6812f56b5bf 42-44
+  s_ec5bf5db133ea6::t_c692512bbac8c3 50-52
+  s_ec5bf5db133ea6::t_384158f4dbfb4c 1-41,53-208
+server/src/db/schema/better-auth.ts
+  s_a575d96e29bd9c::t_43326a8eb1472d 1-10,17,19-23,26-28,30,32,36,38-41,43-52,56,60,62-67,72,75-80
+  s_a575d96e29bd9c::t_bd0c972e8f3ebe 11-16,18,24-25,29,31,33-35,37,42,53-55,57-59,61,68-71,73-74,81
+package.json
+  s_902f623503702b::t_0110b35b02c75c 4-6
+  s_902f623503702b::t_9d5a186ae0fd54 1-3
+  s_902f623503702b::t_1d1224c3770557 25-37
+  s_902f623503702b::t_84d6683b98579a 50
+  s_902f623503702b::t_70369a3f3398e6 39
+  s_902f623503702b::t_63e355c1c4fac8 13,24,38,40-42
+  s_902f623503702b::t_3d43a3a441169b 14-23
+  s_902f623503702b::t_35b50cdfc1d72b 43-45
+  s_902f623503702b::t_7a6b54d6099b03 7-9
+  s_902f623503702b::t_0427dd95b1cbe5 46
+  s_902f623503702b::t_5d6d664e6fe3bd 47-49
+  s_902f623503702b::t_0d7361dc8d3a98 10-12
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "1d9a68e94d4af683987a19ed5d0d800aa98e4ff6",
+  "prompts": {},
+  "sessions": {
+    "s_3faf20e573143f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f32c3-0d73-7e53-bd27-0eb3867836ba",
+        "model": "gpt-5.4"
+      },
+      "human_author": null
+    },
+    "s_573bf835f72d5d": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f0ef6-f2c2-7d00-99d0-b6ef7c26b426",
+        "model": "gpt-5.4-mini"
+      },
+      "human_author": "Kamaal Farah <kamaal.f1@gmail.com>"
+    },
+    "s_902f623503702b": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f2d43-6a09-7142-985a-7e71740344dd",
+        "model": "gpt-5.4"
+      },
+      "human_author": null
+    },
+    "s_a575d96e29bd9c": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f330f-efba-7ad2-9ad1-f978044f3f0b",
+        "model": "gpt-5.4"
+      },
+      "human_author": null
+    },
+    "s_ec5bf5db133ea6": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f33a9-3174-73f3-b82d-b1d2cf08539a",
+        "model": "gpt-5.4"
+      },
+      "human_author": null
+    },
+    "s_ed0e8e114112f3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f3351-10d0-70b0-b3b5-5cfb32cf5dc0",
+        "model": "gpt-5.4"
+      },
+      "human_author": null
+    }
+  }
+}
