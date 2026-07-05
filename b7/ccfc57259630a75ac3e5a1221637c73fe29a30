@@ -1,0 +1,52 @@
+app/.swift-format
+  s_573bf835f72d5d::t_a8fd07e23b3509 1
+app/Modules/TCGApp/Tests/TCGAppTests/TCGAppTests.swift
+  s_902f623503702b::t_adbcde1cd52a8c 1-12
+package.json
+  s_902f623503702b::t_1d1224c3770557 24-36
+  s_902f623503702b::t_5d6d664e6fe3bd 46-48
+  s_902f623503702b::t_0427dd95b1cbe5 45
+  s_902f623503702b::t_35b50cdfc1d72b 42-44
+  s_902f623503702b::t_3d43a3a441169b 14-22
+  s_902f623503702b::t_0d7361dc8d3a98 10-12
+  s_902f623503702b::t_63e355c1c4fac8 13,23,37,39-41
+  s_902f623503702b::t_84d6683b98579a 49
+  s_902f623503702b::t_70369a3f3398e6 38
+  s_902f623503702b::t_7a6b54d6099b03 7-9
+AGENTS.md
+  s_902f623503702b::t_31ddfb626c4b8e 1-72
+server/tsconfig.json
+  s_902f623503702b::t_b386c0b3663c47 5
+  s_902f623503702b::t_3be6b1e0eb7e1f 6-8
+  s_902f623503702b::t_56253c8921aa25 10
+  s_902f623503702b::t_326df2517f5198 1,9,11-16
+  s_902f623503702b::t_a0b6a6a90793c6 2-4
+server/src/index.ts
+  s_902f623503702b::t_e716e52314341a 1-2
+  s_902f623503702b::t_d6552474c866bd 4
+  s_902f623503702b::t_0b296705773353 3
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "b7ccfc57259630a75ac3e5a1221637c73fe29a30",
+  "prompts": {},
+  "sessions": {
+    "s_573bf835f72d5d": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f0ef6-f2c2-7d00-99d0-b6ef7c26b426",
+        "model": "gpt-5.4-mini"
+      },
+      "human_author": "Kamaal Farah <kamaal.f1@gmail.com>"
+    },
+    "s_902f623503702b": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f2d43-6a09-7142-985a-7e71740344dd",
+        "model": "gpt-5.4"
+      },
+      "human_author": null
+    }
+  }
+}
