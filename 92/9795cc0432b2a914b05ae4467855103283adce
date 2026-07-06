@@ -1,0 +1,35 @@
+server/src/auth/utils/request.ts
+  s_06d07f0e87888f::t_21a2cb4d423ef5 1-8,19-93
+  s_06d07f0e87888f::t_0fcf8af3ace335 9-11
+  s_06d07f0e87888f::t_7c944689130256 16-18
+  s_06d07f0e87888f::t_b212ec1b2f1592 12-15
+justfile
+  s_a575d96e29bd9c::t_7ce3ff1def1d16 14-18
+server/src/auth/constants.ts
+  s_06d07f0e87888f::t_d36f2cc10173c7 7
+  s_06d07f0e87888f::t_b212ec1b2f1592 11-12
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "929795cc0432b2a914b05ae4467855103283adce",
+  "prompts": {},
+  "sessions": {
+    "s_06d07f0e87888f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f38ea-ccf2-75c0-bf9c-f6d73ae8ba5a",
+        "model": "gpt-5.4"
+      },
+      "human_author": "Kamaal Farah <kamaal.f1@gmail.com>"
+    },
+    "s_a575d96e29bd9c": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f330f-efba-7ad2-9ad1-f978044f3f0b",
+        "model": "gpt-5.4"
+      },
+      "human_author": "Kamaal Farah <kamaal.f1@gmail.com>"
+    }
+  }
+}
