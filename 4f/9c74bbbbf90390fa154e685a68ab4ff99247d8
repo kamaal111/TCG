@@ -1,0 +1,81 @@
+justfile
+  s_a575d96e29bd9c::t_2ad679d2bbe3e8 66
+  s_a575d96e29bd9c::t_86b5e7279706f9 63-65
+  s_a575d96e29bd9c::t_3a9ae3843245b7 67-69
+  s_a575d96e29bd9c::t_7ce3ff1def1d16 1-62,70-204
+server/package.json
+  s_a575d96e29bd9c::t_2ad679d2bbe3e8 12
+  s_a575d96e29bd9c::t_af2c03f44c5555 9-11
+  s_a575d96e29bd9c::t_a6916cf0b854e3 13-15
+  s_a575d96e29bd9c::t_10bc1943ef95b6 1-8,16-32
+server/src/auth/better-auth.ts
+  s_a575d96e29bd9c::t_2ad679d2bbe3e8 1-20
+  s_a575d96e29bd9c::t_88e15440586d34 21-23
+  s_a575d96e29bd9c::t_56b927c5dd0f6d 24-38
+package.json
+  s_a575d96e29bd9c::t_2ad679d2bbe3e8 15-30
+  s_a575d96e29bd9c::t_a6a9f29084b3e4 12-14
+  s_a575d96e29bd9c::t_b4834c015015e4 31-33
+  s_a575d96e29bd9c::t_fb5bd979274501 1-11,34-52
+server/drizzle/20260706174944_sleepy_centennial/migration.sql
+  s_a575d96e29bd9c::t_c33b36a5bbdc87 1-61
+server/drizzle/20260706174944_sleepy_centennial/snapshot.json
+  s_a575d96e29bd9c::t_c33b36a5bbdc87 1-4,6-634,636-637,639-647,649-650,652-659,661-667,669-675,677-683,685-691,693-700,702-709,711-718
+  s_a575d96e29bd9c::t_282bb58ded5030 5,635,638,648,651,660,668,676,684,692,701,710,719
+server/src/db/schema/better-auth.ts
+  s_a575d96e29bd9c::t_0cf7b9a3c1d649 85
+  s_a575d96e29bd9c::t_3ec8574f75babe 1-83,86-109
+  s_a575d96e29bd9c::t_3f2380260f2b38 84
+app/.swift-format
+  s_573bf835f72d5d::t_7130e9be86761d 1
+pnpm-lock.yaml
+  s_a575d96e29bd9c::t_07ac93d5136ae6 1-3908
+AGENTS.md
+  s_902f623503702b::t_2ee869788d502d 1-72
+app/Modules/TCGApp/Tests/TCGAppTests/TCGAppTests.swift
+  s_902f623503702b::t_8e7b4c38e90638 1-12
+server/drizzle.config.ts
+  s_ed0e8e114112f3::t_27201029522724 1-10
+server/tsconfig.json
+  s_902f623503702b::t_bbf8ef701dd729 1-16
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "4f9c74bbbbf90390fa154e685a68ab4ff99247d8",
+  "prompts": {},
+  "sessions": {
+    "s_573bf835f72d5d": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f0ef6-f2c2-7d00-99d0-b6ef7c26b426",
+        "model": "gpt-5.4-mini"
+      },
+      "human_author": "Kamaal Farah <kamaal.f1@gmail.com>"
+    },
+    "s_902f623503702b": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f2d43-6a09-7142-985a-7e71740344dd",
+        "model": "unknown"
+      },
+      "human_author": "Kamaal Farah <kamaal.f1@gmail.com>"
+    },
+    "s_a575d96e29bd9c": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f330f-efba-7ad2-9ad1-f978044f3f0b",
+        "model": "gpt-5.4"
+      },
+      "human_author": "Kamaal Farah <kamaal.f1@gmail.com>"
+    },
+    "s_ed0e8e114112f3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f3351-10d0-70b0-b3b5-5cfb32cf5dc0",
+        "model": "unknown"
+      },
+      "human_author": "Kamaal Farah <kamaal.f1@gmail.com>"
+    }
+  }
+}
