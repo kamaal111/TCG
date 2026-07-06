@@ -1,8 +1,10 @@
+import { Writable } from 'node:stream';
+
 import pino from 'pino';
 import type { DestinationStream, LevelWithSilent, Logger, LoggerOptions } from 'pino';
 
 import env from '../env.ts';
-import type { ServerMode } from '../modes.ts';
+import type { ServerMode } from '../constants/common.ts';
 
 const SERVICE_NAME = 'tcg-server';
 const DEFAULT_COMPONENT = 'server';
@@ -13,7 +15,7 @@ type LogArray = LogScalar[];
 type LogValue = LogScalar | LogArray;
 export type LogBindings = Record<string, LogValue | undefined>;
 
-interface BaseLogFields {
+export interface BaseLogFields {
   event: string;
   mode?: ServerMode;
   outcome?: 'failure' | 'success';
@@ -33,7 +35,7 @@ interface BaseLogFields {
   transaction_type?: string;
 }
 
-type LogFields = BaseLogFields & LogBindings;
+export type LogFields = BaseLogFields & LogBindings;
 
 type LogMethod = 'debug' | 'error' | 'fatal' | 'info' | 'trace' | 'warn';
 
@@ -183,6 +185,15 @@ function createDestination(pretty: boolean) {
   }
 
   return pino.destination({ sync: true });
+}
+
+export function createMemoryLogDestination(logs: string[]) {
+  return new Writable({
+    write(chunk: string | Uint8Array, _encoding, callback) {
+      logs.push(typeof chunk === 'string' ? chunk : Buffer.from(chunk).toString('utf8'));
+      callback();
+    },
+  });
 }
 
 function sanitizeLogRecord(record: Record<string, unknown>): LogBindings {

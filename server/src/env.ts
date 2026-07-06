@@ -1,6 +1,6 @@
 import z from 'zod';
 
-import { SERVER_MODES } from './modes.ts';
+import { SERVER_MODES } from './constants/common.ts';
 
 const LOG_LEVELS = {
   FATAL: 'fatal',
@@ -12,7 +12,7 @@ const LOG_LEVELS = {
   SILENT: 'silent',
 } as const;
 
-const EnvSchema = z.object({
+export const EnvSchema = z.object({
   PORT: z.coerce.number().gte(1000).lt(10_000).default(8080),
   DATABASE_URL: z.string(),
   MODE: z.enum(Object.values(SERVER_MODES)).default(SERVER_MODES.SERVER),

@@ -21,28 +21,26 @@ const SIGNALS_TO_TERMINATE_ON: NodeJS.Signals[] = ['SIGINT', 'SIGTERM'];
 const logger = getComponentLogger('server');
 
 class App {
-  private app: Hono<HonoEnvironment>;
+  private app: Hono<HonoEnvironment> | undefined;
   private server: ServerType | undefined;
 
-  constructor() {
-    this.app = new Hono();
-  }
-
   serve = (overrides: Partial<Pick<InjectedContext, 'db'>> = {}) => {
-    const db = overrides.db ?? dbSingleton;
-    const auth = overrides.db != null ? createAuth(db) : authSingleton;
-    this.registerMiddleware({ db, auth });
-    this.registerHandlers();
+    this.app = createApp(overrides);
     this.start();
     this.cleanupUnShotdown();
   };
 
   private start = () => {
-    if (env.DEBUG) {
-      showRoutes(this.app, { verbose: false });
+    const app = this.app;
+    if (app == null) {
+      return;
     }
 
-    this.server = serve({ fetch: this.app.fetch, port: env.PORT }, info => {
+    if (env.DEBUG) {
+      showRoutes(app, { verbose: false });
+    }
+
+    this.server = serve({ fetch: app.fetch, port: env.PORT }, info => {
       logInfo(logger, {
         event: 'server.started',
         port: info.port,
@@ -50,20 +48,6 @@ class App {
       });
     });
   };
-
-  private registerMiddleware = (overrides: InjectedContext) => {
-    this.app
-      .onError(handleServerError())
-      .use(requestId({ headerName: REQUEST_ID_HEADER_NAME }))
-      .use(compress())
-      .use(secureHeaders())
-      .use(loggingMiddleware())
-      .use(injectRequestContext(overrides));
-  };
-
-  private registerHandlers() {
-    this.app.route(HEALTH_ROUTE_NAME, healthRoute).route(APP_API_ROUTE_NAME, appApiRoute);
-  }
 
   private cleanupUnShotdown = () => {
     const server = this.server;
@@ -97,6 +81,21 @@ class App {
       });
     }
   };
+}
+
+export function createApp(overrides: Partial<Pick<InjectedContext, 'db'>> = {}) {
+  const db = overrides.db ?? dbSingleton;
+  const auth = overrides.db != null ? createAuth(db) : authSingleton;
+
+  return new Hono<HonoEnvironment>()
+    .onError(handleServerError())
+    .use(requestId({ headerName: REQUEST_ID_HEADER_NAME }))
+    .use(compress())
+    .use(secureHeaders())
+    .use(loggingMiddleware())
+    .use(injectRequestContext({ db, auth }))
+    .route(HEALTH_ROUTE_NAME, healthRoute)
+    .route(APP_API_ROUTE_NAME, appApiRoute);
 }
 
 export default App;

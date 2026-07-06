@@ -16,6 +16,7 @@
     "better-auth": "workspace:*",
     "drizzle-orm": "workspace:*",
     "hono": "workspace:*",
+    "jose": "workspace:*",
     "pg": "workspace:*",
     "pino": "workspace:*",
     "zod": "workspace:*"

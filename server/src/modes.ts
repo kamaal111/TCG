@@ -3,10 +3,7 @@ import { createMiddleware } from 'hono/factory';
 import type { HonoVariables } from './context.ts';
 import env from './env.ts';
 import { NotFound } from './exceptions/index.ts';
-
-export type ServerMode = (typeof SERVER_MODES)[keyof typeof SERVER_MODES];
-
-export const SERVER_MODES = { SERVER: 'SERVER', TEST: 'TEST' } as const;
+import { SERVER_MODES, type ServerMode } from './constants/common.ts';
 
 export function allowedModes(...modes: ServerMode[]) {
   return createMiddleware<{ Variables: HonoVariables }>(async (c, next) => {

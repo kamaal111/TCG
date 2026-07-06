@@ -11,11 +11,11 @@ APP_PROJECT := "TCG.xcodeproj"
 APP_SCHEME := "TCG"
 APP_TEST_DESTINATION := "platform=iOS Simulator,name=iPhone 17 Pro"
 
-DATABASE_HOST := env("KOWALSKI_DB_HOST", "localhost")
-DATABASE_PORT := env("KOWALSKI_DB_PORT", "5432")
-DATABASE_NAME := env("KOWALSKI_DB_NAME", "tcg")
-DATABASE_USER := env("KOWALSKI_DB_USER", "tcg_user")
-DATABASE_PASSWORD := env("KOWALSKI_DB_PASSWORD", "tcg_password")
+DATABASE_HOST := env("TCG_DB_HOST", "localhost")
+DATABASE_PORT := env("TCG_DB_PORT", "5432")
+DATABASE_NAME := env("TCG_DB_NAME", "tcg")
+DATABASE_USER := env("TCG_DB_USER", "tcg_user")
+DATABASE_PASSWORD := env("TCG_DB_PASSWORD", "tcg_password")
 DATABASE_URL := env("DATABASE_URL", "postgresql://" + DATABASE_USER + ":" + DATABASE_PASSWORD + "@" + DATABASE_HOST + ":" + DATABASE_PORT + "/" + DATABASE_NAME)
 
 PORT := env("PORT", "8080")

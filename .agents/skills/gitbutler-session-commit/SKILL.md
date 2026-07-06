@@ -20,8 +20,6 @@ Load and follow these skills when they are present in the repository:
 - `commit-message-best-practices` before writing the commit message.
 - `testing-best-practices` when deciding whether the session changes have
   already been verified enough to commit.
-- Domain skills that match the touched files, such as `kowalski-server-typescript`,
-  `kowalski-app-swift`, or `kowalski-dependency-upgrade`, when validation or
   scope decisions depend on those domains.
 
 If a required skill path listed in `AGENTS.md` is missing, say so briefly and
@@ -29,7 +27,7 @@ continue with the closest local workflow.
 
 ## Workflow
 
-1. Inspect the repository instructions first. In Kowalski, run `just` from the
+1. Inspect the repository instructions first. In TCG, run `just` from the
    repository root before choosing commands.
 2. Confirm the current GitButler state with `but status -f`. Use read-only
    `git status --short` or `git diff` only to understand scope.
@@ -60,7 +58,7 @@ continue with the closest local workflow.
 ## Validation Expectations
 
 Do not claim a code session is ready to commit until the relevant verification
-has run or the user explicitly accepts committing unverified work. In Kowalski:
+has run or the user explicitly accepts committing unverified work. In TCG:
 
 - Run the narrowest useful checks while iterating.
 - Run `just ready` last for code changes.

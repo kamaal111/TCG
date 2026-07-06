@@ -56,6 +56,15 @@ export class InvalidValidation extends InvalidPayload<{
   }
 }
 
+export class Unauthorized extends APIException {
+  constructor(c: ExceptionContext, options?: { message?: string }) {
+    super(c, STATUS_CODES.UNAUTHORIZED, {
+      message: options?.message ?? 'Unauthorized',
+      code: 'UNAUTHORIZED',
+    });
+  }
+}
+
 export class NotFound extends APIException {
   constructor(c: ExceptionContext, options?: { message?: string }) {
     super(c, STATUS_CODES.NOT_FOUND, {
