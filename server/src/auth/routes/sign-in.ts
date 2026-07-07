@@ -6,43 +6,37 @@ import { STATUS_CODES } from '../../constants/http.ts';
 import { AuthResponseSchema } from '../schemas/responses.ts';
 import { TokenHeaders } from '../schemas/headers.ts';
 import { ErrorResponseSchema, ValidationErrorResponseSchema } from '../../schemas/errors.ts';
-import { EmailPasswordSignUpSchema } from '../schemas/payloads.ts';
+import { EmailPasswordSignInSchema } from '../schemas/payloads.ts';
 
-const signUpRoute = createRoute({
+const signInRoute = createRoute({
   method: 'post',
-  path: '/sign-up/email',
+  path: '/sign-in/email',
   tags: [AUTH_OPENAPI_TAG],
-  summary: 'Sign up with email and password',
-  description: 'Create a new user account with email and password',
+  summary: 'Sign in with email and password',
+  description: 'Authenticate a user with email and password credentials',
   request: {
     body: {
       content: {
-        [MIME_TYPES.APPLICATION_JSON]: { schema: EmailPasswordSignUpSchema },
+        [MIME_TYPES.APPLICATION_JSON]: { schema: EmailPasswordSignInSchema },
       },
     },
   },
   responses: {
-    [STATUS_CODES.CREATED]: {
-      description: 'Account created successfully',
+    [STATUS_CODES.OK]: {
+      description: 'Sign in successful',
       content: {
         [MIME_TYPES.APPLICATION_JSON]: { schema: AuthResponseSchema },
       },
       headers: TokenHeaders,
     },
     [STATUS_CODES.BAD_REQUEST]: {
-      description: 'Invalid request or email already exists',
+      description: 'Invalid credentials or request',
       content: {
         [MIME_TYPES.APPLICATION_JSON]: { schema: ValidationErrorResponseSchema },
       },
     },
-    [STATUS_CODES.CONFLICT]: {
-      description: 'Email already registered',
-      content: {
-        [MIME_TYPES.APPLICATION_JSON]: { schema: ErrorResponseSchema },
-      },
-    },
     [STATUS_CODES.UNAUTHORIZED]: {
-      description: 'Authentication failed or invalid credentials',
+      description: 'Authentication failed',
       content: {
         [MIME_TYPES.APPLICATION_JSON]: { schema: ErrorResponseSchema },
       },
@@ -50,4 +44,4 @@ const signUpRoute = createRoute({
   },
 });
 
-export default signUpRoute;
+export default signInRoute;

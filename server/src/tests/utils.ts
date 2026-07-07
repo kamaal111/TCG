@@ -2,10 +2,15 @@ import crypto from 'node:crypto';
 
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { migrate } from 'drizzle-orm/node-postgres/migrator';
+import type { Hono } from 'hono';
 import { Client, Pool } from 'pg';
 
+import type { HonoEnvironment } from '../context.ts';
 import type { Database } from '../db/index.ts';
 import { authRelations } from '../db/schema/index.ts';
+import { STATUS_CODES } from '../constants/http.ts';
+import { MIME_TYPES } from '../constants/request.ts';
+import { SIGN_UP_ROUTE_PATH } from '../auth/handlers/sign-up.ts';
 
 const BASE_DATABASE_URL = process.env.DATABASE_URL;
 
@@ -49,3 +54,37 @@ export const createTestDatabase = async (): Promise<{
 
   return { db: testDb, connectionString: testDbUrl, cleanup };
 };
+
+export async function createTestUser(app: Hono<HonoEnvironment>, db: Database) {
+  const email = `test_${crypto.randomUUID()}@example.com`;
+  const password = 'password123';
+  const name = 'Test User';
+  const response = await app.request(SIGN_UP_ROUTE_PATH, {
+    method: 'POST',
+    headers: new Headers({
+      'Content-Type': MIME_TYPES.APPLICATION_JSON,
+    }),
+    body: JSON.stringify({
+      email,
+      password,
+      name,
+    }),
+  });
+  if (response.status !== STATUS_CODES.CREATED) {
+    throw new Error(`Failed to create test user: HTTP ${response.status} ${await response.text()}`);
+  }
+
+  const user = await db.query.user.findFirst({
+    where: { email },
+  });
+  if (user == null) {
+    throw new Error('Failed to find created test user');
+  }
+
+  return {
+    email,
+    name,
+    password,
+    userId: user.id,
+  };
+}
