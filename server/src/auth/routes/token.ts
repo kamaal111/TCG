@@ -23,14 +23,14 @@ const tokenRoute = createRoute({
     [STATUS_CODES.OK]: {
       description: 'Token retrieved successfully',
       content: {
-        [MIME_TYPES.APPLICATION_JSON]: { schema: TokenResponseSchema },
+        [MIME_TYPES.JSON]: { schema: TokenResponseSchema },
       },
       headers: TokenHeaders,
     },
     [STATUS_CODES.UNAUTHORIZED]: {
       description: 'Not authenticated or session expired',
       content: {
-        [MIME_TYPES.APPLICATION_JSON]: { schema: ErrorResponseSchema },
+        [MIME_TYPES.JSON]: { schema: ErrorResponseSchema },
       },
     },
   },

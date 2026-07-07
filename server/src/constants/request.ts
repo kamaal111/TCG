@@ -1,1 +1,1 @@
-export const MIME_TYPES = { APPLICATION_JSON: 'application/json' } as const;
+export const MIME_TYPES = { JSON: 'application/json', YAML: 'text/yaml' } as const;

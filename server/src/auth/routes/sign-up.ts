@@ -17,7 +17,7 @@ const signUpRoute = createRoute({
   request: {
     body: {
       content: {
-        [MIME_TYPES.APPLICATION_JSON]: { schema: EmailPasswordSignUpSchema },
+        [MIME_TYPES.JSON]: { schema: EmailPasswordSignUpSchema },
       },
     },
   },
@@ -25,26 +25,26 @@ const signUpRoute = createRoute({
     [STATUS_CODES.CREATED]: {
       description: 'Account created successfully',
       content: {
-        [MIME_TYPES.APPLICATION_JSON]: { schema: AuthResponseSchema },
+        [MIME_TYPES.JSON]: { schema: AuthResponseSchema },
       },
       headers: TokenHeaders,
     },
     [STATUS_CODES.BAD_REQUEST]: {
       description: 'Invalid request or email already exists',
       content: {
-        [MIME_TYPES.APPLICATION_JSON]: { schema: ValidationErrorResponseSchema },
+        [MIME_TYPES.JSON]: { schema: ValidationErrorResponseSchema },
       },
     },
     [STATUS_CODES.CONFLICT]: {
       description: 'Email already registered',
       content: {
-        [MIME_TYPES.APPLICATION_JSON]: { schema: ErrorResponseSchema },
+        [MIME_TYPES.JSON]: { schema: ErrorResponseSchema },
       },
     },
     [STATUS_CODES.UNAUTHORIZED]: {
       description: 'Authentication failed or invalid credentials',
       content: {
-        [MIME_TYPES.APPLICATION_JSON]: { schema: ErrorResponseSchema },
+        [MIME_TYPES.JSON]: { schema: ErrorResponseSchema },
       },
     },
   },

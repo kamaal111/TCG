@@ -62,7 +62,7 @@ export async function createTestUser(app: Hono<HonoEnvironment>, db: Database) {
   const response = await app.request(SIGN_UP_ROUTE_PATH, {
     method: 'POST',
     headers: new Headers({
-      'Content-Type': MIME_TYPES.APPLICATION_JSON,
+      'Content-Type': MIME_TYPES.JSON,
     }),
     body: JSON.stringify({
       email,

@@ -1,4 +1,5 @@
-import { Hono } from 'hono';
+import type { Hono } from 'hono';
+import { $ } from '@hono/zod-openapi';
 import { serve, type ServerType } from '@hono/node-server';
 import { requestId } from 'hono/request-id';
 import { compress } from 'hono/compress';
@@ -15,6 +16,8 @@ import { getComponentLogger, logInfo, logWarn } from './logging/index.ts';
 import healthRoute, { HEALTH_ROUTE_NAME } from './health/index.ts';
 import appApiRoute from './app-api/index.ts';
 import { auth as authSingleton, createAuth } from './auth/better-auth.ts';
+import { openAPIRouterFactory, withOpenAPIDocumentation } from './open-api.ts';
+import { NotFound } from './exceptions/index.ts';
 
 const SIGNALS_TO_TERMINATE_ON: NodeJS.Signals[] = ['SIGINT', 'SIGTERM'];
 
@@ -87,15 +90,19 @@ export function createApp(overrides: Partial<Pick<InjectedContext, 'db'>> = {}) 
   const db = overrides.db ?? dbSingleton;
   const auth = overrides.db != null ? createAuth(db) : authSingleton;
 
-  return new Hono<HonoEnvironment>()
-    .onError(handleServerError())
-    .use(requestId({ headerName: REQUEST_ID_HEADER_NAME }))
-    .use(compress())
-    .use(secureHeaders())
-    .use(loggingMiddleware())
-    .use(injectRequestContext({ db, auth }))
-    .route(HEALTH_ROUTE_NAME, healthRoute)
-    .route(APP_API_ROUTE_NAME, appApiRoute);
+  return withOpenAPIDocumentation(
+    $(
+      openAPIRouterFactory()
+        .onError(handleServerError())
+        .use(requestId({ headerName: REQUEST_ID_HEADER_NAME }))
+        .use(compress())
+        .use(secureHeaders())
+        .use(loggingMiddleware())
+        .use(injectRequestContext({ db, auth }))
+        .route(HEALTH_ROUTE_NAME, healthRoute)
+        .route(APP_API_ROUTE_NAME, appApiRoute),
+    ),
+  ).all('/*', c => new NotFound(c).getResponse());
 }
 
 export default App;

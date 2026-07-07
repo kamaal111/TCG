@@ -7,13 +7,16 @@ import type { Hono } from 'hono';
 import { ONE_DAY_IN_SECONDS } from '../../constants/common.ts';
 import { STATUS_CODES } from '../../constants/http.ts';
 import env from '../../env.ts';
-import { ErrorResponseSchema, ValidationErrorResponseSchema } from '../../schemas/errors.ts';
 import { SIGN_UP_ROUTE_PATH } from '../handlers/sign-up.ts';
-import { TokenHeaders } from '../schemas/headers.ts';
-import { AuthResponseSchema } from '../schemas/responses.ts';
 import { integrationTest } from '../../tests/fixtures.ts';
 import type { HonoEnvironment } from '../../context.ts';
 import { MIME_TYPES } from '../../constants/request.ts';
+import {
+  expectAuthSuccessResponse,
+  expectErrorResponse,
+  expectValidationIssueForField,
+  expectValidationIssueForFields,
+} from '../../tests/auth.ts';
 
 describe('Sign-up integration', () => {
   integrationTest(
@@ -23,7 +26,7 @@ describe('Sign-up integration', () => {
       const { headers, requestId } = withRequestId({ 'Content-Type': 'application/json' });
       const response = await sendSignUpRequest(app, payload, headers);
 
-      const { body, headers: responseHeaders } = await expectSuccessfulSignUpResponse(response);
+      const { body, headers: responseHeaders } = await expectAuthSuccessResponse(response, STATUS_CODES.CREATED);
       const persistedUser = await db.query.user.findFirst({
         where: { email: payload.email },
       });
@@ -75,7 +78,7 @@ describe('Sign-up integration', () => {
   integrationTest('rejects duplicate email sign ups without duplicating persisted auth rows', async ({ app, db }) => {
     const payload = createValidSignUpPayload();
     const firstResponse = await sendSignUpRequest(app, payload);
-    await expectSuccessfulSignUpResponse(firstResponse);
+    await expectAuthSuccessResponse(firstResponse, STATUS_CODES.CREATED);
 
     const duplicateResponse = await sendSignUpRequest(app, payload);
     const body = await expectErrorResponse(duplicateResponse, STATUS_CODES.CONFLICT);
@@ -101,14 +104,14 @@ describe('Sign-up integration', () => {
       callbackURL: 'tcg://signup-complete',
     });
 
-    await expectSuccessfulSignUpResponse(response);
+    await expectAuthSuccessResponse(response, STATUS_CODES.CREATED);
   });
 
   describe('payload validation', () => {
     integrationTest('rejects a missing body', async ({ app }) => {
       const response = await app.request(SIGN_UP_ROUTE_PATH, {
         method: 'POST',
-        headers: new Headers({ 'Content-Type': MIME_TYPES.APPLICATION_JSON }),
+        headers: new Headers({ 'Content-Type': MIME_TYPES.JSON }),
       });
 
       expect(response.status).toBe(STATUS_CODES.BAD_REQUEST);
@@ -222,46 +225,4 @@ async function sendSignUpRequest(app: Hono<HonoEnvironment>, payload: unknown, h
       }),
     body: JSON.stringify(payload),
   });
-}
-
-async function expectSuccessfulSignUpResponse(response: Response) {
-  expect(response.status).toBe(STATUS_CODES.CREATED);
-
-  const body = AuthResponseSchema.parse(await response.json());
-  const headers = TokenHeaders.parse({
-    'set-auth-token': response.headers.get('set-auth-token'),
-    'set-auth-token-expiry': response.headers.get('set-auth-token-expiry'),
-    'set-session-token': response.headers.get('set-session-token'),
-    'set-session-update-age': response.headers.get('set-session-update-age'),
-  });
-
-  return { body, headers };
-}
-
-async function expectErrorResponse(response: Response, status: number) {
-  expect(response.status).toBe(status);
-
-  return ErrorResponseSchema.parse(await response.json());
-}
-
-async function expectValidationIssueForField(response: Response, fieldName: string) {
-  await expectValidationIssueForFields(response, [fieldName]);
-}
-
-async function expectValidationIssueForFields(response: Response, fieldNames: string[]) {
-  expect(response.status).toBe(STATUS_CODES.BAD_REQUEST);
-
-  const body = ValidationErrorResponseSchema.parse(await response.json());
-  expect(body.message).toBe('Invalid payload');
-  expect(body.code).toBe('INVALID_PAYLOAD');
-
-  for (const fieldName of fieldNames) {
-    const hasMatchingIssue =
-      body.context?.validations.some(issue => {
-        const path = issue.path.length > 0 ? issue.path : ['<root>'];
-        return path.includes(fieldName);
-      }) ?? false;
-
-    expect(hasMatchingIssue).toBe(true);
-  }
 }

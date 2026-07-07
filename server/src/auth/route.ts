@@ -20,4 +20,7 @@ authRoute.openapi(signUpRoute, signUpHandler);
 // POST: /sign-in/email
 authRoute.openapi(signInRoute, signInHandler);
 
+// Catch-all for any other better-auth endpoints
+authRoute.on(['POST', 'GET'], '**', c => c.get('auth').handler(c.req.raw));
+
 export default authRoute;

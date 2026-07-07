@@ -17,7 +17,7 @@ const signInRoute = createRoute({
   request: {
     body: {
       content: {
-        [MIME_TYPES.APPLICATION_JSON]: { schema: EmailPasswordSignInSchema },
+        [MIME_TYPES.JSON]: { schema: EmailPasswordSignInSchema },
       },
     },
   },
@@ -25,20 +25,20 @@ const signInRoute = createRoute({
     [STATUS_CODES.OK]: {
       description: 'Sign in successful',
       content: {
-        [MIME_TYPES.APPLICATION_JSON]: { schema: AuthResponseSchema },
+        [MIME_TYPES.JSON]: { schema: AuthResponseSchema },
       },
       headers: TokenHeaders,
     },
     [STATUS_CODES.BAD_REQUEST]: {
       description: 'Invalid credentials or request',
       content: {
-        [MIME_TYPES.APPLICATION_JSON]: { schema: ValidationErrorResponseSchema },
+        [MIME_TYPES.JSON]: { schema: ValidationErrorResponseSchema },
       },
     },
     [STATUS_CODES.UNAUTHORIZED]: {
       description: 'Authentication failed',
       content: {
-        [MIME_TYPES.APPLICATION_JSON]: { schema: ErrorResponseSchema },
+        [MIME_TYPES.JSON]: { schema: ErrorResponseSchema },
       },
     },
   },

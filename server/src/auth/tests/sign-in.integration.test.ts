@@ -7,13 +7,16 @@ import type { Hono } from 'hono';
 import { ONE_DAY_IN_SECONDS } from '../../constants/common.ts';
 import { STATUS_CODES } from '../../constants/http.ts';
 import env from '../../env.ts';
-import { ErrorResponseSchema, ValidationErrorResponseSchema } from '../../schemas/errors.ts';
 import type { HonoEnvironment } from '../../context.ts';
 import { MIME_TYPES } from '../../constants/request.ts';
 import { SIGN_IN_ROUTE_PATH } from '../handlers/sign-in.ts';
-import { TokenHeaders } from '../schemas/headers.ts';
-import { AuthResponseSchema } from '../schemas/responses.ts';
 import { integrationTest } from '../../tests/fixtures.ts';
+import {
+  expectAuthSuccessResponse,
+  expectErrorResponse,
+  expectValidationIssueForField,
+  expectValidationIssueForFields,
+} from '../../tests/auth.ts';
 import { createTestUser } from '../../tests/utils.ts';
 
 describe('Sign-in integration', () => {
@@ -28,10 +31,10 @@ describe('Sign-in integration', () => {
         email: createdUser.email,
         password: createdUser.password,
       });
-      const { headers, requestId } = withRequestId({ 'Content-Type': MIME_TYPES.APPLICATION_JSON });
+      const { headers, requestId } = withRequestId({ 'Content-Type': MIME_TYPES.JSON });
       const response = await sendSignInRequest(app, payload, headers);
 
-      const { body, headers: responseHeaders } = await expectSuccessfulSignInResponse(response);
+      const { body, headers: responseHeaders } = await expectAuthSuccessResponse(response, STATUS_CODES.OK);
       const persistedUser = await db.query.user.findFirst({
         where: { email: createdUser.email },
       });
@@ -98,14 +101,14 @@ describe('Sign-in integration', () => {
       callbackURL: 'tcg://sign-in-complete',
     });
 
-    await expectSuccessfulSignInResponse(response);
+    await expectAuthSuccessResponse(response, STATUS_CODES.OK);
   });
 
   describe('payload validation', () => {
     integrationTest('rejects a missing body', async ({ app }) => {
       const response = await app.request(SIGN_IN_ROUTE_PATH, {
         method: 'POST',
-        headers: new Headers({ 'Content-Type': MIME_TYPES.APPLICATION_JSON }),
+        headers: new Headers({ 'Content-Type': MIME_TYPES.JSON }),
       });
 
       expect(response.status).toBe(STATUS_CODES.BAD_REQUEST);
@@ -161,50 +164,8 @@ async function sendSignInRequest(app: Hono<HonoEnvironment>, payload: unknown, h
     headers:
       headers ??
       new Headers({
-        'Content-Type': MIME_TYPES.APPLICATION_JSON,
+        'Content-Type': MIME_TYPES.JSON,
       }),
     body: JSON.stringify(payload),
   });
-}
-
-async function expectSuccessfulSignInResponse(response: Response) {
-  expect(response.status).toBe(STATUS_CODES.OK);
-
-  const body = AuthResponseSchema.parse(await response.json());
-  const headers = TokenHeaders.parse({
-    'set-auth-token': response.headers.get('set-auth-token'),
-    'set-auth-token-expiry': response.headers.get('set-auth-token-expiry'),
-    'set-session-token': response.headers.get('set-session-token'),
-    'set-session-update-age': response.headers.get('set-session-update-age'),
-  });
-
-  return { body, headers };
-}
-
-async function expectErrorResponse(response: Response, status: number) {
-  expect(response.status).toBe(status);
-
-  return ErrorResponseSchema.parse(await response.json());
-}
-
-async function expectValidationIssueForField(response: Response, fieldName: string) {
-  await expectValidationIssueForFields(response, [fieldName]);
-}
-
-async function expectValidationIssueForFields(response: Response, fieldNames: string[]) {
-  expect(response.status).toBe(STATUS_CODES.BAD_REQUEST);
-
-  const body = ValidationErrorResponseSchema.parse(await response.json());
-  expect(body.message).toBe('Invalid payload');
-  expect(body.code).toBe('INVALID_PAYLOAD');
-
-  for (const fieldName of fieldNames) {
-    const hasMatchingIssue =
-      body.context?.validations.some(issue => {
-        const path = issue.path.length > 0 ? issue.path : ['<root>'];
-        return path.includes(fieldName);
-      }) ?? false;
-
-    expect(hasMatchingIssue).toBe(true);
-  }
 }

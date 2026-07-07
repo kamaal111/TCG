@@ -11,12 +11,14 @@
   "dependencies": {
     "@better-auth/drizzle-adapter": "workspace:*",
     "@hono/node-server": "workspace:*",
+    "@hono/swagger-ui": "workspace:*",
     "@hono/zod-openapi": "workspace:*",
     "@kamaalio/kamaal": "workspace:*",
     "better-auth": "workspace:*",
     "drizzle-orm": "workspace:*",
     "hono": "workspace:*",
     "jose": "workspace:*",
+    "js-yaml": "workspace:*",
     "pg": "workspace:*",
     "pino": "workspace:*",
     "zod": "workspace:*"
