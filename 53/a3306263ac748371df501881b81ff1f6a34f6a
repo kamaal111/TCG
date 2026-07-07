@@ -1,0 +1,41 @@
+server/src/auth/tests/sign-in.integration.test.ts
+  s_3381c52f8f8790::t_a9cfcccd5e48ff 1-22,24-78,80-93,95-210
+  s_3381c52f8f8790::t_b3f8080e1c569b 23,79,94
+server/src/auth/handlers/sign-in.ts
+  s_3381c52f8f8790::t_e328d93fb7eb6f 14-16
+  s_3381c52f8f8790::t_a9cfcccd5e48ff 17
+  s_3381c52f8f8790::t_9c4abebd81f174 18-20
+  s_3381c52f8f8790::t_3c25f905f0235d 11-13
+  s_3381c52f8f8790::t_0655f5e3fbe5ef 21-23
+server/src/auth/schemas/responses.ts
+  s_fe75b115ed8aa7::t_0bac4a672170b1 6-10,12-14,16-18,20-30,32-49,56,60-72
+  s_fe75b115ed8aa7::t_a4b720f36f8cda 11,15,19,31
+  s_fe75b115ed8aa7::t_8bfcb4a52ca375 5
+server/src/tests/utils.ts
+  s_3381c52f8f8790::t_a9cfcccd5e48ff 57,59-61,68-70,72,75-90
+  s_3381c52f8f8790::t_b3f8080e1c569b 5,8,11-13,58,62-67,71,73-74
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "53a3306263ac748371df501881b81ff1f6a34f6a",
+  "prompts": {},
+  "sessions": {
+    "s_3381c52f8f8790": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f3dfb-f215-77e1-b522-800da315a6b9",
+        "model": "gpt-5.4"
+      },
+      "human_author": null
+    },
+    "s_fe75b115ed8aa7": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f3e0b-1cb9-7870-adcd-994ebb9238b8",
+        "model": "gpt-5.4"
+      },
+      "human_author": "Kamaal Farah <kamaal.f1@gmail.com>"
+    }
+  }
+}
