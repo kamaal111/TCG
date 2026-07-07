@@ -1,0 +1,25 @@
+server/src/tests/auth.ts
+  s_3381c52f8f8790::t_8c5cc0cc9167db 1-46
+server/src/auth/tests/sign-up.integration.test.ts
+  s_3381c52f8f8790::t_8c5cc0cc9167db 14-19,29,81,107
+  s_3381c52f8f8790::t_dfa48663ea708e 114
+server/src/auth/tests/sign-in.integration.test.ts
+  s_3381c52f8f8790::t_8c5cc0cc9167db 14-19,34,37,104
+  s_3381c52f8f8790::t_697ba4d773d159 111,167
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "5df2fc163caabb43e291cd7383cfcaebedca73d2",
+  "prompts": {},
+  "sessions": {
+    "s_3381c52f8f8790": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f3dfb-f215-77e1-b522-800da315a6b9",
+        "model": "gpt-5.4"
+      },
+      "human_author": "Kamaal Farah <kamaal.f1@gmail.com>"
+    }
+  }
+}
