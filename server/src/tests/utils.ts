@@ -74,6 +74,11 @@ export async function createTestUser(app: Hono<HonoEnvironment>, db: Database) {
     throw new Error(`Failed to create test user: HTTP ${response.status} ${await response.text()}`);
   }
 
+  const sessionToken = response.headers.get('set-session-token');
+  if (sessionToken == null) {
+    throw new Error('Failed to retrieve created session token');
+  }
+
   const user = await db.query.user.findFirst({
     where: { email },
   });
@@ -85,6 +90,7 @@ export async function createTestUser(app: Hono<HonoEnvironment>, db: Database) {
     email,
     name,
     password,
+    sessionToken,
     userId: user.id,
   };
 }

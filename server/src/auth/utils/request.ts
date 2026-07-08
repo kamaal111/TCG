@@ -14,6 +14,8 @@ import tokenRoute from '../routes/token.ts';
 
 const TOKEN_URL = new URL(tokenRoute.path.slice(1), BETTER_AUTH_BASE_URL);
 
+const DefaultResponseSchema = z.any();
+
 const BetterAuthExceptionSchema = z.object({
   code: z.string(),
   message: z.string(),
@@ -26,7 +28,33 @@ const TokenResponseSchema = z.object({
 export async function handleAuthRequest<Schema extends z.ZodType>(
   c: HonoContext,
   options: { responseSchema: Schema },
-): Promise<{ jsonResponse: z.infer<Schema>; sessionToken: string }> {
+): Promise<{ jsonResponse: z.infer<Schema>; responseHeaders: Headers; sessionToken: string }> {
+  const { jsonResponse, responseHeaders, response } = await performAuthRequest(c, options.responseSchema);
+  const sessionToken = getValueFromSetCookie(response.headers, 'better-auth.session_token');
+  if (!sessionToken) {
+    throw new APIException(c, STATUS_CODES.INTERNAL_SERVER_ERROR, {
+      message: 'Failed to retrieve session token from authentication response',
+      code: 'MISSING_SESSION_TOKEN',
+    });
+  }
+
+  return { jsonResponse, responseHeaders, sessionToken };
+}
+
+export async function handleAuthRequestWithoutSessionToken<Schema extends z.ZodType>(
+  c: HonoContext,
+  options?: { responseSchema: Schema },
+): Promise<{ jsonResponse: z.infer<Schema>; responseHeaders: Headers }> {
+  const responseSchema = options?.responseSchema ?? DefaultResponseSchema;
+  const { jsonResponse, responseHeaders } = await performAuthRequest(c, responseSchema);
+
+  return { jsonResponse, responseHeaders };
+}
+
+async function performAuthRequest<Schema extends z.ZodType>(
+  c: HonoContext,
+  responseSchema: Schema,
+): Promise<{ jsonResponse: z.infer<Schema>; response: Response; responseHeaders: Headers }> {
   const request = await cloneRawRequest(c.req);
   const response = await c.get('auth').handler(request);
   const jsonResponse: unknown = await response.json();
@@ -39,16 +67,7 @@ export async function handleAuthRequest<Schema extends z.ZodType>(
     });
   }
 
-  const validatedResponse = options.responseSchema.parse(jsonResponse);
-  const sessionToken = getValueFromSetCookie(response.headers, 'better-auth.session_token');
-  if (!sessionToken) {
-    throw new APIException(c, STATUS_CODES.INTERNAL_SERVER_ERROR, {
-      message: 'Failed to retrieve session token from authentication response',
-      code: 'MISSING_SESSION_TOKEN',
-    });
-  }
-
-  return { jsonResponse: validatedResponse, sessionToken };
+  return { jsonResponse: responseSchema.parse(jsonResponse), response, responseHeaders: response.headers };
 }
 
 export async function getHeadersWithJwtAfterAuth(c: HonoContext, sessionToken: string): Promise<Headers> {

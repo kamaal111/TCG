@@ -4,6 +4,8 @@ export type EmailPasswordSignUp = z.infer<typeof EmailPasswordSignUpSchema>;
 
 export type EmailPasswordSignIn = z.infer<typeof EmailPasswordSignInSchema>;
 
+export type SignOutResponse = z.infer<typeof SignOutResponseSchema>;
+
 export const EmailPasswordSignUpSchema = z
   .object({
     email: z.email().openapi({
@@ -71,3 +73,7 @@ export const EmailPasswordSignInSchema = z
       callbackURL: 'https://app.example.com/dashboard',
     },
   });
+
+export const SignOutResponseSchema = z
+  .object({})
+  .openapi('SignOutResponse', { title: 'Sign Out Response', description: 'Successful signout response' });

@@ -1,0 +1,4 @@
+interface:
+  display_name: 'Endpoint Integration Tests'
+  short_description: 'Write reusable endpoint integration tests'
+  default_prompt: 'Use $endpoint-integration-tests to implement integration tests for the target endpoint.'
