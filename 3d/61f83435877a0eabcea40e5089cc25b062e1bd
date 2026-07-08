@@ -1,0 +1,65 @@
+server/src/tests/utils.ts
+  s_f5318b254d5eb5::t_5f7642b689b20a 77-81,93
+server/src/auth/tests/sign-out.integration.test.ts
+  s_f5318b254d5eb5::t_c0fbb92845b9e7 12-23,25,27,29-33,35-50,52-56,58,60,62-75
+  s_f5318b254d5eb5::t_2f89153cd19829 7
+  s_f5318b254d5eb5::t_4774c776ff6b76 26,59
+  s_f5318b254d5eb5::t_5f7642b689b20a 1-6,8-11,24,28,34,51,57,61,76-87
+server/src/auth/handlers/sign-out.ts
+  s_f5318b254d5eb5::t_1e31522fff65bf 1
+  s_f5318b254d5eb5::t_1cb6f6cf15f29d 2-9
+  s_f5318b254d5eb5::t_5f7642b689b20a 11,15
+  s_f5318b254d5eb5::t_ad464fbe82faeb 19,22-23
+  s_f5318b254d5eb5::t_c5e99bb12db521 18
+  s_f5318b254d5eb5::t_feadedfa196edd 10
+  s_f5318b254d5eb5::t_4774c776ff6b76 16-17,24
+  s_f5318b254d5eb5::t_2f89153cd19829 20
+  s_f5318b254d5eb5::t_28a3f400fcbb16 12-14
+  s_f5318b254d5eb5::t_0ce70525580db1 21
+  s_f5318b254d5eb5::t_b7beba0c7dd190 25-27
+  s_f5318b254d5eb5::t_0872ba81061bfb 28-30
+.agents/skills/endpoint-integration-tests/SKILL.md
+  s_3381c52f8f8790::t_45bde4eade03a3 1-2,4-7,9,11,15,17,22,24,31,33,37,39,45,47,54,56,58
+  s_3381c52f8f8790::t_38d1f8b501cfc6 3,8,10,12-14,16,18-21,23,25-30,32,34-36,38,40-44,46,48-53,55,57,59-62
+server/src/auth/utils/request.ts
+  s_f5318b254d5eb5::t_e0d7bbb2abc75a 31,47
+  s_f5318b254d5eb5::t_5f7642b689b20a 42-46,52-53,55
+  s_f5318b254d5eb5::t_15bdd3c8130d99 32-41,48-51,54,56-57,70
+server/src/auth/schemas/payloads.ts
+  s_f5318b254d5eb5::t_363a9fb5e7d146 76-77
+  s_f5318b254d5eb5::t_ba7fbe17a784e3 7-8
+  s_f5318b254d5eb5::t_4774c776ff6b76 78
+  s_f5318b254d5eb5::t_fe116f4e3710a0 79
+server/src/auth/routes/sign-out.ts
+  s_f5318b254d5eb5::t_942eb5e9184c68 1-2
+  s_f5318b254d5eb5::t_1bb90e54767a72 35
+  s_f5318b254d5eb5::t_4774c776ff6b76 3-31
+  s_f5318b254d5eb5::t_7075f52c38d74d 32-34
+.agents/skills/endpoint-integration-tests/agents/openai.yaml
+  s_3381c52f8f8790::t_f68671ff66f416 2-4
+  s_3381c52f8f8790::t_45bde4eade03a3 1
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "3d61f83435877a0eabcea40e5089cc25b062e1bd",
+  "prompts": {},
+  "sessions": {
+    "s_3381c52f8f8790": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f3dfb-f215-77e1-b522-800da315a6b9",
+        "model": "gpt-5.4"
+      },
+      "human_author": "Kamaal Farah <kamaal.f1@gmail.com>"
+    },
+    "s_f5318b254d5eb5": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f42ad-3b76-7253-a6cd-f0722f358729",
+        "model": "gpt-5.4"
+      },
+      "human_author": null
+    }
+  }
+}
