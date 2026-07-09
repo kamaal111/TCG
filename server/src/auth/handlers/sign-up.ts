@@ -7,8 +7,8 @@ import { withRequestLogger } from '../../logging/http.ts';
 import { logInfo } from '../../logging/index.ts';
 import { AUTH_ROUTE_NAME } from '../constants.ts';
 import signUpRoute from '../routes/sign-up.ts';
-import { getHeadersWithJwtAfterAuth, handleAuthRequest } from '../utils/request.ts';
-import { AuthResponseSchema, type AuthResponse } from '../schemas/responses.ts';
+import { handleSignUpOrSignInRequest } from '../utils/request.ts';
+import type { AuthResponse } from '../schemas/responses.ts';
 import type { EmailPasswordSignUp } from '../schemas/payloads.ts';
 
 type SignUpResponse = TypedResponse<AuthResponse, typeof SIGN_UP_STATUS>;
@@ -19,15 +19,14 @@ export const SIGN_UP_ROUTE_PATH = `${APP_API_ROUTE_NAME}${AUTH_ROUTE_NAME}${sign
 const SIGN_UP_STATUS = STATUS_CODES.CREATED;
 
 async function signUpHandler(c: SignUpContext): Promise<SignUpResponse> {
-  const { jsonResponse, sessionToken } = await handleAuthRequest(c, { responseSchema: AuthResponseSchema });
-  const headers = await getHeadersWithJwtAfterAuth(c, sessionToken);
+  const { response, headers } = await handleSignUpOrSignInRequest(c);
   logInfo(withRequestLogger(c, { component: 'auth' }), {
     event: 'auth.sign_up.succeeded',
     route: SIGN_UP_ROUTE_PATH,
     outcome: 'success',
   });
 
-  return c.json(jsonResponse, { status: SIGN_UP_STATUS, headers });
+  return c.json(response, { status: SIGN_UP_STATUS, headers });
 }
 
 export default signUpHandler;

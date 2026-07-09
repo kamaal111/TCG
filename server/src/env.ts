@@ -26,4 +26,6 @@ export const EnvSchema = z.object({
 
 const env = EnvSchema.parse(process.env);
 
-export default { ...env, BASE_URL: env.BETTER_AUTH_URL };
+const IS_TEST = env.MODE === SERVER_MODES.TEST;
+
+export default { ...env, BASE_URL: env.BETTER_AUTH_URL, IS_TEST };

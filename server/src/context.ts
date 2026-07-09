@@ -4,6 +4,7 @@ import type { Logger } from 'pino';
 
 import type { Database } from './db/index.ts';
 import type { Auth } from './auth/better-auth.ts';
+import type { SessionResponse } from './auth/schemas/responses.ts';
 
 export interface InjectedContext {
   db: Database;
@@ -21,7 +22,7 @@ interface RequestLifecycleVariables {
 export type HonoVariables = RequestIdVariables &
   InjectedContext &
   LoggingVariables &
-  RequestLifecycleVariables & { session?: { user: { id: string } } };
+  RequestLifecycleVariables & { session?: SessionResponse };
 
 export interface HonoEnvironment {
   Variables: HonoVariables;

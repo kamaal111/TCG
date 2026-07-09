@@ -11,6 +11,8 @@ import env from '../../env.ts';
 import { ONE_DAY_IN_SECONDS } from '../../constants/common.ts';
 import { BETTER_AUTH_BASE_URL } from '../constants.ts';
 import tokenRoute from '../routes/token.ts';
+import { BetterAuthSignUpOrSignInResponseSchema, type AuthResponse } from '../schemas/responses.ts';
+import { mapSignUpOrSignInBetterAuthRequestToAuthResponse } from '../../mappers.ts';
 
 const TOKEN_URL = new URL(tokenRoute.path.slice(1), BETTER_AUTH_BASE_URL);
 
@@ -24,6 +26,17 @@ const BetterAuthExceptionSchema = z.object({
 const TokenResponseSchema = z.object({
   token: z.string().optional(),
 });
+
+export async function handleSignUpOrSignInRequest(
+  c: HonoContext,
+): Promise<{ response: AuthResponse; headers: Headers }> {
+  const { jsonResponse, sessionToken } = await handleAuthRequest(c, {
+    responseSchema: BetterAuthSignUpOrSignInResponseSchema,
+  });
+  const headers = await getHeadersWithJwtAfterAuth(c, sessionToken);
+
+  return { response: mapSignUpOrSignInBetterAuthRequestToAuthResponse(jsonResponse), headers };
+}
 
 export async function handleAuthRequest<Schema extends z.ZodType>(
   c: HonoContext,

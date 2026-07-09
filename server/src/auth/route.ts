@@ -2,9 +2,11 @@ import { SERVER_MODES } from '../constants/common.ts';
 import { allowedModes } from '../modes.ts';
 import { openAPIRouterFactory } from '../open-api.ts';
 import { JWKS_PATH } from './constants.ts';
+import sessionHandler from './handlers/session.ts';
 import signInHandler from './handlers/sign-in.ts';
 import signOutHandler from './handlers/sign-out.ts';
 import signUpHandler from './handlers/sign-up.ts';
+import sessionRoute from './routes/session.ts';
 import signInRoute from './routes/sign-in.ts';
 import signOutRoute from './routes/sign-out.ts';
 import signUpRoute from './routes/sign-up.ts';
@@ -24,6 +26,9 @@ authRoute.openapi(signInRoute, signInHandler);
 
 // POST: /sign-out
 authRoute.openapi(signOutRoute, signOutHandler);
+
+// GET: /session
+authRoute.openapi(sessionRoute, sessionHandler);
 
 // Catch-all for any other better-auth endpoints
 authRoute.on(['POST', 'GET'], '**', c => c.get('auth').handler(c.req.raw));
