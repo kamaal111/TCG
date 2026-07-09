@@ -1,0 +1,20 @@
+server/src/auth/tests/session.integration.test.ts
+  s_53b7c507080e6f::t_3109bb23fcf0c2 1-2,4,6-106
+  s_53b7c507080e6f::t_ed2d4e5dd26aba 3,5
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "f3c2f9be7bf85758b1491ba0012f80edeff45045",
+  "prompts": {},
+  "sessions": {
+    "s_53b7c507080e6f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f489a-2cc5-77c1-a506-e763dd8507c7",
+        "model": "gpt-5.6-luna"
+      },
+      "human_author": "Kamaal Farah <kamaal.f1@gmail.com>"
+    }
+  }
+}
