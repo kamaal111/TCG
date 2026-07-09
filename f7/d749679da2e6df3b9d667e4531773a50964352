@@ -1,0 +1,34 @@
+server/src/auth/tests/token.integration.test.ts
+  s_b3adea54ce640c::t_6001d50de8dbe4 1-5,7-12,14-77
+  s_b3adea54ce640c::t_4b267756b30656 6,13
+server/src/auth/handlers/token.ts
+  s_b3adea54ce640c::t_4b267756b30656 17
+  s_b3adea54ce640c::t_fb3abb9d124158 14-16
+  s_b3adea54ce640c::t_ac8f46e1e48f1d 18-20
+server/src/auth/tests/session.integration.test.ts
+  s_53b7c507080e6f::t_3109bb23fcf0c2 11
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "f7d749679da2e6df3b9d667e4531773a50964352",
+  "prompts": {},
+  "sessions": {
+    "s_53b7c507080e6f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f489a-2cc5-77c1-a506-e763dd8507c7",
+        "model": "gpt-5.6-luna"
+      },
+      "human_author": "Kamaal Farah <kamaal.f1@gmail.com>"
+    },
+    "s_b3adea54ce640c": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f48ab-227b-72e3-9716-80ea1002579c",
+        "model": "gpt-5.6-luna"
+      },
+      "human_author": "Kamaal Farah <kamaal.f1@gmail.com>"
+    }
+  }
+}
