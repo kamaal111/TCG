@@ -1,17 +1,14 @@
 import type { Hono } from 'hono';
 
-import { APP_API_ROUTE_NAME } from '../../constants/common.ts';
 import { STATUS_CODES } from '../../constants/http.ts';
 import { MIME_TYPES } from '../../constants/request.ts';
 import type { HonoEnvironment } from '../../context.ts';
 import { expectAuthSuccessResponse, expectErrorResponse } from '../../tests/auth.ts';
 import { integrationTest } from '../../tests/fixtures.ts';
 import { createTestUser } from '../../tests/utils.ts';
-import { AUTH_ROUTE_NAME } from '../constants.ts';
 import { SIGN_IN_ROUTE_PATH } from '../handlers/sign-in.ts';
 import { SessionResponseSchema } from '../schemas/responses.ts';
-
-const SESSION_ROUTE_PATH = `${APP_API_ROUTE_NAME}${AUTH_ROUTE_NAME}/session`;
+import { SESSION_ROUTE_PATH } from '../handlers/session.ts';
 
 describe('Session integration', () => {
   integrationTest(

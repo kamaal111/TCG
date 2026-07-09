@@ -6,10 +6,12 @@ import sessionHandler from './handlers/session.ts';
 import signInHandler from './handlers/sign-in.ts';
 import signOutHandler from './handlers/sign-out.ts';
 import signUpHandler from './handlers/sign-up.ts';
+import tokenHandler from './handlers/token.ts';
 import sessionRoute from './routes/session.ts';
 import signInRoute from './routes/sign-in.ts';
 import signOutRoute from './routes/sign-out.ts';
 import signUpRoute from './routes/sign-up.ts';
+import tokenRoute from './routes/token.ts';
 
 const authRoute = openAPIRouterFactory();
 
@@ -29,6 +31,9 @@ authRoute.openapi(signOutRoute, signOutHandler);
 
 // GET: /session
 authRoute.openapi(sessionRoute, sessionHandler);
+
+// GET: /token (JWT token refresh)
+authRoute.openapi(tokenRoute, tokenHandler);
 
 // Catch-all for any other better-auth endpoints
 authRoute.on(['POST', 'GET'], '**', c => c.get('auth').handler(c.req.raw));
