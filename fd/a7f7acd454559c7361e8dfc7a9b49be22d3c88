@@ -1,0 +1,34 @@
+app/Modules/TCGClient/Tests/TCGClientTests/TCGClientTests.swift
+  s_f4c89af720fb4f::t_61206493a19c19 2-3,5
+app/Modules/TCGClient/Package.swift
+  s_f4c89af720fb4f::t_61206493a19c19 1-30
+  s_f4c89af720fb4f::t_221ac1922d0ed2 31
+app/Modules/TCGClient/.gitignore
+  s_f4c89af720fb4f::t_61206493a19c19 1-8
+server/src/open-api.integration.test.ts
+  s_f4c89af720fb4f::t_4b11916ce30aba 1
+  s_f4c89af720fb4f::t_b4b33de9f2c21d 2-36
+app/Modules/TCGClient/Sources/TCGClient/TCGClient.swift
+  s_f4c89af720fb4f::t_61206493a19c19 1-5
+  s_f4c89af720fb4f::t_25a6b2ba3f834b 6
+app/Modules/TCGClient/Sources/TCGClient/openapi-generator-config.yaml
+  s_f4c89af720fb4f::t_90b1b3b32c7302 1-5
+justfile
+  s_f4c89af720fb4f::t_561abbf742c387 27-29,45,71-79,135,142,163-176
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.12",
+  "base_commit_sha": "fda7f7acd454559c7361e8dfc7a9b49be22d3c88",
+  "prompts": {},
+  "sessions": {
+    "s_f4c89af720fb4f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f515f-90b3-76c1-84d3-3fba4cb26ec1",
+        "model": "gpt-5.6-luna"
+      },
+      "human_author": "Kamaal Farah <kamaal.f1@gmail.com>"
+    }
+  }
+}
