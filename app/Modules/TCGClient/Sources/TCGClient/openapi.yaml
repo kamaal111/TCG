@@ -1,0 +1,503 @@
+openapi: 3.1.1
+info:
+  title: TCG API
+  version: 1.0.0
+paths:
+  /app-api/auth/sign-up/email:
+    post:
+      tags:
+        - Authentication
+      summary: Sign up with email and password
+      description: Create a new user account with email and password
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmailPasswordSignUp'
+      responses:
+        '201':
+          description: Account created successfully
+          headers:
+            set-auth-token:
+              schema:
+                type: string
+                description: JWT token for API authentication
+                example: eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9...
+              required: true
+              description: JWT token for API authentication
+            set-auth-token-expiry:
+              schema:
+                type: string
+                description: JWT expiry time in seconds (as a string representing digits)
+                example: '604800'
+              required: true
+              description: JWT expiry time in seconds (as a string representing digits)
+            set-session-token:
+              schema:
+                type: string
+                description: Session token for token refresh
+                example: f21wcpz7Aokmlh2MB632MZpTgfruPc62
+              required: true
+              description: Session token for token refresh
+            set-session-update-age:
+              schema:
+                type: string
+                description: >-
+                  Session update age in seconds - session should be verified
+                  after this time
+                example: '86400'
+              required: true
+              description: >-
+                Session update age in seconds - session should be verified after
+                this time
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          description: Invalid request or email already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '401':
+          description: Authentication failed or invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Email already registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /app-api/auth/sign-in/email:
+    post:
+      tags:
+        - Authentication
+      summary: Sign in with email and password
+      description: Authenticate a user with email and password credentials
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmailPasswordSignIn'
+      responses:
+        '200':
+          description: Sign in successful
+          headers:
+            set-auth-token:
+              schema:
+                type: string
+                description: JWT token for API authentication
+                example: eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9...
+              required: true
+              description: JWT token for API authentication
+            set-auth-token-expiry:
+              schema:
+                type: string
+                description: JWT expiry time in seconds (as a string representing digits)
+                example: '604800'
+              required: true
+              description: JWT expiry time in seconds (as a string representing digits)
+            set-session-token:
+              schema:
+                type: string
+                description: Session token for token refresh
+                example: f21wcpz7Aokmlh2MB632MZpTgfruPc62
+              required: true
+              description: Session token for token refresh
+            set-session-update-age:
+              schema:
+                type: string
+                description: >-
+                  Session update age in seconds - session should be verified
+                  after this time
+                example: '86400'
+              required: true
+              description: >-
+                Session update age in seconds - session should be verified after
+                this time
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          description: Invalid credentials or request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '401':
+          description: Authentication failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /app-api/auth/sign-out:
+    post:
+      tags:
+        - Authentication
+      summary: Sign out
+      description: Sign out the current user and invalidate the session
+      responses:
+        '200':
+          description: Sign out successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SignOutResponse'
+        '401':
+          description: Authentication failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /app-api/auth/session:
+    get:
+      tags:
+        - Authentication
+      summary: Get session
+      description: >-
+        Get the current user session information. Can authenticate via either
+        Authorization header (JWT bearer token) or session cookie.
+      parameters:
+        - schema:
+            type: string
+            description: Bearer token for authentication
+            example: Bearer f21wcpz7Aokmlh2MB632MZpTgfruPc62
+          required: false
+          description: Bearer token for authentication
+          name: authorization
+          in: header
+      responses:
+        '200':
+          description: Session retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionResponse'
+        '404':
+          description: Session not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /app-api/auth/token:
+    get:
+      tags:
+        - Authentication
+      summary: Get JWT token
+      description: >-
+        Get a new JWT token for the authenticated session. Use bearer token
+        authentication.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Token retrieved successfully
+          headers:
+            set-auth-token:
+              schema:
+                type: string
+                description: JWT token for API authentication
+                example: eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9...
+              required: true
+              description: JWT token for API authentication
+            set-auth-token-expiry:
+              schema:
+                type: string
+                description: JWT expiry time in seconds (as a string representing digits)
+                example: '604800'
+              required: true
+              description: JWT expiry time in seconds (as a string representing digits)
+            set-session-token:
+              schema:
+                type: string
+                description: Session token for token refresh
+                example: f21wcpz7Aokmlh2MB632MZpTgfruPc62
+              required: true
+              description: Session token for token refresh
+            set-session-update-age:
+              schema:
+                type: string
+                description: >-
+                  Session update age in seconds - session should be verified
+                  after this time
+                example: '86400'
+              required: true
+              description: >-
+                Session update age in seconds - session should be verified after
+                this time
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+        '401':
+          description: Not authenticated or session expired
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+components:
+  schemas:
+    AuthResponse:
+      type: object
+      properties:
+        token:
+          type: string
+          minLength: 1
+          description: Authentication token for the signed-in user
+          example: f21wcpz7Aokmlh2MB632MZpTgfruPc62
+        user:
+          $ref: '#/components/schemas/UserSchema'
+      required:
+        - token
+        - user
+      title: Authentication Response
+      description: >-
+        Successful authentication response containing an authentication token
+        and user details
+      example:
+        token: f21wcpz7Aokmlh2MB632MZpTgfruPc62
+        user:
+          id: user_2f0b63e4b3a44df0b2f099b1c8f52765
+          createdAt: '2026-07-07T10:30:00.000Z'
+          updatedAt: '2026-07-07T10:30:00.000Z'
+          email: test@example.com
+          emailVerified: false
+          name: Test User
+          image: https://example.com/avatar.png
+    UserSchema:
+      type: object
+      properties:
+        id:
+          type: string
+          minLength: 1
+          description: Unique identifier for the authenticated user
+          example: user_2f0b63e4b3a44df0b2f099b1c8f52765
+        created_at:
+          type: string
+          format: date-time
+          description: Timestamp when the user account was created
+          example: '2026-07-07T10:30:00.000Z'
+        email:
+          type: string
+          format: email
+          description: Email address for the authenticated user
+          example: test@example.com
+        email_verified:
+          type: boolean
+          description: Whether the user has verified their email address
+          example: false
+        name:
+          type: string
+          minLength: 1
+          description: Display name for the authenticated user
+          example: Test User
+      required:
+        - id
+        - created_at
+        - email
+        - email_verified
+        - name
+      title: User
+      description: Authenticated user details
+      example:
+        id: user_2f0b63e4b3a44df0b2f099b1c8f52765
+        created_at: '2026-07-07T10:30:00.000Z'
+        updated_at: '2026-07-07T10:30:00.000Z'
+        email: test@example.com
+        email_verified: false
+        name: Test User
+    ValidationErrorResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          description: Error message
+        code:
+          type: string
+          description: Error code
+        context:
+          type: object
+          properties:
+            validations:
+              type: array
+              items:
+                type: object
+                properties:
+                  code:
+                    type: string
+                    description: Validation issue code
+                    example: too_small
+                  path:
+                    type: array
+                    items:
+                      anyOf:
+                        - type: string
+                        - type: number
+                    description: Path to the invalid field
+                    example:
+                      - amount
+                  message:
+                    type: string
+                    description: Validation issue message
+                    example: Number must be greater than 0
+                required:
+                  - code
+                  - path
+                  - message
+                additionalProperties: {}
+              description: Per-field validation issues
+          required:
+            - validations
+      required:
+        - message
+      title: Validation Error Response
+      description: >-
+        Error response for invalid request payloads, optionally including
+        field-level validation issues
+    ErrorResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          description: Error message
+        code:
+          type: string
+          description: Error code
+      required:
+        - message
+      title: Error Response
+      description: Error response containing error message and optional error code
+    EmailPasswordSignUp:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          description: User email address
+          example: john.doe@example.com
+        password:
+          type: string
+          minLength: 8
+          maxLength: 128
+          description: User password (minimum 8 characters)
+          example: SecurePassword123!
+        name:
+          type: string
+          minLength: 3
+          description: User display name (minimum 2 words, each with at least one letter)
+          example: John Doe
+        callbackURL:
+          type: string
+          format: uri
+          description: URL to redirect to after sign up
+          example: https://example.com/dashboard
+      required:
+        - email
+        - password
+        - name
+      title: Email Password Sign Up
+      description: Request body for signing up with email and password
+      example:
+        email: john.doe@example.com
+        password: SecurePassword123!
+        name: John Doe
+        callbackURL: https://example.com/dashboard
+    EmailPasswordSignIn:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          description: User email address
+          example: user@example.com
+        password:
+          type: string
+          minLength: 6
+          description: User password (minimum 6 characters)
+          example: securePassword123
+        callbackURL:
+          type: string
+          format: uri
+          description: >-
+            Optional URL to redirect to after successful sign in. If not
+            provided, the default redirect will be used.
+          example: https://app.example.com/dashboard
+      required:
+        - email
+        - password
+      title: Email Password Sign In Request
+      description: Request payload for signing in with email and password credentials
+      example:
+        email: user@example.com
+        password: securePassword123
+        callbackURL: https://app.example.com/dashboard
+    SignOutResponse:
+      type: object
+      properties: {}
+      title: Sign Out Response
+      description: Successful signout response
+    SessionResponse:
+      type: object
+      properties:
+        session:
+          type: object
+          properties:
+            expires_at:
+              type: string
+              format: date-time
+              description: Session expiration timestamp
+              example: '2025-10-12T12:08:28.382Z'
+            created_at:
+              type: string
+              format: date-time
+              description: Session creation timestamp
+              example: '2025-10-05T12:08:28.382Z'
+            updated_at:
+              type: string
+              format: date-time
+              description: Session last update timestamp
+              example: '2025-10-05T12:08:28.382Z'
+          required:
+            - expires_at
+            - created_at
+            - updated_at
+        user:
+          $ref: '#/components/schemas/UserSchema'
+      required:
+        - session
+        - user
+      title: Session Response
+      description: Session response containing session and user information
+      example:
+        session:
+          expires_at: '2025-10-12T12:08:28.382Z'
+          created_at: '2025-10-05T12:08:28.382Z'
+          updated_at: '2025-10-05T12:08:28.382Z'
+        user:
+          id: 550e8400-e29b-41d4-a716-446655440000
+          name: John Doe
+          email: john@apple.com
+          email_verified: false
+          created_at: '2025-10-05T12:08:28.374Z'
+    TokenResponse:
+      type: object
+      properties:
+        token:
+          type: string
+          description: JWT token
+          example: eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9...
+      required:
+        - token
+  parameters: {}
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+servers:
+  - url: http://localhost:8080

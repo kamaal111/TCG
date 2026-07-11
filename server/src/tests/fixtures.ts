@@ -1,4 +1,4 @@
-import { createApp } from '../app.ts';
+import App from '../app.ts';
 import { createTestRequestId, getLogsForRequestId, withRequestId } from './logs.ts';
 import { createTestDatabase } from './utils.ts';
 
@@ -10,7 +10,7 @@ export const integrationTest = test
       await setup.cleanup();
     });
 
-    const app = createApp({ db: setup.db });
+    const { app } = new App({ db: setup.db });
 
     return { app, db: setup.db, createTestRequestId, getLogsForRequestId, withRequestId };
   })

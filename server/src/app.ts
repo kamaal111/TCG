@@ -16,7 +16,7 @@ import { getComponentLogger, logInfo, logWarn } from './logging/index.ts';
 import healthRoute, { HEALTH_ROUTE_NAME } from './health/index.ts';
 import appApiRoute from './app-api/index.ts';
 import { auth as authSingleton, createAuth } from './auth/better-auth.ts';
-import { openAPIRouterFactory, withOpenAPIDocumentation } from './open-api.ts';
+import { OPENAPI_YAML_SPEC_URL, openAPIRouterFactory, withOpenAPIDocumentation } from './open-api.ts';
 import { NotFound } from './exceptions/index.ts';
 
 const SIGNALS_TO_TERMINATE_ON: NodeJS.Signals[] = ['SIGINT', 'SIGTERM'];
@@ -24,13 +24,22 @@ const SIGNALS_TO_TERMINATE_ON: NodeJS.Signals[] = ['SIGINT', 'SIGTERM'];
 const logger = getComponentLogger('server');
 
 class App {
-  private app: Hono<HonoEnvironment> | undefined;
+  readonly app: Hono<HonoEnvironment>;
+
   private server: ServerType | undefined;
 
-  serve = (overrides: Partial<Pick<InjectedContext, 'db'>> = {}) => {
+  constructor(overrides: Partial<Pick<InjectedContext, 'db'>> = {}) {
     this.app = createApp(overrides);
+  }
+
+  serve = () => {
     this.start();
     this.cleanupUnShotdown();
+  };
+
+  generateSpec = async () => {
+    const response = await this.app.request(OPENAPI_YAML_SPEC_URL, { headers: { Accept: 'text/yaml' } });
+    return response.text();
   };
 
   private start = () => {
@@ -86,7 +95,7 @@ class App {
   };
 }
 
-export function createApp(overrides: Partial<Pick<InjectedContext, 'db'>> = {}) {
+function createApp(overrides: Partial<Pick<InjectedContext, 'db'>> = {}) {
   const db = overrides.db ?? dbSingleton;
   const auth = overrides.db != null ? createAuth(db) : authSingleton;
 

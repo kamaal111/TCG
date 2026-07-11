@@ -24,6 +24,9 @@ BETTER_AUTH_URL := env("BETTER_AUTH_URL", "http://localhost:" + PORT)
 AUTH_CONFIG := "src/auth/better-auth.ts"
 AUTH_SCHEMA := "src/db/schema/better-auth.ts"
 
+OUTPUT_SCHEMA_FILEPATH := "app/Modules/TCGClient/Sources/TCGClient/openapi.yaml"
+SERVER_RELATIVE_OUTPUT_SCHEMA_FILEPATH := ".." / OUTPUT_SCHEMA_FILEPATH
+
 alias z := zed
 alias fmt := format
 alias fmt-c := format-check
@@ -39,7 +42,7 @@ default:
 dev-server: prepare-server start-services migrate
     #!/usr/bin/env zsh
 
-    export DEBUG="true"
+    export DEBUG=true
 
     {{ PNR }} dev
 
@@ -64,6 +67,15 @@ migrate: prepare-server
 [working-directory("server")]
 make-auth-tables: prepare-server
     {{ PNX }} auth generate --config {{ AUTH_CONFIG }} --output {{ AUTH_SCHEMA }} --yes
+
+# Generate OpenAPI specification
+[working-directory("server")]
+download-spec:
+    #!/usr/bin/env bash
+
+    export LOG_LEVEL=silent
+
+    node  scripts/download-openapi-spec.ts {{ SERVER_RELATIVE_OUTPUT_SCHEMA_FILEPATH }}
 
 # Run all verification checks
 [parallel]
@@ -120,14 +132,14 @@ app-destinations:
 
 # Run quality checks
 [parallel]
-quality: format-check lint typecheck
+quality: check-spec format-check lint typecheck
 
 # Run quality checks for app
 quality-app: format-check-app
 
 # Quality checks for server
 [parallel]
-quality-server: format-check-js lint-js typecheck
+quality-server: check-spec format-check-js lint-js typecheck
 
 # Typecheck project
 typecheck: typecheck-server
@@ -147,6 +159,20 @@ lint-js:
 # Fix fixable linting errors
 lint-fix:
     {{ PNR }} lint:fix
+
+# Verify the committed OpenAPI specification is up to date
+check-spec: download-spec
+    #!/usr/bin/env bash
+
+    if ! git diff --quiet --exit-code -- "{{ OUTPUT_SCHEMA_FILEPATH }}"
+    then
+        echo ""
+        echo "❌ OpenAPI spec is out of date. Run \`just download-spec\` and commit the updated file."
+        git --no-pager diff -- "{{ OUTPUT_SCHEMA_FILEPATH }}"
+        exit 1
+    fi
+
+    echo "✅ OpenAPI spec is up to date."
 
 # Check code formatting
 [parallel]

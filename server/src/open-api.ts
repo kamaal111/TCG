@@ -12,6 +12,7 @@ import { MIME_TYPES } from './constants/request.ts';
 const SPEC_NAME = '/spec';
 export const OPENAPI_JSON_SPEC_PATH = `${SPEC_NAME}.json`;
 export const OPENAPI_YAML_SPEC_PATH = `${SPEC_NAME}.yaml`;
+export const OPENAPI_YAML_SPEC_URL = new URL(`${env.BASE_URL}${OPENAPI_YAML_SPEC_PATH}`);
 const SPEC_SOURCE_OF_TRUTH_URL = OPENAPI_JSON_SPEC_PATH;
 const OPENAPI_INFO = {
   openapi: '3.1.1',

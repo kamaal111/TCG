@@ -8,21 +8,19 @@ let package = Package(
     products: [
         .library(name: "TCGApp", targets: ["TCGApp"])
     ],
+    dependencies: [
+        .package(path: "../TCGClient")
+    ],
     targets: [
         .target(
             name: "TCGApp",
+            dependencies: [
+                "TCGClient"
+            ],
             swiftSettings: [
                 .enableUpcomingFeature("ApproachableConcurrency"),
                 .treatAllWarnings(as: .error),
             ],
-        ),
-        .testTarget(
-            name: "TCGAppTests",
-            dependencies: ["TCGApp"],
-            swiftSettings: [
-                .enableUpcomingFeature("ApproachableConcurrency"),
-                .treatAllWarnings(as: .error),
-            ],
-        ),
+        )
     ]
 )
