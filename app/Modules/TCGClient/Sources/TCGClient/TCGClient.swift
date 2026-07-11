@@ -16,9 +16,35 @@ public struct TCGClient: Sendable {
     }
 
     public static func `default`() -> TCGClient {
-        let client = Client(serverURL: try! Servers.Server1.url(), transport: URLSessionTransport())
-        let auth = TCGAuthClientImpl(client: client)
+        `default`(transport: URLSessionTransport())
+    }
+
+    static func `default`(transport: any ClientTransport) -> TCGClient {
+        `default`(transport: transport, credentialsKeychainKey: credentialsKeychainKey)
+    }
+
+    static func `default`(transport: any ClientTransport, credentialsKeychainKey: String) -> TCGClient {
+        `default`(
+            transport: transport,
+            credentialsKeychainKey: credentialsKeychainKey,
+            credentialsStore: KeychainCredentialsStore()
+        )
+    }
+
+    static func `default`(
+        transport: any ClientTransport,
+        credentialsKeychainKey: String,
+        credentialsStore: any CredentialsStore
+    ) -> TCGClient {
+        let client = Client(serverURL: try! Servers.Server1.url(), transport: transport)
+        let auth = TCGAuthClientImpl(
+            client: client,
+            credentialsKeychainKey: credentialsKeychainKey,
+            credentialsStore: credentialsStore
+        )
 
         return TCGClient(auth: auth)
     }
+
+    private static let credentialsKeychainKey = ModuleConfig.credentialsKeychainKey
 }

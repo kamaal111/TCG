@@ -68,6 +68,16 @@ case .success:
 
 That style duplicates Swift Testing's built-in failure behavior and makes tests noisier. If the code should succeed, call `.get()` directly in an `async throws` test instead of checking `if case .failure`.
 
+## Client And Side-Effect Tests
+
+- Name the test file and `@Suite` after the primary unit under test, not its enclosing module.
+- Mock only the lowest request boundary, such as `ClientTransport`; assert the real method, path, operation ID, request payload, and parsed response behavior.
+- Model persistent side effects as narrow dependencies. For example, inject an async credential-store protocol, keep the production keychain adapter real, and use an actor test double to observe test writes. Never write to the real keychain from a unit test.
+- Decode request bodies using the production `Codable` payload type. Add the needed conformance to that type instead of duplicating it in a test-only model.
+- Write separate tests for success and each meaningful error behavior. Keep all assertions at the test's top level; use `#require` for required values and `#require(throws:)` for expected failures instead of conditional assertions.
+- Use `#require` to unwrap fixture setup values such as dynamic HTTP header names. Do not force unwrap them.
+- Format JSON response fixtures across multiple indented lines so they remain reviewable.
+
 ---
 
 ## XCUITest (UI Testing)

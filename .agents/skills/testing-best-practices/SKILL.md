@@ -54,11 +54,15 @@ Prefer the repository's command runner when one exists, such as `just`, `make`, 
 ### Reliability
 
 - Prefer fakes, stubs, or mocks over real external services unless the repository already relies on integration environments.
+- Mock only the narrowest external-I/O boundary. Keep request serialization, response parsing, and application behavior real instead of replacing a whole client or service.
+- When a unit must write credentials, files, or other persistent state, make that side effect a focused dependency and use an observable test double. Do not use a user's real persistent store in unit tests.
 - Prefer shared default mock setup in the repository's global test harness over defining fresh mocks inside each test file.
 - Give tests a small override surface for the few scenarios that need different responses, especially explicit error-path coverage, instead of rebuilding the whole mock locally.
 - Control clocks, timers, randomness, and async scheduling when possible.
 - Avoid sleeps and broad retries that hide race conditions.
 - Keep assertions focused enough that a failing test points to one behavior.
+- Cover success and failure behavior in separate tests. Do not combine them behind response switches, conditionals, or branches in one test.
+- Keep test assertions flat. Use the test framework's required-value and expected-throwing assertions instead of recording assertions inside `if`, `guard`, or `switch` branches.
 - If a client library already accepts a transport object such as `URLSession`, mock at that boundary before adding a new production seam only for tests.
 - If the code under test caches fetched results, disable or isolate that cache in tests so earlier responses cannot mask later failures.
 - If a test helper uses shared mutable state, serialize that suite or otherwise isolate execution so parallel runs do not contaminate each other.

@@ -1,0 +1,4 @@
+interface:
+  display_name: 'Swift Testing'
+  short_description: 'Write and verify Swift tests'
+  default_prompt: 'Use $swift-testing to add focused Swift tests and verify the change.'

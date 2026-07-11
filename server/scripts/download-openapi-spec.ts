@@ -1,7 +1,6 @@
 import fs from 'node:fs/promises';
 
 import z from 'zod';
-import { asserts } from '@kamaalio/kamaal';
 
 import App from '../src/app.ts';
 
@@ -25,7 +24,7 @@ function parseArgs() {
     return ArgsSchema.parse(process.argv.slice(2))[0];
   } catch (error) {
     console.log('🐸🐸🐸 error', error);
-    asserts.invariant(error instanceof z.ZodError);
+    assert(error instanceof z.ZodError);
 
     console.error('❌ Invalid arguments:');
     error.issues.forEach(issue => {

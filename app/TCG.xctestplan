@@ -25,6 +25,13 @@
         "identifier" : "TCGClientTests",
         "name" : "TCGClientTests"
       }
+    },
+    {
+      "target" : {
+        "containerPath" : "container:Modules\/TCGUtils",
+        "identifier" : "TCGUtilsTests",
+        "name" : "TCGUtilsTests"
+      }
     }
   ],
   "version" : 1

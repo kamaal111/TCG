@@ -9,7 +9,7 @@ PNX := PN + " exec"
 
 APP_PROJECT := "TCG.xcodeproj"
 APP_SCHEME := "TCG"
-APP_TEST_DESTINATION := "platform=iOS Simulator,name=iPhone 17 Pro"
+APP_TEST_DESTINATION := "platform=macOS"
 
 DATABASE_HOST := env("TCG_DB_HOST", "localhost")
 DATABASE_PORT := env("TCG_DB_PORT", "5432")
@@ -110,7 +110,6 @@ test-app:
     xcodebuild \
         -project "{{ APP_PROJECT }}" \
         -scheme "{{ APP_SCHEME }}" \
-        -sdk iphonesimulator \
         -destination "{{ APP_TEST_DESTINATION }}" \
         test
 
