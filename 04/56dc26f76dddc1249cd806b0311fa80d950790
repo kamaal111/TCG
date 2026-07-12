@@ -1,0 +1,53 @@
+app/Modules/TCGClient/Sources/TCGClient/CredentialsStore.swift
+  s_d1ae7590c161f6::t_a5519acd09579d 19-20
+  s_d1ae7590c161f6::t_e425a413f8f156 13,24-27,32-38
+  s_d1ae7590c161f6::t_bbe152e400dff6 39
+app/Modules/TCGClient/Sources/TCGClient/SessionAuthorizationMiddleware.swift
+  s_d1ae7590c161f6::t_4a338a20bf8bc1 21
+  s_d1ae7590c161f6::t_a5519acd09579d 27-32
+  s_d1ae7590c161f6::t_5dafdeb9fce2b3 8-9
+  s_d1ae7590c161f6::t_e425a413f8f156 1-7,10-20,22-26,33-38
+app/Modules/TCGClient/Package.swift
+  s_d1ae7590c161f6::t_5dafdeb9fce2b3 27
+app/Modules/TCGClient/Sources/TCGClient/Errors/Auth/SessionErrors.swift
+  s_d1ae7590c161f6::t_e425a413f8f156 1-7,9-34
+  s_d1ae7590c161f6::t_5dafdeb9fce2b3 8
+app/Modules/TCGClient/Sources/TCGClient/TCGAuthClient.swift
+  s_d1ae7590c161f6::t_6aaba1325af193 68-72,74
+  s_d1ae7590c161f6::t_d80886c4598460 54,73,200,207
+  s_d1ae7590c161f6::t_e425a413f8f156 14,32-50,52-53,55-57,59-60,62,64,66-67,83-84,199,201-206,208
+  s_d1ae7590c161f6::t_2ded846857381a 51
+  s_d1ae7590c161f6::t_4e31a496052e42 58
+  s_d1ae7590c161f6::t_b4be8c42868228 61
+  s_d1ae7590c161f6::t_2609f522784f9c 63
+  s_d1ae7590c161f6::t_ba2222a514dfcd 65
+  s_d1ae7590c161f6::t_8a73c21687424f 75-77,80-82
+  s_d1ae7590c161f6::t_fab02c431cae88 78-79
+app/Modules/TCGClient/Tests/TCGClientTests/TCGAuthClientTests.swift
+  s_d1ae7590c161f6::t_6d86a1bad9a81a 165,176,178
+  s_d1ae7590c161f6::t_a5519acd09579d 199,203,215-217,296,309,312-335
+  s_d1ae7590c161f6::t_fcac59d8a94e7b 513-514,600-601
+  s_d1ae7590c161f6::t_421fce24004609 148-150,152-164,166-175,177,179-198,204-214,218-221,225-276,278-290,293-295,297,299-308,310-311,336-339,343-357,361-387,613,620-637,640-642,645-652,656-659,665,672-754
+  s_d1ae7590c161f6::t_a30e23a7018c54 291-292,643-644,662-664
+  s_d1ae7590c161f6::t_ef147428ea91ee 151,200-202,222-224,277,298,340-342,358-360
+app/Modules/TCGClient/Sources/TCGClient/Models/Session.swift
+  s_d1ae7590c161f6::t_e425a413f8f156 1-20
+app/Modules/TCGClient/Sources/TCGClient/TCGClient.swift
+  s_d1ae7590c161f6::t_e425a413f8f156 39-48
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.12",
+  "base_commit_sha": "0456dc26f76dddc1249cd806b0311fa80d950790",
+  "prompts": {},
+  "sessions": {
+    "s_d1ae7590c161f6": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f56e5-0d2e-70d0-b204-9e524d95efb6",
+        "model": "gpt-5.6-terra"
+      },
+      "human_author": "Kamaal Farah <kamaal.f1@gmail.com>"
+    }
+  }
+}
