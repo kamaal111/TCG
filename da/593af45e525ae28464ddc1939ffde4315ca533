@@ -1,0 +1,21 @@
+app/Modules/TCGUtils/Tests/KeychainTests.swift
+  s_31abbe2eabae78::t_731528885a8ba0 1-70
+app/Modules/TCGUtils/Tests/ExpirableTests.swift
+  s_31abbe2eabae78::t_fe938cd0555038 2,8,13-54
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.12",
+  "base_commit_sha": "da593af45e525ae28464ddc1939ffde4315ca533",
+  "prompts": {},
+  "sessions": {
+    "s_31abbe2eabae78": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "521679e3-9043-49de-9886-e2e82cfa494e",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "Kamaal Farah <kamaal.f1@gmail.com>"
+    }
+  }
+}
