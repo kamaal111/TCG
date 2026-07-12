@@ -1,0 +1,22 @@
+app/Modules/TCGClient/Sources/TCGClient/TCGAuthClient.swift
+  s_7b4b7a0a95fb14::t_05a3c638b57cc7 14,33-66,235
+app/Modules/TCGClient/Tests/TCGClientTests/TCGAuthClientTests.swift
+  s_7b4b7a0a95fb14::t_05a3c638b57cc7 17-97,501-510,531-533
+  s_7b4b7a0a95fb14::t_66860220ed2d27 534
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.12",
+  "base_commit_sha": "b595fd7b5f9cc28af7e2033d917db5d01c43fb35",
+  "prompts": {},
+  "sessions": {
+    "s_7b4b7a0a95fb14": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f5727-b247-79a1-9874-914694cdd051",
+        "model": "gpt-5.6-terra"
+      },
+      "human_author": "Kamaal Farah <kamaal.f1@gmail.com>"
+    }
+  }
+}
