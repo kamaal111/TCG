@@ -1,0 +1,63 @@
+app/Modules/TCGClient/Tests/TCGClientTests/TCGClientTests.swift
+  s_6e61afb22401ef::t_de3fa67a83567c 56-60,76-81,97-105
+  s_6e61afb22401ef::t_72a838974af60c 66
+  s_6e61afb22401ef::t_8f1862f66e9ef1 11,19-41,43,63-65,67,87-96,106-122,142
+  s_6e61afb22401ef::t_fc4d32b7937681 49-54,75,125-130,135,144-150
+  s_6e61afb22401ef::t_c30c21b17d9605 71-73
+  s_6e61afb22401ef::t_5af1a6915a6b07 74
+  s_6e61afb22401ef::t_a5a6de9f94f6b8 42,44-47
+  s_6e61afb22401ef::t_ed70a91bc9f49e 8,10,16-18,62,68-70,82-86,123-124,131-134,136-141,143
+  s_6e61afb22401ef::t_49623b0d6acbd3 9
+  s_6e61afb22401ef::t_62bf7dce22725e 48
+  s_6e61afb22401ef::t_e26f662388ddac 55
+  s_6e61afb22401ef::t_ce6868d729a9f2 61
+app/Modules/TCGClient/Sources/TCGClient/Errors/Auth/SignUpErrors.swift
+  s_6e61afb22401ef::t_644a64f8c3f048 10-16,18,20-26
+  s_6e61afb22401ef::t_de3fa67a83567c 17,19
+  s_6e61afb22401ef::t_83a82c15379561 8-9,27
+app/Modules/TCGClient/Sources/TCGClient/Payloads/Auth/SignUpPayload.swift
+  s_6e61afb22401ef::t_8f1862f66e9ef1 8
+app/TCG.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved
+  s_8a8491ab37d2aa::t_a574b422ea9165 4-21
+  s_8a8491ab37d2aa::t_8e5c688d94de76 2
+app/Modules/TCGClient/Package.swift
+  s_6e61afb22401ef::t_8f1862f66e9ef1 44
+  s_6e61afb22401ef::t_ed70a91bc9f49e 42-43,46-47
+  s_8a8491ab37d2aa::t_8b3257edcb6569 8,20-21,29-30
+  s_6e61afb22401ef::t_49623b0d6acbd3 17,45
+app/Modules/TCGClient/Sources/TCGClient/TCGClient.swift
+  s_6e61afb22401ef::t_20ac4a7a7e9dc1 32-33
+  s_6e61afb22401ef::t_d9ae80cb2895f6 28
+  s_6e61afb22401ef::t_8f1862f66e9ef1 23-26
+  s_6e61afb22401ef::t_ed70a91bc9f49e 19-22,27
+server/scripts/download-openapi-spec.ts
+  s_8a8491ab37d2aa::t_a28b366054b491 27
+justfile
+  s_8a8491ab37d2aa::t_bec59a906e25e7 12
+app/TCG.xctestplan
+  s_8a8491ab37d2aa::t_79d689ad65ca13 28-34
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.12",
+  "base_commit_sha": "60f5e6dde18dd40db3b017bc149f9f53f52f2dab",
+  "prompts": {},
+  "sessions": {
+    "s_6e61afb22401ef": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f5695-2545-78a1-b7f0-7e46e243fb06",
+        "model": "gpt-5.6-terra"
+      },
+      "human_author": null
+    },
+    "s_8a8491ab37d2aa": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f534b-0c8a-7640-babc-a9d154aab0f9",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Kamaal Farah <kamaal.f1@gmail.com>"
+    }
+  }
+}
