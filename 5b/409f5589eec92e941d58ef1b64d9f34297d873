@@ -1,0 +1,54 @@
+app/Modules/TCGClient/Sources/TCGClient/TokenRefresher.swift
+  s_6a658c4b4722d1::t_16594d483407cf 83,88-89,92,94,97-98,103
+app/Modules/TCGClient/Sources/TCGClient/TCGClient.swift
+  s_6a658c4b4722d1::t_6a0469e8418fa7 24-25,27
+  s_6a658c4b4722d1::t_acd42f800d78f5 85-88
+  s_6a658c4b4722d1::t_0494e44a286589 14-17,19-20,26
+  s_6a658c4b4722d1::t_0bf45323204cca 21-23
+  s_6a658c4b4722d1::t_439c09712b4d38 84
+app/Modules/TCGClient/Sources/TCGClient/SessionAuthorizationMiddleware.swift
+  s_6a658c4b4722d1::t_985f5e8dd89f95 48
+  s_6a658c4b4722d1::t_248bc6f0783575 25,30
+app/Modules/TCGClient/Tests/TCGClientTests/TCGAuthClientTests.swift
+  s_6a658c4b4722d1::t_d6bd48e6f57238 33,58-59,160,164,216,238,288,341,362,416-417
+  s_6a658c4b4722d1::t_2b0e84053325de 781-784,797,804-822,827,830-833,838,841-844,849
+app/Modules/TCGFeatures/Sources/TCGAuth/TCGAuth.swift
+  s_6a658c4b4722d1::t_d2ba688057035d 7-8
+  s_6a658c4b4722d1::t_3b5039ceb68af3 9
+  s_6a658c4b4722d1::t_c075187c7612dd 10-12
+  s_6a658c4b4722d1::t_126ef31375d3c4 13-15
+app/Modules/TCGFeatures/Package.resolved
+  s_cb415cab5556bf::t_6555c7f0ad4c0c 1-114
+app/Modules/TCGClient/Sources/TCGClient/TCGAuthClient.swift
+  s_6a658c4b4722d1::t_6b0d2331a44621 71
+  s_6a658c4b4722d1::t_21abc11532402b 86
+  s_6a658c4b4722d1::t_061b5253d782c4 36
+app/Modules/TCGClient/Sources/TCGClient/CredentialsStore.swift
+  s_6a658c4b4722d1::t_22c29e06ba42c3 12-14,18-19,24,28,34-35
+app/Modules/TCGApp/Package.swift
+  s_cb415cab5556bf::t_ee61c889cd1a31 8
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.12",
+  "base_commit_sha": "5b409f5589eec92e941d58ef1b64d9f34297d873",
+  "prompts": {},
+  "sessions": {
+    "s_6a658c4b4722d1": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8b9b1e94-58a1-450f-8cdf-3cb3c0adbe8c",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "Kamaal Farah <kamaal.f1@gmail.com>"
+    },
+    "s_cb415cab5556bf": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "0b3dd973-a3fd-44b2-b02a-2248a82a132f",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "Kamaal Farah <kamaal.f1@gmail.com>"
+    }
+  }
+}
