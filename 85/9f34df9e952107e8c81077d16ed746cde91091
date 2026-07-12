@@ -1,0 +1,49 @@
+app/TCG.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved
+  s_8a8491ab37d2aa::t_a574b422ea9165 4-21
+  s_8a8491ab37d2aa::t_8e5c688d94de76 2
+app/Modules/TCGClient/Sources/TCGClient/TCGClient.swift
+  s_6e61afb22401ef::t_ed70a91bc9f49e 19-23
+  s_6e61afb22401ef::t_d9ae80cb2895f6 24
+  s_6e61afb22401ef::t_20ac4a7a7e9dc1 28-29
+app/Modules/TCGClient/Package.swift
+  s_8a8491ab37d2aa::t_8b3257edcb6569 8,20-21,29-30
+  s_6e61afb22401ef::t_ed70a91bc9f49e 42-43,45-46
+  s_6e61afb22401ef::t_49623b0d6acbd3 17,44
+justfile
+  s_8a8491ab37d2aa::t_bec59a906e25e7 12
+app/Modules/TCGClient/Tests/TCGClientTests/TCGClientTests.swift
+  s_6e61afb22401ef::t_49623b0d6acbd3 9
+  s_6e61afb22401ef::t_c30c21b17d9605 44-46
+  s_6e61afb22401ef::t_72a838974af60c 39-40
+  s_6e61afb22401ef::t_ed70a91bc9f49e 8,10,15-27,29-30,38,41-43,51-62,69-72,74-86,88
+  s_6e61afb22401ef::t_fc4d32b7937681 28,31-37,47-50,63-68,73,87,89-96
+  s_6e61afb22401ef::t_e4936df4f47c9a 97-101
+server/scripts/download-openapi-spec.ts
+  s_8a8491ab37d2aa::t_a28b366054b491 27
+app/TCG.xctestplan
+  s_8a8491ab37d2aa::t_79d689ad65ca13 28-34
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.12",
+  "base_commit_sha": "859f34df9e952107e8c81077d16ed746cde91091",
+  "prompts": {},
+  "sessions": {
+    "s_6e61afb22401ef": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f5695-2545-78a1-b7f0-7e46e243fb06",
+        "model": "gpt-5.6-terra"
+      },
+      "human_author": null
+    },
+    "s_8a8491ab37d2aa": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f534b-0c8a-7640-babc-a9d154aab0f9",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Kamaal Farah <kamaal.f1@gmail.com>"
+    }
+  }
+}
