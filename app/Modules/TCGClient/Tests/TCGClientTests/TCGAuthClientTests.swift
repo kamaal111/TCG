@@ -15,6 +15,87 @@ import Testing
 @Suite("TCGClient Auth Tests")
 struct TCGAuthClientTests {
     @Test
+    func `Should refresh the token and store refreshed credentials`() async throws {
+        let credentialsStore = try CredentialsStoreSpy(
+            initialData: JSONEncoder().encode(makeCredentials(expiryDate: .distantFuture))
+        )
+        let transport = try RequestTransport.tokenSuccess()
+        let client = TCGClient.default(
+            transport: transport,
+            credentialsKeychainKey: "credentials-key",
+            credentialsStore: credentialsStore
+        )
+
+        let result = await client.auth.refreshToken()
+
+        try result.get()
+        try await assertRefreshTokenRequest(in: transport)
+        let storedCredentials = try #require(await credentialsStore.storedCredentials)
+        let credentials = try JSONDecoder().decode(Credentials.self, from: storedCredentials.data)
+        #expect(storedCredentials.key == "credentials-key")
+        #expect(credentials.authToken == "auth-token")
+        #expect(credentials.sessionToken == "session-token")
+    }
+
+    @Test
+    func `Should delete credentials and return unauthorized when token refresh is unauthorized`() async throws {
+        let credentialsStore = try CredentialsStoreSpy(
+            initialData: JSONEncoder().encode(makeCredentials(expiryDate: .distantFuture))
+        )
+        let transport = RequestTransport.unauthorized()
+        let client = TCGClient.default(
+            transport: transport,
+            credentialsKeychainKey: "credentials-key",
+            credentialsStore: credentialsStore
+        )
+
+        let result = await client.auth.refreshToken()
+
+        try #require(throws: SessionErrors.unauthorized) {
+            try result.get()
+        }
+        try await assertRefreshTokenRequest(in: transport)
+        #expect(await credentialsStore.deletedKeys == ["credentials-key"])
+        #expect(await credentialsStore.storedCredentialsData == nil)
+    }
+
+    @Test
+    func `Should return an unknown error when token refresh transport fails`() async throws {
+        let credentialsStore = try CredentialsStoreSpy(
+            initialData: JSONEncoder().encode(makeCredentials(expiryDate: .distantFuture))
+        )
+        let client = TCGClient.default(
+            transport: RequestTransport.failing(),
+            credentialsKeychainKey: "credentials-key",
+            credentialsStore: credentialsStore
+        )
+
+        let result = await client.auth.refreshToken()
+
+        try #require(throws: SessionErrors.unknown(status: 503, payload: nil, cause: nil)) {
+            try result.get()
+        }
+    }
+
+    @Test
+    func `Should preserve undocumented token refresh response statuses`() async throws {
+        let credentialsStore = try CredentialsStoreSpy(
+            initialData: JSONEncoder().encode(makeCredentials(expiryDate: .distantFuture))
+        )
+        let client = TCGClient.default(
+            transport: RequestTransport.undocumented(),
+            credentialsKeychainKey: "credentials-key",
+            credentialsStore: credentialsStore
+        )
+
+        let result = await client.auth.refreshToken()
+
+        try #require(throws: SessionErrors.unknown(status: 502, payload: nil, cause: nil)) {
+            try result.get()
+        }
+    }
+
+    @Test
     func `Should sign in and store credentials after a successful request`() async throws {
         let credentialsStore = CredentialsStoreSpy()
         let transport = try RequestTransport.signInSuccess()
@@ -417,6 +498,16 @@ struct TCGAuthClientTests {
                     password: "Password123!"
                 ))
     }
+
+    private func assertRefreshTokenRequest(in transport: RequestTransport) async throws {
+        let recordedRequest = await transport.request
+        let request = try #require(recordedRequest)
+        #expect(request.method == .get)
+        #expect(request.path == "/app-api/auth/token")
+        #expect(request.operationID == "get/app-api/auth/token")
+        #expect(request.authorization == "Bearer auth-token")
+        #expect(request.body == nil)
+    }
 }
 
 private actor RequestTransport: ClientTransport {
@@ -435,6 +526,10 @@ private actor RequestTransport: ClientTransport {
 
     static func signUpSuccess() throws -> RequestTransport {
         try authSuccess(status: .created)
+    }
+
+    static func tokenSuccess() throws -> RequestTransport {
+        try authSuccess(status: .ok)
     }
 
     private static func authSuccess(status: HTTPResponse.Status) throws -> RequestTransport {

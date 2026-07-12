@@ -11,6 +11,7 @@ import KamaalLogger
 private let logger = KamaalLogger(from: TCGAuthClient.self, failOnError: true)
 
 public protocol TCGAuthClient: Sendable {
+    func refreshToken() async -> Result<Void, SessionErrors>
     func session() async -> Result<Session, SessionErrors>
     func signIn(with payload: SignInPayload) async -> Result<Void, SignInErrors>
     func signUp(with payload: SignUpPayload) async -> Result<Void, SignUpErrors>
@@ -27,6 +28,40 @@ public struct TCGAuthClientImpl: TCGAuthClient {
         self.client = client
         self.credentialsKeychainKey = credentialsKeychainKey
         self.credentialsStore = credentialsStore
+    }
+
+    public func refreshToken() async -> Result<Void, SessionErrors> {
+        let response: Operations.GetAppApiAuthToken.Output
+        do {
+            response = try await client.getAppApiAuthToken()
+        } catch {
+            return .failure(.unknown(status: 503, payload: nil, cause: error))
+        }
+
+        let payload: Operations.GetAppApiAuthToken.Output.Ok
+        switch response {
+        case .unauthorized:
+            return await deleteCredentials(then: .unauthorized)
+        case .undocumented(let statusCode, let payload):
+            return .failure(.unknown(status: statusCode, payload: payload, cause: nil))
+        case .ok(let ok):
+            payload = ok
+        }
+
+        do {
+            guard
+                try await storeCredentials(
+                    token: payload.headers.setAuthToken,
+                    expiryTime: payload.headers.setAuthTokenExpiry,
+                    sessionToken: payload.headers.setSessionToken,
+                    sessionUpdateAge: payload.headers.setSessionUpdateAge,
+                )
+            else { return .failure(.unknown(status: 500, payload: nil, cause: nil)) }
+        } catch {
+            return .failure(.unknown(status: 500, payload: nil, cause: error))
+        }
+
+        return .success(())
     }
 
     public func session() async -> Result<Session, SessionErrors> {
@@ -197,7 +232,7 @@ public struct TCGAuthClientImpl: TCGAuthClient {
         return true
     }
 
-    private func deleteCredentials(then result: SessionErrors) async -> Result<Session, SessionErrors> {
+    private func deleteCredentials<Success>(then result: SessionErrors) async -> Result<Success, SessionErrors> {
         do {
             try await credentialsStore.delete(forKey: credentialsKeychainKey)
         } catch {
