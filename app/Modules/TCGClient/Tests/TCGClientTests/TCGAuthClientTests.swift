@@ -96,6 +96,50 @@ struct TCGAuthClientTests {
     }
 
     @Test
+    func `Should refresh the token before authenticated requests when the session needs an update`() async throws {
+        let credentialsStore = try CredentialsStoreSpy(
+            initialData: JSONEncoder().encode(
+                makeCredentials(expiryDate: .distantFuture, lastSessionUpdate: .distantPast)
+            )
+        )
+        let transport = try RequestTransport.refreshThenSignUp()
+        let client = TCGClient.default(
+            transport: transport,
+            credentialsKeychainKey: "credentials-key",
+            credentialsStore: credentialsStore
+        )
+
+        let result = await client.auth.signUp(
+            with: .init(name: "Jane Doe", email: "jane@example.com", password: "Password123!")
+        )
+
+        try result.get()
+        try await assertAutomaticRefreshRequests(in: transport)
+    }
+
+    @Test
+    func `Should refresh the token before authenticated requests when the token will expire soon`() async throws {
+        let credentialsStore = try CredentialsStoreSpy(
+            initialData: JSONEncoder().encode(
+                makeCredentials(expiryDate: .now.addingTimeInterval(3599))
+            )
+        )
+        let transport = try RequestTransport.refreshThenSignUp()
+        let client = TCGClient.default(
+            transport: transport,
+            credentialsKeychainKey: "credentials-key",
+            credentialsStore: credentialsStore
+        )
+
+        let result = await client.auth.signUp(
+            with: .init(name: "Jane Doe", email: "jane@example.com", password: "Password123!")
+        )
+
+        try result.get()
+        try await assertAutomaticRefreshRequests(in: transport)
+    }
+
+    @Test
     func `Should sign in and store credentials after a successful request`() async throws {
         let credentialsStore = CredentialsStoreSpy()
         let transport = try RequestTransport.signInSuccess()
@@ -452,13 +496,17 @@ struct TCGAuthClientTests {
         }
     }
 
-    private func makeCredentials(expiryDate: Date) -> Credentials {
+    private func makeCredentials(
+        expiryDate: Date,
+        sessionUpdateAge: TimeInterval = 1800,
+        lastSessionUpdate: Date = .now
+    ) -> Credentials {
         Credentials(
             authToken: "auth-token",
             expiryDate: expiryDate,
             sessionToken: "session-token",
-            sessionUpdateAge: 1800,
-            lastSessionUpdate: .now,
+            sessionUpdateAge: sessionUpdateAge,
+            lastSessionUpdate: lastSessionUpdate,
         )
     }
 
@@ -508,16 +556,45 @@ struct TCGAuthClientTests {
         #expect(request.authorization == "Bearer auth-token")
         #expect(request.body == nil)
     }
+
+    private func assertAutomaticRefreshRequests(in transport: RequestTransport) async throws {
+        let requests = await transport.requests
+        let refreshRequest = try #require(requests.first)
+        let signUpRequest = try #require(requests.last)
+        #expect(requests.count == 2)
+        #expect(refreshRequest.method == .get)
+        #expect(refreshRequest.path == "/app-api/auth/token")
+        #expect(refreshRequest.operationID == "get/app-api/auth/token")
+        #expect(refreshRequest.authorization == "Bearer auth-token")
+        #expect(refreshRequest.body == nil)
+        #expect(signUpRequest.method == .post)
+        #expect(signUpRequest.path == "/app-api/auth/sign-up/email")
+        #expect(signUpRequest.operationID == "post/app-api/auth/sign-up/email")
+        #expect(signUpRequest.authorization == "Bearer refreshed-auth-token")
+    }
 }
 
 private actor RequestTransport: ClientTransport {
-    private(set) var request: RecordedRequest?
+    private(set) var requests: [RecordedRequest] = []
     private let response: HTTPResponse?
     private let responseBody: Data?
+    private let tokenRefreshResponse: HTTPResponse?
+    private let tokenRefreshResponseBody: Data?
 
-    private init(response: HTTPResponse?, responseBody: Data?) {
+    private init(
+        response: HTTPResponse?,
+        responseBody: Data?,
+        tokenRefreshResponse: HTTPResponse? = nil,
+        tokenRefreshResponseBody: Data? = nil
+    ) {
         self.response = response
         self.responseBody = responseBody
+        self.tokenRefreshResponse = tokenRefreshResponse
+        self.tokenRefreshResponseBody = tokenRefreshResponseBody
+    }
+
+    var request: RecordedRequest? {
+        requests.last
     }
 
     static func signInSuccess() throws -> RequestTransport {
@@ -532,26 +609,47 @@ private actor RequestTransport: ClientTransport {
         try authSuccess(status: .ok)
     }
 
+    static func refreshThenSignUp() throws -> RequestTransport {
+        let tokenResponse = try authSuccessResponse(status: .ok, token: "refreshed-auth-token")
+        let signUpResponse = try authSuccessResponse(status: .created)
+
+        return RequestTransport(
+            response: signUpResponse.response,
+            responseBody: signUpResponse.body,
+            tokenRefreshResponse: tokenResponse.response,
+            tokenRefreshResponseBody: tokenResponse.body
+        )
+    }
+
     private static func authSuccess(status: HTTPResponse.Status) throws -> RequestTransport {
+        let response = try authSuccessResponse(status: status)
+
+        return RequestTransport(response: response.response, responseBody: response.body)
+    }
+
+    private static func authSuccessResponse(
+        status: HTTPResponse.Status,
+        token: String = "auth-token"
+    ) throws -> (response: HTTPResponse, body: Data) {
         let authTokenHeader = try #require(HTTPField.Name("set-auth-token"))
         let authTokenExpiryHeader = try #require(HTTPField.Name("set-auth-token-expiry"))
         let sessionTokenHeader = try #require(HTTPField.Name("set-session-token"))
         let sessionUpdateAgeHeader = try #require(HTTPField.Name("set-session-update-age"))
 
-        return RequestTransport(
+        return (
             response: .init(
                 status: status,
                 headerFields: [
                     .contentType: "application/json",
-                    authTokenHeader: "auth-token",
+                    authTokenHeader: token,
                     authTokenExpiryHeader: "3600",
                     sessionTokenHeader: "session-token",
                     sessionUpdateAgeHeader: "1800",
                 ]),
-            responseBody: Data(
+            body: Data(
                 """
                 {
-                  "token": "auth-token",
+                  "token": "\(token)",
                   "user": {
                     "id": "user-id",
                     "created_at": "2026-07-12T12:00:00Z",
@@ -609,13 +707,21 @@ private actor RequestTransport: ClientTransport {
         } else {
             requestBody = nil
         }
-        self.request = .init(
-            method: request.method,
-            path: request.path,
-            operationID: operationID,
-            body: requestBody,
-            authorization: request.headerFields[.authorization]
+        requests.append(
+            .init(
+                method: request.method,
+                path: request.path,
+                operationID: operationID,
+                body: requestBody,
+                authorization: request.headerFields[.authorization]
+            )
         )
+
+        if operationID == "get/app-api/auth/token" {
+            if let tokenRefreshResponse {
+                return (tokenRefreshResponse, tokenRefreshResponseBody.map(HTTPBody.init))
+            }
+        }
 
         guard let response else { throw CredentialsStoreError.failed }
 

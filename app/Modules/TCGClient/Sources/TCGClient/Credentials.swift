@@ -29,7 +29,7 @@ struct Credentials: Codable, Expirable {
         )
     }
 
-    func shouldUpdateSession() -> Bool {
+    var shouldUpdateSession: Bool {
         Date.now.timeIntervalSince(lastSessionUpdate) >= sessionUpdateAge
     }
 

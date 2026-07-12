@@ -32,6 +32,13 @@
         "identifier" : "TCGUtilsTests",
         "name" : "TCGUtilsTests"
       }
+    },
+    {
+      "target" : {
+        "containerPath" : "container:Modules\/TCGFeatures",
+        "identifier" : "TCGAuthTests",
+        "name" : "TCGAuthTests"
+      }
     }
   ],
   "version" : 1

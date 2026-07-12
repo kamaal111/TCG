@@ -6,9 +6,6 @@
 //
 
 import Foundation
-import KamaalLogger
-
-private let logger = KamaalLogger(from: TCGAuthClient.self, failOnError: true)
 
 public protocol TCGAuthClient: Sendable {
     func refreshToken() async -> Result<Void, SessionErrors>
@@ -21,53 +18,22 @@ public struct TCGAuthClientImpl: TCGAuthClient {
     let credentialsKeychainKey: String
 
     private let client: Client
-    private let credentialsStore: any CredentialsStore
-    private let jsonEncoder = JSONEncoder()
+    private let tokenRefresher: TokenRefresher
 
-    init(client: Client, credentialsKeychainKey: String, credentialsStore: any CredentialsStore) {
+    init(client: Client, tokenRefresher: TokenRefresher, credentialsKeychainKey: String) {
         self.client = client
         self.credentialsKeychainKey = credentialsKeychainKey
-        self.credentialsStore = credentialsStore
+        self.tokenRefresher = tokenRefresher
     }
 
     public func refreshToken() async -> Result<Void, SessionErrors> {
-        let response: Operations.GetAppApiAuthToken.Output
-        do {
-            response = try await client.getAppApiAuthToken()
-        } catch {
-            return .failure(.unknown(status: 503, payload: nil, cause: error))
-        }
-
-        let payload: Operations.GetAppApiAuthToken.Output.Ok
-        switch response {
-        case .unauthorized:
-            return await deleteCredentials(then: .unauthorized)
-        case .undocumented(let statusCode, let payload):
-            return .failure(.unknown(status: statusCode, payload: payload, cause: nil))
-        case .ok(let ok):
-            payload = ok
-        }
-
-        do {
-            guard
-                try await storeCredentials(
-                    token: payload.headers.setAuthToken,
-                    expiryTime: payload.headers.setAuthTokenExpiry,
-                    sessionToken: payload.headers.setSessionToken,
-                    sessionUpdateAge: payload.headers.setSessionUpdateAge,
-                )
-            else { return .failure(.unknown(status: 500, payload: nil, cause: nil)) }
-        } catch {
-            return .failure(.unknown(status: 500, payload: nil, cause: error))
-        }
-
-        return .success(())
+        await tokenRefresher.refreshToken()
     }
 
     public func session() async -> Result<Session, SessionErrors> {
         let credentials: Credentials
         do {
-            guard let storedCredentials = try await credentialsStore.credentials(forKey: credentialsKeychainKey) else {
+            guard let storedCredentials = try await tokenRefresher.credentials(forKey: credentialsKeychainKey) else {
                 return .failure(.unauthorized)
             }
 
@@ -86,7 +52,7 @@ public struct TCGAuthClientImpl: TCGAuthClient {
         let payload: Operations.GetAppApiAuthSession.Output.Ok
         switch response {
         case .notFound:
-            return await deleteCredentials(then: .unauthorized)
+            return await tokenRefresher.deleteCredentials(then: .unauthorized)
         case .undocumented(let statusCode, let payload):
             return .failure(.unknown(status: statusCode, payload: payload, cause: nil))
         case .ok(let ok):
@@ -102,10 +68,9 @@ public struct TCGAuthClientImpl: TCGAuthClient {
 
         let updatedCredentials = credentials.setExpiryDate(responsePayload.session.expiresAt)
         do {
-            let credentialsData = try jsonEncoder.encode(updatedCredentials)
-            try await credentialsStore.set(credentialsData, forKey: credentialsKeychainKey)
+            try await tokenRefresher.store(updatedCredentials, forKey: credentialsKeychainKey)
         } catch {
-            return await deleteCredentials(then: .unknown(status: 500, payload: nil, cause: error))
+            return await tokenRefresher.deleteCredentials(then: .unknown(status: 500, payload: nil, cause: error))
         }
 
         return .success(
@@ -118,7 +83,7 @@ public struct TCGAuthClientImpl: TCGAuthClient {
     }
 
     public func signIn(with payload: SignInPayload) async -> Result<Void, SignInErrors> {
-        try? await credentialsStore.delete(forKey: credentialsKeychainKey)
+        try? await tokenRefresher.delete(forKey: credentialsKeychainKey)
 
         let response: Operations.PostAppApiAuthSignInEmail.Output
         do {
@@ -146,7 +111,7 @@ public struct TCGAuthClientImpl: TCGAuthClient {
 
         do {
             guard
-                try await storeCredentials(
+                try await tokenRefresher.storeCredentials(
                     token: payload.headers.setAuthToken,
                     expiryTime: payload.headers.setAuthTokenExpiry,
                     sessionToken: payload.headers.setSessionToken,
@@ -189,7 +154,7 @@ public struct TCGAuthClientImpl: TCGAuthClient {
 
         do {
             guard
-                try await storeCredentials(
+                try await tokenRefresher.storeCredentials(
                     token: payload.headers.setAuthToken,
                     expiryTime: payload.headers.setAuthTokenExpiry,
                     sessionToken: payload.headers.setSessionToken,
@@ -201,44 +166,5 @@ public struct TCGAuthClientImpl: TCGAuthClient {
         }
 
         return .success(())
-    }
-
-    private func storeCredentials(
-        token: String,
-        expiryTime: String,
-        sessionToken: String,
-        sessionUpdateAge: String
-    ) async throws -> Bool {
-        guard let tokenExpiryTime = Int(expiryTime) else { return false }
-        guard let tokenUpdateAge = Int(sessionUpdateAge) else { return false }
-
-        let expiryTime = Date.now.timeIntervalSince1970 + TimeInterval(tokenExpiryTime)
-        let expiryDate = Date(timeIntervalSince1970: expiryTime)
-        let sessionUpdateAge = TimeInterval(tokenUpdateAge)
-
-        logger.info("Storing JWT: \(String(token.prefix(7)))...")
-        logger.info("Session token: \(String(sessionToken.prefix(7)))... (length: \(sessionToken.count))")
-
-        let credentials = Credentials(
-            authToken: token,
-            expiryDate: expiryDate,
-            sessionToken: sessionToken,
-            sessionUpdateAge: sessionUpdateAge,
-            lastSessionUpdate: .now,
-        )
-        let credentialsData = try jsonEncoder.encode(credentials)
-        try await credentialsStore.set(credentialsData, forKey: credentialsKeychainKey)
-
-        return true
-    }
-
-    private func deleteCredentials<Success>(then result: SessionErrors) async -> Result<Success, SessionErrors> {
-        do {
-            try await credentialsStore.delete(forKey: credentialsKeychainKey)
-        } catch {
-            return .failure(.unknown(status: 500, payload: nil, cause: error))
-        }
-
-        return .failure(result)
     }
 }

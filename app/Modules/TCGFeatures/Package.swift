@@ -4,24 +4,35 @@
 import PackageDescription
 
 let package = Package(
-    name: "TCGApp",
+    name: "TCGFeatures",
     platforms: [.macOS(.v13), .iOS(.v16)],
     products: [
-        .library(name: "TCGApp", targets: ["TCGApp"])
+        .library(
+            name: "TCGAuth",
+            targets: ["TCGAuth"]
+        )
     ],
     dependencies: [
-        .package(path: "../TCGFeatures")
+        .package(path: "../TCGClient")
     ],
     targets: [
         .target(
-            name: "TCGApp",
+            name: "TCGAuth",
             dependencies: [
-                .product(name: "TCGAuth", package: "TCGFeatures")
+                "TCGClient"
             ],
             swiftSettings: [
                 .enableUpcomingFeature("ApproachableConcurrency"),
                 .treatAllWarnings(as: .error),
             ],
-        )
+        ),
+        .testTarget(
+            name: "TCGAuthTests",
+            dependencies: ["TCGAuth"],
+            swiftSettings: [
+                .enableUpcomingFeature("ApproachableConcurrency"),
+                .treatAllWarnings(as: .error),
+            ],
+        ),
     ]
 )

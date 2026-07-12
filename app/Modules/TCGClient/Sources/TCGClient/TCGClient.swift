@@ -36,20 +36,37 @@ public struct TCGClient: Sendable {
         credentialsKeychainKey: String,
         credentialsStore: any CredentialsStore
     ) -> TCGClient {
+        let tokenClient = Client(
+            serverURL: try! Servers.Server1.url(),
+            transport: transport,
+            middlewares: [
+                SessionAuthorizationMiddleware(
+                    credentialsKeychainKey: credentialsKeychainKey,
+                    credentialsStore: credentialsStore,
+                    tokenRefresher: nil
+                )
+            ]
+        )
+        let tokenRefresher = TokenRefresher(
+            client: tokenClient,
+            credentialsKeychainKey: credentialsKeychainKey,
+            credentialsStore: credentialsStore
+        )
         let client = Client(
             serverURL: try! Servers.Server1.url(),
             transport: transport,
             middlewares: [
                 SessionAuthorizationMiddleware(
                     credentialsKeychainKey: credentialsKeychainKey,
-                    credentialsStore: credentialsStore
+                    credentialsStore: credentialsStore,
+                    tokenRefresher: tokenRefresher
                 )
             ]
         )
         let auth = TCGAuthClientImpl(
             client: client,
-            credentialsKeychainKey: credentialsKeychainKey,
-            credentialsStore: credentialsStore
+            tokenRefresher: tokenRefresher,
+            credentialsKeychainKey: credentialsKeychainKey
         )
 
         return TCGClient(auth: auth)
