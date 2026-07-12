@@ -1,0 +1,4 @@
+interface:
+  display_name: 'TCG Client Endpoint'
+  short_description: 'Implement TCG OpenAPI client endpoints'
+  default_prompt: 'Use $tcg-client-endpoint to implement the TCG client endpoint for the specified API operation.'

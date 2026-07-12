@@ -11,6 +11,7 @@ import KamaalLogger
 private let logger = KamaalLogger(from: TCGAuthClient.self, failOnError: true)
 
 public protocol TCGAuthClient: Sendable {
+    func signIn(with payload: SignInPayload) async -> Result<Void, SignInErrors>
     func signUp(with payload: SignUpPayload) async -> Result<Void, SignUpErrors>
 }
 
@@ -25,6 +26,49 @@ public struct TCGAuthClientImpl: TCGAuthClient {
         self.client = client
         self.credentialsKeychainKey = credentialsKeychainKey
         self.credentialsStore = credentialsStore
+    }
+
+    public func signIn(with payload: SignInPayload) async -> Result<Void, SignInErrors> {
+        try? await credentialsStore.delete(forKey: credentialsKeychainKey)
+
+        let response: Operations.PostAppApiAuthSignInEmail.Output
+        do {
+            response = try await client.postAppApiAuthSignInEmail(
+                body: .json(.init(email: payload.email, password: payload.password))
+            )
+        } catch {
+            return .failure(.unknown(status: 503, payload: nil, cause: error))
+        }
+
+        let payload: Operations.PostAppApiAuthSignInEmail.Output.Ok
+        switch response {
+        case .badRequest(let badRequestResponse):
+            let body = try? badRequestResponse.body.json
+            let validations = TCGClientValidationErrorParser.parseIssues(from: body)
+
+            return .failure(.badRequest(validations: validations))
+        case .unauthorized:
+            return .failure(.badRequest(validations: []))
+        case .undocumented(let statusCode, let payload):
+            return .failure(.unknown(status: statusCode, payload: payload, cause: nil))
+        case .ok(let ok):
+            payload = ok
+        }
+
+        do {
+            guard
+                try await storeCredentials(
+                    token: payload.headers.setAuthToken,
+                    expiryTime: payload.headers.setAuthTokenExpiry,
+                    sessionToken: payload.headers.setSessionToken,
+                    sessionUpdateAge: payload.headers.setSessionUpdateAge,
+                )
+            else { return .failure(.unknown(status: 500, payload: nil, cause: nil)) }
+        } catch {
+            return .failure(.unknown(status: 500, payload: nil, cause: error))
+        }
+
+        return .success(())
     }
 
     public func signUp(with payload: SignUpPayload) async -> Result<Void, SignUpErrors> {
@@ -54,20 +98,15 @@ public struct TCGAuthClientImpl: TCGAuthClient {
             payload = created
         }
 
-        guard let tokenExpiryTime = Int(payload.headers.setAuthTokenExpiry) else {
-            return .failure(.unknown(status: 500, payload: nil, cause: nil))
-        }
-        guard let tokenUpdateAge = Int(payload.headers.setSessionUpdateAge) else {
-            return .failure(.unknown(status: 500, payload: nil, cause: nil))
-        }
-
         do {
-            try await storeCredentials(
-                token: payload.headers.setAuthToken,
-                expiryTime: tokenExpiryTime,
-                sessionToken: payload.headers.setSessionToken,
-                sessionUpdateAge: tokenUpdateAge,
-            )
+            guard
+                try await storeCredentials(
+                    token: payload.headers.setAuthToken,
+                    expiryTime: payload.headers.setAuthTokenExpiry,
+                    sessionToken: payload.headers.setSessionToken,
+                    sessionUpdateAge: payload.headers.setSessionUpdateAge,
+                )
+            else { return .failure(.unknown(status: 500, payload: nil, cause: nil)) }
         } catch {
             return .failure(.unknown(status: 500, payload: nil, cause: error))
         }
@@ -77,13 +116,16 @@ public struct TCGAuthClientImpl: TCGAuthClient {
 
     private func storeCredentials(
         token: String,
-        expiryTime: Int,
+        expiryTime: String,
         sessionToken: String,
-        sessionUpdateAge: Int
-    ) async throws {
-        let expiryTime = Date.now.timeIntervalSince1970 + TimeInterval(expiryTime)
+        sessionUpdateAge: String
+    ) async throws -> Bool {
+        guard let tokenExpiryTime = Int(expiryTime) else { return false }
+        guard let tokenUpdateAge = Int(sessionUpdateAge) else { return false }
+
+        let expiryTime = Date.now.timeIntervalSince1970 + TimeInterval(tokenExpiryTime)
         let expiryDate = Date(timeIntervalSince1970: expiryTime)
-        let sessionUpdateAge = TimeInterval(sessionUpdateAge)
+        let sessionUpdateAge = TimeInterval(tokenUpdateAge)
 
         logger.info("Storing JWT: \(String(token.prefix(7)))...")
         logger.info("Session token: \(String(sessionToken.prefix(7)))... (length: \(sessionToken.count))")
@@ -97,5 +139,7 @@ public struct TCGAuthClientImpl: TCGAuthClient {
         )
         let credentialsData = try jsonEncoder.encode(credentials)
         try await credentialsStore.set(credentialsData, forKey: credentialsKeychainKey)
+
+        return true
     }
 }
