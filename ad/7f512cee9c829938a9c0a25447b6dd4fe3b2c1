@@ -1,0 +1,73 @@
+.agents/skills/swift-testing/agents/openai.yaml
+  s_6e61afb22401ef::t_d0b48258aa089b 1-4
+.agents/skills/testing-best-practices/SKILL.md
+  s_6e61afb22401ef::t_60677be1a9e157 57-58,64-65
+.agents/skills/testing-best-practices/SWIFT.md
+  s_6e61afb22401ef::t_60677be1a9e157 71-80
+app/Modules/TCGClient/Tests/TCGClientTests/TCGAuthClientTests.swift
+  s_6e61afb22401ef::t_9fd1bfad6af186 1-193
+app/Modules/TCGClient/Package.swift
+  s_6e61afb22401ef::t_49623b0d6acbd3 17,44
+  s_6e61afb22401ef::t_ed70a91bc9f49e 42-43,45-46
+  s_8a8491ab37d2aa::t_8b3257edcb6569 8,20-21,29-30
+app/Modules/TCGClient/Sources/TCGClient/CredentialsStore.swift
+  s_6e61afb22401ef::t_aaf3cb075e583d 1-19
+app/Modules/TCGClient/Sources/TCGClient/Payloads/Auth/SignUpPayload.swift
+  s_6e61afb22401ef::t_8f1862f66e9ef1 8
+server/scripts/download-openapi-spec.ts
+  s_8a8491ab37d2aa::t_a28b366054b491 27
+.agents/skills/swift-testing/SKILL.md
+  s_6e61afb22401ef::t_e0c5c8cf14a05d 3,8,10,12-15,17,19-22,24,26-32,34,36-43,45,47-53,55,57-60,62,64
+  s_6e61afb22401ef::t_d0b48258aa089b 1-2,4-7,9,11,16,18,23,25,33,35,44,46,54,56,61,63
+app/Modules/TCGClient/Sources/TCGClient/TCGAuthClient.swift
+  s_6e61afb22401ef::t_e3239933ca3fbb 81-95
+  s_6e61afb22401ef::t_b9058c10e8bef8 74
+  s_6e61afb22401ef::t_802e0e81587dd9 78-80
+  s_6e61afb22401ef::t_6818609dad0e64 97-99
+  s_6e61afb22401ef::t_74bf6b6d83e1e6 77
+  s_6e61afb22401ef::t_dc4bcb8f271582 69
+  s_6e61afb22401ef::t_aaf3cb075e583d 21-22,24,26-27,31-65,70-71,73,96
+  s_6e61afb22401ef::t_eaadf57be5f72f 66-68
+  s_6e61afb22401ef::t_68e91e493a9c2d 100
+  s_6e61afb22401ef::t_fd27a7f7bd7c49 72
+app/Modules/TCGClient/Sources/TCGClient/Errors/Auth/SignUpErrors.swift
+  s_6e61afb22401ef::t_83a82c15379561 8-9,27
+  s_6e61afb22401ef::t_644a64f8c3f048 10-16,18,20-26
+  s_6e61afb22401ef::t_de3fa67a83567c 17,19
+app/TCG.xctestplan
+  s_8a8491ab37d2aa::t_79d689ad65ca13 28-34
+justfile
+  s_8a8491ab37d2aa::t_bec59a906e25e7 12
+app/TCG.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved
+  s_8a8491ab37d2aa::t_a574b422ea9165 4-21
+  s_8a8491ab37d2aa::t_8e5c688d94de76 2
+app/Modules/TCGClient/Sources/TCGClient/TCGClient.swift
+  s_6e61afb22401ef::t_ed70a91bc9f49e 19-22,39
+  s_6e61afb22401ef::t_aaf3cb075e583d 27-38,40-44
+  s_6e61afb22401ef::t_8f1862f66e9ef1 23-26
+  s_6e61afb22401ef::t_20ac4a7a7e9dc1 48-49
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.12",
+  "base_commit_sha": "ad7f512cee9c829938a9c0a25447b6dd4fe3b2c1",
+  "prompts": {},
+  "sessions": {
+    "s_6e61afb22401ef": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f5695-2545-78a1-b7f0-7e46e243fb06",
+        "model": "gpt-5.6-terra"
+      },
+      "human_author": null
+    },
+    "s_8a8491ab37d2aa": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f534b-0c8a-7640-babc-a9d154aab0f9",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Kamaal Farah <kamaal.f1@gmail.com>"
+    }
+  }
+}
