@@ -80,27 +80,27 @@ struct TokenRefresher: Sendable {
             lastSessionUpdate: .now,
         )
         let credentialsData = try jsonEncoder.encode(credentials)
-        try await credentialsStore.set(credentialsData, forKey: credentialsKeychainKey)
+        try credentialsStore.set(credentialsData, forKey: credentialsKeychainKey)
 
         return true
     }
 
-    func credentials(forKey key: String) async throws -> Credentials? {
-        try await credentialsStore.credentials(forKey: key)
+    func credentials(forKey key: String) throws -> Credentials? {
+        try credentialsStore.credentials(forKey: key)
     }
 
-    func store(_ credentials: Credentials, forKey key: String) async throws {
+    func store(_ credentials: Credentials, forKey key: String) throws {
         let credentialsData = try jsonEncoder.encode(credentials)
-        try await credentialsStore.set(credentialsData, forKey: key)
+        try credentialsStore.set(credentialsData, forKey: key)
     }
 
-    func delete(forKey key: String) async throws {
-        try await credentialsStore.delete(forKey: key)
+    func delete(forKey key: String) throws {
+        try credentialsStore.delete(forKey: key)
     }
 
     func deleteCredentials<Success>(then result: SessionErrors) async -> Result<Success, SessionErrors> {
         do {
-            try await credentialsStore.delete(forKey: credentialsKeychainKey)
+            try credentialsStore.delete(forKey: credentialsKeychainKey)
         } catch {
             return .failure(.unknown(status: 500, payload: nil, cause: error))
         }

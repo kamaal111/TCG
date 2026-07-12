@@ -22,12 +22,12 @@ struct SessionAuthorizationMiddleware: ClientMiddleware {
         operationID: String,
         next: @concurrent @Sendable (HTTPRequest, HTTPBody?, URL) async throws -> (HTTPResponse, HTTPBody?)
     ) async throws -> (HTTPResponse, HTTPBody?) {
-        guard var credentials = try await credentialsStore.credentials(forKey: credentialsKeychainKey) else {
+        guard var credentials = try credentialsStore.credentials(forKey: credentialsKeychainKey) else {
             return try await next(request, body, baseURL)
         }
 
         guard !credentials.hasExpired else {
-            try await credentialsStore.delete(forKey: credentialsKeychainKey)
+            try credentialsStore.delete(forKey: credentialsKeychainKey)
 
             return try await next(request, body, baseURL)
         }
@@ -45,7 +45,7 @@ struct SessionAuthorizationMiddleware: ClientMiddleware {
 
             try await tokenRefresher.refreshToken().get()
 
-            let refreshedCredentials = try await credentialsStore.credentials(
+            let refreshedCredentials = try credentialsStore.credentials(
                 forKey: credentialsKeychainKey
             )
             guard let refreshedCredentials else { throw SessionErrors.unauthorized }

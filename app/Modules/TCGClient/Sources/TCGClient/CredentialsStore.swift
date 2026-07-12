@@ -9,30 +9,30 @@ import Foundation
 import TCGUtils
 
 protocol CredentialsStore: Sendable {
-    func delete(forKey key: String) async throws
-    func get(forKey key: String) async throws -> Data?
-    func set(_ data: Data, forKey key: String) async throws
+    func delete(forKey key: String) throws
+    func get(forKey key: String) throws -> Data?
+    func set(_ data: Data, forKey key: String) throws
 }
 
 struct KeychainCredentialsStore: CredentialsStore {
-    func delete(forKey key: String) async throws {
-        guard try await get(forKey: key) != nil else { return }
+    func delete(forKey key: String) throws {
+        guard try get(forKey: key) != nil else { return }
 
         try Keychain.delete(forKey: key).get()
     }
 
-    func get(forKey key: String) async throws -> Data? {
+    func get(forKey key: String) throws -> Data? {
         try Keychain.get(forKey: key).get()
     }
 
-    func set(_ data: Data, forKey key: String) async throws {
+    func set(_ data: Data, forKey key: String) throws {
         try Keychain.set(data, forKey: key).get()
     }
 }
 
 extension CredentialsStore {
-    func credentials(forKey key: String) async throws -> Credentials? {
-        guard let data = try await get(forKey: key) else { return nil }
+    func credentials(forKey key: String) throws -> Credentials? {
+        guard let data = try get(forKey: key) else { return nil }
 
         return try JSONDecoder().decode(Credentials.self, from: data)
     }

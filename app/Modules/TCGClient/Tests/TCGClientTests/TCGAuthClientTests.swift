@@ -30,7 +30,7 @@ struct TCGAuthClientTests {
 
         try result.get()
         try await assertRefreshTokenRequest(in: transport)
-        let storedCredentials = try #require(await credentialsStore.storedCredentials)
+        let storedCredentials = try #require(credentialsStore.storedCredentials)
         let credentials = try JSONDecoder().decode(Credentials.self, from: storedCredentials.data)
         #expect(storedCredentials.key == "credentials-key")
         #expect(credentials.authToken == "auth-token")
@@ -55,8 +55,8 @@ struct TCGAuthClientTests {
             try result.get()
         }
         try await assertRefreshTokenRequest(in: transport)
-        #expect(await credentialsStore.deletedKeys == ["credentials-key"])
-        #expect(await credentialsStore.storedCredentialsData == nil)
+        #expect(credentialsStore.deletedKeys == ["credentials-key"])
+        #expect(credentialsStore.storedCredentialsData == nil)
     }
 
     @Test
@@ -157,11 +157,11 @@ struct TCGAuthClientTests {
 
         try result.get()
         try await assertSignInRequest(in: transport)
-        let storedCredentials = await credentialsStore.storedCredentials
+        let storedCredentials = credentialsStore.storedCredentials
         let credentialsData = try #require(storedCredentials?.data)
         let credentials = try JSONDecoder().decode(Credentials.self, from: credentialsData)
         #expect(storedCredentials?.key == "credentials-key")
-        #expect(await credentialsStore.deletedKeys == ["credentials-key"])
+        #expect(credentialsStore.deletedKeys == ["credentials-key"])
         #expect(credentials.authToken == "auth-token")
         #expect(credentials.sessionToken == "session-token")
     }
@@ -213,7 +213,7 @@ struct TCGAuthClientTests {
         }
 
         try await assertSignInRequest(in: transport)
-        #expect(await credentialsStore.deletedKeys == ["credentials-key"])
+        #expect(credentialsStore.deletedKeys == ["credentials-key"])
     }
 
     @Test
@@ -235,7 +235,7 @@ struct TCGAuthClientTests {
 
         try result.get()
         try await assertSignUpRequest(in: transport)
-        let storedCredentials = await credentialsStore.storedCredentials
+        let storedCredentials = credentialsStore.storedCredentials
         let credentialsData = try #require(storedCredentials?.data)
         let credentials = try JSONDecoder().decode(Credentials.self, from: credentialsData)
         #expect(storedCredentials?.key == "credentials-key")
@@ -285,7 +285,7 @@ struct TCGAuthClientTests {
 
         let session = try result.get()
         let request = try #require(await transport.request)
-        let storedCredentials = try #require(await credentialsStore.storedCredentials)
+        let storedCredentials = try #require(credentialsStore.storedCredentials)
         let updatedCredentials = try JSONDecoder().decode(Credentials.self, from: storedCredentials.data)
         let expiresAt = try #require(date("2026-08-12T12:00:00Z"))
         #expect(request.method == .get)
@@ -338,7 +338,7 @@ struct TCGAuthClientTests {
             try result.get()
         }
         let request = try #require(await transport.request)
-        #expect(await credentialsStore.deletedKeys == ["credentials-key", "credentials-key"])
+        #expect(credentialsStore.deletedKeys == ["credentials-key", "credentials-key"])
         #expect(request.authorization == nil)
     }
 
@@ -359,7 +359,7 @@ struct TCGAuthClientTests {
         try #require(throws: SessionErrors.unauthorized) {
             try result.get()
         }
-        #expect(await credentialsStore.deletedKeys == ["credentials-key"])
+        #expect(credentialsStore.deletedKeys == ["credentials-key"])
     }
 
     @Test
@@ -413,8 +413,8 @@ struct TCGAuthClientTests {
         try #require(throws: SessionErrors.unknown(status: 500, payload: nil, cause: nil)) {
             try result.get()
         }
-        #expect(await credentialsStore.deletedKeys == ["credentials-key"])
-        #expect(await credentialsStore.storedCredentialsData == nil)
+        #expect(credentialsStore.deletedKeys == ["credentials-key"])
+        #expect(credentialsStore.storedCredentialsData == nil)
     }
 
     @Test
@@ -778,9 +778,10 @@ private struct RecordedRequest: Sendable {
     let authorization: String?
 }
 
-private actor CredentialsStoreSpy: CredentialsStore {
-    private(set) var storedCredentials: StoredCredentials?
-    private(set) var deletedKeys: [String] = []
+private final class CredentialsStoreSpy: CredentialsStore, @unchecked Sendable {
+    private let lock = NSLock()
+    private var _storedCredentials: StoredCredentials?
+    private var _deletedKeys: [String] = []
 
     private let throwsOnDelete: Bool
     private let throwsOnGet: Bool
@@ -793,36 +794,59 @@ private actor CredentialsStoreSpy: CredentialsStore {
         throwsOnSet: Bool = false
     ) {
         if let initialData {
-            storedCredentials = .init(data: initialData, key: "credentials-key")
+            _storedCredentials = .init(data: initialData, key: "credentials-key")
         }
         self.throwsOnDelete = throwsOnDelete
         self.throwsOnGet = throwsOnGet
         self.throwsOnSet = throwsOnSet
     }
 
-    func delete(forKey key: String) async throws {
-        deletedKeys.append(key)
+    var storedCredentials: StoredCredentials? {
+        lock.lock()
+        defer { lock.unlock() }
+
+        return _storedCredentials
+    }
+
+    var deletedKeys: [String] {
+        lock.lock()
+        defer { lock.unlock() }
+
+        return _deletedKeys
+    }
+
+    func delete(forKey key: String) throws {
+        lock.lock()
+        defer { lock.unlock() }
+
+        _deletedKeys.append(key)
         if throwsOnDelete {
             throw CredentialsStoreError.failed
         }
 
-        storedCredentials = nil
+        _storedCredentials = nil
     }
 
-    func get(forKey _: String) async throws -> Data? {
+    func get(forKey _: String) throws -> Data? {
+        lock.lock()
+        defer { lock.unlock() }
+
         if throwsOnGet {
             throw CredentialsStoreError.failed
         }
 
-        return storedCredentials?.data
+        return _storedCredentials?.data
     }
 
-    func set(_ data: Data, forKey key: String) async throws {
+    func set(_ data: Data, forKey key: String) throws {
+        lock.lock()
+        defer { lock.unlock() }
+
         if throwsOnSet {
             throw CredentialsStoreError.failed
         }
 
-        storedCredentials = .init(data: data, key: key)
+        _storedCredentials = .init(data: data, key: key)
     }
 
     var storedCredentialsData: Data? {

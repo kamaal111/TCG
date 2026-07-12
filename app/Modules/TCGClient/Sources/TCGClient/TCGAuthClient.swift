@@ -33,7 +33,7 @@ public struct TCGAuthClientImpl: TCGAuthClient {
     public func session() async -> Result<Session, SessionErrors> {
         let credentials: Credentials
         do {
-            guard let storedCredentials = try await tokenRefresher.credentials(forKey: credentialsKeychainKey) else {
+            guard let storedCredentials = try tokenRefresher.credentials(forKey: credentialsKeychainKey) else {
                 return .failure(.unauthorized)
             }
 
@@ -68,7 +68,7 @@ public struct TCGAuthClientImpl: TCGAuthClient {
 
         let updatedCredentials = credentials.setExpiryDate(responsePayload.session.expiresAt)
         do {
-            try await tokenRefresher.store(updatedCredentials, forKey: credentialsKeychainKey)
+            try tokenRefresher.store(updatedCredentials, forKey: credentialsKeychainKey)
         } catch {
             return await tokenRefresher.deleteCredentials(then: .unknown(status: 500, payload: nil, cause: error))
         }
@@ -83,7 +83,7 @@ public struct TCGAuthClientImpl: TCGAuthClient {
     }
 
     public func signIn(with payload: SignInPayload) async -> Result<Void, SignInErrors> {
-        try? await tokenRefresher.delete(forKey: credentialsKeychainKey)
+        try? tokenRefresher.delete(forKey: credentialsKeychainKey)
 
         let response: Operations.PostAppApiAuthSignInEmail.Output
         do {

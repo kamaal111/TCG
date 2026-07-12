@@ -11,19 +11,31 @@ import OpenAPIURLSession
 public struct TCGClient: Sendable {
     public let auth: TCGAuthClient
 
-    private init(auth: TCGAuthClient) {
+    private let credentialsKeychainKey: String
+    private let credentialsStore: CredentialsStore
+
+    private init(auth: TCGAuthClient, credentialsKeychainKey: String, credentialsStore: CredentialsStore) {
         self.auth = auth
+        self.credentialsKeychainKey = credentialsKeychainKey
+        self.credentialsStore = credentialsStore
+    }
+
+    public var hasValidCredentials: Bool {
+        let credentials = try? credentialsStore.credentials(forKey: credentialsKeychainKey)
+        guard let credentials else { return false }
+
+        return !credentials.hasExpired
     }
 
     public static func `default`() -> TCGClient {
         `default`(transport: URLSessionTransport())
     }
 
-    static func `default`(transport: any ClientTransport) -> TCGClient {
+    static func `default`(transport: ClientTransport) -> TCGClient {
         `default`(transport: transport, credentialsKeychainKey: credentialsKeychainKey)
     }
 
-    static func `default`(transport: any ClientTransport, credentialsKeychainKey: String) -> TCGClient {
+    static func `default`(transport: ClientTransport, credentialsKeychainKey: String) -> TCGClient {
         `default`(
             transport: transport,
             credentialsKeychainKey: credentialsKeychainKey,
@@ -32,9 +44,9 @@ public struct TCGClient: Sendable {
     }
 
     static func `default`(
-        transport: any ClientTransport,
+        transport: ClientTransport,
         credentialsKeychainKey: String,
-        credentialsStore: any CredentialsStore
+        credentialsStore: CredentialsStore
     ) -> TCGClient {
         let tokenClient = Client(
             serverURL: try! Servers.Server1.url(),
@@ -69,7 +81,11 @@ public struct TCGClient: Sendable {
             credentialsKeychainKey: credentialsKeychainKey
         )
 
-        return TCGClient(auth: auth)
+        return TCGClient(
+            auth: auth,
+            credentialsKeychainKey: credentialsKeychainKey,
+            credentialsStore: credentialsStore
+        )
     }
 
     private static let credentialsKeychainKey = ModuleConfig.credentialsKeychainKey

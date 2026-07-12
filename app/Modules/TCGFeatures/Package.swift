@@ -5,7 +5,7 @@ import PackageDescription
 
 let package = Package(
     name: "TCGFeatures",
-    platforms: [.macOS(.v13), .iOS(.v16)],
+    platforms: [.macOS(.v14), .iOS(.v17)],
     products: [
         .library(
             name: "TCGAuth",
@@ -13,13 +13,15 @@ let package = Package(
         )
     ],
     dependencies: [
-        .package(path: "../TCGClient")
+        .package(url: "https://github.com/Kamaalio/KamaalSwift", .upToNextMajor(from: "3.5.0")),
+        .package(path: "../TCGClient"),
     ],
     targets: [
         .target(
             name: "TCGAuth",
             dependencies: [
-                "TCGClient"
+                .product(name: "KamaalUI", package: "KamaalSwift"),
+                "TCGClient",
             ],
             swiftSettings: [
                 .enableUpcomingFeature("ApproachableConcurrency"),

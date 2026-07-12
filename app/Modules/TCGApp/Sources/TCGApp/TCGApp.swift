@@ -6,13 +6,17 @@
 //
 
 import SwiftUI
+import TCGAuth
 
 public struct TCGScene: Scene {
+    @State private var auth = TCGAuth.default()
+
     public init() {}
 
     public var body: some Scene {
         WindowGroup {
             ContentView()
+                .tcgAuth(auth)
         }
     }
 }
