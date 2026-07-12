@@ -1,0 +1,43 @@
+app/Modules/TCGClient/Tests/TCGClientTests/TCGAuthClientTests.swift
+  s_be36ea2e6cdd44::t_a06b1facac1553 98-141,499-503,508-509,559-574,578,581-589,592-597,612-623,625-633,639,644,649,652,719-720,724
+  s_be36ea2e6cdd44::t_25da38f01a3faa 710-718
+  s_be36ea2e6cdd44::t_c30707ccba9a6e 721-723
+app/Modules/TCGApp/Package.resolved
+  s_d4fdf785616e47::t_7464f1e6cfe927 2,4-21
+app/Modules/TCGClient/Sources/TCGClient/TCGClient.swift
+  s_be36ea2e6cdd44::t_1080b7b7a64207 39-54,61-62,68-69
+app/Modules/TCGClient/Sources/TCGClient/TCGAuthClient.swift
+  s_d4fdf785616e47::t_d763046cff7dbf 55
+  s_be36ea2e6cdd44::t_1080b7b7a64207 21,23,26,30,36,71,73,86,114,157
+app/Modules/TCGClient/Sources/TCGClient/SessionAuthorizationMiddleware.swift
+  s_be36ea2e6cdd44::t_25da38f01a3faa 37-43,56-62
+  s_be36ea2e6cdd44::t_1080b7b7a64207 16,25,35-36,44-47,52-55,63-71
+  s_be36ea2e6cdd44::t_bc6dba809f6127 11
+  s_be36ea2e6cdd44::t_da6518a6029b0a 48-51
+app/Modules/TCGClient/Sources/TCGClient/TokenRefresher.swift
+  s_be36ea2e6cdd44::t_53409fc9973459 1-110
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.12",
+  "base_commit_sha": "c7c5b740e42cc46f94abe090c2b8e8d0153736c1",
+  "prompts": {},
+  "sessions": {
+    "s_be36ea2e6cdd44": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f5732-eee6-7f31-9850-918398f2b3c9",
+        "model": "gpt-5.6-terra"
+      },
+      "human_author": "Kamaal Farah <kamaal.f1@gmail.com>"
+    },
+    "s_d4fdf785616e47": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "fc911da3-0736-4bc7-8072-c802cf7cfc8c",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": null
+    }
+  }
+}
