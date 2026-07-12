@@ -24,6 +24,7 @@ let package = Package(
         .target(
             name: "TCGClient",
             dependencies: [
+                .product(name: "HTTPTypes", package: "swift-http-types"),
                 .product(name: "OpenAPIURLSession", package: "swift-openapi-urlsession"),
                 .product(name: "OpenAPIRuntime", package: "swift-openapi-runtime"),
                 .product(name: "KamaalLogger", package: "KamaalSwift"),

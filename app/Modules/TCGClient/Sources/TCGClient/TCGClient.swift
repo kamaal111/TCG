@@ -36,7 +36,16 @@ public struct TCGClient: Sendable {
         credentialsKeychainKey: String,
         credentialsStore: any CredentialsStore
     ) -> TCGClient {
-        let client = Client(serverURL: try! Servers.Server1.url(), transport: transport)
+        let client = Client(
+            serverURL: try! Servers.Server1.url(),
+            transport: transport,
+            middlewares: [
+                SessionAuthorizationMiddleware(
+                    credentialsKeychainKey: credentialsKeychainKey,
+                    credentialsStore: credentialsStore
+                )
+            ]
+        )
         let auth = TCGAuthClientImpl(
             client: client,
             credentialsKeychainKey: credentialsKeychainKey,

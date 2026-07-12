@@ -11,6 +11,7 @@ import KamaalLogger
 private let logger = KamaalLogger(from: TCGAuthClient.self, failOnError: true)
 
 public protocol TCGAuthClient: Sendable {
+    func session() async -> Result<Session, SessionErrors>
     func signIn(with payload: SignInPayload) async -> Result<Void, SignInErrors>
     func signUp(with payload: SignUpPayload) async -> Result<Void, SignUpErrors>
 }
@@ -26,6 +27,59 @@ public struct TCGAuthClientImpl: TCGAuthClient {
         self.client = client
         self.credentialsKeychainKey = credentialsKeychainKey
         self.credentialsStore = credentialsStore
+    }
+
+    public func session() async -> Result<Session, SessionErrors> {
+        let credentials: Credentials
+        do {
+            guard let storedCredentials = try await credentialsStore.credentials(forKey: credentialsKeychainKey) else {
+                return .failure(.unauthorized)
+            }
+
+            credentials = storedCredentials
+        } catch {
+            return .failure(.unknown(status: 500, payload: nil, cause: error))
+        }
+
+        let response: Operations.GetAppApiAuthSession.Output
+        do {
+            response = try await client.getAppApiAuthSession()
+        } catch {
+            return .failure(.unknown(status: 503, payload: nil, cause: error))
+        }
+
+        let payload: Operations.GetAppApiAuthSession.Output.Ok
+        switch response {
+        case .notFound:
+            return await deleteCredentials(then: .unauthorized)
+        case .undocumented(let statusCode, let payload):
+            return .failure(.unknown(status: statusCode, payload: payload, cause: nil))
+        case .ok(let ok):
+            payload = ok
+        }
+
+        let responsePayload: Components.Schemas.SessionResponse
+        do {
+            responsePayload = try payload.body.json
+        } catch {
+            return .failure(.unknown(status: 503, payload: nil, cause: error))
+        }
+
+        let updatedCredentials = credentials.setExpiryDate(responsePayload.session.expiresAt)
+        do {
+            let credentialsData = try jsonEncoder.encode(updatedCredentials)
+            try await credentialsStore.set(credentialsData, forKey: credentialsKeychainKey)
+        } catch {
+            return await deleteCredentials(then: .unknown(status: 500, payload: nil, cause: error))
+        }
+
+        return .success(
+            .init(
+                name: responsePayload.user.name,
+                email: responsePayload.user.email,
+                expiresAt: responsePayload.session.expiresAt
+            )
+        )
     }
 
     public func signIn(with payload: SignInPayload) async -> Result<Void, SignInErrors> {
@@ -141,5 +195,15 @@ public struct TCGAuthClientImpl: TCGAuthClient {
         try await credentialsStore.set(credentialsData, forKey: credentialsKeychainKey)
 
         return true
+    }
+
+    private func deleteCredentials(then result: SessionErrors) async -> Result<Session, SessionErrors> {
+        do {
+            try await credentialsStore.delete(forKey: credentialsKeychainKey)
+        } catch {
+            return .failure(.unknown(status: 500, payload: nil, cause: error))
+        }
+
+        return .failure(result)
     }
 }

@@ -12,7 +12,7 @@ public protocol Expirable {
 }
 
 extension Expirable {
-    public var isExpired: Bool {
+    public var hasExpired: Bool {
         Date.now >= expiresAt
     }
 
