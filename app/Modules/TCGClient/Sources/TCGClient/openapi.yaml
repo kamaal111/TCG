@@ -417,8 +417,9 @@ components:
           example: user@example.com
         password:
           type: string
-          minLength: 6
-          description: User password (minimum 6 characters)
+          minLength: 8
+          maxLength: 128
+          description: User password (minimum 8 characters)
           example: securePassword123
         callbackURL:
           type: string

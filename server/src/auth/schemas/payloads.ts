@@ -54,8 +54,8 @@ export const EmailPasswordSignInSchema = z
       description: 'User email address',
       example: 'user@example.com',
     }),
-    password: z.string().min(6).openapi({
-      description: 'User password (minimum 6 characters)',
+    password: z.string().min(8).max(128).openapi({
+      description: 'User password (minimum 8 characters)',
       example: 'securePassword123',
     }),
     callbackURL: z.url().optional().openapi({

@@ -23,6 +23,7 @@ public final class TCGAuth {
 
     private(set) var session: UserSession?
     private(set) var initiallyValidatingToken: Bool
+    private(set) var isAuthenticating = false
 
     init(client: TCGClient, cachedSessionStore: CachedUserSessionStore) {
         self.client = client
@@ -44,6 +45,42 @@ public final class TCGAuth {
 
     public static func `default`() -> TCGAuth {
         TCGAuth(client: TCGClient.default(), cachedSessionStore: UserDefaultsCachedUserSessionStore())
+    }
+
+    func signIn(email: String, password: String) async -> Result<Void, TCGAuthSignInError> {
+        isAuthenticating = true
+        defer { isAuthenticating = false }
+
+        let signInResult = await client.auth.signIn(with: SignInPayload(email: email, password: password))
+        switch signInResult {
+        case .failure(.badRequest): return .failure(.invalidCredentials)
+        case .failure(.unknown): return .failure(.serverUnavailable)
+        case .success: break
+        }
+
+        return await loadFreshSession().mapError { _ in .sessionFailed }
+    }
+
+    func signUp(name: String, email: String, password: String) async -> Result<Void, TCGAuthSignUpError> {
+        isAuthenticating = true
+        defer { isAuthenticating = false }
+
+        let signUpResult = await client.auth.signUp(with: SignUpPayload(name: name, email: email, password: password))
+        switch signUpResult {
+        case .failure(.conflict): return .failure(.emailTaken)
+        case .failure(.badRequest(let validations)):
+            return .failure(.invalidPayload(message: validations.first?.message))
+        case .failure(.unknown): return .failure(.serverUnavailable)
+        case .success: break
+        }
+
+        return await loadFreshSession().mapError { _ in .sessionFailed }
+    }
+
+    private func loadFreshSession() async -> Result<Void, TCGAuthFeatureSessionError> {
+        cachedSessionStore.cachedSession = nil
+
+        return await loadSession()
     }
 
     @discardableResult
@@ -108,4 +145,41 @@ final class UserDefaultsCachedUserSessionStore: CachedUserSessionStore {
 private enum TCGAuthFeatureSessionError: Error {
     case serverUnavailable(context: Error?)
     case unauthorized(context: Error?)
+}
+
+enum TCGAuthSignInError: LocalizedError, Equatable {
+    case invalidCredentials
+    case serverUnavailable
+    case sessionFailed
+
+    var errorDescription: String? {
+        switch self {
+        case .invalidCredentials:
+            String(localized: "Invalid email or password.")
+        case .serverUnavailable:
+            String(localized: "Something went wrong. Please try again later.")
+        case .sessionFailed:
+            String(localized: "Signed in, but the session could not be loaded. Please try again.")
+        }
+    }
+}
+
+enum TCGAuthSignUpError: LocalizedError, Equatable {
+    case emailTaken
+    case invalidPayload(message: String?)
+    case serverUnavailable
+    case sessionFailed
+
+    var errorDescription: String? {
+        switch self {
+        case .emailTaken:
+            String(localized: "An account with this email already exists.")
+        case .invalidPayload(let message):
+            message ?? String(localized: "The sign up details are invalid.")
+        case .serverUnavailable:
+            String(localized: "Something went wrong. Please try again later.")
+        case .sessionFailed:
+            String(localized: "Signed up, but the session could not be loaded. Please try again.")
+        }
+    }
 }

@@ -133,7 +133,16 @@ describe('Sign-in integration', () => {
     integrationTest('rejects a short password', async ({ app }) => {
       const response = await sendSignInRequest(app, {
         ...createValidSignInPayload(),
-        password: 'short',
+        password: 'short12',
+      });
+
+      await expectValidationIssueForField(response, 'password');
+    });
+
+    integrationTest('rejects a password longer than 128 characters', async ({ app }) => {
+      const response = await sendSignInRequest(app, {
+        ...createValidSignInPayload(),
+        password: 'a'.repeat(129),
       });
 
       await expectValidationIssueForField(response, 'password');

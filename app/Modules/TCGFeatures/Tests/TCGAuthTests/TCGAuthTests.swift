@@ -115,6 +115,134 @@ struct TCGAuthTests {
         #expect(await transport.requests.count == 1)
     }
 
+    @Test
+    func `Should sign in and load the session on success`() async throws {
+        let credentialsStore = CredentialsStoreSpy()
+        let transport = try RequestTransport.signInThenSession()
+        let cache = CachedUserSessionStoreSpy()
+        let auth = makeAuth(transport: transport, credentialsStore: credentialsStore, cache: cache)
+
+        let result = await auth.signIn(email: "jane@example.com", password: "Password123!")
+
+        try result.get()
+        let expectedSession = try expectedSession()
+        #expect(auth.isLoggedIn == true)
+        #expect(auth.session == expectedSession)
+        #expect(auth.isAuthenticating == false)
+        #expect(cache.cachedSession?.session == expectedSession)
+        #expect(credentialsStore.hasStoredData == true)
+        let requests = await transport.requests
+        let signInRequest = try #require(requests.first)
+        let sessionRequest = try #require(requests.last)
+        #expect(requests.count == 2)
+        #expect(signInRequest.method == .post)
+        #expect(signInRequest.path == "/app-api/auth/sign-in/email")
+        #expect(sessionRequest.method == .get)
+        #expect(sessionRequest.path == "/app-api/auth/session")
+        let signInBody = try #require(signInRequest.body)
+        let signInPayload = try JSONDecoder().decode(SignInPayload.self, from: signInBody)
+        #expect(signInPayload == SignInPayload(email: "jane@example.com", password: "Password123!"))
+    }
+
+    @Test
+    func `Should replace a same-day cached session when signing in`() async throws {
+        let staleSession = UserSession(name: "Cached", email: "cached@example.com", expiresAt: .distantFuture)
+        let cache = CachedUserSessionStoreSpy(
+            cachedSession: CachedUserSession(session: staleSession, cachedAt: .now)
+        )
+        let transport = try RequestTransport.signInThenSession()
+        let auth = makeAuth(transport: transport, credentialsStore: CredentialsStoreSpy(), cache: cache)
+
+        let result = await auth.signIn(email: "jane@example.com", password: "Password123!")
+
+        try result.get()
+        #expect(auth.session == (try expectedSession()))
+        #expect(await transport.requests.count == 2)
+    }
+
+    @Test
+    func `Should surface invalid credentials when sign in is rejected`() async throws {
+        let credentialsStore = CredentialsStoreSpy()
+        let transport = RequestTransport.unauthorized()
+        let auth = makeAuth(transport: transport, credentialsStore: credentialsStore)
+
+        let result = await auth.signIn(email: "jane@example.com", password: "Password123!")
+
+        try #require(throws: TCGAuthSignInError.invalidCredentials) {
+            try result.get()
+        }
+        #expect(auth.isLoggedIn == false)
+        #expect(auth.session == nil)
+        #expect(credentialsStore.hasStoredData == false)
+        let requests = await transport.requests
+        #expect(requests.count == 1)
+        #expect(requests.first?.path == "/app-api/auth/sign-in/email")
+    }
+
+    @Test
+    func `Should sign up and load the session on success`() async throws {
+        let credentialsStore = CredentialsStoreSpy()
+        let transport = try RequestTransport.signUpThenSession()
+        let cache = CachedUserSessionStoreSpy()
+        let auth = makeAuth(transport: transport, credentialsStore: credentialsStore, cache: cache)
+
+        let result = await auth.signUp(name: "Jane Doe", email: "jane@example.com", password: "Password123!")
+
+        try result.get()
+        let expectedSession = try expectedSession()
+        #expect(auth.isLoggedIn == true)
+        #expect(auth.session == expectedSession)
+        #expect(auth.isAuthenticating == false)
+        #expect(cache.cachedSession?.session == expectedSession)
+        #expect(credentialsStore.hasStoredData == true)
+        let requests = await transport.requests
+        let signUpRequest = try #require(requests.first)
+        let sessionRequest = try #require(requests.last)
+        #expect(requests.count == 2)
+        #expect(signUpRequest.method == .post)
+        #expect(signUpRequest.path == "/app-api/auth/sign-up/email")
+        #expect(sessionRequest.method == .get)
+        #expect(sessionRequest.path == "/app-api/auth/session")
+        let signUpBody = try #require(signUpRequest.body)
+        let signUpPayload = try JSONDecoder().decode(SignUpPayload.self, from: signUpBody)
+        #expect(
+            signUpPayload
+                == SignUpPayload(
+                    name: "Jane Doe",
+                    email: "jane@example.com",
+                    password: "Password123!"
+                ))
+    }
+
+    @Test
+    func `Should surface a conflict when the email is already registered`() async throws {
+        let transport = RequestTransport.conflict()
+        let auth = makeAuth(transport: transport, credentialsStore: CredentialsStoreSpy())
+
+        let result = await auth.signUp(name: "Jane Doe", email: "jane@example.com", password: "Password123!")
+
+        try #require(throws: TCGAuthSignUpError.emailTaken) {
+            try result.get()
+        }
+        #expect(auth.isLoggedIn == false)
+        let requests = await transport.requests
+        #expect(requests.count == 1)
+        #expect(requests.first?.path == "/app-api/auth/sign-up/email")
+    }
+
+    @Test
+    func `Should surface the server validation message on a bad sign up request`() async throws {
+        let transport = RequestTransport.validationError()
+        let auth = makeAuth(transport: transport, credentialsStore: CredentialsStoreSpy())
+
+        let result = await auth.signUp(name: "Jane Doe", email: "jane@example.com", password: "Password123!")
+
+        try #require(throws: TCGAuthSignUpError.invalidPayload(message: "Email address is invalid")) {
+            try result.get()
+        }
+        #expect(auth.isLoggedIn == false)
+    }
+
     private func makeAuth(
         transport: RequestTransport,
         credentialsStore: CredentialsStore,
@@ -167,31 +295,89 @@ private final class CachedUserSessionStoreSpy: CachedUserSessionStore {
 
 private actor RequestTransport: ClientTransport {
     private(set) var requests: [RecordedRequest] = []
-    private let response: HTTPResponse?
-    private let responseBody: Data?
+    private let defaultResponse: CannedResponse?
+    private let responsesByOperationID: [String: CannedResponse]
 
-    private init(response: HTTPResponse?, responseBody: Data?) {
-        self.response = response
-        self.responseBody = responseBody
+    private init(
+        defaultResponse: CannedResponse?,
+        responsesByOperationID: [String: CannedResponse] = [:]
+    ) {
+        self.defaultResponse = defaultResponse
+        self.responsesByOperationID = responsesByOperationID
     }
 
     func send(
         _ request: HTTPRequest,
-        body _: HTTPBody?,
+        body: HTTPBody?,
         baseURL _: URL,
         operationID: String
     ) async throws -> (HTTPResponse, HTTPBody?) {
-        requests.append(.init(method: request.method, path: request.path, operationID: operationID))
+        let requestBody: Data?
+        if let body {
+            requestBody = try await .init(collecting: body, upTo: .max)
+        } else {
+            requestBody = nil
+        }
+        requests.append(
+            .init(method: request.method, path: request.path, operationID: operationID, body: requestBody)
+        )
 
-        guard let response else { throw RequestTransportError.failed }
+        guard let canned = responsesByOperationID[operationID] ?? defaultResponse else {
+            throw RequestTransportError.failed
+        }
 
-        return (response, responseBody.map(HTTPBody.init))
+        return (canned.response, canned.body.map(HTTPBody.init))
     }
 
     static func sessionSuccess() -> RequestTransport {
+        RequestTransport(defaultResponse: .sessionSuccess())
+    }
+
+    static func notFound() -> RequestTransport {
+        RequestTransport(defaultResponse: .notFound())
+    }
+
+    static func unauthorized() -> RequestTransport {
+        RequestTransport(defaultResponse: .unauthorized())
+    }
+
+    static func conflict() -> RequestTransport {
+        RequestTransport(defaultResponse: .conflict())
+    }
+
+    static func validationError() -> RequestTransport {
+        RequestTransport(defaultResponse: .validationError())
+    }
+
+    static func signInThenSession() throws -> RequestTransport {
         RequestTransport(
+            defaultResponse: nil,
+            responsesByOperationID: [
+                "post/app-api/auth/sign-in/email": try .authSuccess(status: .ok),
+                "get/app-api/auth/session": .sessionSuccess(),
+            ]
+        )
+    }
+
+    static func signUpThenSession() throws -> RequestTransport {
+        RequestTransport(
+            defaultResponse: nil,
+            responsesByOperationID: [
+                "post/app-api/auth/sign-up/email": try .authSuccess(status: .created),
+                "get/app-api/auth/session": .sessionSuccess(),
+            ]
+        )
+    }
+}
+
+private struct CannedResponse: Sendable {
+    let response: HTTPResponse
+    let body: Data?
+
+    static func sessionSuccess() -> CannedResponse {
+        CannedResponse(
             response: .init(status: .ok, headerFields: [.contentType: "application/json"]),
-            responseBody: Data(
+            body: Data(
                 """
                 {
                   "session": {
@@ -211,10 +397,90 @@ private actor RequestTransport: ClientTransport {
         )
     }
 
-    static func notFound() -> RequestTransport {
-        RequestTransport(
+    static func authSuccess(status: HTTPResponse.Status) throws -> CannedResponse {
+        let authTokenHeader = try #require(HTTPField.Name("set-auth-token"))
+        let authTokenExpiryHeader = try #require(HTTPField.Name("set-auth-token-expiry"))
+        let sessionTokenHeader = try #require(HTTPField.Name("set-session-token"))
+        let sessionUpdateAgeHeader = try #require(HTTPField.Name("set-session-update-age"))
+
+        return CannedResponse(
+            response: .init(
+                status: status,
+                headerFields: [
+                    .contentType: "application/json",
+                    authTokenHeader: "auth-token",
+                    authTokenExpiryHeader: "86400",
+                    sessionTokenHeader: "session-token",
+                    sessionUpdateAgeHeader: "1800",
+                ]),
+            body: Data(
+                """
+                {
+                  "token": "auth-token",
+                  "user": {
+                    "id": "user-id",
+                    "created_at": "2026-07-12T12:00:00Z",
+                    "email": "jane@example.com",
+                    "email_verified": false,
+                    "name": "Jane Doe"
+                  }
+                }
+                """.utf8)
+        )
+    }
+
+    static func notFound() -> CannedResponse {
+        CannedResponse(
             response: .init(status: .notFound, headerFields: [.contentType: "application/json"]),
-            responseBody: Data("{ \"message\": \"Not found\", \"code\": \"NOT_FOUND\" }".utf8)
+            body: Data("{ \"message\": \"Not found\", \"code\": \"NOT_FOUND\" }".utf8)
+        )
+    }
+
+    static func unauthorized() -> CannedResponse {
+        CannedResponse(
+            response: .init(status: .unauthorized, headerFields: [.contentType: "application/json"]),
+            body: Data(
+                """
+                {
+                  "message": "Invalid email or password",
+                  "code": "INVALID_EMAIL_OR_PASSWORD"
+                }
+                """.utf8)
+        )
+    }
+
+    static func conflict() -> CannedResponse {
+        CannedResponse(
+            response: .init(status: .conflict, headerFields: [.contentType: "application/json"]),
+            body: Data(
+                """
+                {
+                  "message": "User already exists",
+                  "code": "USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL"
+                }
+                """.utf8)
+        )
+    }
+
+    static func validationError() -> CannedResponse {
+        CannedResponse(
+            response: .init(status: .badRequest, headerFields: [.contentType: "application/json"]),
+            body: Data(
+                """
+                {
+                  "message": "Invalid payload",
+                  "code": "INVALID_PAYLOAD",
+                  "context": {
+                    "validations": [
+                      {
+                        "code": "invalid_format",
+                        "path": ["email"],
+                        "message": "Email address is invalid"
+                      }
+                    ]
+                  }
+                }
+                """.utf8)
         )
     }
 }
@@ -223,6 +489,7 @@ private struct RecordedRequest: Sendable {
     let method: HTTPRequest.Method
     let path: String?
     let operationID: String
+    let body: Data?
 }
 
 private enum RequestTransportError: Error {
@@ -235,6 +502,13 @@ private final class CredentialsStoreSpy: CredentialsStore, @unchecked Sendable {
 
     init(initialData: Data? = nil) {
         self.storedData = initialData
+    }
+
+    var hasStoredData: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+
+        return storedData != nil
     }
 
     func delete(forKey _: String) throws {
