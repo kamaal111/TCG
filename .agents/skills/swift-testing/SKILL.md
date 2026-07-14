@@ -18,8 +18,16 @@ Write deterministic Swift tests that prove observable behavior while isolating o
 
 - Keep business logic, request serialization, response parsing, and error mapping real.
 - Replace only the narrowest external-I/O boundary. For OpenAPI clients, use an `OpenAPIRuntime.ClientTransport` test double instead of mocking the generated client or the feature client.
+- **The transport is still the boundary for a feature layered on top of a client.** When a feature (e.g. `TCGAuth`) depends on a client (e.g. `TCGClient`) that does its I/O through a `ClientTransport`, do not introduce a `SomethingProviding` protocol to inject a fake client into the feature. Build the _real_ client with a transport double plus a persistence spy (`TCGClient.default(transport:credentialsKeychainKey:credentialsStore:)`) and pass that real client into the feature. This exercises the real request pipeline, error mapping, and credential logic.
+- **Widen visibility to reach the seam; do not add an abstraction.** If the client's transport factory, persistence protocol, or the payload/credential types needed to seed it are `internal`, promote exactly those to `public` so the feature's test target can build the real client. Prefer this over a new protocol layer in the feature.
+- **Drive the real entry point.** Test through the feature's `init` or public API rather than loosening `private` on internal methods to call them. When `init` starts async work, await it with a bounded `Task.yield()` loop until the observed state settles (e.g. `while auth.initiallyValidatingToken { await Task.yield() }` with an iteration cap).
 - Make required persistent side effects narrow dependencies. Inject the production adapter in normal construction and an observable actor test double in tests; never use a real keychain, filesystem, or user store in a unit test.
 - Use actors for test doubles that record async calls or mutable state.
+
+## Known Traps
+
+- A `UserDefaults` key built from `Bundle.main.bundleIdentifier!` force-unwraps to `nil` under `swift test` (SwiftPM has no main bundle id) and crashes. Keep such production keys out of the test path by injecting a store spy for the feature's own cache.
+- A `KamaalLogger` created with `failOnError: true` calls `assertionFailure` on every error log and traps under test. Error branches that log through it cannot be exercised directly — cover the non-logging branches and note the gap rather than working around it.
 
 ## Write The Tests
 

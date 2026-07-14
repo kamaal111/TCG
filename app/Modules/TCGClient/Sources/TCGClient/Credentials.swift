@@ -8,14 +8,28 @@
 import Foundation
 import TCGUtils
 
-struct Credentials: Codable, Expirable {
+public struct Credentials: Codable, Expirable {
     let authToken: String
     let expiryDate: Date
     let sessionToken: String
     let sessionUpdateAge: TimeInterval
     let lastSessionUpdate: Date
 
-    var expiresAt: Date {
+    public init(
+        authToken: String,
+        expiryDate: Date,
+        sessionToken: String,
+        sessionUpdateAge: TimeInterval,
+        lastSessionUpdate: Date
+    ) {
+        self.authToken = authToken
+        self.expiryDate = expiryDate
+        self.sessionToken = sessionToken
+        self.sessionUpdateAge = sessionUpdateAge
+        self.lastSessionUpdate = lastSessionUpdate
+    }
+
+    public var expiresAt: Date {
         expiryDate
     }
 

@@ -14,6 +14,8 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/Kamaalio/KamaalSwift", .upToNextMajor(from: "3.5.0")),
+        .package(url: "https://github.com/apple/swift-http-types", .upToNextMajor(from: "1.6.0")),
+        .package(url: "https://github.com/apple/swift-openapi-runtime", .upToNextMajor(from: "1.12.0")),
         .package(path: "../TCGClient"),
     ],
     targets: [
@@ -21,6 +23,8 @@ let package = Package(
             name: "TCGAuth",
             dependencies: [
                 .product(name: "KamaalUI", package: "KamaalSwift"),
+                .product(name: "KamaalUtils", package: "KamaalSwift"),
+                .product(name: "KamaalLogger", package: "KamaalSwift"),
                 "TCGClient",
             ],
             swiftSettings: [
@@ -30,7 +34,12 @@ let package = Package(
         ),
         .testTarget(
             name: "TCGAuthTests",
-            dependencies: ["TCGAuth"],
+            dependencies: [
+                "TCGAuth",
+                "TCGClient",
+                .product(name: "HTTPTypes", package: "swift-http-types"),
+                .product(name: "OpenAPIRuntime", package: "swift-openapi-runtime"),
+            ],
             swiftSettings: [
                 .enableUpcomingFeature("ApproachableConcurrency"),
                 .treatAllWarnings(as: .error),

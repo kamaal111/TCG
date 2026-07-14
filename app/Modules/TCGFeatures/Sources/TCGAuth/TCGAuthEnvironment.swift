@@ -23,7 +23,17 @@ private struct TCGAuthEnvironmentModifier: ViewModifier {
 
     func body(content: Content) -> some View {
         KJustStack {
-            content
+            if auth.initiallyValidatingToken {
+                ProgressView()
+            } else {
+                if !auth.isLoggedIn {
+                    NavigationStack {
+                        TCGAuthSignInScreen()
+                    }
+                } else {
+                    content
+                }
+            }
         }
         .environment(auth)
     }

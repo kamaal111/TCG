@@ -8,7 +8,7 @@
 import Foundation
 import TCGUtils
 
-protocol CredentialsStore: Sendable {
+public protocol CredentialsStore: Sendable {
     func delete(forKey key: String) throws
     func get(forKey key: String) throws -> Data?
     func set(_ data: Data, forKey key: String) throws

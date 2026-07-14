@@ -43,7 +43,7 @@ public struct TCGClient: Sendable {
         )
     }
 
-    static func `default`(
+    public static func `default`(
         transport: ClientTransport,
         credentialsKeychainKey: String,
         credentialsStore: CredentialsStore
