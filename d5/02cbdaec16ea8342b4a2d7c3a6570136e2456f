@@ -1,0 +1,53 @@
+app/Modules/TCGClient/Sources/TCGClient/TCGClient.swift
+  s_f2982eac47f6ce::t_b0d94696a00873 46
+.agents/skills/swift-testing/SKILL.md
+  s_f2982eac47f6ce::t_beeec892c627e0 21-23,27-30
+  s_6e61afb22401ef::t_d0b48258aa089b 31
+app/Modules/TCGFeatures/Tests/TCGAuthTests/TCGAuthTests.swift
+  s_f2982eac47f6ce::t_4c6a72bfeb84da 8,11,16-19,23-25,28-31,34-38,42-43,45-46,48,55-57,64-65,67-70,72,74,77,80,83-86,88,90,93,96,99-102,104-105,107,113,128,130,140,142,146,148-155,165-167,185,187,189-190,213,219-221,227,259
+  s_f2982eac47f6ce::t_3d822d8dab6eef 9-10,20-22,26-27,32-33,39-41,44,47,49-54,58-63,66,71,73,75-76,78-79,81-82,87,89,91-92,94-95,97-98,103,106,108-112,114-127,129,131-139,141,143-145,147,156-164,168-184,186,188,191-212,214-218,222-226,228-258
+app/Modules/TCGClient/Sources/TCGClient/CredentialsStore.swift
+  s_f2982eac47f6ce::t_234957d540d055 11
+app/Modules/TCGFeatures/Sources/TCGAuth/TCGAuth.swift
+  s_f2982eac47f6ce::t_3e1723871ea3eb 27
+  s_f2982eac47f6ce::t_76366644942ca3 50
+  s_f2982eac47f6ce::t_e7eee3c72f222a 56
+  s_f2982eac47f6ce::t_d78baa3b7978af 21-23,29,41-44,46,80-81,83-92,94-99,101-106
+  s_f2982eac47f6ce::t_8ac99f7772edd5 108
+  s_f2982eac47f6ce::t_dcb48b3e172e69 100
+  s_f2982eac47f6ce::t_dc740efdb4cbfe 24
+  s_f2982eac47f6ce::t_cc94c1a5b8afda 47-49
+  s_f2982eac47f6ce::t_64d1f9382ce44a 51-55
+  s_f2982eac47f6ce::t_648dee071f05f7 57-59,77-79
+  s_f2982eac47f6ce::t_e8c8da661a6389 109-110
+app/Modules/TCGFeatures/Package.swift
+  s_f2982eac47f6ce::t_17adf6fda8e767 17-18
+  s_f2982eac47f6ce::t_b17c0e0af4b6cf 37-42
+  s_f2982eac47f6ce::t_40586e952d1828 26-27
+app/Modules/TCGClient/Sources/TCGClient/Credentials.swift
+  s_f2982eac47f6ce::t_1acba5001c4bbe 11,18-32
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.13",
+  "base_commit_sha": "d502cbdaec16ea8342b4a2d7c3a6570136e2456f",
+  "prompts": {},
+  "sessions": {
+    "s_6e61afb22401ef": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f5695-2545-78a1-b7f0-7e46e243fb06",
+        "model": "gpt-5.6-terra"
+      },
+      "human_author": null
+    },
+    "s_f2982eac47f6ce": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "96cd9ab5-34df-4c4b-b773-b93d691dab44",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Kamaal Farah <kamaal.f1@gmail.com>"
+    }
+  }
+}
