@@ -1,0 +1,59 @@
+app/Modules/TCGFeatures/Sources/TCGAuth/Models/TCGAuthValidationIssue.swift
+  s_06a14c7e1dcdbf::t_7cc58f15a29726 1-17
+app/Modules/TCGFeatures/Sources/TCGAuth/TCGAuth.swift
+  s_06a14c7e1dcdbf::t_7cc58f15a29726 49-81,83-84,111-128
+  s_06a14c7e1dcdbf::t_60d34e622d0638 129
+app/Modules/TCGFeatures/Sources/TCGAuth/Views/Screens/TCGAuthSignInScreen.swift
+  s_06a14c7e1dcdbf::t_c61daaf7af7d04 150,152
+  s_06a14c7e1dcdbf::t_a859618bb990fb 8,12-17,19-51,53-146,160
+  s_06a14c7e1dcdbf::t_c830fef7aaf5bd 52,151,153-159
+server/src/tests/utils.ts
+  s_06a14c7e1dcdbf::t_3f2d71d830864f 58-62,64
+app/Modules/TCGFeatures/Tests/TCGAuthTests/TCGAuthTests.swift
+  s_06a14c7e1dcdbf::t_ec6939cbe4f76e 337,385-390
+  s_06a14c7e1dcdbf::t_3f2b3f68415c23 517
+  s_06a14c7e1dcdbf::t_6c08efa3695590 391-392,406-407,409-411,416,420-426,428-430,432-435,439-476,478-516,518-540,542,558-559,563-564,566,569-572,579-602
+  s_06a14c7e1dcdbf::t_25fc4ab4f7930d 141,148,156,165,173,175,183,193,310-323
+  s_06a14c7e1dcdbf::t_9816c875787e2e 157-162,184-190
+  s_06a14c7e1dcdbf::t_44758b2c380d15 118-140,142-147,149-155,163-164,166-172,174,176-182,191-192,194-309,324-336,338-345
+server/src/auth/tests/sign-in.integration.test.ts
+  s_06a14c7e1dcdbf::t_3f2d71d830864f 107-132,159-168,171
+app/Modules/TCGClient/Sources/TCGClient/Payloads/Auth/SignInPayload.swift
+  s_06a14c7e1dcdbf::t_4018d1c0926825 11-15
+app/Modules/TCGFeatures/Sources/TCGAuth/Models/TCGAuthOperationError.swift
+  s_06a14c7e1dcdbf::t_7cc58f15a29726 1-31
+server/src/auth/schemas/payloads.ts
+  s_06a14c7e1dcdbf::t_3f2d71d830864f 57-58
+app/Modules/TCGFeatures/Sources/TCGAuth/Views/TCGAuthSignInScreenModel.swift
+  s_06a14c7e1dcdbf::t_a859618bb990fb 1-139
+app/Modules/TCGFeatures/Package.swift
+  s_06a14c7e1dcdbf::t_a859618bb990fb 26
+app/Modules/TCGClient/Sources/TCGClient/Payloads/Auth/SignUpPayload.swift
+  s_06a14c7e1dcdbf::t_4018d1c0926825 12-17
+app/Modules/TCGFeatures/Sources/TCGAuth/TCGAuthValidator.swift
+  s_06a14c7e1dcdbf::t_c61daaf7af7d04 93-94
+  s_06a14c7e1dcdbf::t_800482efdd699e 74
+  s_06a14c7e1dcdbf::t_7cc58f15a29726 1-73,75-92,95-98
+app/Modules/TCGFeatures/Tests/TCGAuthTests/TCGAuthValidatorTests.swift
+  s_06a14c7e1dcdbf::t_800482efdd699e 1-75
+app/Modules/TCGApp/Sources/TCGApp/TCGApp.swift
+  s_06a14c7e1dcdbf::t_a859618bb990fb 26-30
+app/Modules/TCGClient/Sources/TCGClient/openapi.yaml
+  s_06a14c7e1dcdbf::t_35421e526a0efb 420-422
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.13",
+  "base_commit_sha": "7c29e721ffd9d14bdc12bb7293a72f3cb4566f68",
+  "prompts": {},
+  "sessions": {
+    "s_06a14c7e1dcdbf": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f6254-b0ce-72f1-a270-e867662f2e56",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Kamaal Farah <kamaal.f1@gmail.com>"
+    }
+  }
+}
