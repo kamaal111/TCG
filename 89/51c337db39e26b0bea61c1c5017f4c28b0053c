@@ -1,0 +1,44 @@
+server/src/auth/schemas/payloads.ts
+  s_5581149557788a::t_327b9fe2e768d7 57-58
+app/Modules/TCGClient/Sources/TCGClient/Payloads/Auth/SignInPayload.swift
+  s_5581149557788a::t_12d9b19b1c58be 11-15
+app/Modules/TCGClient/Sources/TCGClient/Payloads/Auth/SignUpPayload.swift
+  s_5581149557788a::t_9b6d99c12c398c 12-17
+app/Modules/TCGFeatures/Package.swift
+  s_5581149557788a::t_06f30477d96c2c 28
+app/Modules/TCGFeatures/Tests/TCGAuthTests/TCGAuthTests.swift
+  s_5581149557788a::t_2d2520471cb683 118-245
+  s_5581149557788a::t_c4ffa484961f7f 298-306,311,315-323,325-327,329,333-362,364-378,380,400-433,435-483,492
+  s_5581149557788a::t_b967e30e94fff3 507-513
+server/src/auth/tests/sign-in.integration.test.ts
+  s_5581149557788a::t_53b4a498eaf09c 136-145
+app/Modules/TCGFeatures/Sources/TCGAuth/TCGAuth.swift
+  s_5581149557788a::t_0e433ae48ba695 71-72
+  s_5581149557788a::t_66b709d1dccd7d 149-185
+  s_5581149557788a::t_62ef0896325b07 50-70,73-85
+  s_5581149557788a::t_b097b219a70f53 26
+app/Modules/TCGFeatures/Sources/TCGAuth/Views/Screens/TCGAuthSignInScreen.swift
+  s_5581149557788a::t_9457be84091099 8,12-165,167-186,192
+app/Modules/TCGClient/Sources/TCGClient/openapi.yaml
+  s_5581149557788a::t_c533df941bf22b 420-422
+app/Modules/TCGFeatures/Tests/TCGAuthTests/AuthFieldValidatorsTests.swift
+  s_5581149557788a::t_5484614579c2ad 1-83
+app/Modules/TCGFeatures/Sources/TCGAuth/Utils/AuthFieldValidators.swift
+  s_5581149557788a::t_7b740a10b9ac65 1-74
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "8951c337db39e26b0bea61c1c5017f4c28b0053c",
+  "prompts": {},
+  "sessions": {
+    "s_5581149557788a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "816866b3-5adf-4c34-b0fa-7d9d6c143e26",
+        "model": "claude-fable-5"
+      },
+      "human_author": "Kamaal Farah <kamaal.f1@gmail.com>"
+    }
+  }
+}
