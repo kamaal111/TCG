@@ -11,7 +11,7 @@ function loggingMiddleware() {
     const logger = initializeRequestLogger(c, env.MODE);
     const startedAt = performance.now();
 
-    logInfo(logger, { event: 'request.started' });
+    logInfo(logger, { event: 'request.started' }, 'Received HTTP request.');
 
     await next();
 
@@ -19,13 +19,17 @@ function loggingMiddleware() {
       return;
     }
 
-    logInfo(getRequestLogger(c), {
-      event: 'request.completed',
-      route: getRouteForLog(c),
-      status_code: c.res.status,
-      duration_ms: roundDurationMs(performance.now() - startedAt),
-      outcome: c.res.status >= STATUS_CODES.BAD_REQUEST ? 'failure' : 'success',
-    });
+    logInfo(
+      getRequestLogger(c),
+      {
+        event: 'request.completed',
+        route: getRouteForLog(c),
+        status_code: c.res.status,
+        duration_ms: roundDurationMs(performance.now() - startedAt),
+        outcome: c.res.status >= STATUS_CODES.BAD_REQUEST ? 'failure' : 'success',
+      },
+      'Completed HTTP request.',
+    );
   };
 }
 

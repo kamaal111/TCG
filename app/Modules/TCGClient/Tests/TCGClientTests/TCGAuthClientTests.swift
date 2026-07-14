@@ -167,6 +167,25 @@ struct TCGAuthClientTests {
     }
 
     @Test
+    func `Should report unavailable credentials when sign in cannot save them`() async throws {
+        let client = TCGClient.default(
+            transport: try RequestTransport.signInSuccess(),
+            credentialsKeychainKey: "credentials-key",
+            credentialsStore: CredentialsStoreSpy(throwsOnSet: true)
+        )
+
+        let result = await client.auth.signIn(
+            with: .init(
+                email: "jane@example.com",
+                password: "Password123!"
+            ))
+
+        try #require(throws: SignInErrors.credentialsUnavailable(cause: CredentialsStoreError.failed)) {
+            try result.get()
+        }
+    }
+
+    @Test
     func `Should return validation errors from a failed sign in request`() async throws {
         let transport = RequestTransport.validationError()
         let client = TCGClient.default(
@@ -193,8 +212,8 @@ struct TCGAuthClientTests {
     }
 
     @Test
-    func `Should return empty validation errors from an unauthorized sign in request`() async throws {
-        let transport = RequestTransport.unauthorized()
+    func `Should return empty validation errors from a sign in rejected for invalid credentials`() async throws {
+        let transport = RequestTransport.invalidCredentials()
         let credentialsStore = CredentialsStoreSpy()
         let client = TCGClient.default(
             transport: transport,
@@ -209,6 +228,33 @@ struct TCGAuthClientTests {
             ))
 
         try #require(throws: SignInErrors.badRequest(validations: [])) {
+            try result.get()
+        }
+
+        try await assertSignInRequest(in: transport)
+        #expect(credentialsStore.deletedKeys == ["credentials-key"])
+    }
+
+    @Test
+    func
+        `Should return a session unavailable error when sign in is unauthorized for a reason other than invalid credentials`()
+        async throws
+    {
+        let transport = RequestTransport.unauthorized()
+        let credentialsStore = CredentialsStoreSpy()
+        let client = TCGClient.default(
+            transport: transport,
+            credentialsKeychainKey: "credentials-key",
+            credentialsStore: credentialsStore
+        )
+
+        let result = await client.auth.signIn(
+            with: .init(
+                email: "jane@example.com",
+                password: "Password123!"
+            ))
+
+        try #require(throws: SignInErrors.sessionUnavailable) {
             try result.get()
         }
 
@@ -244,6 +290,26 @@ struct TCGAuthClientTests {
     }
 
     @Test
+    func `Should report unavailable credentials when sign up cannot save them`() async throws {
+        let client = TCGClient.default(
+            transport: try RequestTransport.signUpSuccess(),
+            credentialsKeychainKey: "credentials-key",
+            credentialsStore: CredentialsStoreSpy(throwsOnSet: true)
+        )
+
+        let result = await client.auth.signUp(
+            with: .init(
+                name: "Jane Doe",
+                email: "jane@example.com",
+                password: "Password123!"
+            ))
+
+        try #require(throws: SignUpErrors.credentialsUnavailable(cause: CredentialsStoreError.failed)) {
+            try result.get()
+        }
+    }
+
+    @Test
     func `Should return validation errors from a failed sign up request`() async throws {
         let transport = RequestTransport.validationError()
         let client = TCGClient.default(
@@ -264,6 +330,29 @@ struct TCGAuthClientTests {
                 .init(code: "invalid_format", path: ["email"], message: "Email address is invalid")
             ])
         ) {
+            try result.get()
+        }
+
+        try await assertSignUpRequest(in: transport)
+    }
+
+    @Test
+    func `Should return a session unavailable error when sign up receives an unauthorized response`() async throws {
+        let transport = RequestTransport.unauthorized()
+        let client = TCGClient.default(
+            transport: transport,
+            credentialsKeychainKey: "credentials-key",
+            credentialsStore: CredentialsStoreSpy()
+        )
+
+        let result = await client.auth.signUp(
+            with: .init(
+                name: "Jane Doe",
+                email: "jane@example.com",
+                password: "Password123!"
+            ))
+
+        try #require(throws: SignUpErrors.sessionUnavailable) {
             try result.get()
         }
 
@@ -652,7 +741,7 @@ private actor RequestTransport: ClientTransport {
                   "token": "\(token)",
                   "user": {
                     "id": "user-id",
-                    "created_at": "2026-07-12T12:00:00Z",
+                    "created_at": "2026-07-12T12:00:00.000Z",
                     "email": "jane@example.com",
                     "email_verified": false,
                     "name": "Jane Doe"
@@ -690,6 +779,19 @@ private actor RequestTransport: ClientTransport {
                 """
                 {
                   "message": "Authentication failed"
+                }
+                """.utf8)
+        )
+    }
+
+    static func invalidCredentials() -> RequestTransport {
+        RequestTransport(
+            response: .init(status: .unauthorized, headerFields: [.contentType: "application/json"]),
+            responseBody: Data(
+                """
+                {
+                  "message": "Invalid email or password",
+                  "code": "INVALID_EMAIL_OR_PASSWORD"
                 }
                 """.utf8)
         )
@@ -735,13 +837,13 @@ private actor RequestTransport: ClientTransport {
                 """
                 {
                   "session": {
-                    "expires_at": "2026-08-12T12:00:00Z",
-                    "created_at": "2026-07-12T12:00:00Z",
-                    "updated_at": "2026-07-12T12:00:00Z"
+                    "expires_at": "2025-10-12T12:08:28.382Z",
+                    "created_at": "2025-10-05T12:08:28.382Z",
+                    "updated_at": "2025-10-05T12:08:28.382Z"
                   },
                   "user": {
                     "id": "user-id",
-                    "created_at": "2026-07-12T12:00:00Z",
+                    "created_at": "2026-07-07T10:30:00.000Z",
                     "email": "jane@example.com",
                     "email_verified": false,
                     "name": "Jane Doe"

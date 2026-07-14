@@ -20,11 +20,15 @@ const SIGN_IN_STATUS = STATUS_CODES.OK;
 
 async function signInHandler(c: SignInContext): Promise<SignInResponse> {
   const { response, headers } = await handleSignUpOrSignInRequest(c);
-  logInfo(withRequestLogger(c, { component: 'auth' }), {
-    event: 'auth.sign_in.succeeded',
-    route: SIGN_IN_ROUTE_PATH,
-    outcome: 'success',
-  });
+  logInfo(
+    withRequestLogger(c, { component: 'auth' }),
+    {
+      event: 'auth.sign_in.succeeded',
+      route: SIGN_IN_ROUTE_PATH,
+      outcome: 'success',
+    },
+    'Signed in with email and password.',
+  );
 
   return c.json(response, { status: SIGN_IN_STATUS, headers });
 }

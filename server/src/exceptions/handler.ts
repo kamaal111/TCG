@@ -13,44 +13,56 @@ export function handleServerError() {
 
     if (err instanceof InvalidValidation) {
       const validationIssues = err.context?.validations ?? [];
-      logWarn(logger, {
-        event: 'request.validation.failed',
-        route: getRouteForLog(ctx),
-        status_code: err.status,
-        outcome: 'failure',
-        error_code: 'INVALID_PAYLOAD',
-        error_name: err.name,
-        validation_issue_count: validationIssues.length,
-        validation_issue_paths: validationIssues.map(issue => {
-          const path = issue.path.map(segment => String(segment)).join('.');
-          return path.length > 0 ? path : '<root>';
-        }),
-      });
+      logWarn(
+        logger,
+        {
+          event: 'request.validation.failed',
+          route: getRouteForLog(ctx),
+          status_code: err.status,
+          outcome: 'failure',
+          error_code: 'INVALID_PAYLOAD',
+          error_name: err.name,
+          validation_issue_count: validationIssues.length,
+          validation_issue_paths: validationIssues.map(issue => {
+            const path = issue.path.map(segment => String(segment)).join('.');
+            return path.length > 0 ? path : '<root>';
+          }),
+        },
+        'Request validation failed.',
+      );
 
       return err.getResponse();
     }
 
     if (err instanceof APIException) {
-      logWarn(logger, {
-        event: 'request.error',
-        route: getRouteForLog(ctx),
-        status_code: err.status,
-        outcome: 'failure',
-        error_code: err.code,
-        error_name: err.name,
-      });
+      logWarn(
+        logger,
+        {
+          event: 'request.error',
+          route: getRouteForLog(ctx),
+          status_code: err.status,
+          outcome: 'failure',
+          error_code: err.code,
+          error_name: err.name,
+        },
+        'Request failed with an expected application error.',
+      );
 
       return err.getResponse();
     }
 
     if (err instanceof HTTPException) {
-      logWarn(logger, {
-        event: 'request.error',
-        route: getRouteForLog(ctx),
-        status_code: err.status,
-        outcome: 'failure',
-        error_name: err.name,
-      });
+      logWarn(
+        logger,
+        {
+          event: 'request.error',
+          route: getRouteForLog(ctx),
+          status_code: err.status,
+          outcome: 'failure',
+          error_name: err.name,
+        },
+        'Request failed with an HTTP error.',
+      );
 
       return err.getResponse();
     }
@@ -66,6 +78,7 @@ export function handleServerError() {
         error_code: 'INTERNAL_SERVER_ERROR',
       },
       err,
+      'Request failed with an unexpected server error.',
     );
 
     return ctx.json(

@@ -8,5 +8,6 @@
 import Foundation
 
 enum ModuleConfig {
-    static let identifier = "\(Bundle.main.bundleIdentifier!).TCGAuth"
+    static let identifier = "\(Bundle.main.bundleIdentifier ?? "io.kamaal.TCG").TCGAuth"
+    static let toastDismissalDelay: Duration = .seconds(3)
 }

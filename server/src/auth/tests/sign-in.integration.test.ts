@@ -104,6 +104,32 @@ describe('Sign-in integration', () => {
     await expectAuthSuccessResponse(response, STATUS_CODES.OK);
   });
 
+  integrationTest('accepts an eight-character password', async ({ app, db }) => {
+    const createdUser = await createTestUser(app, db, { password: '12345678' });
+    const response = await sendSignInRequest(
+      app,
+      createValidSignInPayload({
+        email: createdUser.email,
+        password: createdUser.password,
+      }),
+    );
+
+    await expectAuthSuccessResponse(response, STATUS_CODES.OK);
+  });
+
+  integrationTest('accepts a 128-character password', async ({ app, db }) => {
+    const createdUser = await createTestUser(app, db, { password: 'a'.repeat(128) });
+    const response = await sendSignInRequest(
+      app,
+      createValidSignInPayload({
+        email: createdUser.email,
+        password: createdUser.password,
+      }),
+    );
+
+    await expectAuthSuccessResponse(response, STATUS_CODES.OK);
+  });
+
   describe('payload validation', () => {
     integrationTest('rejects a missing body', async ({ app }) => {
       const response = await app.request(SIGN_IN_ROUTE_PATH, {
@@ -130,10 +156,19 @@ describe('Sign-in integration', () => {
       await expectValidationIssueForField(response, 'email');
     });
 
-    integrationTest('rejects a short password', async ({ app }) => {
+    integrationTest('rejects a seven-character password', async ({ app }) => {
       const response = await sendSignInRequest(app, {
         ...createValidSignInPayload(),
-        password: 'short',
+        password: '1234567',
+      });
+
+      await expectValidationIssueForField(response, 'password');
+    });
+
+    integrationTest('rejects a 129-character password', async ({ app }) => {
+      const response = await sendSignInRequest(app, {
+        ...createValidSignInPayload(),
+        password: 'a'.repeat(129),
       });
 
       await expectValidationIssueForField(response, 'password');

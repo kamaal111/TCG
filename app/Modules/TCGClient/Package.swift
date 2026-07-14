@@ -5,6 +5,7 @@ import PackageDescription
 
 let package = Package(
     name: "TCGClient",
+    defaultLocalization: "en",
     platforms: [.macOS(.v14), .iOS(.v17)],
     products: [
         .library(

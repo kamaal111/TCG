@@ -9,6 +9,8 @@ import OpenAPIRuntime
 
 public enum SignUpErrors: Error, Equatable {
     case badRequest(validations: [TCGClientValidationIssue])
+    case sessionUnavailable
+    case credentialsUnavailable(cause: Error)
     case unknown(status: Int, payload: OpenAPIRuntime.UndocumentedPayload?, cause: Error?)
     case conflict
 
@@ -16,6 +18,10 @@ public enum SignUpErrors: Error, Equatable {
         switch (lhs, rhs) {
         case (.badRequest(let lhsValidations), .badRequest(let rhsValidations)):
             lhsValidations == rhsValidations
+        case (.sessionUnavailable, .sessionUnavailable):
+            true
+        case (.credentialsUnavailable, .credentialsUnavailable):
+            true
         case (.unknown(let lhsStatus, _, _), .unknown(let rhsStatus, _, _)):
             lhsStatus == rhsStatus
         case (.conflict, .conflict):

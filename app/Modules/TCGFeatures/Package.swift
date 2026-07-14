@@ -5,6 +5,7 @@ import PackageDescription
 
 let package = Package(
     name: "TCGFeatures",
+    defaultLocalization: "en",
     platforms: [.macOS(.v14), .iOS(.v17)],
     products: [
         .library(
@@ -17,6 +18,7 @@ let package = Package(
         .package(url: "https://github.com/apple/swift-http-types", .upToNextMajor(from: "1.6.0")),
         .package(url: "https://github.com/apple/swift-openapi-runtime", .upToNextMajor(from: "1.12.0")),
         .package(path: "../TCGClient"),
+        .package(path: "../TCGDesignSystem"),
     ],
     targets: [
         .target(
@@ -25,6 +27,7 @@ let package = Package(
                 .product(name: "KamaalUI", package: "KamaalSwift"),
                 .product(name: "KamaalUtils", package: "KamaalSwift"),
                 .product(name: "KamaalLogger", package: "KamaalSwift"),
+                .product(name: "TCGDesignSystem", package: "TCGDesignSystem"),
                 "TCGClient",
             ],
             swiftSettings: [

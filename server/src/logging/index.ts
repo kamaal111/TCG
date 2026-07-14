@@ -27,6 +27,7 @@ export interface BaseLogFields {
   status_code?: number;
   duration_ms?: number;
   user_id?: string;
+  user_agent?: string;
   error_code?: string;
   error_name?: string;
   cache_status?: 'hit' | 'miss' | 'set' | 'skip';
@@ -63,6 +64,7 @@ export function createRequestLogger(fields: {
   url: string;
   route: string;
   mode: ServerMode;
+  userAgent: string | undefined;
 }) {
   return childLogger(rootLogger, {
     component: REQUEST_COMPONENT,
@@ -72,6 +74,7 @@ export function createRequestLogger(fields: {
     url: fields.url,
     route: fields.route,
     mode: fields.mode,
+    user_agent: fields.userAgent,
   });
 }
 

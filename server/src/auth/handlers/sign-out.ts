@@ -19,11 +19,15 @@ const SIGN_OUT_STATUS = STATUS_CODES.OK;
 async function signOutHandler(c: SignOutContext): Promise<TypedResponse<SignOutResponse, typeof SIGN_OUT_STATUS>> {
   const { responseHeaders } = await handleAuthRequestWithoutSessionToken(c);
 
-  logInfo(withRequestLogger(c, { component: 'auth' }), {
-    event: 'auth.sign_out.succeeded',
-    route: SIGN_OUT_ROUTE_PATH,
-    outcome: 'success',
-  });
+  logInfo(
+    withRequestLogger(c, { component: 'auth' }),
+    {
+      event: 'auth.sign_out.succeeded',
+      route: SIGN_OUT_ROUTE_PATH,
+      outcome: 'success',
+    },
+    'Signed out successfully.',
+  );
 
   return c.json({}, { status: SIGN_OUT_STATUS, headers: responseHeaders });
 }

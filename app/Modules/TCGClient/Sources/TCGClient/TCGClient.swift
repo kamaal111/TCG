@@ -5,6 +5,7 @@
 //  Created by Kamaal M Farah on 7/11/26.
 //
 
+import Foundation
 import OpenAPIRuntime
 import OpenAPIURLSession
 
@@ -49,7 +50,8 @@ public struct TCGClient: Sendable {
         credentialsStore: CredentialsStore
     ) -> TCGClient {
         let tokenClient = Client(
-            serverURL: try! Servers.Server1.url(),
+            serverURL: serverURL,
+            configuration: configuration,
             transport: transport,
             middlewares: [
                 SessionAuthorizationMiddleware(
@@ -65,7 +67,8 @@ public struct TCGClient: Sendable {
             credentialsStore: credentialsStore
         )
         let client = Client(
-            serverURL: try! Servers.Server1.url(),
+            serverURL: serverURL,
+            configuration: configuration,
             transport: transport,
             middlewares: [
                 SessionAuthorizationMiddleware(
@@ -89,4 +92,14 @@ public struct TCGClient: Sendable {
     }
 
     private static let credentialsKeychainKey = ModuleConfig.credentialsKeychainKey
+
+    private static let configuration = Configuration(dateTranscoder: .iso8601WithFractionalSeconds)
+
+    private static let serverURL: URL = {
+        do {
+            return try Servers.Server1.url()
+        } catch {
+            fatalError("Failed to resolve the default server URL: \(error)")
+        }
+    }()
 }

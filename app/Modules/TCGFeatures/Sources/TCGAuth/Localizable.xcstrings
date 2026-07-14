@@ -1,0 +1,84 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "8–128 characters" : {
+
+    },
+    "An account already exists for this email address." : {
+
+    },
+    "Authentication failed" : {
+
+    },
+    "Authentication mode" : {
+
+    },
+    "Create an account to get started." : {
+
+    },
+    "Email" : {
+
+    },
+    "Enter a valid email address." : {
+
+    },
+    "Enter at least 2 words separated by single spaces." : {
+
+    },
+    "Error: %@" : {
+
+    },
+    "Jane Doe" : {
+
+    },
+    "jane@example.com" : {
+
+    },
+    "Login" : {
+
+    },
+    "Name" : {
+
+    },
+    "Name must contain at least 3 characters." : {
+
+    },
+    "Name must not have leading or trailing spaces." : {
+
+    },
+    "Password" : {
+
+    },
+    "Password must contain at least 8 characters." : {
+
+    },
+    "Password must contain at most 128 characters." : {
+
+    },
+    "Please correct the highlighted fields." : {
+
+    },
+    "Sign in to continue." : {
+
+    },
+    "Sign Up" : {
+
+    },
+    "The email or password is incorrect." : {
+
+    },
+    "The server is unavailable. Please try again." : {
+
+    },
+    "Welcome to TCG" : {
+
+    },
+    "Your account was authenticated, but the session could not be loaded. Please try again." : {
+
+    },
+    "Your sign-in details could not be saved. Please try again." : {
+
+    }
+  },
+  "version" : "1.3"
+}

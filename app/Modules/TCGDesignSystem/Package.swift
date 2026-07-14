@@ -4,20 +4,22 @@
 import PackageDescription
 
 let package = Package(
-    name: "TCGApp",
-    defaultLocalization: "en",
+    name: "TCGDesignSystem",
     platforms: [.macOS(.v14), .iOS(.v17)],
     products: [
-        .library(name: "TCGApp", targets: ["TCGApp"])
+        .library(
+            name: "TCGDesignSystem",
+            targets: ["TCGDesignSystem"]
+        )
     ],
     dependencies: [
-        .package(path: "../TCGFeatures")
+        .package(url: "https://github.com/Kamaalio/KamaalSwift", .upToNextMajor(from: "3.5.0"))
     ],
     targets: [
         .target(
-            name: "TCGApp",
+            name: "TCGDesignSystem",
             dependencies: [
-                .product(name: "TCGAuth", package: "TCGFeatures")
+                .product(name: "KamaalPopUp", package: "KamaalSwift")
             ],
             swiftSettings: [
                 .enableUpcomingFeature("ApproachableConcurrency"),
