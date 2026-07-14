@@ -20,9 +20,12 @@ import {
 
 describe('Sign-up integration', () => {
   integrationTest(
-    'creates a persisted user account and returns auth/session headers',
+    'creates a persisted user account with a Unicode display name and returns auth/session headers',
     async ({ app, db, getLogsForRequestId, withRequestId }) => {
-      const payload = createValidSignUpPayload();
+      const payload = {
+        ...createValidSignUpPayload(),
+        name: '李 小龙',
+      };
       const { headers, requestId } = withRequestId({ 'Content-Type': 'application/json' });
       const response = await sendSignUpRequest(app, payload, headers);
 
@@ -182,15 +185,6 @@ describe('Sign-up integration', () => {
       const response = await sendSignUpRequest(app, {
         ...createValidSignUpPayload(),
         name: 'Test  User',
-      });
-
-      await expectValidationIssueForField(response, 'name');
-    });
-
-    integrationTest('rejects a name word without letters', async ({ app }) => {
-      const response = await sendSignUpRequest(app, {
-        ...createValidSignUpPayload(),
-        name: 'John 123',
       });
 
       await expectValidationIssueForField(response, 'name');

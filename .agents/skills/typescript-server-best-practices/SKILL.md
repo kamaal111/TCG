@@ -64,8 +64,9 @@ Apply this skill to keep server changes aligned with layered API design, runtime
 ## Log Structurally
 
 - Use the shared logger rather than `console.*` in server code when the repository has a structured logging path.
-- Emit flat structured fields.
-- Include meaningful event names and standard request or business fields when relevant.
+- Write a human-readable message that explains what happened, then emit flat structured fields for machine filtering and correlation.
+- Include a meaningful event name plus all applicable standard request fields (`request_id`, method, path, route, status code, duration, authenticated user identifier) and safe business fields needed to explain the outcome.
+- Keep field names and values consistent across equivalent server events so one user flow can be followed and compared in logs.
 - Avoid secrets, tokens, cookies, raw request bodies, or sensitive payload dumps in logs.
 - Add or update tests when logging behavior changes.
 

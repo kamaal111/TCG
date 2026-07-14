@@ -9,21 +9,47 @@ import Foundation
 import Security
 
 /// Errors that can occur when setting data in the keychain.
-public enum KeychainSetErrors: Error {
+public enum KeychainSetErrors: LocalizedError {
     /// A general error occurred with the underlying Security framework.
     case generalError(status: OSStatus)
+
+    public var errorDescription: String? {
+        switch self {
+        case .generalError(let status):
+            keychainErrorDescription(action: "save", status: status)
+        }
+    }
 }
 
 /// Errors that can occur when retrieving data from the keychain.
-public enum KeychainGetErrors: Error {
+public enum KeychainGetErrors: LocalizedError {
     /// A general error occurred with the underlying Security framework.
     case generalError(status: OSStatus)
+
+    public var errorDescription: String? {
+        switch self {
+        case .generalError(let status):
+            keychainErrorDescription(action: "read", status: status)
+        }
+    }
 }
 
 /// Errors that can occur when deleting data from the keychain.
-public enum KeychainDeleteErrors: Error {
+public enum KeychainDeleteErrors: LocalizedError {
     /// A general error occurred with the underlying Security framework.
     case generalError(status: OSStatus)
+
+    public var errorDescription: String? {
+        switch self {
+        case .generalError(let status):
+            keychainErrorDescription(action: "delete", status: status)
+        }
+    }
+}
+
+private func keychainErrorDescription(action: String, status: OSStatus) -> String {
+    let systemMessage = SecCopyErrorMessageString(status, nil) as String? ?? "Unknown Security framework error"
+    return "Couldn't \(action) the secure sign-in details: \(systemMessage) (OSStatus \(status))."
 }
 
 /// A utility for securely storing, retrieving, and deleting sensitive data in the system keychain.

@@ -56,11 +56,15 @@ async function verifyJwt(c: HonoContext): Promise<SessionResponse | null> {
       audience: env.BETTER_AUTH_URL,
     });
   } catch (error) {
-    logWarn(withRequestLogger(c, { component: 'auth' }), {
-      event: 'auth.jwt.verification',
-      outcome: 'failure',
-      error_name: error instanceof Error ? error.name : typeof error,
-    });
+    logWarn(
+      withRequestLogger(c, { component: 'auth' }),
+      {
+        event: 'auth.jwt.verification',
+        outcome: 'failure',
+        error_name: error instanceof Error ? error.name : typeof error,
+      },
+      'Authentication token verification failed.',
+    );
     return null;
   }
 
@@ -74,11 +78,15 @@ async function verifyJwt(c: HonoContext): Promise<SessionResponse | null> {
   }
 
   const jwtPayload = zResult.data;
-  logInfo(withRequestLogger(c, { component: 'auth' }), {
-    event: 'auth.jwt.verification',
-    user_id: jwtPayload.sub,
-    outcome: 'success',
-  });
+  logInfo(
+    withRequestLogger(c, { component: 'auth' }),
+    {
+      event: 'auth.jwt.verification',
+      user_id: jwtPayload.sub,
+      outcome: 'success',
+    },
+    'Verified authentication token.',
+  );
 
   return {
     session: {
@@ -102,11 +110,15 @@ async function verifySession(c: HonoContext): Promise<SessionResponse> {
     throw new SessionNotFound(c);
   }
 
-  logInfo(withRequestLogger(c, { component: 'auth' }), {
-    event: 'auth.session.lookup',
-    user_id: sessionResponse.user.id,
-    outcome: 'success',
-  });
+  logInfo(
+    withRequestLogger(c, { component: 'auth' }),
+    {
+      event: 'auth.session.lookup',
+      user_id: sessionResponse.user.id,
+      outcome: 'success',
+    },
+    'Retrieved the authenticated user session.',
+  );
 
   const response: SessionResponse = {
     session: {

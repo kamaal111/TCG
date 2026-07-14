@@ -20,11 +20,15 @@ const SIGN_UP_STATUS = STATUS_CODES.CREATED;
 
 async function signUpHandler(c: SignUpContext): Promise<SignUpResponse> {
   const { response, headers } = await handleSignUpOrSignInRequest(c);
-  logInfo(withRequestLogger(c, { component: 'auth' }), {
-    event: 'auth.sign_up.succeeded',
-    route: SIGN_UP_ROUTE_PATH,
-    outcome: 'success',
-  });
+  logInfo(
+    withRequestLogger(c, { component: 'auth' }),
+    {
+      event: 'auth.sign_up.succeeded',
+      route: SIGN_UP_ROUTE_PATH,
+      outcome: 'success',
+    },
+    'Created account and signed in successfully.',
+  );
 
   return c.json(response, { status: SIGN_UP_STATUS, headers });
 }

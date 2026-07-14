@@ -17,6 +17,7 @@ describe('Session integration', () => {
       const createdUser = await createTestUser(app, db);
       const { headers, requestId } = withRequestId({
         Cookie: `better-auth.session_token=${createdUser.sessionToken}`,
+        'User-Agent': 'TCG integration test client',
       });
 
       const response = await sendSessionRequest(app, headers);
@@ -45,6 +46,52 @@ describe('Session integration', () => {
         expect.arrayContaining([
           expect.objectContaining({
             event: 'auth.session.lookup',
+            msg: 'Retrieved the authenticated user session.',
+            request_id: requestId,
+            component: 'auth',
+            outcome: 'success',
+            user_id: createdUser.userId,
+            user_agent: 'TCG integration test client',
+          }),
+        ]),
+      );
+    },
+  );
+
+  integrationTest(
+    'returns the current user session for a valid bearer token',
+    async ({ app, db, getLogsForRequestId, withRequestId }) => {
+      const createdUser = await createTestUser(app, db);
+      const signInResponse = await app.request(SIGN_IN_ROUTE_PATH, {
+        method: 'POST',
+        headers: new Headers({ 'Content-Type': MIME_TYPES.JSON }),
+        body: JSON.stringify({
+          email: createdUser.email,
+          password: createdUser.password,
+        }),
+      });
+      const { headers } = await expectAuthSuccessResponse(signInResponse, STATUS_CODES.OK);
+
+      const { headers: requestHeaders, requestId } = withRequestId({
+        Authorization: `Bearer ${headers['set-auth-token']}`,
+        'User-Agent': 'TCG integration test client',
+      });
+      const response = await sendSessionRequest(app, requestHeaders);
+
+      expect(response.status).toBe(STATUS_CODES.OK);
+      const body = SessionResponseSchema.parse(await response.json());
+
+      expect(body.user).toMatchObject({
+        id: createdUser.userId,
+        name: createdUser.name,
+        email: createdUser.email,
+        email_verified: false,
+      });
+      expect(getLogsForRequestId(requestId)).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            event: 'auth.jwt.verification',
+            msg: 'Verified authentication token.',
             request_id: requestId,
             component: 'auth',
             outcome: 'success',
@@ -54,34 +101,6 @@ describe('Session integration', () => {
       );
     },
   );
-
-  integrationTest('returns the current user session for a valid bearer token', async ({ app, db }) => {
-    const createdUser = await createTestUser(app, db);
-    const signInResponse = await app.request(SIGN_IN_ROUTE_PATH, {
-      method: 'POST',
-      headers: new Headers({ 'Content-Type': MIME_TYPES.JSON }),
-      body: JSON.stringify({
-        email: createdUser.email,
-        password: createdUser.password,
-      }),
-    });
-    const { headers } = await expectAuthSuccessResponse(signInResponse, STATUS_CODES.OK);
-
-    const response = await sendSessionRequest(
-      app,
-      new Headers({ Authorization: `Bearer ${headers['set-auth-token']}` }),
-    );
-
-    expect(response.status).toBe(STATUS_CODES.OK);
-    const body = SessionResponseSchema.parse(await response.json());
-
-    expect(body.user).toMatchObject({
-      id: createdUser.userId,
-      name: createdUser.name,
-      email: createdUser.email,
-      email_verified: false,
-    });
-  });
 
   integrationTest('returns a not-found error without an authenticated session', async ({ app }) => {
     const response = await sendSessionRequest(app);

@@ -8,7 +8,7 @@
 import Foundation
 import KamaalLogger
 
-private let logger = KamaalLogger(from: TokenRefresher.self, failOnError: true)
+private let logger = KamaalLogger(from: TokenRefresher.self)
 
 struct TokenRefresher: Sendable {
     private let client: Client
@@ -69,8 +69,7 @@ struct TokenRefresher: Sendable {
         let expiryDate = Date(timeIntervalSince1970: expiryTime)
         let sessionUpdateAge = TimeInterval(tokenUpdateAge)
 
-        logger.info("Storing JWT: \(String(token.prefix(7)))...")
-        logger.info("Session token: \(String(sessionToken.prefix(7)))... (length: \(sessionToken.count))")
+        logger.info("Saving sign-in details securely.")
 
         let credentials = Credentials(
             authToken: token,
@@ -81,6 +80,7 @@ struct TokenRefresher: Sendable {
         )
         let credentialsData = try jsonEncoder.encode(credentials)
         try credentialsStore.set(credentialsData, forKey: credentialsKeychainKey)
+        logger.info("Saved sign-in details securely.")
 
         return true
     }

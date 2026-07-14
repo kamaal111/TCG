@@ -55,9 +55,13 @@ export const createTestDatabase = async (): Promise<{
   return { db: testDb, connectionString: testDbUrl, cleanup };
 };
 
-export async function createTestUser(app: Hono<HonoEnvironment>, db: Database) {
+export async function createTestUser(
+  app: Hono<HonoEnvironment>,
+  db: Database,
+  overrides: Partial<{ password: string }> = {},
+) {
   const email = `test_${crypto.randomUUID()}@example.com`;
-  const password = 'password123';
+  const password = overrides.password ?? 'password123';
   const name = 'Test User';
   const response = await app.request(SIGN_UP_ROUTE_PATH, {
     method: 'POST',

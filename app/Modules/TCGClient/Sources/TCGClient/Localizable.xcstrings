@@ -1,0 +1,12 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "Your session could not be retrieved." : {
+
+    },
+    "Your session has expired. Please sign in again." : {
+
+    }
+  },
+  "version" : "1.3"
+}

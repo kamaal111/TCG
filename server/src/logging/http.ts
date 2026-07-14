@@ -14,6 +14,7 @@ export function initializeRequestLogger(c: HonoContext, mode: ServerMode) {
     url: c.req.url,
     route: getMatchedRoutePath(c),
     mode,
+    userAgent: c.req.header('User-Agent'),
   });
 
   c.set('logger', logger);

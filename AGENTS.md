@@ -4,6 +4,8 @@
 
 - Run `just` from the repository root first so you can discover the current command surface and prefer repo recipes over ad hoc commands.
 - Run commands from the repository root unless a command explicitly requires a package directory.
+- Never search, read, or crawl outside the repository root (e.g. `find /`, scanning `$HOME`, or other paths outside this project) unless the user explicitly tells you to. Stay within the project directory's boundaries.
+- Never run `git checkout`, `git restore`, `git reset`, `git clean`, or any other command that discards or rewrites tracked file content, even to fix an unrelated side effect you noticed, unless the user explicitly tells you to. Ask first and let the user decide how to handle it, especially in this GitButler-managed repository where the workspace state is actively managed for the user.
 - Look for existing patterns before writing code. Match surrounding structure, naming, validation, error handling, and test style unless there is a strong reason to introduce something new.
 - Before copying non-trivial code, look for the right shared owner. Move reusable behavior into an appropriate service, model, utility, package, or module instead of keeping parallel implementations.
 
@@ -40,6 +42,11 @@
   - Apply this skill whenever investigating or fixing GitHub Actions failures.
 - **ALWAYS validate unknown or external data**
   - Use Zod at boundaries instead of forcing types through.
+- **ALWAYS log important user-facing workflows and failure boundaries**
+  - App logs must be complete, human-readable messages that identify the operation, stage, and failure context; never use opaque event-only strings.
+  - Server logs must pair a human-readable message with flat, consistent structured fields: event, outcome, request ID, method, path, route, status code, duration, authenticated user identifier when known, and safe business context.
+  - Include the operation stage and error context needed to diagnose a failure, but never log passwords, credentials, tokens, cookies, or raw sensitive payloads.
+  - Use the repository's shared logging system; do not rely on system or framework logs to explain application behavior.
 - **ALWAYS enforce user ownership when querying user-scoped resources**
   - Do not query by client-supplied resource IDs alone when the resource should belong to the authenticated user.
   - Scope reads and writes through the requesting user's owned parent record or an equivalent ownership constraint in the query itself.

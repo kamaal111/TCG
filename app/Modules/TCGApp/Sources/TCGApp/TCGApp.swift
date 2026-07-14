@@ -23,7 +23,10 @@ public struct TCGScene: Scene {
 
 struct ContentView: View {
     var body: some View {
-        Text("Hello, world!")
-            .padding()
+        ContentUnavailableView(
+            "Signed in",
+            systemImage: "checkmark.circle.fill",
+            description: Text("Your session loaded successfully.")
+        )
     }
 }

@@ -9,7 +9,8 @@
   },
   "rules": {
     "typescript/no-deprecated": "error",
-    "typescript/consistent-type-imports": "error"
+    "typescript/consistent-type-imports": "error",
+    "typescript/no-non-null-assertion": "error"
   },
   "env": {
     "builtin": true

@@ -115,146 +115,186 @@ struct TCGAuthTests {
         #expect(await transport.requests.count == 1)
     }
 
-    private func makeAuth(
-        transport: RequestTransport,
-        credentialsStore: CredentialsStore,
-        cache: CachedUserSessionStoreSpy = CachedUserSessionStoreSpy()
-    ) -> TCGAuth {
-        let client = TCGClient.default(
-            transport: transport,
-            credentialsKeychainKey: "credentials-key",
-            credentialsStore: credentialsStore
-        )
+    @Test
+    func `Should not send a sign in request when local validation fails`() async throws {
+        let transport = RequestTransport.sessionSuccess()
+        let auth = makeAuth(transport: transport, credentialsStore: CredentialsStoreSpy())
 
-        return TCGAuth(client: client, cachedSessionStore: cache)
-    }
+        let result = await auth.signIn(email: "invalid", password: "1234567")
 
-    private func validCredentialsStore() throws -> CredentialsStoreSpy {
-        let credentials = Credentials(
-            authToken: "auth-token",
-            expiryDate: .distantFuture,
-            sessionToken: "session-token",
-            sessionUpdateAge: 1800,
-            lastSessionUpdate: .now
-        )
-
-        return CredentialsStoreSpy(initialData: try JSONEncoder().encode(credentials))
-    }
-
-    private func expectedSession() throws -> UserSession {
-        let expiresAt = try #require(ISO8601DateFormatter().date(from: "2026-08-12T12:00:00Z"))
-
-        return UserSession(name: "Jane Doe", email: "jane@example.com", expiresAt: expiresAt)
-    }
-
-    private func yield(until condition: @MainActor () -> Bool, iterations: Int = 1000) async {
-        var count = 0
-        while !condition(), count < iterations {
-            await Task.yield()
-            count += 1
+        let error = try #require(throws: TCGAuthOperationError.self) {
+            try result.get()
         }
-    }
-}
-
-@MainActor
-private final class CachedUserSessionStoreSpy: CachedUserSessionStore {
-    var cachedSession: CachedUserSession?
-
-    init(cachedSession: CachedUserSession? = nil) {
-        self.cachedSession = cachedSession
-    }
-}
-
-private actor RequestTransport: ClientTransport {
-    private(set) var requests: [RecordedRequest] = []
-    private let response: HTTPResponse?
-    private let responseBody: Data?
-
-    private init(response: HTTPResponse?, responseBody: Data?) {
-        self.response = response
-        self.responseBody = responseBody
-    }
-
-    func send(
-        _ request: HTTPRequest,
-        body _: HTTPBody?,
-        baseURL _: URL,
-        operationID: String
-    ) async throws -> (HTTPResponse, HTTPBody?) {
-        requests.append(.init(method: request.method, path: request.path, operationID: operationID))
-
-        guard let response else { throw RequestTransportError.failed }
-
-        return (response, responseBody.map(HTTPBody.init))
-    }
-
-    static func sessionSuccess() -> RequestTransport {
-        RequestTransport(
-            response: .init(status: .ok, headerFields: [.contentType: "application/json"]),
-            responseBody: Data(
-                """
-                {
-                  "session": {
-                    "expires_at": "2026-08-12T12:00:00Z",
-                    "created_at": "2026-07-12T12:00:00Z",
-                    "updated_at": "2026-07-12T12:00:00Z"
-                  },
-                  "user": {
-                    "id": "user-id",
-                    "created_at": "2026-07-12T12:00:00Z",
-                    "email": "jane@example.com",
-                    "email_verified": false,
-                    "name": "Jane Doe"
-                  }
-                }
-                """.utf8)
+        #expect(
+            error
+                == .validation([
+                    .init(field: .email, message: "Enter a valid email address."),
+                    .init(field: .password, message: "Password must contain at least 8 characters."),
+                ])
         )
+        #expect(await transport.requests.isEmpty)
     }
 
-    static func notFound() -> RequestTransport {
-        RequestTransport(
-            response: .init(status: .notFound, headerFields: [.contentType: "application/json"]),
-            responseBody: Data("{ \"message\": \"Not found\", \"code\": \"NOT_FOUND\" }".utf8)
+    @Test
+    func `Should sign in then load and cache the authenticated session`() async throws {
+        let transport = try RequestTransport.authenticationSuccess(status: .ok)
+        let credentialsStore = CredentialsStoreSpy()
+        let cache = CachedUserSessionStoreSpy(
+            cachedSession: CachedUserSession(
+                session: UserSession(name: "Old User", email: "old@example.com", expiresAt: .distantFuture),
+                cachedAt: .now
+            )
         )
-    }
-}
+        let auth = makeAuth(transport: transport, credentialsStore: credentialsStore, cache: cache)
 
-private struct RecordedRequest: Sendable {
-    let method: HTTPRequest.Method
-    let path: String?
-    let operationID: String
-}
+        try await auth.signIn(email: "jane@example.com", password: "password123").get()
 
-private enum RequestTransportError: Error {
-    case failed
-}
-
-private final class CredentialsStoreSpy: CredentialsStore, @unchecked Sendable {
-    private let lock = NSLock()
-    private var storedData: Data?
-
-    init(initialData: Data? = nil) {
-        self.storedData = initialData
-    }
-
-    func delete(forKey _: String) throws {
-        lock.lock()
-        defer { lock.unlock() }
-
-        storedData = nil
+        let requests = await transport.requests
+        #expect(requests.count == 2)
+        #expect(requests[0].method == .post)
+        #expect(requests[0].path == "/app-api/auth/sign-in/email")
+        let requestBody = try #require(requests[0].body)
+        #expect(
+            try JSONDecoder().decode(SignInPayload.self, from: requestBody)
+                == .init(
+                    email: "jane@example.com",
+                    password: "password123"
+                ))
+        #expect(requests[1].method == .get)
+        #expect(requests[1].path == "/app-api/auth/session")
+        #expect(try credentialsStore.get(forKey: "credentials-key") != nil)
+        #expect(auth.session == (try expectedSession()))
+        #expect(cache.cachedSession?.session == (try expectedSession()))
     }
 
-    func get(forKey _: String) throws -> Data? {
-        lock.lock()
-        defer { lock.unlock() }
+    @Test
+    func `Should sign up then load and cache the authenticated session`() async throws {
+        let transport = try RequestTransport.authenticationSuccess(status: .created)
+        let credentialsStore = CredentialsStoreSpy()
+        let cache = CachedUserSessionStoreSpy()
+        let auth = makeAuth(transport: transport, credentialsStore: credentialsStore, cache: cache)
 
-        return storedData
+        try await auth.signUp(name: "Jane Doe", email: "jane@example.com", password: "password123").get()
+
+        let requests = await transport.requests
+        #expect(requests.count == 2)
+        #expect(requests[0].method == .post)
+        #expect(requests[0].path == "/app-api/auth/sign-up/email")
+        let requestBody = try #require(requests[0].body)
+        #expect(
+            try JSONDecoder().decode(SignUpPayload.self, from: requestBody)
+                == .init(
+                    name: "Jane Doe",
+                    email: "jane@example.com",
+                    password: "password123"
+                ))
+        #expect(requests[1].method == .get)
+        #expect(requests[1].path == "/app-api/auth/session")
+        #expect(try credentialsStore.get(forKey: "credentials-key") != nil)
+        #expect(auth.session == (try expectedSession()))
+        #expect(cache.cachedSession?.session == (try expectedSession()))
     }
 
-    func set(_ data: Data, forKey _: String) throws {
-        lock.lock()
-        defer { lock.unlock() }
+    @Test
+    func `Should expose invalid credentials without loading a session`() async throws {
+        let transport = RequestTransport.invalidCredentials()
+        let auth = makeAuth(transport: transport, credentialsStore: CredentialsStoreSpy())
 
-        storedData = data
+        let result = await auth.signIn(email: "jane@example.com", password: "password123")
+
+        try #require(throws: TCGAuthOperationError.invalidCredentials) {
+            try result.get()
+        }
+        #expect(auth.session == nil)
+        #expect(await transport.requests.count == 1)
     }
+
+    @Test
+    func `Should expose session unavailable when sign in is unauthorized for a reason other than invalid credentials`()
+        async throws
+    {
+        let transport = RequestTransport.unauthorized()
+        let auth = makeAuth(transport: transport, credentialsStore: CredentialsStoreSpy())
+
+        let result = await auth.signIn(email: "jane@example.com", password: "password123")
+
+        try #require(throws: TCGAuthOperationError.sessionUnavailable) {
+            try result.get()
+        }
+        #expect(auth.session == nil)
+        #expect(await transport.requests.count == 1)
+    }
+
+    @Test
+    func `Should expose session unavailable when sign up is unauthorized after account creation`() async throws {
+        let transport = RequestTransport.unauthorized()
+        let auth = makeAuth(transport: transport, credentialsStore: CredentialsStoreSpy())
+
+        let result = await auth.signUp(name: "Jane Doe", email: "jane@example.com", password: "password123")
+
+        try #require(throws: TCGAuthOperationError.sessionUnavailable) {
+            try result.get()
+        }
+        #expect(auth.session == nil)
+        #expect(await transport.requests.count == 1)
+    }
+
+    @Test
+    func `Should expose a duplicate email without loading a session`() async throws {
+        let transport = RequestTransport.conflict()
+        let auth = makeAuth(transport: transport, credentialsStore: CredentialsStoreSpy())
+
+        let result = await auth.signUp(name: "Jane Doe", email: "jane@example.com", password: "password123")
+
+        try #require(throws: TCGAuthOperationError.emailAlreadyInUse) {
+            try result.get()
+        }
+        #expect(auth.session == nil)
+        #expect(await transport.requests.count == 1)
+    }
+
+    @Test
+    func `Should map server validation issues to auth fields`() async throws {
+        let transport = RequestTransport.validationError()
+        let auth = makeAuth(transport: transport, credentialsStore: CredentialsStoreSpy())
+
+        let result = await auth.signIn(email: "jane@example.com", password: "password123")
+
+        try #require(
+            throws: TCGAuthOperationError.validation([
+                .init(field: .email, message: "Email address is invalid")
+            ])
+        ) {
+            try result.get()
+        }
+        #expect(auth.session == nil)
+    }
+
+    @Test
+    func `Should expose a server failure without loading a session`() async throws {
+        let transport = RequestTransport.failing()
+        let auth = makeAuth(transport: transport, credentialsStore: CredentialsStoreSpy())
+
+        let result = await auth.signIn(email: "jane@example.com", password: "password123")
+
+        try #require(throws: TCGAuthOperationError.serverUnavailable) {
+            try result.get()
+        }
+        #expect(auth.session == nil)
+    }
+
+    @Test
+    func `Should expose a missing session after successful authentication`() async throws {
+        let transport = try RequestTransport.authenticationWithMissingSession(status: .ok)
+        let auth = makeAuth(transport: transport, credentialsStore: CredentialsStoreSpy())
+
+        let result = await auth.signIn(email: "jane@example.com", password: "password123")
+
+        try #require(throws: TCGAuthOperationError.sessionUnavailable) {
+            try result.get()
+        }
+        #expect(auth.session == nil)
+        #expect(await transport.requests.count == 2)
+    }
+
 }

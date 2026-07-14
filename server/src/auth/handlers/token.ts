@@ -27,11 +27,15 @@ async function tokenHandler(c: TokenContext): Promise<TokenResponse> {
   const authHeader = c.req.header('authorization');
   const sessionToken = authHeader?.replace(/^Bearer\s+/i, '') ?? null;
   const { token, headers } = await parseTokenResponseAndCreateHeaders(response, sessionToken);
-  logInfo(withRequestLogger(c, { component: 'auth' }), {
-    event: 'auth.token.issued',
-    route: TOKEN_ROUTE_PATH,
-    outcome: 'success',
-  });
+  logInfo(
+    withRequestLogger(c, { component: 'auth' }),
+    {
+      event: 'auth.token.issued',
+      route: TOKEN_ROUTE_PATH,
+      outcome: 'success',
+    },
+    'Issued an authentication token.',
+  );
 
   return c.json({ token }, { status: TOKEN_STATUS_CODE, headers });
 }

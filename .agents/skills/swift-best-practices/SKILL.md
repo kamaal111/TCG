@@ -133,6 +133,12 @@ func importPokemon(from image: UIImage) async throws -> Pokemon {
 
 ## Working Style
 
+## Logging
+
+- Treat observable logging as a product requirement: record meaningful start, success, and failure events for user-facing workflows and important persistence or network boundaries.
+- Write app logs as complete, human-readable sentences that say what happened and at which stage. Log enough safe context to distinguish the failed stage and error; never log passwords, credentials, authentication tokens, cookies, or raw sensitive payloads.
+- Use the repository's shared logger rather than `print` or ad hoc console output. Recoverable failures must remain recoverable when logged.
+
 - Match naming, formatting, and file structure that already exists near the code you are editing.
 - When the same string literal appears in more than one place, prefer a shared enum, constant, or similarly central definition so stringly-typed values stay manageable and easier to maintain.
 - Add new rules to this skill only after they are explicitly agreed on, so the guidance stays precise and trustworthy.

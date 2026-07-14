@@ -25,11 +25,8 @@ export const EmailPasswordSignUpSchema = z
       .refine(val => /^[^\s]+(\s[^\s]+)+$/.test(val), {
         message: 'Name must contain at least 2 words separated by single spaces',
       })
-      .refine(val => val.split(/\s+/).every(word => /[a-zA-Z]/.test(word)), {
-        message: 'Each word must contain at least one letter',
-      })
       .openapi({
-        description: 'User display name (minimum 2 words, each with at least one letter)',
+        description: 'User display name (minimum 2 words separated by single spaces)',
         example: 'John Doe',
       }),
     callbackURL: z.url().optional().openapi({
@@ -54,8 +51,8 @@ export const EmailPasswordSignInSchema = z
       description: 'User email address',
       example: 'user@example.com',
     }),
-    password: z.string().min(6).openapi({
-      description: 'User password (minimum 6 characters)',
+    password: z.string().min(8).max(128).openapi({
+      description: 'User password (minimum 8 characters)',
       example: 'securePassword123',
     }),
     callbackURL: z.url().optional().openapi({

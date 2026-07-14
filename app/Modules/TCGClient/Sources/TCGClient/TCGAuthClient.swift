@@ -6,6 +6,10 @@
 //
 
 import Foundation
+import KamaalLogger
+import OpenAPIRuntime
+
+private let logger = KamaalLogger(from: TCGAuthClient.self)
 
 public protocol TCGAuthClient: Sendable {
     func refreshToken() async -> Result<Void, SessionErrors>
@@ -83,7 +87,13 @@ public struct TCGAuthClientImpl: TCGAuthClient {
     }
 
     public func signIn(with payload: SignInPayload) async -> Result<Void, SignInErrors> {
-        try? tokenRefresher.delete(forKey: credentialsKeychainKey)
+        do {
+            try tokenRefresher.delete(forKey: credentialsKeychainKey)
+        } catch {
+            logger.warning("Couldn't remove old saved sign-in details before signing in: \(error)")
+        }
+
+        logger.info("Starting sign in request.")
 
         let response: Operations.PostAppApiAuthSignInEmail.Output
         do {
@@ -91,6 +101,7 @@ public struct TCGAuthClientImpl: TCGAuthClient {
                 body: .json(.init(email: payload.email, password: payload.password))
             )
         } catch {
+            logRequestFailure(operation: "Sign in", error: error)
             return .failure(.unknown(status: 503, payload: nil, cause: error))
         }
 
@@ -101,9 +112,16 @@ public struct TCGAuthClientImpl: TCGAuthClient {
             let validations = TCGClientValidationErrorParser.parseIssues(from: body)
 
             return .failure(.badRequest(validations: validations))
-        case .unauthorized:
+        case .unauthorized(let unauthorizedResponse):
+            let body = try? unauthorizedResponse.body.json
+            let code = AuthUnauthorizedCode(rawValue: body?.code ?? "")
+            guard code == .invalidEmailOrPassword else {
+                logger.warning("Sign in was authorized but the session could not be established afterward.")
+                return .failure(.sessionUnavailable)
+            }
             return .failure(.badRequest(validations: []))
         case .undocumented(let statusCode, let payload):
+            logger.warning("Sign in received an unexpected response from the server (status \(statusCode)).")
             return .failure(.unknown(status: statusCode, payload: payload, cause: nil))
         case .ok(let ok):
             payload = ok
@@ -117,21 +135,29 @@ public struct TCGAuthClientImpl: TCGAuthClient {
                     sessionToken: payload.headers.setSessionToken,
                     sessionUpdateAge: payload.headers.setSessionUpdateAge,
                 )
-            else { return .failure(.unknown(status: 500, payload: nil, cause: nil)) }
+            else {
+                logger.error("The sign in response did not include valid session details to save.")
+                return .failure(.credentialsUnavailable(cause: CredentialsStorageError.invalidResponseHeaders))
+            }
         } catch {
-            return .failure(.unknown(status: 500, payload: nil, cause: error))
+            logger.error(label: "Couldn't save sign-in details after a successful sign in", error: error)
+            return .failure(.credentialsUnavailable(cause: error))
         }
 
+        logger.info("Sign in completed and the session details were saved.")
         return .success(())
     }
 
     public func signUp(with payload: SignUpPayload) async -> Result<Void, SignUpErrors> {
+        logger.info("Starting account creation request.")
+
         let response: Operations.PostAppApiAuthSignUpEmail.Output
         do {
             response = try await client.postAppApiAuthSignUpEmail(
                 body: .json(.init(email: payload.email, password: payload.password, name: payload.name))
             )
         } catch {
+            logRequestFailure(operation: "Account creation", error: error)
             return .failure(.unknown(status: 503, payload: nil, cause: error))
         }
 
@@ -143,10 +169,12 @@ public struct TCGAuthClientImpl: TCGAuthClient {
 
             return .failure(.badRequest(validations: validations))
         case .unauthorized:
-            return .failure(.badRequest(validations: []))
+            logger.warning("Account creation was authorized but the session could not be established afterward.")
+            return .failure(.sessionUnavailable)
         case .conflict:
             return .failure(.conflict)
         case .undocumented(let statusCode, let payload):
+            logger.warning("Account creation received an unexpected response from the server (status \(statusCode)).")
             return .failure(.unknown(status: statusCode, payload: payload, cause: nil))
         case .created(let created):
             payload = created
@@ -160,11 +188,38 @@ public struct TCGAuthClientImpl: TCGAuthClient {
                     sessionToken: payload.headers.setSessionToken,
                     sessionUpdateAge: payload.headers.setSessionUpdateAge,
                 )
-            else { return .failure(.unknown(status: 500, payload: nil, cause: nil)) }
+            else {
+                logger.error("The account creation response did not include valid session details to save.")
+                return .failure(.credentialsUnavailable(cause: CredentialsStorageError.invalidResponseHeaders))
+            }
         } catch {
-            return .failure(.unknown(status: 500, payload: nil, cause: error))
+            logger.error(label: "Couldn't save sign-in details after creating the account", error: error)
+            return .failure(.credentialsUnavailable(cause: error))
         }
 
+        logger.info("Account creation completed and the session details were saved.")
         return .success(())
     }
+
+    private func logRequestFailure(operation: String, error: Error) {
+        guard let clientError = error as? ClientError else {
+            logger.error("\(operation) request failed before receiving a server response.")
+            return
+        }
+
+        guard let response = clientError.response else {
+            logger.error("\(operation) request failed before receiving a server response.")
+            return
+        }
+
+        logger.error("\(operation) response could not be decoded (status \(response.status.code)).")
+    }
+}
+
+private enum AuthUnauthorizedCode: String {
+    case invalidEmailOrPassword = "INVALID_EMAIL_OR_PASSWORD"
+}
+
+private enum CredentialsStorageError: Error {
+    case invalidResponseHeaders
 }

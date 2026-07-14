@@ -8,6 +8,6 @@
 import Foundation
 
 enum ModuleConfig {
-    static let identifier = "\(Bundle.main.bundleIdentifier!).TCGClient"
+    static let identifier = "\(Bundle.main.bundleIdentifier ?? "io.kamaal.TCG").TCGClient"
     static let credentialsKeychainKey = "\(identifier).credentials"
 }
