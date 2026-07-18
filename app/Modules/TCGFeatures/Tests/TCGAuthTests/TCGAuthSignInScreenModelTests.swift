@@ -35,6 +35,35 @@ struct TCGAuthSignInScreenModelTests {
     }
 
     @Test
+    func `Should ignore verification validation while logging in`() {
+        let model = TCGAuthSignInScreenModel()
+        model.email = "jane@example.com"
+        model.verifyEmail = "jane@exampl.com"
+        model.password = "password123"
+        model.verifyPassword = "password321"
+
+        model.validate(.verifyEmail)
+        model.validate(.verifyPassword)
+
+        #expect(model.fieldErrors[.verifyEmail] == nil)
+        #expect(model.fieldErrors[.verifyPassword] == nil)
+    }
+
+    @Test
+    func `Should clear a corrected verify email error`() {
+        let model = TCGAuthSignInScreenModel()
+        model.mode = .signUp
+        model.email = "Jane@example.com"
+        model.verifyEmail = "jane@example.com"
+
+        model.validate(.verifyEmail)
+        #expect(model.fieldErrors[.verifyEmail] == "Email addresses do not match.")
+
+        model.verifyEmail = "Jane@example.com"
+        #expect(model.fieldErrors[.verifyEmail] == nil)
+    }
+
+    @Test
     func `Should show field errors and a toast without requesting an invalid sign up`() async {
         let transport = RequestTransport.sessionSuccess()
         let auth = makeAuth(transport: transport)
@@ -46,6 +75,44 @@ struct TCGAuthSignInScreenModelTests {
         #expect(model.fieldErrors.keys.contains(.name))
         #expect(model.fieldErrors.keys.contains(.email))
         #expect(model.fieldErrors.keys.contains(.password))
+        #expect(model.toast?.message == "Please correct the highlighted fields.")
+        #expect(await transport.requests.isEmpty)
+    }
+
+    @Test
+    func `Should prevent a sign up request when email verification does not match`() async {
+        let transport = RequestTransport.sessionSuccess()
+        let auth = makeAuth(transport: transport)
+        let model = TCGAuthSignInScreenModel()
+        model.mode = .signUp
+        model.name = "Jane Doe"
+        model.email = "jane@example.com"
+        model.verifyEmail = "jane@exampl.com"
+        model.password = "password123"
+        model.verifyPassword = "password123"
+
+        await model.submit(using: auth)
+
+        #expect(model.fieldErrors[.verifyEmail] == "Email addresses do not match.")
+        #expect(model.toast?.message == "Please correct the highlighted fields.")
+        #expect(await transport.requests.isEmpty)
+    }
+
+    @Test
+    func `Should prevent a sign up request when password verification does not match`() async {
+        let transport = RequestTransport.sessionSuccess()
+        let auth = makeAuth(transport: transport)
+        let model = TCGAuthSignInScreenModel()
+        model.mode = .signUp
+        model.name = "Jane Doe"
+        model.email = "jane@example.com"
+        model.verifyEmail = "jane@example.com"
+        model.password = "password123"
+        model.verifyPassword = "password321"
+
+        await model.submit(using: auth)
+
+        #expect(model.fieldErrors[.verifyPassword] == "Passwords do not match.")
         #expect(model.toast?.message == "Please correct the highlighted fields.")
         #expect(await transport.requests.isEmpty)
     }

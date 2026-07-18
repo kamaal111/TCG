@@ -16,6 +16,28 @@ enum TCGAuthValidator {
         [nameIssue(name), emailIssue(email), passwordIssue(password)].compactMap(\.self)
     }
 
+    static func verifyEmailIssue(email: String, verifyEmail: String) -> TCGAuthValidationIssue? {
+        guard email == verifyEmail else {
+            return TCGAuthValidationIssue(
+                field: .verifyEmail,
+                message: String(localized: "Email addresses do not match.")
+            )
+        }
+
+        return nil
+    }
+
+    static func verifyPasswordIssue(password: String, verifyPassword: String) -> TCGAuthValidationIssue? {
+        guard password == verifyPassword else {
+            return TCGAuthValidationIssue(
+                field: .verifyPassword,
+                message: String(localized: "Passwords do not match.")
+            )
+        }
+
+        return nil
+    }
+
     static func emailIssue(_ email: String) -> TCGAuthValidationIssue? {
         guard matches(email, expression: emailExpression) else {
             return TCGAuthValidationIssue(

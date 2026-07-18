@@ -44,15 +44,44 @@ struct TCGAuthSignInScreen: View {
                             .authEmailInput()
                             .focused($focusedField, equals: .email)
                             .submitLabel(.next)
-                            .onSubmit { focusedField = .password }
+                            .onSubmit {
+                                focusedField = model.mode == .signUp ? .verifyEmail : .password
+                            }
+                    }
+
+                    if model.mode == .signUp {
+                        TCGAuthSignInField(label: "Verify email", error: model.fieldErrors[.verifyEmail]) {
+                            TextField("jane@example.com", text: $model.verifyEmail)
+                                .textContentType(.emailAddress)
+                                .authEmailInput()
+                                .focused($focusedField, equals: .verifyEmail)
+                                .submitLabel(.next)
+                                .onSubmit { focusedField = .password }
+                        }
                     }
 
                     TCGAuthSignInField(label: "Password", error: model.fieldErrors[.password]) {
                         SecureField("8–128 characters", text: $model.password)
                             .textContentType(model.mode == .login ? .password : .newPassword)
                             .focused($focusedField, equals: .password)
-                            .submitLabel(.go)
-                            .onSubmit(submit)
+                            .submitLabel(model.mode == .signUp ? .next : .go)
+                            .onSubmit {
+                                if model.mode == .signUp {
+                                    focusedField = .verifyPassword
+                                } else {
+                                    submit()
+                                }
+                            }
+                    }
+
+                    if model.mode == .signUp {
+                        TCGAuthSignInField(label: "Verify password", error: model.fieldErrors[.verifyPassword]) {
+                            SecureField("8–128 characters", text: $model.verifyPassword)
+                                .textContentType(.newPassword)
+                                .focused($focusedField, equals: .verifyPassword)
+                                .submitLabel(.go)
+                                .onSubmit(submit)
+                        }
                     }
                 }
 
@@ -106,13 +135,17 @@ struct TCGAuthSignInScreen: View {
 private enum FocusedField: Hashable {
     case name
     case email
+    case verifyEmail
     case password
+    case verifyPassword
 
     var validationField: TCGAuthValidationField {
         switch self {
         case .name: .name
         case .email: .email
+        case .verifyEmail: .verifyEmail
         case .password: .password
+        case .verifyPassword: .verifyPassword
         }
     }
 }

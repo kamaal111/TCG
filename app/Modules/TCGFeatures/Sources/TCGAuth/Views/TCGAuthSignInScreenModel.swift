@@ -24,8 +24,14 @@ final class TCGAuthSignInScreenModel {
     var email = "" {
         didSet { revalidateIfNeeded(.email) }
     }
+    var verifyEmail = "" {
+        didSet { revalidateIfNeeded(.verifyEmail) }
+    }
     var password = "" {
         didSet { revalidateIfNeeded(.password) }
+    }
+    var verifyPassword = "" {
+        didSet { revalidateIfNeeded(.verifyPassword) }
     }
 
     private(set) var fieldErrors: [TCGAuthValidationField: String] = [:]
@@ -36,8 +42,8 @@ final class TCGAuthSignInScreenModel {
     private var toastDismissalTask: Task<Void, Never>?
 
     func validate(_ field: TCGAuthValidationField) {
-        guard mode == .signUp || field != .name else {
-            fieldErrors[.name] = nil
+        guard mode == .signUp || !field.requiresSignUp else {
+            fieldErrors[field] = nil
             return
         }
 
@@ -88,13 +94,19 @@ final class TCGAuthSignInScreenModel {
             TCGAuthValidator.signInIssues(email: email, password: password)
         case .signUp:
             TCGAuthValidator.signUpIssues(name: name, email: email, password: password)
+                + [
+                    TCGAuthValidator.verifyEmailIssue(email: email, verifyEmail: verifyEmail),
+                    TCGAuthValidator.verifyPasswordIssue(password: password, verifyPassword: verifyPassword),
+                ].compactMap(\.self)
         }
     }
 
     private func validationIssue(for field: TCGAuthValidationField) -> TCGAuthValidationIssue? {
         switch field {
         case .email: TCGAuthValidator.emailIssue(email)
+        case .verifyEmail: TCGAuthValidator.verifyEmailIssue(email: email, verifyEmail: verifyEmail)
         case .password: TCGAuthValidator.passwordIssue(password)
+        case .verifyPassword: TCGAuthValidator.verifyPasswordIssue(password: password, verifyPassword: verifyPassword)
         case .name: TCGAuthValidator.nameIssue(name)
         }
     }
@@ -135,5 +147,14 @@ final class TCGAuthSignInScreenModel {
     struct Toast: Equatable {
         let title: String
         let message: String
+    }
+}
+
+extension TCGAuthValidationField {
+    fileprivate var requiresSignUp: Bool {
+        switch self {
+        case .email, .password: false
+        case .name, .verifyEmail, .verifyPassword: true
+        }
     }
 }

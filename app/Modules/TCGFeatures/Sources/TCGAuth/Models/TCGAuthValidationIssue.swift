@@ -12,6 +12,8 @@ struct TCGAuthValidationIssue: Equatable, Sendable {
 
 enum TCGAuthValidationField: String, Hashable, Sendable {
     case email
+    case verifyEmail
     case password
+    case verifyPassword
     case name
 }

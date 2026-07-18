@@ -19,6 +19,9 @@
     "Email" : {
 
     },
+    "Email addresses do not match." : {
+
+    },
     "Enter a valid email address." : {
 
     },
@@ -49,6 +52,9 @@
     "Password" : {
 
     },
+    "Passwords do not match." : {
+
+    },
     "Password must contain at least 8 characters." : {
 
     },
@@ -77,6 +83,12 @@
 
     },
     "Your sign-in details could not be saved. Please try again." : {
+
+    },
+    "Verify email" : {
+
+    },
+    "Verify password" : {
 
     }
   },
