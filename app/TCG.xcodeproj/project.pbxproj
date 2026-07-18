@@ -81,7 +81,6 @@
 			);
 			fileSystemSynchronizedGroups = (
 				000000000000000000000010 /* TCG */,
-				2C61CFCD2FF17F8200B44EDB /* Modules */,
 			);
 			name = TCG;
 			packageProductDependencies = (
