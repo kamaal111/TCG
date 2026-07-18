@@ -1,4 +1,0 @@
-interface:
-  display_name: 'GitHub Actions Log Debug'
-  short_description: 'GitHub Actions log triage and fix workflow'
-  default_prompt: 'Use $gh-actions-log-debug when debugging failing GitHub Actions checks for this repository.'

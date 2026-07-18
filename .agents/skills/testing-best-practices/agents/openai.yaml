@@ -1,4 +1,0 @@
-interface:
-  display_name: 'Testing Best Practices'
-  short_description: 'Cross-project guidance for test planning and verification'
-  default_prompt: 'Use $testing-best-practices when adding tests, debugging failures, or verifying a behavior change in this repository.'

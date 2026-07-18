@@ -95,14 +95,10 @@ ready-server: quality-server test-server
 
 # Run tests
 [parallel]
-test: test-skills test-app
+test: test-server test-app
 
 # Run heavy tests
 test-heavy: test
-
-# Run dependency-upgrade skill script tests
-test-skills:
-    {{ UVR }} -m unittest discover -s .agents/skills/dependency-upgrade-best-practices/tests -p 'test_*.py'
 
 # Run app tests
 [working-directory("app")]
