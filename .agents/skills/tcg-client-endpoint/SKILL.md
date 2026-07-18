@@ -26,7 +26,7 @@ Implement TCGClient endpoint support from the server contract through the genera
 
 ## Test At The Generated-Client Boundary
 
-- Apply `swift-best-practices`, `swift-testing`, and `testing-best-practices` when modifying Swift and tests. Apply `typescript-server-best-practices` only if the requested work also changes `server/`.
+- Apply `swift-best-practices`, `swift-testing`, and `software-testing` when modifying Swift and tests. Apply `typescript-backend` only if the requested work also changes `server/`.
 - Use Swift Testing and the existing test suite. Inject an `OpenAPIRuntime.ClientTransport` actor that records the request; do not mock the generated `Client`.
 - Decode the captured request body using the production payload type and assert method, path, operation ID, and serialized payload.
 - Test success with the real generated response parsing and assert each observable side effect, such as stored credentials.

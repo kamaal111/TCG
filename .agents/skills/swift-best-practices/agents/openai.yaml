@@ -1,4 +1,0 @@
-interface:
-  display_name: 'Swift Best Practices'
-  short_description: 'Reusable Swift style guidance'
-  default_prompt: 'Use $swift-best-practices when writing or refactoring Swift code in this repository.'

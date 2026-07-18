@@ -1,4 +1,0 @@
-interface:
-  display_name: 'GitButler Session Commit'
-  short_description: 'Commit session changes with GitButler'
-  default_prompt: 'Use $gitbutler-session-commit to create or reuse a GitButler branch and commit the session changes.'
