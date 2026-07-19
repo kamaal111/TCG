@@ -8,20 +8,26 @@
 import Foundation
 
 /// A ``TCGAuthClient`` for SwiftUI previews that returns fixed, deterministic responses without any network I/O.
-public struct PreviewTCGAuthClient: TCGAuthClient {
+struct PreviewTCGAuthClient: TCGAuthClient {
     private let credentialsStore: CredentialsStore
     private let credentialsKeychainKey: String
+    private let outcome: PreviewTCGAuthOutcome
 
-    init(credentialsStore: CredentialsStore, credentialsKeychainKey: String) {
+    init(
+        credentialsStore: CredentialsStore,
+        credentialsKeychainKey: String,
+        outcome: PreviewTCGAuthOutcome = .success
+    ) {
         self.credentialsStore = credentialsStore
         self.credentialsKeychainKey = credentialsKeychainKey
+        self.outcome = outcome
     }
 
-    public func refreshToken() async -> Result<Void, SessionErrors> {
+    func refreshToken() async -> Result<Void, SessionErrors> {
         .success(())
     }
 
-    public func session() async -> Result<Session, SessionErrors> {
+    func session() async -> Result<Session, SessionErrors> {
         let storedExpiry = (try? credentialsStore.credentials(forKey: credentialsKeychainKey))??.expiryDate
 
         return .success(
@@ -33,12 +39,34 @@ public struct PreviewTCGAuthClient: TCGAuthClient {
         )
     }
 
-    public func signIn(with _: SignInPayload) async -> Result<Void, SignInErrors> {
-        .success(())
+    func signIn(with _: SignInPayload) async -> Result<Void, SignInErrors> {
+        switch outcome {
+        case .success:
+            .success(())
+        case .invalidCredentials:
+            .failure(.badRequest(validations: []))
+        case .validationErrors(let issues):
+            .failure(.badRequest(validations: issues))
+        case .sessionUnavailable:
+            .failure(.sessionUnavailable)
+        case .serverUnavailable, .emailAlreadyInUse:
+            .failure(.unknown(status: 500, payload: nil, cause: nil))
+        }
     }
 
-    public func signUp(with _: SignUpPayload) async -> Result<Void, SignUpErrors> {
-        .success(())
+    func signUp(with _: SignUpPayload) async -> Result<Void, SignUpErrors> {
+        switch outcome {
+        case .success:
+            .success(())
+        case .validationErrors(let issues):
+            .failure(.badRequest(validations: issues))
+        case .sessionUnavailable:
+            .failure(.sessionUnavailable)
+        case .emailAlreadyInUse:
+            .failure(.conflict)
+        case .invalidCredentials, .serverUnavailable:
+            .failure(.unknown(status: 500, payload: nil, cause: nil))
+        }
     }
 
     private static let name = "Jane Doe"
