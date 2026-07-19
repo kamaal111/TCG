@@ -17,6 +17,7 @@ let package = Package(
         .package(url: "https://github.com/Kamaalio/KamaalSwift", .upToNextMajor(from: "3.5.0")),
         .package(url: "https://github.com/apple/swift-http-types", .upToNextMajor(from: "1.6.0")),
         .package(url: "https://github.com/apple/swift-openapi-runtime", .upToNextMajor(from: "1.12.0")),
+        .package(url: "https://github.com/pointfreeco/swift-snapshot-testing", .upToNextMajor(from: "1.19.3")),
         .package(path: "../TCGClient"),
         .package(path: "../TCGDesignSystem"),
     ],
@@ -42,7 +43,9 @@ let package = Package(
                 "TCGClient",
                 .product(name: "HTTPTypes", package: "swift-http-types"),
                 .product(name: "OpenAPIRuntime", package: "swift-openapi-runtime"),
+                .product(name: "SnapshotTesting", package: "swift-snapshot-testing"),
             ],
+            exclude: ["__Snapshots__"],
             swiftSettings: [
                 .enableUpcomingFeature("ApproachableConcurrency"),
                 .treatAllWarnings(as: .error),

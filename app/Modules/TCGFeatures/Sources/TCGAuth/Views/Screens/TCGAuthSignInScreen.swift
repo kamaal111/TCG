@@ -11,9 +11,13 @@ import TCGDesignSystem
 struct TCGAuthSignInScreen: View {
     @Environment(TCGAuth.self) private var auth
 
-    @State private var model = TCGAuthSignInScreenModel()
+    @State private var model: TCGAuthSignInScreenModel
 
     @FocusState private var focusedField: FocusedField?
+
+    init(model: TCGAuthSignInScreenModel = TCGAuthSignInScreenModel()) {
+        _model = State(initialValue: model)
+    }
 
     var body: some View {
         ScrollView {

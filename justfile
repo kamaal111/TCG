@@ -9,7 +9,8 @@ PNX := PN + " exec"
 
 APP_PROJECT := "TCG.xcodeproj"
 APP_SCHEME := "TCG"
-APP_TEST_DESTINATION := "platform=macOS"
+# Update this value from `just app-destinations` when the simulator changes.
+APP_IOS_TEST_DESTINATION := "platform=iOS Simulator,OS=27.0,name=iPhone 17"
 
 DATABASE_HOST := env("TCG_DB_HOST", "localhost")
 DATABASE_PORT := env("TCG_DB_PORT", "5432")
@@ -100,14 +101,49 @@ test: test-server test-app
 # Run heavy tests
 test-heavy: test
 
-# Run app tests
+# Run app tests on macOS and iOS
+test-app: test-app-macos test-app-ios
+
+# Run app tests on macOS
 [working-directory("app")]
-test-app:
+test-app-macos:
     xcodebuild \
         -project "{{ APP_PROJECT }}" \
         -scheme "{{ APP_SCHEME }}" \
-        -destination "{{ APP_TEST_DESTINATION }}" \
+        -destination "platform=macOS" \
         test
+
+# Run app tests on iOS
+[working-directory("app")]
+test-app-ios:
+    xcodebuild \
+        -project "{{ APP_PROJECT }}" \
+        -scheme "{{ APP_SCHEME }}" \
+        -destination "{{ APP_IOS_TEST_DESTINATION }}" \
+        test
+
+# Run macOS screen snapshot tests
+[working-directory("app")]
+test-snapshots-macos:
+    xcodebuild \
+        -project "{{ APP_PROJECT }}" \
+        -scheme "{{ APP_SCHEME }}" \
+        -destination "platform=macOS" \
+        -only-testing:TCGAuthTests/TCGAuthSignInScreenSnapshotTests \
+        test
+
+# Run iOS screen snapshot tests
+[working-directory("app")]
+test-snapshots-ios:
+    xcodebuild \
+        -project "{{ APP_PROJECT }}" \
+        -scheme "{{ APP_SCHEME }}" \
+        -destination "{{ APP_IOS_TEST_DESTINATION }}" \
+        -only-testing:TCGAuthTests/TCGAuthSignInScreenSnapshotTests \
+        test
+
+# Run screen snapshot tests on macOS and iOS
+test-snapshots: test-snapshots-macos test-snapshots-ios
 
 # Run server tests
 [working-directory("server")]

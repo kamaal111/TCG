@@ -8,6 +8,22 @@
 import Foundation
 import Security
 
+struct KeychainAccess {
+    let add: (CFDictionary, UnsafeMutablePointer<AnyObject?>?) -> OSStatus
+    let copyMatching: (CFDictionary, UnsafeMutablePointer<AnyObject?>?) -> OSStatus
+    let delete: (CFDictionary) -> OSStatus
+    let update: (CFDictionary, CFDictionary) -> OSStatus
+
+    static var live: Self {
+        Self(
+            add: SecItemAdd,
+            copyMatching: SecItemCopyMatching,
+            delete: SecItemDelete,
+            update: SecItemUpdate
+        )
+    }
+}
+
 /// Errors that can occur when setting data in the keychain.
 public enum KeychainSetErrors: LocalizedError {
     /// A general error occurred with the underlying Security framework.
@@ -84,6 +100,11 @@ public enum Keychain {
     /// ```
     @discardableResult
     public static func set(_ data: Data, forKey key: String) -> Result<Void, KeychainSetErrors> {
+        set(data, forKey: key, access: .live)
+    }
+
+    @discardableResult
+    static func set(_ data: Data, forKey key: String, access: KeychainAccess) -> Result<Void, KeychainSetErrors> {
         let query =
             [
                 kSecClass: kSecClassGenericPassword,
@@ -91,8 +112,8 @@ public enum Keychain {
                 kSecValueData: data,
                 kSecAttrAccessible: kSecAttrAccessibleWhenUnlocked,
             ] as CFDictionary
-        let status = SecItemAdd(query, nil)
-        guard status != errSecDuplicateItem else { return self.update(data, forKey: key) }
+        let status = access.add(query, nil)
+        guard status != errSecDuplicateItem else { return update(data, forKey: key, access: access) }
         guard status == errSecSuccess else { return .failure(.generalError(status: status)) }
 
         return .success(())
@@ -122,6 +143,10 @@ public enum Keychain {
     /// }
     /// ```
     public static func get(forKey key: String) -> Result<Data?, KeychainGetErrors> {
+        get(forKey: key, access: .live)
+    }
+
+    static func get(forKey key: String, access: KeychainAccess) -> Result<Data?, KeychainGetErrors> {
         let query =
             [
                 kSecClass: kSecClassGenericPassword,
@@ -130,7 +155,7 @@ public enum Keychain {
                 kSecMatchLimit: kSecMatchLimitOne,
             ] as CFDictionary
         var dataTypeRef: AnyObject?
-        let status = SecItemCopyMatching(query, &dataTypeRef)
+        let status = access.copyMatching(query, &dataTypeRef)
         guard status != errSecItemNotFound else { return .success(nil) }
         guard status == errSecSuccess else { return .failure(.generalError(status: status)) }
         guard let data = dataTypeRef as? Data else { return .success(nil) }
@@ -159,25 +184,32 @@ public enum Keychain {
     /// ```
     @discardableResult
     public static func delete(forKey key: String) -> Result<Void, KeychainDeleteErrors> {
+        delete(forKey: key, access: .live)
+    }
+
+    @discardableResult
+    static func delete(forKey key: String, access: KeychainAccess) -> Result<Void, KeychainDeleteErrors> {
         let query =
             [
                 kSecClass: kSecClassGenericPassword,
                 kSecAttrAccount: key,
             ] as CFDictionary
-        let status = SecItemDelete(query)
+        let status = access.delete(query)
         guard status == errSecSuccess else { return .failure(.generalError(status: status)) }
 
         return .success(())
     }
 
-    private static func update(_ data: Data, forKey key: String) -> Result<Void, KeychainSetErrors> {
+    private static func update(_ data: Data, forKey key: String, access: KeychainAccess) -> Result<
+        Void, KeychainSetErrors
+    > {
         let query =
             [
                 kSecClass: kSecClassGenericPassword,
                 kSecAttrAccount: key,
             ] as CFDictionary
         let attributes = [kSecValueData as String: data] as CFDictionary
-        let status = SecItemUpdate(query, attributes)
+        let status = access.update(query, attributes)
         guard status == errSecSuccess else { return .failure(.generalError(status: status)) }
 
         return .success(())
