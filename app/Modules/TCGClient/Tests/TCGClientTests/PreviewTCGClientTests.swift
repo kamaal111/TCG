@@ -61,13 +61,60 @@ struct PreviewTCGClientTests {
     }
 
     @Test
-    func `Should succeed on refresh, sign in, and sign up without network`() async throws {
-        let client = TCGClient.preview()
+    func `Should return invalid credentials when configured`() async {
+        let client = TCGClient.preview(authOutcome: .invalidCredentials)
 
-        try await client.auth.refreshToken().get()
-        try await client.auth.signIn(with: .init(email: "jane@example.com", password: "Password123!")).get()
-        try await client.auth.signUp(
-            with: .init(name: "Jane Doe", email: "jane@example.com", password: "Password123!")
-        ).get()
+        await #expect(throws: SignInErrors.badRequest(validations: [])) {
+            try await client.auth.signIn(with: .init(email: "jane@example.com", password: "Password123!")).get()
+        }
+    }
+
+    @Test
+    func `Should return configured validation errors when signing in`() async {
+        let issue = TCGClientValidationIssue(code: "invalid_format", path: ["email"], message: "Email is invalid")
+        let client = TCGClient.preview(authOutcome: .validationErrors([issue]))
+
+        await #expect(throws: SignInErrors.badRequest(validations: [issue])) {
+            try await client.auth.signIn(with: .init(email: "jane@example.com", password: "Password123!")).get()
+        }
+    }
+
+    @Test
+    func `Should return session unavailable when configured`() async {
+        let client = TCGClient.preview(authOutcome: .sessionUnavailable)
+
+        await #expect(throws: SignInErrors.sessionUnavailable) {
+            try await client.auth.signIn(with: .init(email: "jane@example.com", password: "Password123!")).get()
+        }
+        await #expect(throws: SignUpErrors.sessionUnavailable) {
+            try await client.auth.signUp(
+                with: .init(name: "Jane Doe", email: "jane@example.com", password: "Password123!")
+            ).get()
+        }
+    }
+
+    @Test
+    func `Should return an unknown error when the server is unavailable`() async {
+        let client = TCGClient.preview(authOutcome: .serverUnavailable)
+
+        await #expect(throws: SignInErrors.unknown(status: 500, payload: nil, cause: nil)) {
+            try await client.auth.signIn(with: .init(email: "jane@example.com", password: "Password123!")).get()
+        }
+        await #expect(throws: SignUpErrors.unknown(status: 500, payload: nil, cause: nil)) {
+            try await client.auth.signUp(
+                with: .init(name: "Jane Doe", email: "jane@example.com", password: "Password123!")
+            ).get()
+        }
+    }
+
+    @Test
+    func `Should return a conflict when the email is already in use`() async {
+        let client = TCGClient.preview(authOutcome: .emailAlreadyInUse)
+
+        await #expect(throws: SignUpErrors.conflict) {
+            try await client.auth.signUp(
+                with: .init(name: "Jane Doe", email: "jane@example.com", password: "Password123!")
+            ).get()
+        }
     }
 }

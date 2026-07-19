@@ -35,7 +35,15 @@ public struct TCGClient: Sendable {
     /// A ``TCGClient`` for SwiftUI previews that never performs network requests or touches the Keychain.
     ///
     /// - Parameter hasValidCredentials: Seed the in-memory credentials store so the preview looks signed in.
-    public static func preview(hasValidCredentials: Bool = false) -> TCGClient {
+    static func preview(hasValidCredentials: Bool = false) -> TCGClient {
+        preview(hasValidCredentials: hasValidCredentials, authOutcome: .success)
+    }
+
+    static func preview(authOutcome: PreviewTCGAuthOutcome) -> TCGClient {
+        preview(hasValidCredentials: false, authOutcome: authOutcome)
+    }
+
+    static func preview(hasValidCredentials: Bool, authOutcome: PreviewTCGAuthOutcome) -> TCGClient {
         let seed: Data?
         if hasValidCredentials {
             let credentials = Credentials(
@@ -52,7 +60,8 @@ public struct TCGClient: Sendable {
         let credentialsStore = InMemoryCredentialsStore(seed: seed)
         let auth = PreviewTCGAuthClient(
             credentialsStore: credentialsStore,
-            credentialsKeychainKey: credentialsKeychainKey
+            credentialsKeychainKey: credentialsKeychainKey,
+            outcome: authOutcome
         )
 
         return TCGClient(
