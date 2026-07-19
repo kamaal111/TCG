@@ -16,7 +16,7 @@ import Testing
 @MainActor
 struct TCGAuthSignInScreenSnapshotTests {
     @Test
-    func `Renders the happy login state`() {
+    func `Renders the sign in screen`() {
         let auth = TCGAuth(client: .preview(), cachedSessionStore: CachedUserSessionStoreSpy())
 
         #if os(macOS)
