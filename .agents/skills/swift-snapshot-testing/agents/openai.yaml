@@ -1,0 +1,4 @@
+interface:
+  display_name: 'Swift Snapshot Testing'
+  short_description: 'Create stable SwiftUI snapshot tests'
+  default_prompt: 'Use $swift-snapshot-testing to add or update a SwiftUI snapshot test.'
