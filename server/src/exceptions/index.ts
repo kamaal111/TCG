@@ -66,10 +66,10 @@ export class Unauthorized extends APIException {
 }
 
 export class NotFound extends APIException {
-  constructor(c: ExceptionContext, options?: { message?: string }) {
+  constructor(c: ExceptionContext, options?: { message?: string; code?: string }) {
     super(c, STATUS_CODES.NOT_FOUND, {
       message: options?.message ?? 'Not found',
-      code: 'NOT_FOUND',
+      code: options?.code ?? 'NOT_FOUND',
     });
   }
 }

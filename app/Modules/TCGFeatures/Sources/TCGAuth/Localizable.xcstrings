@@ -28,9 +28,6 @@
     "Enter at least 2 words separated by single spaces." : {
 
     },
-    "Error: %@" : {
-
-    },
     "Jane Doe" : {
 
     },
@@ -52,13 +49,13 @@
     "Password" : {
 
     },
-    "Passwords do not match." : {
-
-    },
     "Password must contain at least 8 characters." : {
 
     },
     "Password must contain at most 128 characters." : {
+
+    },
+    "Passwords do not match." : {
 
     },
     "Please correct the highlighted fields." : {
@@ -76,6 +73,12 @@
     "The server is unavailable. Please try again." : {
 
     },
+    "Verify email" : {
+
+    },
+    "Verify password" : {
+
+    },
     "Welcome to TCG" : {
 
     },
@@ -83,12 +86,6 @@
 
     },
     "Your sign-in details could not be saved. Please try again." : {
-
-    },
-    "Verify email" : {
-
-    },
-    "Verify password" : {
 
     }
   },

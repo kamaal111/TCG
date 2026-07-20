@@ -7,10 +7,7 @@ let package = Package(
     name: "TCGUtils",
     platforms: [.macOS(.v14), .iOS(.v17)],
     products: [
-        .library(
-            name: "TCGUtils",
-            targets: ["TCGUtils"]
-        )
+        .library(name: "TCGUtils", targets: ["TCGUtils"])
     ],
     targets: [
         .target(

@@ -1,6 +1,30 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "Damaged" : {
+
+    },
+    "Excellent" : {
+
+    },
+    "Good" : {
+
+    },
+    "Mint" : {
+
+    },
+    "Near mint" : {
+
+    },
+    "One Piece" : {
+
+    },
+    "Played" : {
+
+    },
+    "Pokémon" : {
+
+    },
     "Your session could not be retrieved." : {
 
     },

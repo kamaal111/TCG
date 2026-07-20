@@ -1,15 +1,5 @@
 # TCG Repository Guide
 
-## Required Codex Plugin
-
-Install **Kamaal Super Mind** before working in this repository:
-
-```sh
-curl -fsSL https://raw.githubusercontent.com/kamaal111/kamaal-super-mind/main/install.sh | bash
-```
-
-Start a new Codex task afterward and confirm installation with `codex plugin list`.
-
 ## Project Workflow
 
 - Run `just` from the repository root before working to discover the available recipes.

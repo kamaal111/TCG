@@ -7,6 +7,7 @@
 
 import Foundation
 import Observation
+import TCGDesignSystem
 
 @MainActor
 @Observable
@@ -144,7 +145,7 @@ final class TCGAuthSignInScreenModel {
         }
     }
 
-    struct Toast: Equatable {
+    struct Toast: Equatable, ToastPresentable {
         let title: String
         let message: String
     }

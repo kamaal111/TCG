@@ -7,7 +7,7 @@ import { Client, Pool } from 'pg';
 
 import type { HonoEnvironment } from '../context.ts';
 import type { Database } from '../db/index.ts';
-import { authRelations } from '../db/schema/index.ts';
+import { appRelations } from '../db/schema/index.ts';
 import { STATUS_CODES } from '../constants/http.ts';
 import { MIME_TYPES } from '../constants/request.ts';
 import { SIGN_UP_ROUTE_PATH } from '../auth/handlers/sign-up.ts';
@@ -31,7 +31,7 @@ export const createTestDatabase = async (): Promise<{
 
   const testDbUrl = BASE_DATABASE_URL.replace(/\/[^/]+$/, `/${dbName}`);
   const pool = new Pool({ connectionString: testDbUrl });
-  const testDb = drizzle<typeof authRelations>({ client: pool, relations: authRelations });
+  const testDb = drizzle<typeof appRelations>({ client: pool, relations: appRelations });
 
   await migrate(testDb, { migrationsFolder: './drizzle' });
 

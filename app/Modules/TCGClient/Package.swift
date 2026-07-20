@@ -8,10 +8,7 @@ let package = Package(
     defaultLocalization: "en",
     platforms: [.macOS(.v14), .iOS(.v17)],
     products: [
-        .library(
-            name: "TCGClient",
-            targets: ["TCGClient"]
-        )
+        .library(name: "TCGClient", targets: ["TCGClient"])
     ],
     dependencies: [
         .package(url: "https://github.com/apple/swift-openapi-generator", .upToNextMajor(from: "1.13.0")),

@@ -3,7 +3,7 @@ import { defineConfig } from 'vitest/config';
 import { SERVER_MODES } from './src/constants/common.ts';
 
 export const TEST_ENV = {
-  DATABASE_URL: 'postgresql://tcg_user:tcg_password@localhost:5432/tcg',
+  DATABASE_URL: process.env.DATABASE_URL ?? 'postgresql://tcg_user:tcg_password@localhost:5432/tcg',
   MODE: SERVER_MODES.TEST,
   DEBUG: 'true',
   BETTER_AUTH_URL: 'http://localhost:8080',
