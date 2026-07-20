@@ -1,0 +1,23 @@
+app/Modules/TCGDesignSystem/Sources/TCGDesignSystem/TCGFormField.swift
+  s_af130df4dd2f7f::t_d72720c1bfc35c 1-35
+app/Modules/TCGFeatures/Sources/TCGAuth/Views/Screens/TCGAuthSignInScreen.swift
+  s_af130df4dd2f7f::t_9d56f50ecb808e 36,45,57,67,82,92
+app/Modules/TCGDesignSystem/Sources/TCGDesignSystem/TCGSubmitButton.swift
+  s_af130df4dd2f7f::t_5dc9aaef238353 1-36
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "6888f1a0c6e5933e967a04e3022cd086a35e537b",
+  "prompts": {},
+  "sessions": {
+    "s_af130df4dd2f7f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "225174ae-d98e-40ad-be60-69b15c6b69a9",
+        "model": "claude-fable-5"
+      },
+      "human_author": "Kamaal Farah <kamaal.f1@gmail.com>"
+    }
+  }
+}
