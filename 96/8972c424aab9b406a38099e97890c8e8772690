@@ -1,0 +1,42 @@
+app/Modules/TCGClient/Sources/TCGClient/Preview/PreviewTCGCardsClient.swift
+  s_af130df4dd2f7f::t_23c70e99a903bb 1-136
+app/Modules/TCGClient/Sources/TCGClient/Models/Card.swift
+  s_af130df4dd2f7f::t_9b8abba1a6ebeb 1-70
+app/Modules/TCGClient/Sources/TCGClient/TCGCardsClient.swift
+  s_af130df4dd2f7f::t_04dc3be3e83fd5 1-264
+app/Modules/TCGClient/Sources/TCGClient/Payloads/Cards/UpsertCardPayload.swift
+  s_af130df4dd2f7f::t_e5fabd382ff193 1-40
+app/Modules/TCGClient/Tests/TCGClientTests/PreviewTCGCardsClientTests.swift
+  s_af130df4dd2f7f::t_266bf664df4d06 1-209
+app/Modules/TCGClient/Sources/TCGClient/Preview/PreviewTCGCardsOutcome.swift
+  s_af130df4dd2f7f::t_45bc6d8e3b144f 1-15
+app/Modules/TCGClient/Sources/TCGClient/Errors/Cards/DeleteCardErrors.swift
+  s_af130df4dd2f7f::t_81c2433d08d251 1-39
+app/Modules/TCGClient/Sources/TCGClient/TCGClient.swift
+  s_af130df4dd2f7f::t_8276fc09188659 14,19-24,26,54-70,93,153
+app/Modules/TCGClient/Sources/TCGClient/Errors/Cards/UpdateCardErrors.swift
+  s_af130df4dd2f7f::t_f0c7c5abb1e985 1-44
+app/Modules/TCGClient/Sources/TCGClient/Errors/Cards/ListCardsErrors.swift
+  s_af130df4dd2f7f::t_99dd56a0729f06 1-34
+app/Modules/TCGClient/Tests/TCGClientTests/TCGCardsClientTests.swift
+  s_af130df4dd2f7f::t_1af0109a3720b9 255-257
+  s_af130df4dd2f7f::t_1c7319aba67824 1-254,258-465
+app/Modules/TCGClient/Sources/TCGClient/Errors/Cards/CreateCardErrors.swift
+  s_af130df4dd2f7f::t_c6c48522c93230 1-39
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "968972c424aab9b406a38099e97890c8e8772690",
+  "prompts": {},
+  "sessions": {
+    "s_af130df4dd2f7f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "225174ae-d98e-40ad-be60-69b15c6b69a9",
+        "model": "claude-fable-5"
+      },
+      "human_author": "Kamaal Farah <kamaal.f1@gmail.com>"
+    }
+  }
+}
