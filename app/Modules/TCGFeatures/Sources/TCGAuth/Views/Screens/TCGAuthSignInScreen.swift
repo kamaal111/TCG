@@ -33,7 +33,7 @@ struct TCGAuthSignInScreen: View {
 
                 VStack(spacing: 16) {
                     if model.mode == .signUp {
-                        TCGAuthSignInField(label: "Name", error: model.fieldErrors[.name]) {
+                        TCGFormField(label: "Name", error: model.fieldErrors[.name]) {
                             TextField("Jane Doe", text: $model.name)
                                 .textContentType(.name)
                                 .focused($focusedField, equals: .name)
@@ -42,7 +42,7 @@ struct TCGAuthSignInScreen: View {
                         }
                     }
 
-                    TCGAuthSignInField(label: "Email", error: model.fieldErrors[.email]) {
+                    TCGFormField(label: "Email", error: model.fieldErrors[.email]) {
                         TextField("jane@example.com", text: $model.email)
                             .textContentType(.emailAddress)
                             .authEmailInput()
@@ -54,7 +54,7 @@ struct TCGAuthSignInScreen: View {
                     }
 
                     if model.mode == .signUp {
-                        TCGAuthSignInField(label: "Verify email", error: model.fieldErrors[.verifyEmail]) {
+                        TCGFormField(label: "Verify email", error: model.fieldErrors[.verifyEmail]) {
                             TextField("jane@example.com", text: $model.verifyEmail)
                                 .textContentType(.emailAddress)
                                 .authEmailInput()
@@ -64,7 +64,7 @@ struct TCGAuthSignInScreen: View {
                         }
                     }
 
-                    TCGAuthSignInField(label: "Password", error: model.fieldErrors[.password]) {
+                    TCGFormField(label: "Password", error: model.fieldErrors[.password]) {
                         SecureField("8–128 characters", text: $model.password)
                             .textContentType(model.mode == .login ? .password : .newPassword)
                             .focused($focusedField, equals: .password)
@@ -79,7 +79,7 @@ struct TCGAuthSignInScreen: View {
                     }
 
                     if model.mode == .signUp {
-                        TCGAuthSignInField(label: "Verify password", error: model.fieldErrors[.verifyPassword]) {
+                        TCGFormField(label: "Verify password", error: model.fieldErrors[.verifyPassword]) {
                             SecureField("8–128 characters", text: $model.verifyPassword)
                                 .textContentType(.newPassword)
                                 .focused($focusedField, equals: .verifyPassword)
@@ -89,19 +89,7 @@ struct TCGAuthSignInScreen: View {
                     }
                 }
 
-                Button(action: submit) {
-                    HStack {
-                        if model.isSubmitting {
-                            ProgressView()
-                                .controlSize(.small)
-                        }
-                        Text(model.mode.title)
-                            .frame(maxWidth: .infinity)
-                    }
-                }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
-                .disabled(model.isSubmitting)
+                TCGSubmitButton(title: model.mode.title, isLoading: model.isSubmitting, action: submit)
             }
             .frame(maxWidth: 420)
             .padding(32)
