@@ -1,0 +1,186 @@
+server/vitest.config.ts
+  s_e5a0a3328ca336::t_6c9f7ff309534d 6
+app/Modules/TCGFeatures/Sources/TCGCards/Models/CardFormValues.swift
+  s_e5a0a3328ca336::t_cd35f301194061 1-38
+app/Modules/TCGFeatures/Sources/TCGCards/Models/CardCondition+Presentation.swift
+  s_e5a0a3328ca336::t_cd35f301194061 1-15
+app/Modules/TCGFeatures/Package.swift
+  s_e5a0a3328ca336::t_fa17461b65120f 18,84
+  s_e5a0a3328ca336::t_cd35f301194061 14-17,43-56,72-76
+  s_e5a0a3328ca336::t_328e27825ac80a 77-83
+server/src/cards/exceptions.ts
+  s_e5a0a3328ca336::t_9b1729b188defa 1-8
+server/src/auth/tests/session.integration.test.ts
+  s_e5a0a3328ca336::t_6c9f7ff309534d 112
+app/TCG.xctestplan
+  s_e5a0a3328ca336::t_3ef83ab50e85e5 42-48
+app/Modules/TCGClient/Tests/TCGClientTests/PreviewTCGCardsClientTests.swift
+  s_e5a0a3328ca336::t_2f5d0db47331bb 1-93
+server/src/db/schema/index.ts
+  s_e5a0a3328ca336::t_315229715d8dda 2-7
+server/src/cards/repository.ts
+  s_e5a0a3328ca336::t_9b1729b188defa 1-91
+server/src/cards/routes/delete-card.ts
+  s_e5a0a3328ca336::t_e0a4a951fa0a48 1-32
+server/src/cards/handlers/delete-card.ts
+  s_e5a0a3328ca336::t_e0a4a951fa0a48 1-14,16-32
+  s_e5a0a3328ca336::t_c4d141a5d4e89e 15
+app/Modules/TCGClient/Sources/TCGClient/Models/Card.swift
+  s_e5a0a3328ca336::t_f513fa1578844c 1-67
+app/Modules/TCGClient/Tests/TCGClientTests/TCGCardsClientTests.swift
+  s_e5a0a3328ca336::t_2f5d0db47331bb 1-26,28-59,61-150,157-164,166-193,196-207,209-217
+  s_e5a0a3328ca336::t_cc663262e997d9 151-156,165
+  s_e5a0a3328ca336::t_93912b8e112bc7 27,60
+  s_e5a0a3328ca336::t_e2b1ee67cbc229 208
+  s_e5a0a3328ca336::t_038d20137544b6 194-195
+app/Modules/TCGFeatures/Sources/TCGCards/ModuleConfig.swift
+  s_e5a0a3328ca336::t_cd35f301194061 1-5
+app/Modules/TCGClient/Sources/TCGClient/TCGCardsClient.swift
+  s_e5a0a3328ca336::t_fa5f2bf1843e31 115,121,129,135,140-179
+  s_e5a0a3328ca336::t_f513fa1578844c 1-54,57-82,85-114,116-120,122-128,130-134,136-139,180
+  s_e5a0a3328ca336::t_130123f9a585bd 55-56,83-84
+app/Modules/TCGDesignSystem/Sources/TCGDesignSystem/TCGSubmitButton.swift
+  s_e5a0a3328ca336::t_665996e120813a 1-29
+server/src/cards/handlers/list-cards.ts
+  s_e5a0a3328ca336::t_2c5c7c47ade6dc 13
+  s_e5a0a3328ca336::t_e0a4a951fa0a48 1-12,14-29
+server/src/cards/routes/list-cards.ts
+  s_e5a0a3328ca336::t_e0a4a951fa0a48 1-30
+app/Modules/TCGFeatures/Tests/TCGCardsTests/TCGCardFormScreenModelTests.swift
+  s_e5a0a3328ca336::t_c5e36a5828cd0f 1-53
+app/Modules/TCGClient/Sources/TCGClient/Errors/Cards/CardErrors.swift
+  s_e5a0a3328ca336::t_f513fa1578844c 1-59
+app/Modules/TCGClient/Sources/TCGClient/TCGClient.swift
+  s_e5a0a3328ca336::t_f513fa1578844c 14,19-24,26,46-50,54-58,62-77,97,101,158,162
+server/src/db/schema/cards.ts
+  s_e5a0a3328ca336::t_315229715d8dda 1-26,31-44,49-64
+  s_e5a0a3328ca336::t_c4d141a5d4e89e 27-30,45-48
+server/src/db/index.ts
+  s_e5a0a3328ca336::t_315229715d8dda 4,8
+app/Modules/TCGFeatures/Sources/TCGAuth/Views/Screens/TCGAuthSignInScreen.swift
+  s_e5a0a3328ca336::t_665996e120813a 36,45,57,67,82,92
+app/Modules/TCGFeatures/Sources/TCGCards/Views/Screens/TCGCardsListScreen.swift
+  s_e5a0a3328ca336::t_dcb12713578eac 9-13
+  s_e5a0a3328ca336::t_fa17461b65120f 80
+  s_e5a0a3328ca336::t_07ee03b84461f7 57-58,60-69,94-99
+  s_e5a0a3328ca336::t_3ef83ab50e85e5 1-8,14-17,34-35,45,70-71,81,102-103,117,127-151
+  s_e5a0a3328ca336::t_3877c71e290764 18-33,36-44,46-56,59,72-79,82-93,100-101,104-116,118-126
+app/Modules/TCGFeatures/Sources/TCGCards/TCGCards.swift
+  s_e5a0a3328ca336::t_cd35f301194061 1-79
+app/Modules/TCGFeatures/Tests/TCGCardsTests/TCGCardsListScreenSnapshotTests.swift
+  s_e5a0a3328ca336::t_3877c71e290764 43
+  s_e5a0a3328ca336::t_c5e36a5828cd0f 1-41,47-52,54-68
+  s_e5a0a3328ca336::t_d1372b70be3c82 42,44-46
+  s_e5a0a3328ca336::t_b71ef31a76c81e 53
+app/Modules/TCGFeatures/Sources/TCGCards/Models/TCGCardsOperationError.swift
+  s_e5a0a3328ca336::t_cd35f301194061 1-15
+server/src/tests/utils.ts
+  s_e5a0a3328ca336::t_315229715d8dda 10,34
+app/Modules/TCGFeatures/Sources/TCGCards/TCGCardsEnvironment.swift
+  s_e5a0a3328ca336::t_cd35f301194061 1-5
+app/Modules/TCGFeatures/Tests/TCGCardsTests/TCGCardFormScreenSnapshotTests.swift
+  s_e5a0a3328ca336::t_b71ef31a76c81e 40,47
+  s_e5a0a3328ca336::t_c5e36a5828cd0f 1-39,41-46,48-62
+app/Modules/TCGClient/Sources/TCGClient/openapi.yaml
+  s_e5a0a3328ca336::t_6dd524b7dd84b5 243-368,623-825
+server/src/cards/utils/cards.ts
+  s_e5a0a3328ca336::t_9b1729b188defa 1-21
+server/src/cards/tests/create-card.integration.test.ts
+  s_e5a0a3328ca336::t_5fb06a57758d74 70-80,82-88
+  s_e5a0a3328ca336::t_dcd5c5468058c5 20,22-51
+  s_e5a0a3328ca336::t_3ce78e0a4eb002 1-19,21,52-62,64-69,81,89
+  s_e5a0a3328ca336::t_2cec0c88f76183 63
+app/Modules/TCGClient/Sources/TCGClient/Preview/PreviewTCGCardsOutcome.swift
+  s_e5a0a3328ca336::t_f513fa1578844c 1-7
+server/src/cards/route.ts
+  s_e5a0a3328ca336::t_e0a4a951fa0a48 1-20
+server/src/cards/schemas/payloads.ts
+  s_e5a0a3328ca336::t_9b1729b188defa 1-54
+app/Modules/TCGClient/Sources/TCGClient/Preview/PreviewTCGCardsClient.swift
+  s_e5a0a3328ca336::t_f513fa1578844c 1-107
+app/Modules/TCGFeatures/Sources/TCGCards/Models/CardGame+Presentation.swift
+  s_e5a0a3328ca336::t_cd35f301194061 1-11
+server/src/cards/handlers/update-card.ts
+  s_e5a0a3328ca336::t_c4d141a5d4e89e 22
+  s_e5a0a3328ca336::t_e0a4a951fa0a48 1-21,23-36
+server/src/auth/exceptions.ts
+  s_e5a0a3328ca336::t_6c9f7ff309534d 17-21
+server/src/cards/schemas/responses.ts
+  s_e5a0a3328ca336::t_9b1729b188defa 1-67
+server/src/cards/handlers/create-card.ts
+  s_e5a0a3328ca336::t_e0a4a951fa0a48 1-13,15-30
+  s_e5a0a3328ca336::t_2c5c7c47ade6dc 14
+server/src/cards/routes/update-card.ts
+  s_e5a0a3328ca336::t_e0a4a951fa0a48 1-40
+app/Modules/TCGFeatures/Sources/TCGCards/Models/TCGCardsValidationIssue.swift
+  s_e5a0a3328ca336::t_cd35f301194061 1-12
+server/src/app-api/index.ts
+  s_e5a0a3328ca336::t_e0a4a951fa0a48 6-7,11-14
+server/src/cards/tests/delete-card.integration.test.ts
+  s_e5a0a3328ca336::t_5fb06a57758d74 37-46,48-59
+  s_e5a0a3328ca336::t_3ce78e0a4eb002 1-36,47,60
+app/Modules/TCGFeatures/Sources/TCGCards/Views/Screens/TCGCardFormScreen.swift
+  s_e5a0a3328ca336::t_3ef83ab50e85e5 1-71
+server/drizzle/20260720062004_thin_metal_master/snapshot.json
+  s_e5a0a3328ca336::t_c4d141a5d4e89e 5,8,14,910,913,923,926,936,939,949,952,961,969,977,985,993,1001,1009,1018,1027,1036
+  s_e5a0a3328ca336::t_f9db687b88237e 1-4,6-7,9-13,15-909,911-912,914-922,924-925,927-935,937-938,940-948,950-951,953-960,962-968,970-976,978-984,986-992,994-1000,1002-1008,1010-1017,1019-1026,1028-1035
+server/src/exceptions/index.ts
+  s_e5a0a3328ca336::t_315229715d8dda 69,72
+server/src/cards/routes/create-card.ts
+  s_e5a0a3328ca336::t_e0a4a951fa0a48 1-36
+server/src/cards/tests/utils.ts
+  s_e5a0a3328ca336::t_3ce78e0a4eb002 1-36
+server/src/cards/tests/update-card.integration.test.ts
+  s_e5a0a3328ca336::t_3ce78e0a4eb002 1-39,65,75-88
+  s_e5a0a3328ca336::t_5fb06a57758d74 40-64,66-74
+server/src/cards/tests/list-cards.integration.test.ts
+  s_e5a0a3328ca336::t_3ce78e0a4eb002 1-23,43,47,55-57
+  s_e5a0a3328ca336::t_5fb06a57758d74 24-42,44-46,48-54
+server/src/cards/schemas/params.ts
+  s_e5a0a3328ca336::t_c4d141a5d4e89e 4-11
+  s_e5a0a3328ca336::t_9b1729b188defa 1-3,12
+app/Modules/TCGApp/Package.swift
+  s_e5a0a3328ca336::t_cd35f301194061 20-21
+app/Modules/TCGFeatures/Sources/TCGCards/Views/TCGCardsListScreenModel.swift
+  s_e5a0a3328ca336::t_3ef83ab50e85e5 1-58
+app/Modules/TCGApp/Sources/TCGApp/TCGApp.swift
+  s_e5a0a3328ca336::t_3ef83ab50e85e5 10,14,20-21
+app/Modules/TCGFeatures/Sources/TCGCards/TCGCardsValidator.swift
+  s_e5a0a3328ca336::t_dcb12713578eac 36
+  s_e5a0a3328ca336::t_cd35f301194061 1,3-35,37-46
+  s_e5a0a3328ca336::t_3ef83ab50e85e5 2
+app/Modules/TCGFeatures/Tests/TCGCardsTests/TCGCardsFeatureTests.swift
+  s_e5a0a3328ca336::t_efec1e63a5815c 55
+  s_e5a0a3328ca336::t_c5e36a5828cd0f 1-54,56-62
+server/src/cards/constants.ts
+  s_e5a0a3328ca336::t_9b1729b188defa 1-7
+app/Modules/TCGClient/Sources/TCGClient/Payloads/Cards/UpsertCardPayload.swift
+  s_e5a0a3328ca336::t_f513fa1578844c 1-30
+justfile
+  s_e5a0a3328ca336::t_3ef83ab50e85e5 133-134,145-146
+  s_e5a0a3328ca336::t_c106052850f4be 13
+server/drizzle/20260720062004_thin_metal_master/migration.sql
+  s_e5a0a3328ca336::t_f9db687b88237e 1-27
+app/Modules/TCGFeatures/Sources/TCGCards/Views/TCGCardFormScreenModel.swift
+  s_e5a0a3328ca336::t_3ef83ab50e85e5 1-72
+app/Modules/TCGFeatures/Sources/TCGCards/Localizable.xcstrings
+  s_e5a0a3328ca336::t_3ef83ab50e85e5 1-5
+app/Modules/TCGDesignSystem/Sources/TCGDesignSystem/TCGFormField.swift
+  s_e5a0a3328ca336::t_665996e120813a 3,8,14
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "71ffbb6a655953dd66813ccda3fdb5a7cc26a83e",
+  "prompts": {},
+  "sessions": {
+    "s_e5a0a3328ca336": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f7e2a-dc72-7691-b51e-00d4e71ff7a4",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Kamaal Farah <kamaal.f1@gmail.com>"
+    }
+  }
+}
