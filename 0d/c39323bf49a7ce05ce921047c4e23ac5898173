@@ -1,0 +1,66 @@
+app/Modules/TCGFeatures/Sources/TCGCards/ModuleConfig.swift
+  s_af130df4dd2f7f::t_e6da536b6b4f52 1-13
+app/Modules/TCGFeatures/Sources/TCGCards/Views/TCGCardFormScreenModel.swift
+  s_af130df4dd2f7f::t_0f0740a87bd1f8 1-156
+app/Modules/TCGFeatures/Sources/TCGCards/Models/CardFormValues.swift
+  s_af130df4dd2f7f::t_0496896991fffa 1-65
+app/Modules/TCGFeatures/Sources/TCGCards/Models/CardCondition+Presentation.swift
+  s_af130df4dd2f7f::t_ac31627d09f3ef 1-22
+app/Modules/TCGFeatures/Tests/TCGCardsTests/TCGCardsFeatureTests.swift
+  s_af130df4dd2f7f::t_f4eb42f7568760 1-126
+app/Modules/TCGFeatures/Sources/TCGCards/TCGCardsEnvironment.swift
+  s_af130df4dd2f7f::t_6738db0d8055c3 1-14
+app/Modules/TCGFeatures/Tests/TCGCardsTests/TCGCardFormScreenModelTests.swift
+  s_af130df4dd2f7f::t_90ab3244e0c3a2 1-160
+app/Modules/TCGFeatures/Sources/TCGCards/Models/TCGCardsValidationIssue.swift
+  s_af130df4dd2f7f::t_8a40f2b44c8f35 1-19
+app/Modules/TCGFeatures/Sources/TCGCards/Models/CardGame+Presentation.swift
+  s_af130df4dd2f7f::t_deed31499cc172 1-18
+app/Modules/TCGFeatures/Sources/TCGCards/Views/Screens/TCGCardsListScreen.swift
+  s_af130df4dd2f7f::t_e1cbb2a45e6fea 36-37
+  s_af130df4dd2f7f::t_809d14bd139fab 1-35,38-155
+app/Modules/TCGFeatures/Sources/TCGCards/Models/TCGCardsOperationError.swift
+  s_af130df4dd2f7f::t_96c38c9a43c41c 1-25
+app/Modules/TCGApp/Sources/TCGApp/TCGApp.swift
+  s_af130df4dd2f7f::t_9c9fb422c33e43 10,14,20-24
+app/Modules/TCGFeatures/Tests/TCGCardsTests/TCGCardsListScreenSnapshotTests.swift
+  s_af130df4dd2f7f::t_a4dee5a22c478d 1-53,63-77,82-86,96,98-100
+  s_af130df4dd2f7f::t_750b485138d5e3 54-62,78-81,87-95,97
+app/Modules/TCGFeatures/Sources/TCGCards/TCGCards.swift
+  s_af130df4dd2f7f::t_275c0a80288e99 1-108
+app/Modules/TCGFeatures/Sources/TCGCards/Views/TCGCardsListScreenModel.swift
+  s_af130df4dd2f7f::t_b94d3d5f4a6c97 1-79
+app/Modules/TCGFeatures/Sources/TCGCards/TCGCardsValidator.swift
+  s_af130df4dd2f7f::t_3e877c2816909a 1-88
+app/Modules/TCGFeatures/Sources/TCGCards/Views/Screens/TCGCardFormScreen.swift
+  s_af130df4dd2f7f::t_d37c67e14f1c57 1-121
+app/Modules/TCGApp/Package.swift
+  s_af130df4dd2f7f::t_1f536d77fa7cb8 20-21
+app/Modules/TCGFeatures/Sources/TCGCards/Localizable.xcstrings
+  s_af130df4dd2f7f::t_09b0a4f00ee671 1-45
+app/Modules/TCGFeatures/Package.swift
+  s_af130df4dd2f7f::t_1f536d77fa7cb8 14-18,43-69
+app/Modules/TCGFeatures/Tests/TCGCardsTests/TCGCardFormScreenSnapshotTests.swift
+  s_af130df4dd2f7f::t_51045aa2f9ed34 1-52,62-76,81-85,95,97-99
+  s_af130df4dd2f7f::t_750b485138d5e3 53-61,77-80,86-94,96
+app/TCG.xctestplan
+  s_af130df4dd2f7f::t_2e1de92bdb444f 42-48
+justfile
+  s_af130df4dd2f7f::t_a15afcee19d718 133-134,145-146
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "0dc39323bf49a7ce05ce921047c4e23ac5898173",
+  "prompts": {},
+  "sessions": {
+    "s_af130df4dd2f7f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "225174ae-d98e-40ad-be60-69b15c6b69a9",
+        "model": "claude-fable-5"
+      },
+      "human_author": "Kamaal Farah <kamaal.f1@gmail.com>"
+    }
+  }
+}
