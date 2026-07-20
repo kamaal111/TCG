@@ -39,6 +39,13 @@
         "identifier" : "TCGAuthTests",
         "name" : "TCGAuthTests"
       }
+    },
+    {
+      "target" : {
+        "containerPath" : "container:Modules\/TCGFeatures",
+        "identifier" : "TCGCardsTests",
+        "name" : "TCGCardsTests"
+      }
     }
   ],
   "version" : 1

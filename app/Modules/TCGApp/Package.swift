@@ -17,7 +17,8 @@ let package = Package(
         .target(
             name: "TCGApp",
             dependencies: [
-                .product(name: "TCGAuth", package: "TCGFeatures")
+                .product(name: "TCGAuth", package: "TCGFeatures"),
+                .product(name: "TCGCards", package: "TCGFeatures"),
             ],
             swiftSettings: [
                 .enableUpcomingFeature("ApproachableConcurrency"),

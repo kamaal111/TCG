@@ -11,7 +11,11 @@ let package = Package(
         .library(
             name: "TCGAuth",
             targets: ["TCGAuth"]
-        )
+        ),
+        .library(
+            name: "TCGCards",
+            targets: ["TCGCards"]
+        ),
     ],
     dependencies: [
         .package(url: "https://github.com/Kamaalio/KamaalSwift", .upToNextMajor(from: "3.5.0")),
@@ -31,6 +35,33 @@ let package = Package(
                 .product(name: "TCGDesignSystem", package: "TCGDesignSystem"),
                 "TCGClient",
             ],
+            swiftSettings: [
+                .enableUpcomingFeature("ApproachableConcurrency"),
+                .treatAllWarnings(as: .error),
+            ],
+        ),
+        .target(
+            name: "TCGCards",
+            dependencies: [
+                .product(name: "KamaalUI", package: "KamaalSwift"),
+                .product(name: "KamaalUtils", package: "KamaalSwift"),
+                .product(name: "KamaalLogger", package: "KamaalSwift"),
+                .product(name: "TCGDesignSystem", package: "TCGDesignSystem"),
+                "TCGClient",
+            ],
+            swiftSettings: [
+                .enableUpcomingFeature("ApproachableConcurrency"),
+                .treatAllWarnings(as: .error),
+            ],
+        ),
+        .testTarget(
+            name: "TCGCardsTests",
+            dependencies: [
+                "TCGCards",
+                "TCGClient",
+                .product(name: "SnapshotTesting", package: "swift-snapshot-testing"),
+            ],
+            exclude: ["__Snapshots__"],
             swiftSettings: [
                 .enableUpcomingFeature("ApproachableConcurrency"),
                 .treatAllWarnings(as: .error),

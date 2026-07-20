@@ -7,26 +7,21 @@
 
 import SwiftUI
 import TCGAuth
+import TCGCards
 
 public struct TCGScene: Scene {
     @State private var auth = TCGAuth.default()
+    @State private var cards = TCGCards.default()
 
     public init() {}
 
     public var body: some Scene {
         WindowGroup {
-            ContentView()
-                .tcgAuth(auth)
+            NavigationStack {
+                TCGCardsListScreen()
+            }
+            .tcgCards(cards)
+            .tcgAuth(auth)
         }
-    }
-}
-
-struct ContentView: View {
-    var body: some View {
-        ContentUnavailableView(
-            "Signed in",
-            systemImage: "checkmark.circle.fill",
-            description: Text("Your session loaded successfully.")
-        )
     }
 }

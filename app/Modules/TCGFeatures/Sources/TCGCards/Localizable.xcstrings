@@ -1,0 +1,139 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "%@ • %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ • %2$@"
+          }
+        }
+      }
+    },
+    "%lld" : {
+
+    },
+    "×%lld" : {
+
+    },
+    "Add at least one copy in any condition." : {
+
+    },
+    "Add Card" : {
+
+    },
+    "Add the first card of your collection with the plus button." : {
+
+    },
+    "All" : {
+
+    },
+    "Cancel" : {
+
+    },
+    "Card could not be saved" : {
+
+    },
+    "Card number" : {
+
+    },
+    "Collection" : {
+
+    },
+    "Collection error" : {
+
+    },
+    "Damaged" : {
+
+    },
+    "Edit Card" : {
+
+    },
+    "Enter the card name." : {
+
+    },
+    "Enter the card number." : {
+
+    },
+    "Enter the set name." : {
+
+    },
+    "Error: %@" : {
+
+    },
+    "Excellent" : {
+
+    },
+    "Game" : {
+
+    },
+    "Game filter" : {
+
+    },
+    "Good" : {
+
+    },
+    "Mint" : {
+
+    },
+    "Monkey D. Luffy" : {
+
+    },
+    "Must contain at most %lld characters." : {
+
+    },
+    "Name" : {
+
+    },
+    "Near Mint" : {
+
+    },
+    "No cards yet" : {
+
+    },
+    "Notes" : {
+
+    },
+    "Notes must contain at most 2000 characters." : {
+
+    },
+    "One Piece" : {
+
+    },
+    "OP01-003" : {
+
+    },
+    "Optional notes" : {
+
+    },
+    "Played" : {
+
+    },
+    "Please correct the highlighted fields." : {
+
+    },
+    "Pokemon" : {
+
+    },
+    "Quantities" : {
+
+    },
+    "Quantities must be between 0 and 999." : {
+
+    },
+    "Romance Dawn" : {
+
+    },
+    "Set name" : {
+
+    },
+    "The card could not be found. It may have been deleted elsewhere." : {
+
+    },
+    "The server is unavailable. Please try again." : {
+
+    }
+  },
+  "version" : "1.0"
+}
