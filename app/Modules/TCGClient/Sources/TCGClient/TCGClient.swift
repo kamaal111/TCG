@@ -11,12 +11,19 @@ import OpenAPIURLSession
 
 public struct TCGClient: Sendable {
     public let auth: TCGAuthClient
+    public let cards: TCGCardsClient
 
     private let credentialsKeychainKey: String
     private let credentialsStore: CredentialsStore
 
-    private init(auth: TCGAuthClient, credentialsKeychainKey: String, credentialsStore: CredentialsStore) {
+    private init(
+        auth: TCGAuthClient,
+        cards: TCGCardsClient,
+        credentialsKeychainKey: String,
+        credentialsStore: CredentialsStore
+    ) {
         self.auth = auth
+        self.cards = cards
         self.credentialsKeychainKey = credentialsKeychainKey
         self.credentialsStore = credentialsStore
     }
@@ -44,6 +51,23 @@ public struct TCGClient: Sendable {
     }
 
     static func preview(hasValidCredentials: Bool, authOutcome: PreviewTCGAuthOutcome) -> TCGClient {
+        preview(
+            hasValidCredentials: hasValidCredentials,
+            authOutcome: authOutcome,
+            cardsOutcome: .success(cards: PreviewTCGCardsClient.sampleCards)
+        )
+    }
+
+    /// A ``TCGClient`` for SwiftUI previews that looks signed in and serves the given deterministic cards outcome.
+    static func preview(cardsOutcome: PreviewTCGCardsOutcome) -> TCGClient {
+        preview(hasValidCredentials: true, authOutcome: .success, cardsOutcome: cardsOutcome)
+    }
+
+    static func preview(
+        hasValidCredentials: Bool,
+        authOutcome: PreviewTCGAuthOutcome,
+        cardsOutcome: PreviewTCGCardsOutcome
+    ) -> TCGClient {
         let seed: Data?
         if hasValidCredentials {
             let credentials = Credentials(
@@ -66,6 +90,7 @@ public struct TCGClient: Sendable {
 
         return TCGClient(
             auth: auth,
+            cards: PreviewTCGCardsClient(outcome: cardsOutcome),
             credentialsKeychainKey: credentialsKeychainKey,
             credentialsStore: credentialsStore
         )
@@ -125,6 +150,7 @@ public struct TCGClient: Sendable {
 
         return TCGClient(
             auth: auth,
+            cards: TCGCardsClientImpl(client: client),
             credentialsKeychainKey: credentialsKeychainKey,
             credentialsStore: credentialsStore
         )

@@ -1,6 +1,24 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "The card could not be added." : {
+
+    },
+    "The card could not be deleted." : {
+
+    },
+    "The card could not be found." : {
+
+    },
+    "The card could not be updated." : {
+
+    },
+    "The card details are invalid." : {
+
+    },
+    "Your cards could not be loaded." : {
+
+    },
     "Your session could not be retrieved." : {
 
     },
