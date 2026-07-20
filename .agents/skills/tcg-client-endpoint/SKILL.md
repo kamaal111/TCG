@@ -21,7 +21,7 @@ Implement TCGClient endpoint support from the server contract through the genera
 - Add a dedicated public error type when the endpoint has an independent failure domain. Match nearby client error conventions and map each documented response case deliberately.
 - Extend the relevant public client protocol and implementation using the generated `Client` operation. Do not hand-build HTTP requests or duplicate generated API models.
 - Parse validation responses with the existing `TCGClientValidationErrorParser`.
-- Preserve required side effects—such as credential storage—using the existing shared helper. Translate transport failures, malformed required response data, storage failures, and undocumented responses into the endpoint’s explicit unknown-failure case.
+- Preserve required side effects—such as credential storage—using the existing shared helper. Translate transport failures, malformed required response data, storage failures, and undocumented responses into the endpoint's explicit unknown-failure case.
 - For a documented status whose user-facing mapping is not established by a sibling endpoint, ask the user before choosing a new public error behavior.
 
 ## Test At The Generated-Client Boundary

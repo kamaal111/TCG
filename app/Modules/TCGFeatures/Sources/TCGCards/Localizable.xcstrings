@@ -1,0 +1,101 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "%@ • %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ • %2$@"
+          }
+        }
+      }
+    },
+    "%@: %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@: %2$lld"
+          }
+        }
+      }
+    },
+    "×%lld" : {
+
+    },
+    "Add at least one card quantity." : {
+
+    },
+    "Add card" : {
+
+    },
+    "Add your first card to start your collection." : {
+
+    },
+    "All games" : {
+
+    },
+    "Card number" : {
+
+    },
+    "Collection error" : {
+
+    },
+    "Delete" : {
+
+    },
+    "Each quantity must be between 0 and 999." : {
+
+    },
+    "Edit card" : {
+
+    },
+    "Game" : {
+
+    },
+    "Monkey D. Luffy" : {
+
+    },
+    "My collection" : {
+
+    },
+    "Name" : {
+
+    },
+    "No cards" : {
+
+    },
+    "Notes" : {
+
+    },
+    "Notes must contain at most 2000 characters." : {
+
+    },
+    "OP01-003" : {
+
+    },
+    "Optional notes" : {
+
+    },
+    "Please correct the highlighted fields." : {
+
+    },
+    "Quantities" : {
+
+    },
+    "Romance Dawn" : {
+
+    },
+    "Set name" : {
+
+    },
+    "The server is unavailable. Please try again." : {
+
+    },
+    "This card is no longer in your collection." : {
+
+    }
+  },
+  "version" : "1.0"
+}

@@ -109,7 +109,7 @@ describe('Session integration', () => {
 
     expect(body).toEqual({
       message: 'Not found',
-      code: 'NOT_FOUND',
+      code: 'SESSION_NOT_FOUND',
     });
   });
 });

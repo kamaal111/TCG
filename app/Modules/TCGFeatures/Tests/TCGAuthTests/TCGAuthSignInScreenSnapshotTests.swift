@@ -5,8 +5,8 @@
 //  Created by Codex on 7/19/26.
 //
 
-import SnapshotTesting
 import SwiftUI
+import TCGSnapshotTesting
 import Testing
 
 @testable import TCGAuth
@@ -19,7 +19,7 @@ struct TCGAuthSignInScreenSnapshotTests {
     func `Renders the sign in screen`() {
         let auth = TCGAuth(client: .preview(), cachedSessionStore: CachedUserSessionStoreSpy())
 
-        assert(testName: #function) { makeScreen(auth: auth) }
+        assertScreenSnapshot(testName: #function) { makeScreen(auth: auth) }
     }
 
     @Test
@@ -29,7 +29,7 @@ struct TCGAuthSignInScreenSnapshotTests {
         _ = await auth.signUp(name: "Jane Doe", email: "jane@example.com", password: "Password123!")
 
         #expect(auth.isLoggedIn)
-        assert(testName: #function) { makeScreen(auth: auth) }
+        assertScreenSnapshot(testName: #function) { makeScreen(auth: auth) }
     }
 
     @Test
@@ -37,7 +37,7 @@ struct TCGAuthSignInScreenSnapshotTests {
         let auth = TCGAuth(client: .preview(), cachedSessionStore: CachedUserSessionStoreSpy())
         let model = await makeSubmittedModel(auth: auth, email: "invalid", password: "short")
 
-        assert(testName: #function) { makeDrivenScreen(auth: auth, model: model) }
+        assertScreenSnapshot(testName: #function) { makeDrivenScreen(auth: auth, model: model) }
     }
 
     @Test
@@ -53,7 +53,7 @@ struct TCGAuthSignInScreenSnapshotTests {
             verifyPassword: "different"
         )
 
-        assert(testName: #function) { makeDrivenScreen(auth: auth, model: model) }
+        assertScreenSnapshot(testName: #function) { makeDrivenScreen(auth: auth, model: model) }
     }
 
     @Test
@@ -64,7 +64,7 @@ struct TCGAuthSignInScreenSnapshotTests {
         )
         let model = await makeSubmittedModel(auth: auth, email: "jane@example.com", password: "Password123!")
 
-        assert(testName: #function) { makeDrivenScreen(auth: auth, model: model) }
+        assertScreenSnapshot(testName: #function) { makeDrivenScreen(auth: auth, model: model) }
     }
 
     @Test
@@ -80,7 +80,7 @@ struct TCGAuthSignInScreenSnapshotTests {
         )
         let model = await makeSubmittedModel(auth: auth, email: "jane@example.com", password: "Password123!")
 
-        assert(testName: #function) { makeDrivenScreen(auth: auth, model: model) }
+        assertScreenSnapshot(testName: #function) { makeDrivenScreen(auth: auth, model: model) }
     }
 
     private func makeScreen(auth: TCGAuth) -> some View {
@@ -115,39 +115,4 @@ struct TCGAuthSignInScreenSnapshotTests {
 
         return model
     }
-
-    private func assert<Screen: View>(testName: String, @ViewBuilder screen: () -> Screen) {
-        for scheme in [ColorScheme.light, .dark] {
-            #if os(macOS)
-                assertSnapshot(
-                    of: makeMacOSScreen(screen: screen(), scheme: scheme),
-                    as: .image,
-                    named: "\(scheme)",
-                    testName: testName
-                )
-            #elseif os(iOS)
-                assertSnapshot(
-                    of: screen(),
-                    as: .image(
-                        layout: .device(config: .iPhone13),
-                        traits: UITraitCollection(userInterfaceStyle: scheme == .dark ? .dark : .light)
-                    ),
-                    named: "iPhone-\(scheme)",
-                    testName: testName
-                )
-            #endif
-        }
-    }
-
-    #if os(macOS)
-        private func makeMacOSScreen<Screen: View>(screen: Screen, scheme: ColorScheme) -> NSHostingView<some View> {
-            let hostingView = NSHostingView(rootView: screen.preferredColorScheme(scheme))
-            hostingView.appearance = NSAppearance(named: scheme == .dark ? .darkAqua : .aqua)
-            hostingView.frame = NSRect(x: 0, y: 0, width: 1_280, height: 960)
-            hostingView.wantsLayer = true
-            hostingView.layer?.backgroundColor = (scheme == .dark ? NSColor.black : NSColor.white).cgColor
-
-            return hostingView
-        }
-    #endif
 }

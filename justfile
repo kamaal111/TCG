@@ -10,7 +10,7 @@ PNX := PN + " exec"
 APP_PROJECT := "TCG.xcodeproj"
 APP_SCHEME := "TCG"
 # Update this value from `just app-destinations` when the simulator changes.
-APP_IOS_TEST_DESTINATION := "platform=iOS Simulator,OS=27.0,name=iPhone 17"
+APP_IOS_TEST_DESTINATION := "platform=iOS Simulator,OS=27.0,name=TCG Test iPhone"
 
 DATABASE_HOST := env("TCG_DB_HOST", "localhost")
 DATABASE_PORT := env("TCG_DB_PORT", "5432")
@@ -130,6 +130,8 @@ test-snapshots-macos:
         -scheme "{{ APP_SCHEME }}" \
         -destination "platform=macOS" \
         -only-testing:TCGAuthTests/TCGAuthSignInScreenSnapshotTests \
+        -only-testing:TCGCardsTests/TCGCardsListScreenSnapshotTests \
+        -only-testing:TCGCardsTests/TCGCardFormScreenSnapshotTests \
         test
 
 # Run iOS screen snapshot tests
@@ -140,6 +142,8 @@ test-snapshots-ios:
         -scheme "{{ APP_SCHEME }}" \
         -destination "{{ APP_IOS_TEST_DESTINATION }}" \
         -only-testing:TCGAuthTests/TCGAuthSignInScreenSnapshotTests \
+        -only-testing:TCGCardsTests/TCGCardsListScreenSnapshotTests \
+        -only-testing:TCGCardsTests/TCGCardFormScreenSnapshotTests \
         test
 
 # Run screen snapshot tests on macOS and iOS

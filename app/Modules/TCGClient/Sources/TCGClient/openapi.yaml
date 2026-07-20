@@ -240,6 +240,132 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /app-api/cards:
+    post:
+      tags:
+        - Cards
+      summary: Add an owned card
+      description: Add an owned trading card entry to the authenticated user's collection.
+      security:
+        - bearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpsertCard'
+      responses:
+        '201':
+          description: Card added successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Card'
+        '400':
+          description: Invalid card details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '404':
+          description: Authenticated session not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    get:
+      tags:
+        - Cards
+      summary: List owned cards
+      description: List the authenticated user's owned card entries, newest first.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Collection retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CardsListResponse'
+        '404':
+          description: Authenticated session not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /app-api/cards/{cardId}:
+    put:
+      tags:
+        - Cards
+      summary: Replace an owned card
+      description: >-
+        Replace an owned card entry and all quantities for the authenticated
+        user.
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+            description: Unique card entry identifier
+            example: 550e8400-e29b-41d4-a716-446655440000
+          required: true
+          description: Unique card entry identifier
+          name: cardId
+          in: path
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpsertCard'
+      responses:
+        '200':
+          description: Card updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Card'
+        '400':
+          description: Invalid card details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '404':
+          description: Session or card not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CardNotFoundErrorResponse'
+    delete:
+      tags:
+        - Cards
+      summary: Delete an owned card
+      description: Delete an owned card entry from the authenticated user's collection.
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+            description: Unique card entry identifier
+            example: 550e8400-e29b-41d4-a716-446655440000
+          required: true
+          description: Unique card entry identifier
+          name: cardId
+          in: path
+      responses:
+        '200':
+          description: Card deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeleteCardResponse'
+        '404':
+          description: Session or card not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CardNotFoundErrorResponse'
 components:
   schemas:
     AuthResponse:
@@ -494,6 +620,207 @@ components:
           example: eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9...
       required:
         - token
+    Card:
+      type: object
+      properties:
+        game:
+          type: string
+          enum:
+            - one_piece
+            - pokemon
+          description: Trading card game
+          example: one_piece
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: Card name
+          example: Monkey D. Luffy
+        set_name:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: Set name
+          example: Romance Dawn
+        card_number:
+          type: string
+          minLength: 1
+          maxLength: 50
+          description: Card number
+          example: OP01-003
+        id:
+          type: string
+          format: uuid
+          description: Unique card entry identifier
+          example: 550e8400-e29b-41d4-a716-446655440000
+        notes:
+          type:
+            - null
+            - string
+          maxLength: 2000
+          description: Optional notes
+          example: Alternate art
+        quantities:
+          type: array
+          items:
+            $ref: '#/components/schemas/CardConditionQuantity'
+          description: Owned quantities by condition
+        created_at:
+          type: string
+          format: date-time
+          description: Creation timestamp
+          example: '2026-07-20T10:30:00.000Z'
+        updated_at:
+          type: string
+          format: date-time
+          description: Last update timestamp
+          example: '2026-07-20T10:30:00.000Z'
+      required:
+        - game
+        - name
+        - set_name
+        - card_number
+        - id
+        - notes
+        - quantities
+        - created_at
+        - updated_at
+      title: Card
+      description: An owned trading card entry
+      example:
+        id: 550e8400-e29b-41d4-a716-446655440000
+        game: one_piece
+        name: Monkey D. Luffy
+        set_name: Romance Dawn
+        card_number: OP01-003
+        notes: null
+        quantities:
+          - condition: near_mint
+            quantity: 2
+        created_at: '2026-07-20T10:30:00.000Z'
+        updated_at: '2026-07-20T10:30:00.000Z'
+    CardConditionQuantity:
+      type: object
+      properties:
+        condition:
+          type: string
+          enum:
+            - mint
+            - near_mint
+            - excellent
+            - good
+            - played
+            - damaged
+          description: Condition of the owned copies
+          example: near_mint
+        quantity:
+          type: integer
+          minimum: 1
+          maximum: 999
+          description: Number of copies owned in this condition
+          example: 2
+      required:
+        - condition
+        - quantity
+      title: Card Condition Quantity
+      description: Quantity owned for one card condition
+      example:
+        condition: near_mint
+        quantity: 2
+    UpsertCard:
+      type: object
+      properties:
+        game:
+          type: string
+          enum:
+            - one_piece
+            - pokemon
+          description: Trading card game
+          example: one_piece
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: Card name
+          example: Monkey D. Luffy
+        set_name:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: Set name
+          example: Romance Dawn
+        card_number:
+          type: string
+          minLength: 1
+          maxLength: 50
+          description: Card number
+          example: OP01-003
+        notes:
+          type: string
+          maxLength: 2000
+          description: Optional notes about this owned card
+          example: Alternate art
+        quantities:
+          type: array
+          items:
+            $ref: '#/components/schemas/CardConditionQuantity'
+          minItems: 1
+          maxItems: 6
+          description: Owned quantities grouped by condition
+      required:
+        - game
+        - name
+        - set_name
+        - card_number
+        - quantities
+      title: Upsert Card
+      description: Fields used to create or fully replace an owned card entry
+      example:
+        game: one_piece
+        name: Monkey D. Luffy
+        set_name: Romance Dawn
+        card_number: OP01-003
+        notes: Alternate art
+        quantities:
+          - condition: near_mint
+            quantity: 2
+    CardsListResponse:
+      type: object
+      properties:
+        cards:
+          type: array
+          items:
+            $ref: '#/components/schemas/Card'
+          description: Owned card entries, newest first
+      required:
+        - cards
+      title: Cards List Response
+      description: The authenticated user's card collection
+      example:
+        cards: []
+    CardNotFoundErrorResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          description: Error message
+        code:
+          type: string
+          enum:
+            - SESSION_NOT_FOUND
+            - CARD_NOT_FOUND
+          description: Error code
+      required:
+        - message
+        - code
+      title: Card Not Found Error Response
+      description: Error response for a missing session or a missing owned card entry
+    DeleteCardResponse:
+      type: object
+      properties: {}
+      title: Delete Card Response
+      description: Confirms that the card entry was deleted
+      example: {}
   parameters: {}
   securitySchemes:
     bearerAuth:
