@@ -1,0 +1,183 @@
+server/src/card-pricing/tcggo/client.ts
+  s_7e924f816270b9::t_d70341e73b66a5 1-7
+app/Modules/TCGFeatures/Sources/TCGSearch/Views/PricedCardRow.swift
+  s_7e924f816270b9::t_3618207f1a32b1 1-42,46,49,52-59,62-68,70-76,78-84
+  s_7e924f816270b9::t_7157c911f24db8 43-45,47-48,50-51
+  s_7e924f816270b9::t_2fcc1b9f0463e3 60-61,69,77
+server/vitest.config.ts
+  s_7e924f816270b9::t_1a3f92fac4be9b 10
+server/drizzle/20260723205853_quiet_true_believers/migration.sql
+  s_7e924f816270b9::t_cf6b2588fb2564 1-26
+server/src/tests/fixtures.ts
+  s_7e924f816270b9::t_bb59e4b0415cd8 9
+  s_7e924f816270b9::t_920f20c461ba5f 4,15,17
+server/src/app-api/index.ts
+  s_7e924f816270b9::t_1a3f92fac4be9b 8-9,16-17
+server/src/card-pricing/tcggo/real-client.ts
+  s_7e924f816270b9::t_d70341e73b66a5 1-6,8,12-56
+  s_7e924f816270b9::t_60d4e8410bab1b 7,9
+  s_7e924f816270b9::t_b33b9223dcbde6 10-11
+app/Modules/TCGClient/Sources/TCGClient/Models/CardPrice.swift
+  s_7e924f816270b9::t_df054b9641be95 1-163
+app/Modules/TCGClient/Sources/TCGClient/openapi.yaml
+  s_7e924f816270b9::t_60d4e8410bab1b 369-410,412-449,451-456,912-1170
+  s_7e924f816270b9::t_911ce88f4d2108 411,450
+app/Modules/TCGApp/Sources/TCGApp/TCGApp.swift
+  s_7e924f816270b9::t_7157c911f24db8 11,16,22-28
+  s_7e924f816270b9::t_2fcc1b9f0463e3 29-31
+app/Modules/TCGClient/Tests/TCGClientTests/PreviewTCGPricingClientTests.swift
+  s_7e924f816270b9::t_b933d52dd5cd72 1-61
+server/src/card-pricing/utils/query.ts
+  s_7e924f816270b9::t_1753b48874c528 1-26,28-40
+  s_7e924f816270b9::t_8960e35021ffbd 27
+app/Modules/TCGFeatures/Sources/TCGCards/TCGCards.swift
+  s_7e924f816270b9::t_f03f926824182f 19,21,47-57,79-82,98
+app/Modules/TCGFeatures/Sources/TCGSearch/TCGSearchEnvironment.swift
+  s_7e924f816270b9::t_3618207f1a32b1 1-10
+app/Modules/TCGApp/Package.swift
+  s_7e924f816270b9::t_7157c911f24db8 22
+server/src/card-pricing/tests/tcggo-static-client.test.ts
+  s_7e924f816270b9::t_920f20c461ba5f 1-57
+server/src/card-pricing/handlers/search-pricing.ts
+  s_7e924f816270b9::t_8c59a5ab2894cb 1-10,13-14,19-47
+  s_7e924f816270b9::t_317f0d8b0598e3 11-12,15-18
+server/src/card-pricing/tcggo/factory.ts
+  s_7e924f816270b9::t_d70341e73b66a5 1-8
+server/src/card-pricing/routes/owned-pricing.ts
+  s_7e924f816270b9::t_8c59a5ab2894cb 1-5,7-26,28-36
+  s_7e924f816270b9::t_9b6a78e729e136 6,27
+app/Modules/TCGFeatures/Tests/TCGCardsTests/TCGCardsListScreenSnapshotTests.swift
+  s_7e924f816270b9::t_f03f926824182f 22
+app/TCG.xctestplan
+  s_7e924f816270b9::t_789e518fd8a61e 49-55
+server/src/card-pricing/schemas/params.ts
+  s_7e924f816270b9::t_8960e35021ffbd 16
+  s_7e924f816270b9::t_1753b48874c528 1-15,17
+server/src/card-pricing/repository.ts
+  s_7e924f816270b9::t_8960e35021ffbd 42,126,135
+  s_7e924f816270b9::t_38e6e4faf34932 24
+  s_7e924f816270b9::t_9f99381ad41dca 1-19,27-41,43-91,105-125,127-134,136-138
+  s_7e924f816270b9::t_317f0d8b0598e3 20-23,25-26,92-104
+server/src/db/schema/card-pricing.ts
+  s_7e924f816270b9::t_1a3f92fac4be9b 1-37,39
+  s_7e924f816270b9::t_8960e35021ffbd 38
+app/Modules/TCGClient/Sources/TCGClient/TCGClient.swift
+  s_7e924f816270b9::t_df054b9641be95 15,23,29,52-53,61-62,70-71,76-90,96-97,119,124,182,187
+app/Modules/TCGClient/Sources/TCGClient/TCGPricingClient.swift
+  s_7e924f816270b9::t_69ea7e98a98a0e 154-155
+  s_7e924f816270b9::t_df054b9641be95 1-153,156-179
+server/src/card-pricing/utils/pricing.ts
+  s_7e924f816270b9::t_1753b48874c528 1-8,10-18,20,22-44,46-50
+  s_7e924f816270b9::t_8960e35021ffbd 45
+  s_7e924f816270b9::t_317f0d8b0598e3 9,19,21
+app/Modules/TCGFeatures/Sources/TCGSearch/Models/TCGSearchOperationError.swift
+  s_7e924f816270b9::t_3618207f1a32b1 1-18
+server/src/card-pricing/tcggo/types.ts
+  s_7e924f816270b9::t_d70341e73b66a5 2,5-55
+  s_7e924f816270b9::t_8ad17254ab54e9 1,3-4
+server/src/card-pricing/schemas/responses.ts
+  s_7e924f816270b9::t_8960e35021ffbd 64-66
+  s_7e924f816270b9::t_1753b48874c528 1-63,67-159
+app/Modules/TCGClient/Sources/TCGClient/Preview/PreviewTCGPricingOutcome.swift
+  s_7e924f816270b9::t_df054b9641be95 1-12
+app/Modules/TCGFeatures/Package.swift
+  s_7e924f816270b9::t_7157c911f24db8 45
+  s_7e924f816270b9::t_3618207f1a32b1 13,54-55,105-108
+  s_7e924f816270b9::t_b52479d009c357 44
+  s_7e924f816270b9::t_2352612cb4bf04 46-48,51-53
+  s_7e924f816270b9::t_a13fa14a9238ad 109-111
+  s_7e924f816270b9::t_40d43d9912dd0b 49-50,112-118
+app/Modules/TCGFeatures/Sources/TCGSearch/TCGSearch.swift
+  s_7e924f816270b9::t_3618207f1a32b1 1-35,37,41-49
+  s_7e924f816270b9::t_b59abdb30e6f22 36
+  s_7e924f816270b9::t_b35cab115bc00b 38-40
+app/Modules/TCGFeatures/Sources/TCGSearch/Views/Screens/TCGSearchScreen.swift
+  s_7e924f816270b9::t_3618207f1a32b1 1-26,29-31,33,39,41,49,68,81-90,96-103,109-110
+  s_7e924f816270b9::t_7157c911f24db8 27-28
+  s_7e924f816270b9::t_546c1b531d2347 32,34-38,40,42-48,50-67,69-80,91-95,104-108
+app/Modules/TCGClient/Sources/TCGClient/Models/OwnedCardPrice.swift
+  s_7e924f816270b9::t_df054b9641be95 1-30
+server/src/db/schema/cards.ts
+  s_7e924f816270b9::t_1a3f92fac4be9b 25
+app/Modules/TCGFeatures/Sources/TCGCards/Views/TCGCardsListScreenModel.swift
+  s_7e924f816270b9::t_f03f926824182f 28-32
+server/src/card-pricing/tcggo/normalize.ts
+  s_7e924f816270b9::t_d70341e73b66a5 1-2,4-37,41-50,53-59,66
+  s_7e924f816270b9::t_8960e35021ffbd 3
+  s_7e924f816270b9::t_317f0d8b0598e3 38-40,51-52,60-65
+server/src/card-pricing/service.ts
+  s_7e924f816270b9::t_9f99381ad41dca 1-9,11-21,23,25-66,68-70,79-80,83-84,86-141
+  s_7e924f816270b9::t_b6c2ba9b5a90e9 71-77,81-82
+  s_7e924f816270b9::t_8960e35021ffbd 10,22,24,67,78,85
+server/src/context.ts
+  s_7e924f816270b9::t_1a3f92fac4be9b 8,13,39,43
+server/src/card-pricing/tests/query.test.ts
+  s_7e924f816270b9::t_920f20c461ba5f 1-36
+server/src/card-pricing/tcggo/static-client.ts
+  s_7e924f816270b9::t_d70341e73b66a5 1-130
+server/src/card-pricing/tests/pricing.integration.test.ts
+  s_7e924f816270b9::t_8960e35021ffbd 23-25,39-41
+  s_7e924f816270b9::t_920f20c461ba5f 1-22,26-38,42-140
+server/drizzle/20260723205853_quiet_true_believers/snapshot.json
+  s_7e924f816270b9::t_cf6b2588fb2564 1-4,6-7,9-13,15-1247,1249-1250,1252-1260,1262-1263,1265-1273,1275-1276,1278-1286,1288-1289,1291-1298,1300-1306,1308-1314,1316-1322,1324-1330,1332-1338,1340-1346,1348-1354,1356-1362,1364-1371,1373-1380,1382-1389
+  s_7e924f816270b9::t_60d4e8410bab1b 5,8,14,1248,1251,1261,1264,1274,1277,1287,1290,1299,1307,1315,1323,1331,1339,1347,1355,1363,1372,1381,1390
+app/Modules/TCGFeatures/Tests/TCGSearchTests/TCGSearchScreenSnapshotTests.swift
+  s_7e924f816270b9::t_9a974d914c2621 1-49
+server/src/db/schema/index.ts
+  s_7e924f816270b9::t_1a3f92fac4be9b 6
+app/Modules/TCGFeatures/Tests/TCGCardsTests/TCGCardsFeatureTests.swift
+  s_7e924f816270b9::t_2fcc1b9f0463e3 55-59
+  s_7e924f816270b9::t_f03f926824182f 50-54,60-61
+  s_7e924f816270b9::t_688d62bd3ba479 49
+app/Modules/TCGFeatures/Sources/TCGSearch/ModuleConfig.swift
+  s_7e924f816270b9::t_3618207f1a32b1 1-11
+server/src/card-pricing/route.ts
+  s_7e924f816270b9::t_8c59a5ab2894cb 1,4-9,11-15
+  s_7e924f816270b9::t_f41160bc5af6c7 2-3,10
+app/Modules/TCGFeatures/Tests/TCGSearchTests/TCGSearchFeatureTests.swift
+  s_7e924f816270b9::t_9a974d914c2621 1-42
+server/src/env.ts
+  s_7e924f816270b9::t_1a3f92fac4be9b 15-42
+app/Modules/TCGFeatures/Sources/TCGCards/Views/Screens/TCGCardsListScreen.swift
+  s_7e924f816270b9::t_f03f926824182f 126-130
+app/Modules/TCGClient/Sources/TCGClient/Errors/Pricing/PricingErrors.swift
+  s_7e924f816270b9::t_df054b9641be95 1-36
+app/Modules/TCGFeatures/Sources/TCGCards/Views/CardRow.swift
+  s_7e924f816270b9::t_f03f926824182f 13-14,28-32,37-51
+  s_7e924f816270b9::t_53ea182cdd72cb 52
+server/src/card-pricing/routes/search-pricing.ts
+  s_7e924f816270b9::t_8c59a5ab2894cb 1-5,7-26,28-36
+  s_7e924f816270b9::t_9b6a78e729e136 6,27
+app/Modules/TCGClient/Tests/TCGClientTests/TCGPricingClientTests.swift
+  s_7e924f816270b9::t_d50e52ea7bdb62 136
+  s_7e924f816270b9::t_b933d52dd5cd72 1-135,137-182
+server/src/card-pricing/handlers/owned-pricing.ts
+  s_7e924f816270b9::t_317f0d8b0598e3 11-12,15-18
+  s_7e924f816270b9::t_8c59a5ab2894cb 1-10,13-14,19-42
+server/src/app.ts
+  s_7e924f816270b9::t_1a3f92fac4be9b 21,32,99,102,112
+app/Modules/TCGClient/Sources/TCGClient/Preview/PreviewTCGPricingClient.swift
+  s_7e924f816270b9::t_df054b9641be95 1-96
+justfile
+  s_7e924f816270b9::t_7157c911f24db8 135,148
+server/src/card-pricing/constants.ts
+  s_7e924f816270b9::t_1753b48874c528 1-2
+app/Modules/TCGFeatures/Sources/TCGSearch/Views/TCGSearchScreenModel.swift
+  s_7e924f816270b9::t_3618207f1a32b1 1-73
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "6c2f0cd245123b7431af1bf3d1e39de873a61e21",
+  "prompts": {},
+  "sessions": {
+    "s_7e924f816270b9": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f90bd-8397-7143-8b14-aa22dfc2752e",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Kamaal Farah <kamaal.f1@gmail.com>"
+    }
+  }
+}
