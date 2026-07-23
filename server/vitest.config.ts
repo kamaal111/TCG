@@ -7,6 +7,9 @@ export const TEST_ENV = {
   MODE: SERVER_MODES.TEST,
   DEBUG: 'true',
   BETTER_AUTH_URL: 'http://localhost:8080',
+  TCGGO_CLIENT: 'static',
+  TCGGO_REQUEST_TIMEOUT_MS: '1000',
+  PRICING_LOCK_TIMEOUT_MS: '1000',
 };
 
 export default defineConfig({

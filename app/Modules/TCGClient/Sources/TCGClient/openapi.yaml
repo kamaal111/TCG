@@ -366,6 +366,106 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/CardNotFoundErrorResponse'
+  /app-api/pricing/search:
+    get:
+      tags:
+        - Pricing
+      summary: Search card prices
+      description: Search TCGGO for cards and return globally cached daily pricing.
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: string
+            enum:
+              - one_piece
+              - pokemon
+            description: Trading card game to search
+            example: pokemon
+          required: true
+          description: Trading card game to search
+          name: game
+          in: query
+        - schema:
+            type: string
+            minLength: 2
+            maxLength: 200
+            description: Card name, ideally including its card number
+            example: Charizard ex 199
+          required: true
+          description: Card name, ideally including its card number
+          name: query
+          in: query
+      responses:
+        '200':
+          description: Pricing search completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PricingSearchResponse'
+        '400':
+          description: Invalid search query
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '404':
+          description: Authenticated session not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Pricing lock could not be acquired before the timeout
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /app-api/pricing/owned:
+    get:
+      tags:
+        - Pricing
+      summary: Price the owned collection
+      description: Return current daily pricing for every owned card in one request.
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: string
+            enum:
+              - one_piece
+              - pokemon
+            description: Optional game filter
+            example: one_piece
+          required: false
+          description: Optional game filter
+          name: game
+          in: query
+      responses:
+        '200':
+          description: Owned card pricing retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OwnedPricingResponse'
+        '400':
+          description: Invalid game filter
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '404':
+          description: Authenticated session not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Pricing lock could not be acquired before the timeout
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 components:
   schemas:
     AuthResponse:
@@ -821,6 +921,265 @@ components:
       title: Delete Card Response
       description: Confirms that the card entry was deleted
       example: {}
+    PricingSearchResponse:
+      type: object
+      properties:
+        query:
+          type: string
+          description: Original search query
+          example: Charizard ex 199
+        normalized_query:
+          type: string
+          description: Whitespace-normalized query
+          example: Charizard ex 199
+        game:
+          type: string
+          enum:
+            - one_piece
+            - pokemon
+          description: Trading card game searched
+          example: pokemon
+        status:
+          type: string
+          enum:
+            - ok
+            - no_results
+          description: Whether TCGGO returned matches
+          example: ok
+        matches:
+          type: array
+          items:
+            $ref: '#/components/schemas/PricedCard'
+          description: Ordered matching cards
+      required:
+        - query
+        - normalized_query
+        - game
+        - status
+        - matches
+      title: Pricing Search Response
+      description: Card pricing search results
+      example:
+        query: Charizard ex 199
+        normalized_query: Charizard ex 199
+        game: pokemon
+        status: ok
+        matches: []
+    PricedCard:
+      type: object
+      properties:
+        tcggo_card_id:
+          type: string
+          description: Stable TCGGO card identifier
+          example: pokemon-giratina-vstar-gg69
+        game:
+          type: string
+          enum:
+            - one_piece
+            - pokemon
+          description: Trading card game
+          example: pokemon
+        name:
+          type: string
+          description: Card name returned by TCGGO
+          example: Giratina VSTAR
+        card_number:
+          type: string
+          description: Card number returned by TCGGO
+          example: GG69
+        rarity:
+          type: string
+          description: Card rarity when provided
+          example: Secret Rare
+        image_url:
+          type: string
+          format: uri
+          description: Card image URL when provided
+          example: https://images.example.com/giratina-vstar-gg69.png
+        headline:
+          $ref: '#/components/schemas/PriceHeadline'
+        cardmarket:
+          $ref: '#/components/schemas/CardMarketPrice'
+        tcgplayer:
+          $ref: '#/components/schemas/TCGPlayerPrice'
+        priced_on:
+          type: string
+          format: date
+          description: UTC pricing date
+          example: '2026-07-23'
+        fetched_at:
+          type: string
+          format: date-time
+          description: Time the price was fetched from the configured source
+          example: '2026-07-23T10:30:00.000Z'
+      required:
+        - tcggo_card_id
+        - game
+        - name
+        - card_number
+        - priced_on
+        - fetched_at
+      title: Priced Card
+      description: A trading card with normalized daily market pricing
+      example:
+        tcggo_card_id: pokemon-giratina-vstar-gg69
+        game: pokemon
+        name: Giratina VSTAR
+        card_number: GG69
+        rarity: Secret Rare
+        headline:
+          amount: 146.69
+          currency: EUR
+          metric: lowest_near_mint
+        cardmarket:
+          currency: EUR
+          lowest_near_mint: 146.69
+          average_7d: 151.24
+          average_30d: 143.88
+          trend: up
+        priced_on: '2026-07-23'
+        fetched_at: '2026-07-23T10:30:00.000Z'
+    PriceHeadline:
+      type: object
+      properties:
+        amount:
+          type: number
+          minimum: 0
+          description: Headline market amount
+          example: 146.69
+        currency:
+          type: string
+          minLength: 3
+          maxLength: 3
+          description: ISO currency returned by TCGGO
+          example: EUR
+        metric:
+          type: string
+          enum:
+            - lowest_near_mint
+          description: Cardmarket metric used for the headline
+          example: lowest_near_mint
+      required:
+        - amount
+        - currency
+        - metric
+      title: Price Headline
+      description: Primary price when available
+      example:
+        amount: 146.69
+        currency: EUR
+        metric: lowest_near_mint
+    CardMarketPrice:
+      type: object
+      properties:
+        currency:
+          type: string
+          minLength: 3
+          maxLength: 3
+          description: ISO currency returned by Cardmarket
+          example: EUR
+        lowest_near_mint:
+          type: number
+          minimum: 0
+          description: Lowest near-mint listing
+          example: 146.69
+        average_7d:
+          type: number
+          minimum: 0
+          description: Seven-day average
+          example: 151.24
+        average_30d:
+          type: number
+          minimum: 0
+          description: Thirty-day average
+          example: 143.88
+        trend:
+          type: string
+          enum:
+            - up
+            - down
+            - flat
+          description: Seven-day average compared with the thirty-day average
+          example: up
+      required:
+        - currency
+      title: Cardmarket Price
+      description: Cardmarket metrics when available
+      example:
+        currency: EUR
+        lowest_near_mint: 146.69
+        average_7d: 151.24
+        average_30d: 143.88
+        trend: up
+    TCGPlayerPrice:
+      type: object
+      properties:
+        currency:
+          type: string
+          minLength: 3
+          maxLength: 3
+          description: ISO currency returned by TCGplayer
+          example: USD
+        market_price:
+          type: number
+          minimum: 0
+          description: Current market price
+          example: 172.42
+        mid_price:
+          type: number
+          minimum: 0
+          description: Current midpoint price
+          example: 178.1
+      required:
+        - currency
+      title: TCGplayer Price
+      description: TCGplayer metrics when available
+      example:
+        currency: USD
+        market_price: 172.42
+        mid_price: 178.1
+    OwnedPricingResponse:
+      type: object
+      properties:
+        prices:
+          type: array
+          items:
+            $ref: '#/components/schemas/OwnedCardPrice'
+          description: Pricing results for the owned collection
+      required:
+        - prices
+      title: Owned Pricing Response
+      description: Batch pricing results for the authenticated collection
+      example:
+        prices: []
+    OwnedCardPrice:
+      type: object
+      properties:
+        card_id:
+          type: string
+          format: uuid
+          description: Owned card identifier
+          example: 550e8400-e29b-41d4-a716-446655440000
+        status:
+          type: string
+          enum:
+            - priced
+            - no_match
+            - no_price
+          description: Pricing result for the owned card
+          example: priced
+        price:
+          allOf:
+            - $ref: '#/components/schemas/PricedCard'
+            - description: Matched price when available
+      required:
+        - card_id
+        - status
+      title: Owned Card Price
+      description: Daily pricing result for one owned card
+      example:
+        card_id: 550e8400-e29b-41d4-a716-446655440000
+        status: priced
   parameters: {}
   securitySchemes:
     bearerAuth:

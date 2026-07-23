@@ -19,6 +19,7 @@ struct TCGCardsListScreenSnapshotTests {
     func `Renders a populated collection`() async throws {
         let feature = TCGCards(client: .preview(cardsOutcome: .success(cards: PreviewTCGCardsClient.sampleCards)))
         try await feature.loadCards().get()
+        try await feature.loadOwnedPrices().get()
         assertScreenSnapshot(testName: #function) { makeScreen(feature: feature) }
     }
 

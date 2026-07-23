@@ -18,6 +18,7 @@ import appApiRoute from './app-api/index.ts';
 import { auth as authSingleton, createAuth } from './auth/better-auth.ts';
 import { OPENAPI_YAML_SPEC_URL, openAPIRouterFactory, withOpenAPIDocumentation } from './open-api.ts';
 import { NotFound } from './exceptions/index.ts';
+import { createTCGGOClient } from './card-pricing/tcggo/factory.ts';
 
 const SIGNALS_TO_TERMINATE_ON: NodeJS.Signals[] = ['SIGINT', 'SIGTERM'];
 
@@ -28,7 +29,7 @@ class App {
 
   private server: ServerType | undefined;
 
-  constructor(overrides: Partial<Pick<InjectedContext, 'db'>> = {}) {
+  constructor(overrides: Partial<Pick<InjectedContext, 'db' | 'tcggo'>> = {}) {
     this.app = createApp(overrides);
   }
 
@@ -95,9 +96,10 @@ class App {
   };
 }
 
-function createApp(overrides: Partial<Pick<InjectedContext, 'db'>> = {}) {
+function createApp(overrides: Partial<Pick<InjectedContext, 'db' | 'tcggo'>> = {}) {
   const db = overrides.db ?? dbSingleton;
   const auth = overrides.db != null ? createAuth(db) : authSingleton;
+  const tcggo = overrides.tcggo ?? createTCGGOClient(env);
 
   return withOpenAPIDocumentation(
     $(
@@ -107,7 +109,7 @@ function createApp(overrides: Partial<Pick<InjectedContext, 'db'>> = {}) {
         .use(compress())
         .use(secureHeaders())
         .use(loggingMiddleware())
-        .use(injectRequestContext({ db, auth }))
+        .use(injectRequestContext({ db, auth, tcggo }))
         .route(HEALTH_ROUTE_NAME, healthRoute)
         .route(APP_API_ROUTE_NAME, appApiRoute),
     ),

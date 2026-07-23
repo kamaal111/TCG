@@ -25,7 +25,11 @@ final class TCGCardsListScreenModel {
     }
 
     func load(using cards: TCGCards) async {
-        if case .failure(let error) = await cards.loadCards() { show(error) }
+        if case .failure(let error) = await cards.loadCards() {
+            show(error)
+            return
+        }
+        if case .failure(let error) = await cards.loadOwnedPrices() { show(error) }
     }
 
     func delete(_ card: Card, using cards: TCGCards) async {

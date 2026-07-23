@@ -47,6 +47,19 @@ struct TCGCardsFeatureTests {
     }
 
     @Test
+    func `Owned pricing is indexed by card identifier`() async throws {
+        let feature = makeFeature(.success(cards: PreviewTCGCardsClient.sampleCards))
+
+        try await feature.loadOwnedPrices().get()
+
+        #expect(
+            feature.prices
+                == Dictionary(
+                    uniqueKeysWithValues: PreviewTCGPricingClient.sampleOwnedPrices.map { ($0.cardId, $0) }
+                ))
+    }
+
+    @Test
     func `Missing update fails`() async {
         let feature = makeFeature(.notFound)
         await #expect(throws: TCGCardsOperationError.notFound) {

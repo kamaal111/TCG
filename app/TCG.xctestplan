@@ -46,6 +46,13 @@
         "identifier" : "TCGCardsTests",
         "name" : "TCGCardsTests"
       }
+    },
+    {
+      "target" : {
+        "containerPath" : "container:Modules\/TCGFeatures",
+        "identifier" : "TCGSearchTests",
+        "name" : "TCGSearchTests"
+      }
     }
   ],
   "version" : 1
