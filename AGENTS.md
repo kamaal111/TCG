@@ -6,10 +6,12 @@
 - Run commands from the repository root unless a recipe specifies another directory.
 - Use `pnpm` for Node.js work and `uv run` for Python code that needs project packages.
 - Prefer root `just` recipes for project workflows; do not start the server directly or in the background. Use `just dev-server` only when explicitly asked to start it.
+- Never invoke iOS `xcodebuild` tests directly. Use `just test-app-ios` or `just test-snapshots-ios`; these recipes serialize access to the shared CoreSimulator device across agents.
 - For TCG Swift-client endpoint work, use the repository-local `tcg-client-endpoint` skill alongside the relevant Kamaal Super Mind skills.
 
 ## Verification
 
-- For code changes, run `just ready` last; do not claim completion until it passes.
-- For documentation-only changes, skip `just ready` unless explicitly requested.
+- Run `just quality` first while iterating; it surfaces lint/format/typecheck failures faster than waiting for a `ready` recipe to fail.
+- For code changes, run the matching `ready` recipe last; do not claim completion until it passes: `just ready-server` when only the server changed, `just ready-app` when only the app changed, and `just ready` only when the changes span both.
+- For documentation-only changes, skip the `ready` recipes unless explicitly requested.
 - Use `just lint`, `just format-check`, `just typecheck`, and `just test` as the relevant narrower checks while iterating.

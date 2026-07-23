@@ -18,7 +18,7 @@ public protocol TCGAuthClient: Sendable {
     func signUp(with payload: SignUpPayload) async -> Result<Void, SignUpErrors>
 }
 
-public struct TCGAuthClientImpl: TCGAuthClient {
+struct TCGAuthClientImpl: TCGAuthClient {
     let credentialsKeychainKey: String
 
     private let client: Client
@@ -30,11 +30,11 @@ public struct TCGAuthClientImpl: TCGAuthClient {
         self.tokenRefresher = tokenRefresher
     }
 
-    public func refreshToken() async -> Result<Void, SessionErrors> {
+    func refreshToken() async -> Result<Void, SessionErrors> {
         await tokenRefresher.refreshToken()
     }
 
-    public func session() async -> Result<Session, SessionErrors> {
+    func session() async -> Result<Session, SessionErrors> {
         do {
             guard try tokenRefresher.credentials(forKey: credentialsKeychainKey) != nil else {
                 return .failure(.unauthorized)
@@ -57,7 +57,7 @@ public struct TCGAuthClientImpl: TCGAuthClient {
 
         let payload: Operations.GetAppApiAuthSession.Output.Ok
         switch response {
-        case .notFound:
+        case .unauthorized:
             return await tokenRefresher.deleteCredentials(then: .unauthorized)
         case .undocumented(let statusCode, let payload):
             return .failure(.unknown(status: statusCode, payload: payload, cause: nil))
@@ -99,7 +99,7 @@ public struct TCGAuthClientImpl: TCGAuthClient {
         )
     }
 
-    public func signIn(with payload: SignInPayload) async -> Result<Void, SignInErrors> {
+    func signIn(with payload: SignInPayload) async -> Result<Void, SignInErrors> {
         do {
             try tokenRefresher.delete(forKey: credentialsKeychainKey)
         } catch {
@@ -161,7 +161,7 @@ public struct TCGAuthClientImpl: TCGAuthClient {
         return .success(())
     }
 
-    public func signUp(with payload: SignUpPayload) async -> Result<Void, SignUpErrors> {
+    func signUp(with payload: SignUpPayload) async -> Result<Void, SignUpErrors> {
         logger.info("Starting account creation request.")
 
         let response: Operations.PostAppApiAuthSignUpEmail.Output

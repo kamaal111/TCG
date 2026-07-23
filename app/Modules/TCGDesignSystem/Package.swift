@@ -5,12 +5,14 @@ import PackageDescription
 
 let package = Package(
     name: "TCGDesignSystem",
+    defaultLocalization: "en",
     platforms: [.macOS(.v14), .iOS(.v17)],
     products: [
         .library(name: "TCGDesignSystem", targets: ["TCGDesignSystem"])
     ],
     dependencies: [
-        .package(url: "https://github.com/Kamaalio/KamaalSwift", .upToNextMajor(from: "3.5.0"))
+        .package(url: "https://github.com/Kamaalio/KamaalSwift", .upToNextMajor(from: "3.5.0")),
+        .package(path: "../TCGModels"),
     ],
     targets: [
         .target(
@@ -18,6 +20,7 @@ let package = Package(
             dependencies: [
                 .product(name: "KamaalPopUp", package: "KamaalSwift"),
                 .product(name: "KamaalUI", package: "KamaalSwift"),
+                "TCGModels",
             ],
             swiftSettings: [
                 .enableUpcomingFeature("ApproachableConcurrency"),

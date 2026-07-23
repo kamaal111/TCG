@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+# CoreSimulator devices are global to the logged-in macOS user. Serialize iOS
+# test runs across worktrees and agents to prevent concurrent access to the
+# shared `TCG Test iPhone` simulator.
+lock_file="${TMPDIR:-/tmp}/tcg-ios-simulator-tests.lock"
+
+# The lock is released automatically when xcodebuild exits or is interrupted.
+exec /usr/bin/lockf -k -t 1800 "$lock_file" xcodebuild "$@"

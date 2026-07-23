@@ -1,23 +1,23 @@
-import crypto from 'node:crypto';
 import assert from 'node:assert/strict';
+import crypto from 'node:crypto';
 
-import { decodeJwt } from 'jose';
 import type { Hono } from 'hono';
+import { decodeJwt } from 'jose';
 
 import { ONE_DAY_IN_SECONDS } from '../../constants/common.ts';
 import { STATUS_CODES } from '../../constants/http.ts';
-import env from '../../env.ts';
-import type { HonoEnvironment } from '../../context.ts';
 import { MIME_TYPES } from '../../constants/request.ts';
-import { SIGN_IN_ROUTE_PATH } from '../handlers/sign-in.ts';
-import { integrationTest } from '../../tests/fixtures.ts';
+import type { HonoEnvironment } from '../../context.ts';
+import env from '../../env.ts';
 import {
   expectAuthSuccessResponse,
   expectErrorResponse,
   expectValidationIssueForField,
   expectValidationIssueForFields,
 } from '../../tests/auth.ts';
+import { integrationTest } from '../../tests/fixtures.ts';
 import { createTestUser } from '../../tests/utils.ts';
+import { SIGN_IN_ROUTE_PATH } from '../handlers/sign-in.ts';
 
 describe('Sign-in integration', () => {
   integrationTest(

@@ -4,10 +4,9 @@ import { APP_API_ROUTE_NAME } from '../../constants/common.ts';
 import { STATUS_CODES } from '../../constants/http.ts';
 import type { HonoContext } from '../../context.ts';
 import { withRequestLogger } from '../../logging/http.ts';
-import { logInfo } from '../../logging/index.ts';
+import { logInfo, logWarn } from '../../logging/index.ts';
 import { CARDS_ROUTE_NAME } from '../constants.ts';
 import { CardNotFound } from '../exceptions.ts';
-import { CardRepository } from '../repository.ts';
 import deleteCardRoute from '../routes/delete-card.ts';
 import type { DeleteCardResponse } from '../schemas/responses.ts';
 
@@ -19,8 +18,21 @@ async function deleteCardHandler(
   c: DeleteCardContext,
 ): Promise<TypedResponse<DeleteCardResponse, typeof STATUS_CODES.OK>> {
   const { cardId } = c.req.valid('param');
-  const deleted = await CardRepository.delete(c, cardId);
-  if (!deleted) throw new CardNotFound(c);
+  const deleted = await c.get('cardRepository').delete(cardId);
+  if (!deleted) {
+    logWarn(
+      withRequestLogger(c, { component: 'cards' }),
+      {
+        event: 'cards.access_denied',
+        route: DELETE_CARD_ROUTE_PATH,
+        outcome: 'failure',
+        error_code: 'CARD_NOT_FOUND',
+        card_id: cardId,
+      },
+      'Card not found or not owned by the authenticated user.',
+    );
+    throw new CardNotFound(c);
+  }
 
   logInfo(
     withRequestLogger(c, { component: 'cards' }),

@@ -1,10 +1,10 @@
 import { Writable } from 'node:stream';
 
-import pino from 'pino';
 import type { DestinationStream, LevelWithSilent, Logger, LoggerOptions } from 'pino';
+import pino from 'pino';
 
-import env from '../env.ts';
 import type { ServerMode } from '../constants/common.ts';
+import env from '../env.ts';
 
 const SERVICE_NAME = 'tcg-server';
 const DEFAULT_COMPONENT = 'server';
@@ -31,6 +31,9 @@ export interface BaseLogFields {
   error_code?: string;
   error_name?: string;
   cache_status?: 'hit' | 'miss' | 'set' | 'skip';
+  lock_key_type?: 'card' | 'search';
+  lock_status?: 'acquired' | 'failed' | 'timeout';
+  lock_wait_ms?: number;
   result_count?: number;
   stored_count?: number;
   transaction_type?: string;

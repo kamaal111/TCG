@@ -1,17 +1,17 @@
 import { eq } from 'drizzle-orm';
 
+import { createCardRequest, sessionHeaders, validCardPayload } from './utils.ts';
 import { STATUS_CODES } from '../../constants/http.ts';
 import { cardConditionQuantity } from '../../db/schema/cards.ts';
 import { expectErrorResponse } from '../../tests/auth.ts';
 import { integrationTest } from '../../tests/fixtures.ts';
 import { createTestUser } from '../../tests/utils.ts';
 import { CardSchema } from '../schemas/responses.ts';
-import { createCardRequest, sessionHeaders, validCardPayload } from './utils.ts';
 
 describe('Delete card integration', () => {
   integrationTest('requires a session and hides missing cards', async ({ app, db }) => {
     const unauthenticated = await app.request('/app-api/cards/missing', { method: 'DELETE' });
-    expect(await expectErrorResponse(unauthenticated, STATUS_CODES.NOT_FOUND)).toMatchObject({
+    expect(await expectErrorResponse(unauthenticated, STATUS_CODES.UNAUTHORIZED)).toMatchObject({
       code: 'SESSION_NOT_FOUND',
     });
     const user = await createTestUser(app, db);
@@ -22,17 +22,25 @@ describe('Delete card integration', () => {
     expect(await expectErrorResponse(missing, STATUS_CODES.NOT_FOUND)).toMatchObject({ code: 'CARD_NOT_FOUND' });
   });
 
-  integrationTest("does not delete another user's card", async ({ app, db }) => {
-    const owner = await createTestUser(app, db);
-    const otherUser = await createTestUser(app, db);
-    const card = CardSchema.parse(await (await createCardRequest(app, owner.sessionToken)).json());
-    const response = await app.request(`/app-api/cards/${card.id}`, {
-      method: 'DELETE',
-      headers: sessionHeaders(otherUser.sessionToken),
-    });
-    expect(await expectErrorResponse(response, STATUS_CODES.NOT_FOUND)).toMatchObject({ code: 'CARD_NOT_FOUND' });
-    expect(await db.query.card.findFirst({ where: { id: card.id } })).toBeDefined();
-  });
+  integrationTest(
+    "does not delete another user's card and logs the access denial",
+    async ({ app, db, getLogsForRequestId, withRequestId }) => {
+      const owner = await createTestUser(app, db);
+      const otherUser = await createTestUser(app, db);
+      const card = CardSchema.parse(await (await createCardRequest(app, owner.sessionToken)).json());
+      const { headers, requestId } = withRequestId(
+        Object.fromEntries(sessionHeaders(otherUser.sessionToken).entries()),
+      );
+      const response = await app.request(`/app-api/cards/${card.id}`, { method: 'DELETE', headers });
+      expect(await expectErrorResponse(response, STATUS_CODES.NOT_FOUND)).toMatchObject({ code: 'CARD_NOT_FOUND' });
+      expect(await db.query.card.findFirst({ where: { id: card.id } })).toBeDefined();
+      expect(getLogsForRequestId(requestId)).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ event: 'cards.access_denied', card_id: card.id, user_id: otherUser.userId }),
+        ]),
+      );
+    },
+  );
 
   integrationTest(
     'deletes the card, cascades quantities, and preserves other cards',

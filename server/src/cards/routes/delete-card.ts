@@ -3,7 +3,7 @@ import { createRoute } from '@hono/zod-openapi';
 import { requireLoggedInSessionMiddleware } from '../../auth/middleware.ts';
 import { STATUS_CODES } from '../../constants/http.ts';
 import { MIME_TYPES } from '../../constants/request.ts';
-import { CardNotFoundErrorResponseSchema } from '../../schemas/errors.ts';
+import { CardNotFoundErrorResponseSchema, ErrorResponseSchema } from '../../schemas/errors.ts';
 import { CARDS_OPENAPI_TAG } from '../constants.ts';
 import { CardIdParamsSchema } from '../schemas/params.ts';
 import { DeleteCardResponseSchema } from '../schemas/responses.ts';
@@ -24,8 +24,12 @@ const deleteCardRoute = createRoute({
       description: 'Card deleted successfully',
       content: { [MIME_TYPES.JSON]: { schema: DeleteCardResponseSchema } },
     },
+    [STATUS_CODES.UNAUTHORIZED]: {
+      description: 'Authenticated session not found',
+      content: { [MIME_TYPES.JSON]: { schema: ErrorResponseSchema } },
+    },
     [STATUS_CODES.NOT_FOUND]: {
-      description: 'Session or card not found',
+      description: 'Card not found or not owned by the authenticated user',
       content: { [MIME_TYPES.JSON]: { schema: CardNotFoundErrorResponseSchema } },
     },
   },

@@ -1,6 +1,6 @@
 import { STATUS_CODES, type StatusCode } from '../constants/http.ts';
 import type { HonoContext } from '../context.ts';
-import { APIException, NotFound } from '../exceptions/index.ts';
+import { APIException, Unauthorized } from '../exceptions/index.ts';
 
 const CODE_TO_STATUS: Record<string, StatusCode> = {
   USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL: STATUS_CODES.CONFLICT,
@@ -14,7 +14,7 @@ export class BetterAuthException extends APIException {
   }
 }
 
-export class SessionNotFound extends NotFound {
+export class SessionNotFound extends Unauthorized {
   constructor(c: HonoContext) {
     super(c, { code: 'SESSION_NOT_FOUND' });
   }

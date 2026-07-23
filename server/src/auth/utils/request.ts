@@ -1,18 +1,18 @@
-import z from 'zod';
 import { cloneRawRequest } from 'hono/request';
-import { decodeJwt, type JWTPayload } from 'jose';
+import { type JWTPayload, decodeJwt } from 'jose';
+import z from 'zod';
 
-import type { HonoContext } from '../../context.ts';
-import { BetterAuthException } from '../exceptions.ts';
-import { getValueFromSetCookie } from '../../utils/request.ts';
-import { APIException, Unauthorized } from '../../exceptions/index.ts';
-import { STATUS_CODES } from '../../constants/http.ts';
-import env from '../../env.ts';
 import { ONE_DAY_IN_SECONDS } from '../../constants/common.ts';
-import { BETTER_AUTH_BASE_URL } from '../constants.ts';
-import tokenRoute from '../routes/token.ts';
-import { BetterAuthSignUpOrSignInResponseSchema, type AuthResponse } from '../schemas/responses.ts';
+import { STATUS_CODES } from '../../constants/http.ts';
+import type { HonoContext } from '../../context.ts';
+import env from '../../env.ts';
+import { APIException, Unauthorized } from '../../exceptions/index.ts';
 import { mapSignUpOrSignInBetterAuthRequestToAuthResponse } from '../../mappers.ts';
+import { getValueFromSetCookie } from '../../utils/request.ts';
+import { BETTER_AUTH_BASE_URL } from '../constants.ts';
+import { BetterAuthException } from '../exceptions.ts';
+import tokenRoute from '../routes/token.ts';
+import { type AuthResponse, BetterAuthSignUpOrSignInResponseSchema } from '../schemas/responses.ts';
 
 const TOKEN_URL = new URL(tokenRoute.path.slice(1), BETTER_AUTH_BASE_URL);
 

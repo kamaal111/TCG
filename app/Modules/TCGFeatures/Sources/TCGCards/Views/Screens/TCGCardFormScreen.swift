@@ -8,6 +8,7 @@
 import SwiftUI
 import TCGClient
 import TCGDesignSystem
+import TCGModels
 
 struct TCGCardFormScreen: View {
     @Environment(TCGCards.self) private var cards
@@ -22,10 +23,7 @@ struct TCGCardFormScreen: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 18) {
-                Picker("Game", selection: $model.values.game) {
-                    ForEach(CardGame.allCases, id: \.self) { Text($0.title).tag($0) }
-                }
-                .pickerStyle(.segmented)
+                TCGGamePicker(selection: gameSelection)
 
                 TCGFormField(label: "Name", error: model.fieldErrors[.name]) {
                     TextField("Monkey D. Luffy", text: $model.values.name)
@@ -68,6 +66,13 @@ struct TCGCardFormScreen: View {
         }
         .navigationTitle(model.mode.title)
         .disabled(model.isSubmitting)
+    }
+
+    private var gameSelection: Binding<CardGame> {
+        Binding(
+            get: { CardGame(client: model.values.game) },
+            set: { newValue in model.values.game = newValue.clientGame }
+        )
     }
 
     private func quantityBinding(for condition: CardCondition) -> Binding<Int> {

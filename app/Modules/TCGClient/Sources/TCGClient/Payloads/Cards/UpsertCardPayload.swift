@@ -6,7 +6,7 @@
 //
 
 public struct UpsertCardPayload: Codable, Equatable, Sendable {
-    public let game: CardGame
+    public let game: ClientCardGame
     public let name: String
     public let setName: String
     public let cardNumber: String
@@ -14,7 +14,7 @@ public struct UpsertCardPayload: Codable, Equatable, Sendable {
     public let quantities: [CardConditionQuantity]
 
     public init(
-        game: CardGame,
+        game: ClientCardGame,
         name: String,
         setName: String,
         cardNumber: String,

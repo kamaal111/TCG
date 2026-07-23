@@ -144,11 +144,6 @@ final class TCGAuthSignInScreenModel {
             }
         }
     }
-
-    struct Toast: Equatable, ToastPresentable {
-        let title: String
-        let message: String
-    }
 }
 
 extension TCGAuthValidationField {

@@ -1,10 +1,10 @@
 import { createRoute, z } from '@hono/zod-openapi';
 
-import { AUTH_OPENAPI_TAG } from '../constants.ts';
 import { STATUS_CODES } from '../../constants/http.ts';
 import { MIME_TYPES } from '../../constants/request.ts';
-import { TokenHeaders } from '../schemas/headers.ts';
 import { ErrorResponseSchema } from '../../schemas/errors.ts';
+import { AUTH_OPENAPI_TAG } from '../constants.ts';
+import { TokenHeaders } from '../schemas/headers.ts';
 
 const TokenResponseSchema = z
   .object({
@@ -28,13 +28,7 @@ const tokenRoute = createRoute({
       headers: TokenHeaders,
     },
     [STATUS_CODES.UNAUTHORIZED]: {
-      description: 'Not authenticated or session expired',
-      content: {
-        [MIME_TYPES.JSON]: { schema: ErrorResponseSchema },
-      },
-    },
-    [STATUS_CODES.NOT_FOUND]: {
-      description: 'Session not found',
+      description: 'Not authenticated, session expired, or session not found',
       content: {
         [MIME_TYPES.JSON]: { schema: ErrorResponseSchema },
       },

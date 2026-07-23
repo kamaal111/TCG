@@ -1,12 +1,12 @@
 import { createRoute } from '@hono/zod-openapi';
 
-import { AUTH_OPENAPI_TAG } from '../constants.ts';
-import { MIME_TYPES } from '../../constants/request.ts';
 import { STATUS_CODES } from '../../constants/http.ts';
-import { AuthResponseSchema } from '../schemas/responses.ts';
-import { TokenHeaders } from '../schemas/headers.ts';
+import { MIME_TYPES } from '../../constants/request.ts';
 import { ErrorResponseSchema, ValidationErrorResponseSchema } from '../../schemas/errors.ts';
+import { AUTH_OPENAPI_TAG } from '../constants.ts';
+import { TokenHeaders } from '../schemas/headers.ts';
 import { EmailPasswordSignUpSchema } from '../schemas/payloads.ts';
+import { AuthResponseSchema } from '../schemas/responses.ts';
 
 const signUpRoute = createRoute({
   method: 'post',

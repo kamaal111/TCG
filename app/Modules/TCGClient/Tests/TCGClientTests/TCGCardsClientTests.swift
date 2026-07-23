@@ -17,19 +17,19 @@ struct TCGCardsClientTests {
     @Test
     func `Lists cards through the generated operation`() async throws {
         let transport = CardsRequestTransport(status: .ok, body: cardsListJSON)
-        let cards = try await makeClient(transport: transport).cards.list().get()
+        let cards = try await makeClient(transport: transport).cards.list(game: .pokemon).get()
         let request = try #require(await transport.request)
 
         #expect(request.method == .get)
-        #expect(request.path == "/app-api/cards")
+        #expect(request.path == "/app-api/cards?game=pokemon")
         #expect(request.operationID == "get/app-api/cards")
-        #expect(cards == [expectedCard])
+        #expect(cards == [CardWithPrice(card: expectedCard, price: expectedPrice)])
     }
 
     @Test
     func `Maps a missing list session to unauthorized`() async {
-        let transport = CardsRequestTransport(status: .notFound, body: errorJSON(code: "SESSION_NOT_FOUND"))
-        let result = await makeClient(transport: transport).cards.list()
+        let transport = CardsRequestTransport(status: .unauthorized, body: errorJSON(code: "SESSION_NOT_FOUND"))
+        let result = await makeClient(transport: transport).cards.list(game: nil)
 
         #expect(throws: ListCardsErrors.unauthorized) { try result.get() }
     }
@@ -37,7 +37,7 @@ struct TCGCardsClientTests {
     @Test
     func `Preserves undocumented list statuses`() async {
         let transport = CardsRequestTransport(status: .init(code: 500), body: Data("{}".utf8))
-        let result = await makeClient(transport: transport).cards.list()
+        let result = await makeClient(transport: transport).cards.list(game: nil)
 
         await #expect(throws: ListCardsErrors.unknown(status: 500, payload: nil, cause: nil)) {
             try result.get()
@@ -55,8 +55,9 @@ struct TCGCardsClientTests {
         #expect(request.path == "/app-api/cards")
         #expect(request.operationID == "post/app-api/cards")
         #expect(try JSONDecoder().decode(UpsertCardPayload.self, from: body) == payload)
-        #expect(card == expectedCard)
-        #expect(card.notes == nil)
+        #expect(card.card == expectedCard)
+        #expect(card.card.notes == nil)
+        #expect(card.price == expectedPrice)
     }
 
     @Test
@@ -78,13 +79,14 @@ struct TCGCardsClientTests {
         #expect(request.method == .put)
         #expect(request.path == "/app-api/cards/card-id")
         #expect(request.operationID == "put/app-api/cards/{cardId}")
-        #expect(card == expectedCard)
+        #expect(card.card == expectedCard)
+        #expect(card.price == expectedPrice)
     }
 
     @Test
     func `Disambiguates missing cards from missing sessions on update`() async {
         let missingCard = CardsRequestTransport(status: .notFound, body: errorJSON(code: "CARD_NOT_FOUND"))
-        let missingSession = CardsRequestTransport(status: .notFound, body: errorJSON(code: "SESSION_NOT_FOUND"))
+        let missingSession = CardsRequestTransport(status: .unauthorized, body: errorJSON(code: "SESSION_NOT_FOUND"))
 
         await #expect(throws: UpdateCardErrors.notFound) {
             try await makeClient(transport: missingCard).cards.update(id: "card-id", with: payload).get()
@@ -202,13 +204,16 @@ private let expectedCard = Card(
     updatedAt: Date(timeIntervalSince1970: 1_784_543_400)
 )
 
+private let expectedPrice = OwnedCardPrice(cardId: "card-id", status: .noPrice)
+
 private let cardJSON = Data(
     """
     {
       "id": "card-id", "game": "one_piece", "name": "Monkey D. Luffy",
       "set_name": "Romance Dawn", "card_number": "OP01-003", "notes": null,
       "quantities": [{"condition": "near_mint", "quantity": 2}],
-      "created_at": "2026-07-20T10:30:00.000Z", "updated_at": "2026-07-20T10:30:00.000Z"
+      "created_at": "2026-07-20T10:30:00.000Z", "updated_at": "2026-07-20T10:30:00.000Z",
+      "price": {"card_id": "card-id", "status": "no_price"}
     }
     """.utf8
 )
@@ -220,5 +225,11 @@ private let validationJSON = Data(
     """.utf8
 )
 private func errorJSON(code: String) -> Data {
-    Data("{\"message\":\"Not found\",\"code\":\"\(code)\"}".utf8)
+    Data(
+        """
+        {
+          "message": "Not found", "code": "\(code)"
+        }
+        """.utf8
+    )
 }

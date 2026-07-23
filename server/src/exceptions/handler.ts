@@ -1,10 +1,10 @@
 import type { ErrorHandler } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 
-import type { HonoContext, HonoEnvironment } from '../context.ts';
-import { getRequestLogger, getRouteForLog, markRequestFailed } from '../logging/http.ts';
 import { APIException, InvalidValidation } from './index.ts';
 import { STATUS_CODES } from '../constants/http.ts';
+import type { HonoContext, HonoEnvironment } from '../context.ts';
+import { getRequestLogger, getRouteForLog, markRequestFailed } from '../logging/http.ts';
 import { logError, logWarn } from '../logging/index.ts';
 
 export function handleServerError() {

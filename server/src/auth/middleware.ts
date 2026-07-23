@@ -1,24 +1,32 @@
 import { createMiddleware } from 'hono/factory';
-import { createLocalJWKSet, createRemoteJWKSet, jwtVerify, type JWTPayload } from 'jose';
+import { type JWTPayload, createLocalJWKSet, createRemoteJWKSet, jwtVerify } from 'jose';
 import z from 'zod';
 
 import type { HonoContext, HonoEnvironment } from '../context.ts';
-import env from '../env.ts';
-import { logInfo, logWarn } from '../logging/index.ts';
-import { withRequestLogger } from '../logging/http.ts';
-import { APIException } from '../exceptions/index.ts';
-import { STATUS_CODES } from '../constants/http.ts';
-import { toISO8601String } from '../utils/strings.ts';
-import type { SessionResponse } from './schemas/responses.ts';
-import { SessionNotFound } from './exceptions.ts';
 import { JWKS_URL } from './constants.ts';
-import { jwks } from '../db/schema/index.ts';
+import { SessionNotFound } from './exceptions.ts';
+import { STATUS_CODES } from '../constants/http.ts';
+import env from '../env.ts';
+import { APIException } from '../exceptions/index.ts';
+import { logInfo, logWarn } from '../logging/index.ts';
+import type { SessionResponse } from './schemas/responses.ts';
 import { getCredentialKind } from './utils/credentials.ts';
+import { jwks } from '../db/schema/index.ts';
+import { withRequestLogger } from '../logging/http.ts';
+import { toISO8601String } from '../utils/strings.ts';
 
 const RemoteJWKS = createRemoteJWKSet(JWKS_URL);
 
 const BetterAuthJWTPayloadSchema = z
-  .object({ sub: z.string(), email: z.email(), name: z.string(), emailVerified: z.boolean() })
+  .object({
+    sub: z.string(),
+    email: z.email(),
+    name: z.string(),
+    emailVerified: z.boolean(),
+    sessionExpiresAt: z.number(),
+    sessionCreatedAt: z.number(),
+    sessionUpdatedAt: z.number(),
+  })
   .loose();
 
 const PublicJWKSchema = z.object({ kty: z.string() }).catchall(z.unknown());
@@ -103,9 +111,9 @@ async function verifyJwt(c: HonoContext): Promise<SessionResponse | null> {
 
   return {
     session: {
-      expires_at: toISO8601String(new Date((payload.exp ?? 0) * 1000)),
-      created_at: toISO8601String(new Date((payload.iat ?? 0) * 1000)),
-      updated_at: toISO8601String(new Date()),
+      expires_at: toISO8601String(new Date(jwtPayload.sessionExpiresAt * 1000)),
+      created_at: toISO8601String(new Date(jwtPayload.sessionCreatedAt * 1000)),
+      updated_at: toISO8601String(new Date(jwtPayload.sessionUpdatedAt * 1000)),
     },
     user: {
       id: jwtPayload.sub,

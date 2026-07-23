@@ -19,6 +19,7 @@
     "hono": "workspace:*",
     "jose": "workspace:*",
     "js-yaml": "workspace:*",
+    "neverthrow": "workspace:*",
     "pg": "workspace:*",
     "pino": "workspace:*",
     "zod": "workspace:*"

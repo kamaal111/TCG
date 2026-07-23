@@ -178,7 +178,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SessionResponse'
-        '404':
+        '401':
           description: Session not found
           content:
             application/json:
@@ -235,13 +235,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/TokenResponse'
         '401':
-          description: Not authenticated or session expired
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: Session not found
+          description: Not authenticated, session expired, or session not found
           content:
             application/json:
               schema:
@@ -265,15 +259,23 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Card'
+                $ref: '#/components/schemas/CardWithPrice'
         '400':
           description: Invalid card details
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ValidationErrorResponse'
-        '404':
+        '401':
           description: Authenticated session not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: >-
+            Pricing is temporarily unavailable: the lock could not be acquired
+            or the upstream failed
           content:
             application/json:
               schema:
@@ -285,6 +287,18 @@ paths:
       description: List the authenticated user's owned card entries, newest first.
       security:
         - bearerAuth: []
+      parameters:
+        - schema:
+            type: string
+            enum:
+              - one_piece
+              - pokemon
+            description: Optional game filter
+            example: one_piece
+          required: false
+          description: Optional game filter
+          name: game
+          in: query
       responses:
         '200':
           description: Collection retrieved successfully
@@ -292,8 +306,16 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/CardsListResponse'
-        '404':
+        '401':
           description: Authenticated session not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: >-
+            Pricing is temporarily unavailable because the upstream provider
+            failed
           content:
             application/json:
               schema:
@@ -329,19 +351,33 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Card'
+                $ref: '#/components/schemas/CardWithPrice'
         '400':
           description: Invalid card details
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ValidationErrorResponse'
+        '401':
+          description: Authenticated session not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '404':
-          description: Session or card not found
+          description: Card not found or not owned by the authenticated user
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/CardNotFoundErrorResponse'
+        '503':
+          description: >-
+            Pricing is temporarily unavailable: the lock could not be acquired
+            or the upstream failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
     delete:
       tags:
         - Cards
@@ -366,12 +402,75 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/DeleteCardResponse'
+        '401':
+          description: Authenticated session not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '404':
-          description: Session or card not found
+          description: Card not found or not owned by the authenticated user
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/CardNotFoundErrorResponse'
+  /app-api/pricing/search:
+    get:
+      tags:
+        - Pricing
+      summary: Search card prices
+      description: Search cards and return globally cached daily pricing.
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: string
+            enum:
+              - one_piece
+              - pokemon
+            description: Trading card game to search
+            example: pokemon
+          required: true
+          description: Trading card game to search
+          name: game
+          in: query
+        - schema:
+            type: string
+            minLength: 2
+            maxLength: 200
+            description: Card name, ideally including its card number
+            example: Charizard ex 199
+          required: true
+          description: Card name, ideally including its card number
+          name: query
+          in: query
+      responses:
+        '200':
+          description: Pricing search completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PricingSearchResponse'
+        '400':
+          description: Invalid search query
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '401':
+          description: Authenticated session not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: >-
+            Pricing is temporarily unavailable: the lock could not be acquired
+            or the upstream failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 components:
   schemas:
     AuthResponse:
@@ -626,6 +725,261 @@ components:
           example: eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9...
       required:
         - token
+    CardWithPrice:
+      allOf:
+        - $ref: '#/components/schemas/Card'
+        - type: object
+          properties:
+            price:
+              $ref: '#/components/schemas/OwnedCardPrice'
+          required:
+            - price
+      title: Card With Price
+      description: An owned trading card entry with its freshly refreshed price
+      example:
+        id: 550e8400-e29b-41d4-a716-446655440000
+        game: one_piece
+        name: Monkey D. Luffy
+        set_name: Romance Dawn
+        card_number: OP01-003
+        notes: null
+        quantities:
+          - condition: near_mint
+            quantity: 2
+        created_at: '2026-07-20T10:30:00.000Z'
+        updated_at: '2026-07-20T10:30:00.000Z'
+        price:
+          card_id: 550e8400-e29b-41d4-a716-446655440000
+          status: priced
+    CardConditionQuantity:
+      type: object
+      properties:
+        condition:
+          type: string
+          enum:
+            - mint
+            - near_mint
+            - excellent
+            - good
+            - played
+            - damaged
+          description: Condition of the owned copies
+          example: near_mint
+        quantity:
+          type: integer
+          minimum: 1
+          maximum: 999
+          description: Number of copies owned in this condition
+          example: 2
+      required:
+        - condition
+        - quantity
+      title: Card Condition Quantity
+      description: Quantity owned for one card condition
+      example:
+        condition: near_mint
+        quantity: 2
+    OwnedCardPrice:
+      type: object
+      properties:
+        card_id:
+          type: string
+          format: uuid
+          description: Owned card identifier
+          example: 550e8400-e29b-41d4-a716-446655440000
+        status:
+          type: string
+          enum:
+            - priced
+            - no_match
+            - no_price
+            - unavailable
+          description: >-
+            Pricing result for the owned card; unavailable means pricing is
+            temporarily busy.
+          example: priced
+        priced_card:
+          $ref: '#/components/schemas/PricedCard'
+      required:
+        - card_id
+        - status
+      title: Owned Card Price
+      description: Daily pricing result for one owned card
+      example:
+        card_id: 550e8400-e29b-41d4-a716-446655440000
+        status: priced
+    PricedCard:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Stable identifier for this priced-card record
+          example: 550e8400-e29b-41d4-a716-446655440000
+        game:
+          type: string
+          enum:
+            - one_piece
+            - pokemon
+          description: Trading card game
+          example: pokemon
+        name:
+          type: string
+          description: Card name
+          example: Giratina VSTAR
+        card_number:
+          type: string
+          description: Card number
+          example: GG69
+        rarity:
+          type: string
+          description: Card rarity when provided
+          example: Secret Rare
+        image_url:
+          type: string
+          format: uri
+          description: Card image URL when provided
+          example: https://images.example.com/giratina-vstar-gg69.png
+        headline:
+          $ref: '#/components/schemas/PriceHeadline'
+        market:
+          $ref: '#/components/schemas/MarketPrice'
+        priced_on:
+          type: string
+          format: date-time
+          description: UTC pricing date
+          example: '2026-07-23T00:00:00.000Z'
+        fetched_at:
+          type: string
+          format: date-time
+          description: Time the price was fetched from the configured source
+          example: '2026-07-23T10:30:00.000Z'
+      required:
+        - id
+        - game
+        - name
+        - card_number
+        - priced_on
+        - fetched_at
+      title: Priced Card
+      description: Matched price when available
+      example:
+        id: 550e8400-e29b-41d4-a716-446655440000
+        game: pokemon
+        name: Giratina VSTAR
+        card_number: GG69
+        rarity: Secret Rare
+        headline:
+          amount: 146.69
+          currency: USD
+          metric: lowest_near_mint
+        market:
+          condition: near_mint
+          currency: USD
+          low: 146.69
+          market: 172.42
+          trend_7d:
+            price_change: 7.36
+            percent_change: 4.46
+          trend_30d:
+            price_change: 13.88
+            percent_change: 8.75
+        priced_on: '2026-07-23T00:00:00.000Z'
+        fetched_at: '2026-07-23T10:30:00.000Z'
+    PriceHeadline:
+      type: object
+      properties:
+        amount:
+          type: number
+          minimum: 0
+          description: Headline market amount
+          example: 146.69
+        currency:
+          $ref: '#/components/schemas/Currency'
+        metric:
+          type: string
+          enum:
+            - lowest_near_mint
+          description: Raw-market metric used for the headline
+          example: lowest_near_mint
+      required:
+        - amount
+        - currency
+        - metric
+      title: Price Headline
+      description: Primary price when available
+      example:
+        amount: 146.69
+        currency: USD
+        metric: lowest_near_mint
+    Currency:
+      type: string
+      enum:
+        - JPY
+        - USD
+      title: Currency
+      description: ISO 4217 currency supported by the pricing service.
+      example: USD
+    MarketPrice:
+      type: object
+      properties:
+        condition:
+          type: string
+          enum:
+            - near_mint
+          description: Normalized raw-card condition selected for pricing
+          example: near_mint
+        currency:
+          $ref: '#/components/schemas/Currency'
+        low:
+          type: number
+          minimum: 0
+          description: Lowest known Near Mint price
+          example: 146.69
+        market:
+          type: number
+          minimum: 0
+          description: Average Near Mint market price
+          example: 172.42
+        trend_7d:
+          $ref: '#/components/schemas/PriceMovement'
+        trend_30d:
+          $ref: '#/components/schemas/PriceMovement'
+      required:
+        - condition
+        - currency
+      title: Market Price
+      description: Near Mint market pricing when available
+      example:
+        condition: near_mint
+        currency: USD
+        low: 146.69
+        market: 172.42
+        trend_7d:
+          price_change: 7.36
+          percent_change: 4.46
+        trend_30d:
+          price_change: 13.88
+          percent_change: 8.75
+    PriceMovement:
+      type: object
+      properties:
+        price_change:
+          type: number
+          description: Absolute market-price change
+          example: 7.36
+        percent_change:
+          type: number
+          description: Percentage market-price change
+          example: 4.46
+      required:
+        - price_change
+        - percent_change
+      title: Price Movement
+      description: Market-price movement over a fixed period
+      example:
+        price_change: 7.36
+        percent_change: 4.46
     Card:
       type: object
       properties:
@@ -705,34 +1059,6 @@ components:
             quantity: 2
         created_at: '2026-07-20T10:30:00.000Z'
         updated_at: '2026-07-20T10:30:00.000Z'
-    CardConditionQuantity:
-      type: object
-      properties:
-        condition:
-          type: string
-          enum:
-            - mint
-            - near_mint
-            - excellent
-            - good
-            - played
-            - damaged
-          description: Condition of the owned copies
-          example: near_mint
-        quantity:
-          type: integer
-          minimum: 1
-          maximum: 999
-          description: Number of copies owned in this condition
-          example: 2
-      required:
-        - condition
-        - quantity
-      title: Card Condition Quantity
-      description: Quantity owned for one card condition
-      example:
-        condition: near_mint
-        quantity: 2
     UpsertCard:
       type: object
       properties:
@@ -796,8 +1122,8 @@ components:
         cards:
           type: array
           items:
-            $ref: '#/components/schemas/Card'
-          description: Owned card entries, newest first
+            $ref: '#/components/schemas/CardWithPrice'
+          description: Owned card entries with daily pricing, newest first
       required:
         - cards
       title: Cards List Response
@@ -813,20 +1139,35 @@ components:
         code:
           type: string
           enum:
-            - SESSION_NOT_FOUND
             - CARD_NOT_FOUND
           description: Error code
       required:
         - message
         - code
       title: Card Not Found Error Response
-      description: Error response for a missing session or a missing owned card entry
+      description: Error response for a missing or inaccessible owned card entry
     DeleteCardResponse:
       type: object
       properties: {}
       title: Delete Card Response
       description: Confirms that the card entry was deleted
       example: {}
+    PricingSearchResponse:
+      type: object
+      properties:
+        matches:
+          type: array
+          items:
+            allOf:
+              - $ref: '#/components/schemas/PricedCard'
+              - description: A trading card with normalized daily market pricing
+          description: Ordered matching cards
+      required:
+        - matches
+      title: Pricing Search Response
+      description: Card pricing search results
+      example:
+        matches: []
   parameters: {}
   securitySchemes:
     bearerAuth:

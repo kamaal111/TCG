@@ -1,12 +1,12 @@
 import assert from 'node:assert/strict';
 
-import { decodeJwt } from 'jose';
 import type { Hono } from 'hono';
+import { decodeJwt } from 'jose';
 
 import { ONE_DAY_IN_SECONDS } from '../../constants/common.ts';
 import { STATUS_CODES } from '../../constants/http.ts';
-import env from '../../env.ts';
 import type { HonoEnvironment } from '../../context.ts';
+import env from '../../env.ts';
 import { expectErrorResponse } from '../../tests/auth.ts';
 import { integrationTest } from '../../tests/fixtures.ts';
 import { createTestUser } from '../../tests/utils.ts';
@@ -60,7 +60,7 @@ describe('Token integration', () => {
     const { headers, requestId } = withRequestId();
     const response = await sendTokenRequest(app, headers);
 
-    await expectErrorResponse(response, STATUS_CODES.NOT_FOUND);
+    await expectErrorResponse(response, STATUS_CODES.UNAUTHORIZED);
     expect(getLogsForRequestId(requestId)).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -89,7 +89,7 @@ describe('Token integration', () => {
       const { headers, requestId } = withRequestId({ Authorization: `Bearer ${jwt}` });
       const response = await sendTokenRequest(app, headers);
 
-      expect(await expectErrorResponse(response, STATUS_CODES.NOT_FOUND)).toMatchObject({
+      expect(await expectErrorResponse(response, STATUS_CODES.UNAUTHORIZED)).toMatchObject({
         code: 'SESSION_NOT_FOUND',
       });
       const logs = getLogsForRequestId(requestId);
@@ -110,7 +110,7 @@ describe('Token integration', () => {
   integrationTest('rejects an invalid session token', async ({ app }) => {
     const response = await sendTokenRequest(app, new Headers({ Authorization: 'Bearer invalid-session-token' }));
 
-    await expectErrorResponse(response, STATUS_CODES.NOT_FOUND);
+    await expectErrorResponse(response, STATUS_CODES.UNAUTHORIZED);
   });
 });
 

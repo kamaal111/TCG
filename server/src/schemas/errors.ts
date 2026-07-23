@@ -13,11 +13,11 @@ export const ErrorResponseSchema = z
 export const CardNotFoundErrorResponseSchema = z
   .object({
     message: z.string().openapi({ description: 'Error message' }),
-    code: z.enum(['SESSION_NOT_FOUND', 'CARD_NOT_FOUND']).openapi({ description: 'Error code' }),
+    code: z.literal('CARD_NOT_FOUND').openapi({ description: 'Error code' }),
   })
   .openapi('CardNotFoundErrorResponse', {
     title: 'Card Not Found Error Response',
-    description: 'Error response for a missing session or a missing owned card entry',
+    description: 'Error response for a missing or inaccessible owned card entry',
   });
 
 const ValidationIssueSchema = z

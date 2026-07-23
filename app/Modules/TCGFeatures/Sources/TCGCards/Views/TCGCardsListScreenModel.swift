@@ -14,22 +14,27 @@ import TCGDesignSystem
 final class TCGCardsListScreenModel {
     private(set) var toast: Toast?
 
-    var gameFilter: CardGame?
+    var gameFilter: ClientCardGame?
     var presentedForm: CardFormRoute?
 
     @ObservationIgnored private var toastTask: Task<Void, Never>?
 
-    func filteredCards(_ cards: [Card]) -> [Card] {
-        guard let gameFilter else { return cards }
-        return cards.filter { $0.game == gameFilter }
-    }
-
     func load(using cards: TCGCards) async {
-        if case .failure(let error) = await cards.loadCards() { show(error) }
+        switch await cards.load(game: gameFilter) {
+        case .success:
+            break
+        case .failure(let error):
+            show(error)
+        }
     }
 
     func delete(_ card: Card, using cards: TCGCards) async {
-        if case .failure(let error) = await cards.deleteCard(id: card.id) { show(error) }
+        switch await cards.deleteCard(id: card.id) {
+        case .success:
+            break
+        case .failure(let error):
+            show(error)
+        }
     }
 
     func dismissToast() {
@@ -58,10 +63,5 @@ final class TCGCardsListScreenModel {
             case .edit(let card): card.id
             }
         }
-    }
-
-    struct Toast: Equatable, ToastPresentable {
-        let title: String
-        let message: String
     }
 }

@@ -183,12 +183,12 @@ actor RequestTransport: ClientTransport {
 
     private static func notFoundResponse() -> StubResponse {
         StubResponse(
-            response: .init(status: .notFound, headerFields: [.contentType: "application/json"]),
+            response: .init(status: .unauthorized, headerFields: [.contentType: "application/json"]),
             body: Data(
                 """
                 {
-                  "message": "Not found",
-                  "code": "NOT_FOUND"
+                  "message": "Unauthorized",
+                  "code": "SESSION_NOT_FOUND"
                 }
                 """.utf8
             )

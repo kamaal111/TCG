@@ -1,17 +1,19 @@
 import { eq } from 'drizzle-orm';
 
+import { createCardRequest, sessionHeaders, validCardPayload } from './utils.ts';
 import { STATUS_CODES } from '../../constants/http.ts';
 import { cardConditionQuantity } from '../../db/schema/cards.ts';
 import { expectErrorResponse, expectValidationIssueForField } from '../../tests/auth.ts';
 import { integrationTest } from '../../tests/fixtures.ts';
 import { createTestUser } from '../../tests/utils.ts';
-import { CardSchema } from '../schemas/responses.ts';
-import { createCardRequest, sessionHeaders, validCardPayload } from './utils.ts';
+import { CardSchema, CardWithPriceSchema } from '../schemas/responses.ts';
 
 describe('Update card integration', () => {
   integrationTest('requires a session and hides missing cards', async ({ app, db }) => {
     const response = await app.request('/app-api/cards/missing', { method: 'PUT' });
-    expect(await expectErrorResponse(response, STATUS_CODES.NOT_FOUND)).toMatchObject({ code: 'SESSION_NOT_FOUND' });
+    expect(await expectErrorResponse(response, STATUS_CODES.UNAUTHORIZED)).toMatchObject({
+      code: 'SESSION_NOT_FOUND',
+    });
 
     const user = await createTestUser(app, db);
     const missing = await updateRequest(
@@ -23,17 +25,29 @@ describe('Update card integration', () => {
     expect(await expectErrorResponse(missing, STATUS_CODES.NOT_FOUND)).toMatchObject({ code: 'CARD_NOT_FOUND' });
   });
 
-  integrationTest("does not update another user's card", async ({ app, db }) => {
-    const owner = await createTestUser(app, db);
-    const otherUser = await createTestUser(app, db);
-    const original = CardSchema.parse(await (await createCardRequest(app, owner.sessionToken)).json());
-    const response = await updateRequest(app, otherUser.sessionToken, original.id, {
-      ...validCardPayload,
-      name: 'Stolen',
-    });
-    expect(await expectErrorResponse(response, STATUS_CODES.NOT_FOUND)).toMatchObject({ code: 'CARD_NOT_FOUND' });
-    expect(await db.query.card.findFirst({ where: { id: original.id } })).toMatchObject({ name: original.name });
-  });
+  integrationTest(
+    "does not update another user's card and logs the access denial",
+    async ({ app, db, getLogsForRequestId, withRequestId }) => {
+      const owner = await createTestUser(app, db);
+      const otherUser = await createTestUser(app, db);
+      const original = CardSchema.parse(await (await createCardRequest(app, owner.sessionToken)).json());
+      const { headers, requestId } = withRequestId(
+        Object.fromEntries(sessionHeaders(otherUser.sessionToken).entries()),
+      );
+      const response = await app.request(`/app-api/cards/${original.id}`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify({ ...validCardPayload, name: 'Stolen' }),
+      });
+      expect(await expectErrorResponse(response, STATUS_CODES.NOT_FOUND)).toMatchObject({ code: 'CARD_NOT_FOUND' });
+      expect(await db.query.card.findFirst({ where: { id: original.id } })).toMatchObject({ name: original.name });
+      expect(getLogsForRequestId(requestId)).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ event: 'cards.access_denied', card_id: original.id, user_id: otherUser.userId }),
+        ]),
+      );
+    },
+  );
 
   integrationTest('validates replacement input', async ({ app, db }) => {
     const user = await createTestUser(app, db);
@@ -109,6 +123,74 @@ describe('Update card integration', () => {
       );
     },
   );
+  integrationTest(
+    're-resolves provider pricing instead of pricing the card under its stale identity',
+    async ({ app, db }) => {
+      const user = await createTestUser(app, db);
+      const original = CardWithPriceSchema.parse(
+        await (
+          await createCardRequest(app, user.sessionToken, {
+            ...validCardPayload,
+            game: 'pokemon',
+            name: 'Giratina VSTAR',
+            set_name: 'Crown Zenith',
+            card_number: 'GG69',
+          })
+        ).json(),
+      );
+      expect(original.price.priced_card?.id).toEqual(expect.any(String));
+      await expect(db.query.card.findFirst({ where: { id: original.id } })).resolves.toMatchObject({
+        pricingCardId: 'crown-zenith-GG69',
+        pricingSource: 'scrydex_static',
+      });
+
+      const response = await updateRequest(app, user.sessionToken, original.id, {
+        ...validCardPayload,
+        game: 'pokemon',
+        name: 'Charizard ex',
+        set_name: '151',
+        card_number: '199',
+      });
+      const updated = CardWithPriceSchema.parse(await response.json());
+
+      expect(updated.price.priced_card?.id).toEqual(expect.any(String));
+      await expect(db.query.card.findFirst({ where: { id: original.id } })).resolves.toMatchObject({
+        pricingCardId: 'sv3pt5-199',
+        pricingSource: 'scrydex_static',
+      });
+    },
+  );
+
+  integrationTest('clears a stale provider identity when the replacement has no match', async ({ app, db }) => {
+    const user = await createTestUser(app, db);
+    const original = CardWithPriceSchema.parse(
+      await (
+        await createCardRequest(app, user.sessionToken, {
+          ...validCardPayload,
+          game: 'pokemon',
+          name: 'Giratina VSTAR',
+          set_name: 'Crown Zenith',
+          card_number: 'GG69',
+        })
+      ).json(),
+    );
+    expect(original.price.priced_card?.id).toEqual(expect.any(String));
+
+    const response = await updateRequest(app, user.sessionToken, original.id, {
+      ...validCardPayload,
+      game: 'pokemon',
+      name: 'no',
+      set_name: 'Unknown',
+      card_number: 'results',
+    });
+    const updated = CardWithPriceSchema.parse(await response.json());
+
+    expect(updated.price.status).toBe('no_match');
+    await expect(db.query.card.findFirst({ where: { id: original.id } })).resolves.toMatchObject({
+      pricingCardId: null,
+      pricingSource: null,
+    });
+  });
 });
 
 function updateRequest(

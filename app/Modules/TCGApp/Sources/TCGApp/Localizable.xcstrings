@@ -1,7 +1,12 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "Collection" : {
 
+    },
+    "Search" : {
+
+    }
   },
   "version" : "1.3"
 }

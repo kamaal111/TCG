@@ -1,23 +1,24 @@
-import type { Hono } from 'hono';
+import { type ServerType, serve } from '@hono/node-server';
 import { $ } from '@hono/zod-openapi';
-import { serve, type ServerType } from '@hono/node-server';
-import { requestId } from 'hono/request-id';
+import type { Hono } from 'hono';
 import { compress } from 'hono/compress';
-import { secureHeaders } from 'hono/secure-headers';
 import { showRoutes } from 'hono/dev';
+import { requestId } from 'hono/request-id';
+import { secureHeaders } from 'hono/secure-headers';
 
-import env from './env.ts';
-import dbSingleton from './db/index.ts';
-import { injectRequestContext, type HonoEnvironment, type InjectedContext } from './context.ts';
-import { APP_API_ROUTE_NAME, REQUEST_ID_HEADER_NAME } from './constants/common.ts';
-import loggingMiddleware from './logging/middleware.ts';
-import { handleServerError } from './exceptions/handler.ts';
-import { getComponentLogger, logInfo, logWarn } from './logging/index.ts';
-import healthRoute, { HEALTH_ROUTE_NAME } from './health/index.ts';
 import appApiRoute from './app-api/index.ts';
 import { auth as authSingleton, createAuth } from './auth/better-auth.ts';
-import { OPENAPI_YAML_SPEC_URL, openAPIRouterFactory, withOpenAPIDocumentation } from './open-api.ts';
+import { createPricingClient } from './card-pricing/scrydex/factory.ts';
+import { APP_API_ROUTE_NAME, REQUEST_ID_HEADER_NAME } from './constants/common.ts';
+import { type HonoEnvironment, type InjectedContext, injectRequestContext } from './context.ts';
+import dbSingleton from './db/index.ts';
+import env from './env.ts';
+import { handleServerError } from './exceptions/handler.ts';
 import { NotFound } from './exceptions/index.ts';
+import healthRoute, { HEALTH_ROUTE_NAME } from './health/index.ts';
+import { getComponentLogger, logInfo, logWarn } from './logging/index.ts';
+import loggingMiddleware from './logging/middleware.ts';
+import { OPENAPI_YAML_SPEC_URL, openAPIRouterFactory, withOpenAPIDocumentation } from './open-api.ts';
 
 const SIGNALS_TO_TERMINATE_ON: NodeJS.Signals[] = ['SIGINT', 'SIGTERM'];
 
@@ -28,7 +29,7 @@ class App {
 
   private server: ServerType | undefined;
 
-  constructor(overrides: Partial<Pick<InjectedContext, 'db'>> = {}) {
+  constructor(overrides: Partial<Pick<InjectedContext, 'db' | 'pricingClient'>> = {}) {
     this.app = createApp(overrides);
   }
 
@@ -95,9 +96,10 @@ class App {
   };
 }
 
-function createApp(overrides: Partial<Pick<InjectedContext, 'db'>> = {}) {
+function createApp(overrides: Partial<Pick<InjectedContext, 'db' | 'pricingClient'>> = {}) {
   const db = overrides.db ?? dbSingleton;
   const auth = overrides.db != null ? createAuth(db) : authSingleton;
+  const pricingClient = overrides.pricingClient ?? createPricingClient();
 
   return withOpenAPIDocumentation(
     $(
@@ -107,7 +109,7 @@ function createApp(overrides: Partial<Pick<InjectedContext, 'db'>> = {}) {
         .use(compress())
         .use(secureHeaders())
         .use(loggingMiddleware())
-        .use(injectRequestContext({ db, auth }))
+        .use(injectRequestContext({ db, auth, pricingClient }))
         .route(HEALTH_ROUTE_NAME, healthRoute)
         .route(APP_API_ROUTE_NAME, appApiRoute),
     ),

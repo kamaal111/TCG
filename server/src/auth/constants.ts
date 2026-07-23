@@ -1,7 +1,7 @@
 import path from 'node:path';
 
-import env from '../env.ts';
 import { APP_API_ROUTE_NAME } from '../constants/common.ts';
+import env from '../env.ts';
 
 export const AUTH_ROUTE_NAME = '/auth';
 export const AUTH_OPENAPI_TAG = 'Authentication';

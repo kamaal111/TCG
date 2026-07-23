@@ -7,9 +7,9 @@ import { withRequestLogger } from '../../logging/http.ts';
 import { logInfo } from '../../logging/index.ts';
 import { AUTH_ROUTE_NAME } from '../constants.ts';
 import signUpRoute from '../routes/sign-up.ts';
-import { handleSignUpOrSignInRequest } from '../utils/request.ts';
-import type { AuthResponse } from '../schemas/responses.ts';
 import type { EmailPasswordSignUp } from '../schemas/payloads.ts';
+import type { AuthResponse } from '../schemas/responses.ts';
+import { handleSignUpOrSignInRequest } from '../utils/request.ts';
 
 type SignUpResponse = TypedResponse<AuthResponse, typeof SIGN_UP_STATUS>;
 type SignUpContext = HonoContext<typeof SIGN_UP_ROUTE_PATH, { out: { json: EmailPasswordSignUp } }>;
