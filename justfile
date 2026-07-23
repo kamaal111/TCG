@@ -116,7 +116,7 @@ test-app-macos:
 # Run app tests on iOS
 [working-directory("app")]
 test-app-ios:
-    xcodebuild \
+    ../scripts/with-ios-simulator-lock \
         -project "{{ APP_PROJECT }}" \
         -scheme "{{ APP_SCHEME }}" \
         -destination "{{ APP_IOS_TEST_DESTINATION }}" \
@@ -132,18 +132,20 @@ test-snapshots-macos:
         -only-testing:TCGAuthTests/TCGAuthSignInScreenSnapshotTests \
         -only-testing:TCGCardsTests/TCGCardsListScreenSnapshotTests \
         -only-testing:TCGCardsTests/TCGCardFormScreenSnapshotTests \
+        -only-testing:TCGSearchTests/TCGSearchScreenSnapshotTests \
         test
 
 # Run iOS screen snapshot tests
 [working-directory("app")]
 test-snapshots-ios:
-    xcodebuild \
+    ../scripts/with-ios-simulator-lock \
         -project "{{ APP_PROJECT }}" \
         -scheme "{{ APP_SCHEME }}" \
         -destination "{{ APP_IOS_TEST_DESTINATION }}" \
         -only-testing:TCGAuthTests/TCGAuthSignInScreenSnapshotTests \
         -only-testing:TCGCardsTests/TCGCardsListScreenSnapshotTests \
         -only-testing:TCGCardsTests/TCGCardFormScreenSnapshotTests \
+        -only-testing:TCGSearchTests/TCGSearchScreenSnapshotTests \
         test
 
 # Run screen snapshot tests on macOS and iOS
@@ -196,18 +198,13 @@ lint-fix:
     {{ PNR }} lint:fix
 
 # Verify the committed OpenAPI specification is up to date
-check-spec: download-spec
+[working-directory("server")]
+check-spec:
     #!/usr/bin/env bash
 
-    if ! git diff --quiet --exit-code -- "{{ OUTPUT_SCHEMA_FILEPATH }}"
-    then
-        echo ""
-        echo "❌ OpenAPI spec is out of date. Run \`just download-spec\` and commit the updated file."
-        git --no-pager diff -- "{{ OUTPUT_SCHEMA_FILEPATH }}"
-        exit 1
-    fi
+    export LOG_LEVEL=silent
 
-    echo "✅ OpenAPI spec is up to date."
+    node scripts/check-openapi-spec.ts {{ SERVER_RELATIVE_OUTPUT_SCHEMA_FILEPATH }}
 
 # Check code formatting
 [parallel]

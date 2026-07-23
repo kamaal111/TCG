@@ -1,7 +1,7 @@
 import crypto from 'node:crypto';
 
-import { defineRelationsPart } from 'drizzle-orm';
-import { index, integer, pgEnum, pgTable, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core';
+import { defineRelationsPart, sql } from 'drizzle-orm';
+import { check, index, integer, pgEnum, pgTable, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core';
 
 import { user } from './better-auth.ts';
 
@@ -22,6 +22,8 @@ export const card = pgTable(
     name: text('name').notNull(),
     setName: text('set_name').notNull(),
     cardNumber: text('card_number').notNull(),
+    pricingCardId: text('pricing_card_id'),
+    pricingSource: text('pricing_source'),
     notes: text('notes'),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at')
@@ -29,7 +31,13 @@ export const card = pgTable(
       .$onUpdate(() => new Date())
       .notNull(),
   },
-  table => [index('card_userId_createdAt_idx').on(table.userId, table.createdAt)],
+  table => [
+    index('card_userId_createdAt_idx').on(table.userId, table.createdAt),
+    check(
+      'card_pricing_identity_pair_check',
+      sql`(${table.pricingCardId} is null and ${table.pricingSource} is null) or (${table.pricingCardId} is not null and ${table.pricingSource} is not null)`,
+    ),
+  ],
 );
 
 export const cardConditionQuantity = pgTable(

@@ -1,7 +1,7 @@
-import { STATUS_CODES } from '../constants/http.ts';
-import { ErrorResponseSchema, ValidationErrorResponseSchema } from '../schemas/errors.ts';
 import { TokenHeaders } from '../auth/schemas/headers.ts';
 import { AuthResponseSchema } from '../auth/schemas/responses.ts';
+import { STATUS_CODES } from '../constants/http.ts';
+import { ErrorResponseSchema, ValidationErrorResponseSchema } from '../schemas/errors.ts';
 
 export async function expectAuthSuccessResponse(response: Response, status: number) {
   expect(response.status).toBe(status);

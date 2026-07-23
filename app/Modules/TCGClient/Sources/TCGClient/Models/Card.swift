@@ -7,7 +7,7 @@
 
 import Foundation
 
-public enum CardGame: String, Codable, Hashable, Sendable, CaseIterable {
+public enum ClientCardGame: String, Codable, Hashable, Sendable, CaseIterable {
     case onePiece = "one_piece"
     case pokemon
 
@@ -51,7 +51,7 @@ public struct CardConditionQuantity: Codable, Hashable, Sendable {
 
 public struct Card: Codable, Hashable, Identifiable, Sendable {
     public let id: String
-    public let game: CardGame
+    public let game: ClientCardGame
     public let name: String
     public let setName: String
     public let cardNumber: String
@@ -62,7 +62,7 @@ public struct Card: Codable, Hashable, Identifiable, Sendable {
 
     public init(
         id: String,
-        game: CardGame,
+        game: ClientCardGame,
         name: String,
         setName: String,
         cardNumber: String,

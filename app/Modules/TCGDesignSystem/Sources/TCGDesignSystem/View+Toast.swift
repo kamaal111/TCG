@@ -13,6 +13,16 @@ public protocol ToastPresentable: Equatable {
     var message: String { get }
 }
 
+public struct Toast: Equatable, ToastPresentable {
+    public let title: String
+    public let message: String
+
+    public init(title: String, message: String) {
+        self.title = title
+        self.message = message
+    }
+}
+
 extension View {
     public func toast(isPresented: Binding<Bool>, style: KPopUpStyles) -> some View {
         modifier(ToastModifier(isPresented: isPresented, style: style))

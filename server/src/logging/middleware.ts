@@ -1,10 +1,10 @@
 import type { Next } from 'hono';
 
+import { getRequestLogger, getRouteForLog, hasRequestFailed, initializeRequestLogger } from './http.ts';
+import { STATUS_CODES } from '../constants/http.ts';
 import type { HonoContext } from '../context.ts';
 import env from '../env.ts';
-import { getRequestLogger, getRouteForLog, hasRequestFailed, initializeRequestLogger } from './http.ts';
 import { logInfo } from './index.ts';
-import { STATUS_CODES } from '../constants/http.ts';
 
 function loggingMiddleware() {
   return async (c: HonoContext, next: Next) => {

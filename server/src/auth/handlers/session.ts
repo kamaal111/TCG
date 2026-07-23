@@ -1,12 +1,12 @@
 import type { TypedResponse } from 'hono';
 
-import type { HonoContext } from '../../context.ts';
-import { SessionResponseSchema, type SessionResponse } from '../schemas/responses.ts';
-import { STATUS_CODES } from '../../constants/http.ts';
-import { getSessionWhereSessionIsRequired } from '../utils/session.ts';
 import { APP_API_ROUTE_NAME } from '../../constants/common.ts';
+import { STATUS_CODES } from '../../constants/http.ts';
+import type { HonoContext } from '../../context.ts';
 import { AUTH_ROUTE_NAME } from '../constants.ts';
 import sessionRoute from '../routes/session.ts';
+import { type SessionResponse, SessionResponseSchema } from '../schemas/responses.ts';
+import { getSessionWhereSessionIsRequired } from '../utils/session.ts';
 
 type SessionContext = HonoContext<typeof SESSION_ROUTE_PATH>;
 

@@ -6,10 +6,9 @@ import type { HonoContext } from '../../context.ts';
 import { withRequestLogger } from '../../logging/http.ts';
 import { logInfo } from '../../logging/index.ts';
 import { CARDS_ROUTE_NAME } from '../constants.ts';
-import { CardRepository } from '../repository.ts';
 import type { UpsertCard } from '../schemas/payloads.ts';
-import type { CardResponse } from '../schemas/responses.ts';
-import { serializeCard } from '../utils/cards.ts';
+import type { CardWithPriceResponse } from '../schemas/responses.ts';
+import { serializeCardWithPrice } from '../utils/cards.ts';
 
 type CreateCardContext = HonoContext<typeof CREATE_CARD_ROUTE_PATH, { out: { json: UpsertCard } }>;
 
@@ -17,9 +16,11 @@ export const CREATE_CARD_ROUTE_PATH = `${APP_API_ROUTE_NAME}${CARDS_ROUTE_NAME}`
 
 async function createCardHandler(
   c: CreateCardContext,
-): Promise<TypedResponse<CardResponse, typeof STATUS_CODES.CREATED>> {
-  const createdCard = await CardRepository.create(c, c.req.valid('json'));
-  const response = serializeCard(createdCard);
+): Promise<TypedResponse<CardWithPriceResponse, typeof STATUS_CODES.CREATED>> {
+  const createdCard = await c.get('cardRepository').create(c.req.valid('json'));
+  const [price] = await c.get('cardPricingService').priceOwnedCards([createdCard]);
+
+  const response = serializeCardWithPrice(createdCard, price);
   logInfo(
     withRequestLogger(c, { component: 'cards' }),
     { event: 'cards.create', route: CREATE_CARD_ROUTE_PATH, outcome: 'success', card_id: response.id },

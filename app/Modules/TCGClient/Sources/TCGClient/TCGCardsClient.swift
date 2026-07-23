@@ -8,23 +8,25 @@
 import OpenAPIRuntime
 
 public protocol TCGCardsClient: Sendable {
-    func list() async -> Result<[Card], ListCardsErrors>
-    func create(with payload: UpsertCardPayload) async -> Result<Card, CreateCardErrors>
-    func update(id: String, with payload: UpsertCardPayload) async -> Result<Card, UpdateCardErrors>
+    func list(game: ClientCardGame?) async -> Result<[CardWithPrice], ListCardsErrors>
+    func create(with payload: UpsertCardPayload) async -> Result<CardWithPrice, CreateCardErrors>
+    func update(id: String, with payload: UpsertCardPayload) async -> Result<CardWithPrice, UpdateCardErrors>
     func delete(id: String) async -> Result<Void, DeleteCardErrors>
 }
 
-public struct TCGCardsClientImpl: TCGCardsClient {
+struct TCGCardsClientImpl: TCGCardsClient {
     private let client: Client
 
     init(client: Client) {
         self.client = client
     }
 
-    public func list() async -> Result<[Card], ListCardsErrors> {
+    func list(game: ClientCardGame?) async -> Result<[CardWithPrice], ListCardsErrors> {
         let response: Operations.GetAppApiCards.Output
         do {
-            response = try await client.getAppApiCards()
+            response = try await client.getAppApiCards(
+                query: .init(game: game.map(Self.makeListGame))
+            )
         } catch {
             return .failure(.unknown(status: 503, payload: nil, cause: error))
         }
@@ -32,18 +34,20 @@ public struct TCGCardsClientImpl: TCGCardsClient {
         switch response {
         case .ok(let response):
             do {
-                return .success(try response.body.json.cards.map(Self.makeCard))
+                return .success(try response.body.json.cards.map(Self.makeCardWithPrice))
             } catch {
                 return .failure(.unknown(status: 503, payload: nil, cause: error))
             }
-        case .notFound:
+        case .unauthorized:
             return .failure(.unauthorized)
+        case .serviceUnavailable:
+            return .failure(.unavailable)
         case .undocumented(let status, let payload):
             return .failure(.unknown(status: status, payload: payload, cause: nil))
         }
     }
 
-    public func create(with payload: UpsertCardPayload) async -> Result<Card, CreateCardErrors> {
+    func create(with payload: UpsertCardPayload) async -> Result<CardWithPrice, CreateCardErrors> {
         let response: Operations.PostAppApiCards.Output
         do {
             response = try await client.postAppApiCards(body: .json(Self.makeGeneratedPayload(payload)))
@@ -54,21 +58,23 @@ public struct TCGCardsClientImpl: TCGCardsClient {
         switch response {
         case .created(let response):
             do {
-                return .success(Self.makeCard(try response.body.json))
+                return .success(Self.makeCardWithPrice(try response.body.json))
             } catch {
                 return .failure(.unknown(status: 503, payload: nil, cause: error))
             }
         case .badRequest(let response):
             return .failure(
                 .badRequest(validations: TCGClientValidationErrorParser.parseIssues(from: try? response.body.json)))
-        case .notFound:
+        case .unauthorized:
             return .failure(.unauthorized)
+        case .serviceUnavailable:
+            return .failure(.unavailable)
         case .undocumented(let status, let payload):
             return .failure(.unknown(status: status, payload: payload, cause: nil))
         }
     }
 
-    public func update(id: String, with payload: UpsertCardPayload) async -> Result<Card, UpdateCardErrors> {
+    func update(id: String, with payload: UpsertCardPayload) async -> Result<CardWithPrice, UpdateCardErrors> {
         let response: Operations.PutAppApiCardsCardId.Output
         do {
             response = try await client.putAppApiCardsCardId(
@@ -82,23 +88,25 @@ public struct TCGCardsClientImpl: TCGCardsClient {
         switch response {
         case .ok(let response):
             do {
-                return .success(Self.makeCard(try response.body.json))
+                return .success(Self.makeCardWithPrice(try response.body.json))
             } catch {
                 return .failure(.unknown(status: 503, payload: nil, cause: error))
             }
         case .badRequest(let response):
             return .failure(
                 .badRequest(validations: TCGClientValidationErrorParser.parseIssues(from: try? response.body.json)))
-        case .notFound(let response):
-            return .failure(
-                Self.makeNotFoundError(
-                    try? response.body.json.code, notFound: .notFound, unauthorized: .unauthorized))
+        case .unauthorized:
+            return .failure(.unauthorized)
+        case .notFound:
+            return .failure(.notFound)
+        case .serviceUnavailable:
+            return .failure(.unavailable)
         case .undocumented(let status, let payload):
             return .failure(.unknown(status: status, payload: payload, cause: nil))
         }
     }
 
-    public func delete(id: String) async -> Result<Void, DeleteCardErrors> {
+    func delete(id: String) async -> Result<Void, DeleteCardErrors> {
         let response: Operations.DeleteAppApiCardsCardId.Output
         do {
             response = try await client.deleteAppApiCardsCardId(path: .init(cardId: id))
@@ -109,23 +117,12 @@ public struct TCGCardsClientImpl: TCGCardsClient {
         switch response {
         case .ok:
             return .success(())
-        case .notFound(let response):
-            return .failure(
-                Self.makeNotFoundError(
-                    try? response.body.json.code, notFound: .notFound, unauthorized: .unauthorized))
+        case .unauthorized:
+            return .failure(.unauthorized)
+        case .notFound:
+            return .failure(.notFound)
         case .undocumented(let status, let payload):
             return .failure(.unknown(status: status, payload: payload, cause: nil))
-        }
-    }
-
-    private static func makeNotFoundError<Failure>(
-        _ code: Components.Schemas.CardNotFoundErrorResponse.CodePayload?,
-        notFound: Failure,
-        unauthorized: Failure
-    ) -> Failure {
-        switch code {
-        case .cardNotFound: notFound
-        case .sessionNotFound, nil: unauthorized
         }
     }
 
@@ -139,6 +136,20 @@ public struct TCGCardsClientImpl: TCGCardsClient {
             quantities: payload.quantities.map {
                 .init(condition: makeGeneratedCondition($0.condition), quantity: $0.quantity)
             }
+        )
+    }
+
+    private static func makeListGame(_ game: ClientCardGame) -> Operations.GetAppApiCards.Input.Query.GamePayload {
+        switch game {
+        case .onePiece: .onePiece
+        case .pokemon: .pokemon
+        }
+    }
+
+    private static func makeCardWithPrice(_ cardWithPrice: Components.Schemas.CardWithPrice) -> CardWithPrice {
+        CardWithPrice(
+            card: makeCard(cardWithPrice.value1),
+            price: PricedCardMapper.makeOwnedPrice(cardWithPrice.value2.price)
         )
     }
 
@@ -158,7 +169,7 @@ public struct TCGCardsClientImpl: TCGCardsClient {
         )
     }
 
-    private static func makeGeneratedGame(_ game: CardGame) -> Components.Schemas.UpsertCard.GamePayload {
+    private static func makeGeneratedGame(_ game: ClientCardGame) -> Components.Schemas.UpsertCard.GamePayload {
         switch game {
         case .onePiece: .onePiece
         case .pokemon: .pokemon
@@ -178,7 +189,7 @@ public struct TCGCardsClientImpl: TCGCardsClient {
         }
     }
 
-    private static func makeGame(_ game: Components.Schemas.Card.GamePayload) -> CardGame {
+    private static func makeGame(_ game: Components.Schemas.Card.GamePayload) -> ClientCardGame {
         switch game {
         case .onePiece: .onePiece
         case .pokemon: .pokemon

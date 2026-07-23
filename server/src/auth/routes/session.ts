@@ -1,10 +1,11 @@
 import { createRoute } from '@hono/zod-openapi';
 
+import { STATUS_CODES } from '../../constants/http.ts';
+import { ErrorResponseSchema } from '../../schemas/errors.ts';
+import { AuthenticationHeaders } from '../../schemas/headers.ts';
 import { AUTH_OPENAPI_TAG } from '../constants.ts';
 import { requireLoggedInSessionMiddleware } from '../middleware.ts';
-import { AuthenticationHeaders } from '../../schemas/headers.ts';
 import { SessionResponseSchema } from '../schemas/responses.ts';
-import { ErrorResponseSchema } from '../../schemas/errors.ts';
 
 const sessionRoute = createRoute({
   method: 'get',
@@ -18,7 +19,7 @@ const sessionRoute = createRoute({
     headers: AuthenticationHeaders.partial(),
   },
   responses: {
-    200: {
+    [STATUS_CODES.OK]: {
       description: 'Session retrieved successfully',
       content: {
         'application/json': {
@@ -26,7 +27,7 @@ const sessionRoute = createRoute({
         },
       },
     },
-    404: {
+    [STATUS_CODES.UNAUTHORIZED]: {
       description: 'Session not found',
       content: {
         'application/json': {

@@ -1,7 +1,7 @@
+import { JWKS_PATH } from './constants.ts';
 import { SERVER_MODES } from '../constants/common.ts';
 import { allowedModes } from '../modes.ts';
 import { openAPIRouterFactory } from '../open-api.ts';
-import { JWKS_PATH } from './constants.ts';
 import sessionHandler from './handlers/session.ts';
 import signInHandler from './handlers/sign-in.ts';
 import signOutHandler from './handlers/sign-out.ts';

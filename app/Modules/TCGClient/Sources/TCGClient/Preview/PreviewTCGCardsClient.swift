@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import KamaalExtensions
 import os
 
 struct PreviewTCGCardsClient: TCGCardsClient {
@@ -23,36 +24,46 @@ struct PreviewTCGCardsClient: TCGCardsClient {
         state = OSAllocatedUnfairLock(initialState: cards)
     }
 
-    func list() async -> Result<[Card], ListCardsErrors> {
+    func list(game: ClientCardGame?) async -> Result<[CardWithPrice], ListCardsErrors> {
         if case .serverUnavailable = outcome {
-            return .failure(.unknown(status: 503, payload: nil, cause: nil))
+            return .failure(.unavailable)
         }
-        return .success(state.withLock { $0 })
+        return .success(
+            state.withLock { cards in
+                (game == nil ? cards : cards.filter { $0.game == game }).map {
+                    CardWithPrice(card: $0, price: Self.price(for: $0))
+                }
+            })
     }
 
-    func create(with payload: UpsertCardPayload) async -> Result<Card, CreateCardErrors> {
+    func create(with payload: UpsertCardPayload) async -> Result<CardWithPrice, CreateCardErrors> {
         if case .validationErrors(let issues) = outcome { return .failure(.badRequest(validations: issues)) }
-        if case .serverUnavailable = outcome { return .failure(.unknown(status: 503, payload: nil, cause: nil)) }
+        if case .serverUnavailable = outcome { return .failure(.unavailable) }
 
         let card = state.withLock { cards in
             let card = Self.makeCard(id: "preview-card-\(cards.count + 1)", payload: payload)
             cards.append(card)
             return card
         }
-        return .success(card)
+        return .success(CardWithPrice(card: card, price: Self.price(for: card)))
     }
 
-    func update(id: String, with payload: UpsertCardPayload) async -> Result<Card, UpdateCardErrors> {
+    func update(id: String, with payload: UpsertCardPayload) async -> Result<CardWithPrice, UpdateCardErrors> {
         if case .notFound = outcome { return .failure(.notFound) }
         if case .validationErrors(let issues) = outcome { return .failure(.badRequest(validations: issues)) }
-        if case .serverUnavailable = outcome { return .failure(.unknown(status: 503, payload: nil, cause: nil)) }
+        if case .serverUnavailable = outcome { return .failure(.unavailable) }
 
         return state.withLock { cards in
             guard let index = cards.firstIndex(where: { $0.id == id }) else { return .failure(.notFound) }
             let card = Self.makeCard(id: id, payload: payload, createdAt: cards[index].createdAt)
             cards[index] = card
-            return .success(card)
+            return .success(CardWithPrice(card: card, price: Self.price(for: card)))
         }
+    }
+
+    static func price(for card: Card) -> OwnedCardPrice {
+        let pricedCard = PreviewTCGPricingClient.samplePricedCards.first { $0.game == card.game }
+        return OwnedCardPrice(cardId: card.id, status: pricedCard == nil ? .noMatch : .priced, price: pricedCard)
     }
 
     func delete(id: String) async -> Result<Void, DeleteCardErrors> {

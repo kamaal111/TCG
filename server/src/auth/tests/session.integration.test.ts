@@ -1,3 +1,5 @@
+import assert from 'node:assert/strict';
+
 import type { Hono } from 'hono';
 
 import { STATUS_CODES } from '../../constants/http.ts';
@@ -6,9 +8,9 @@ import type { HonoEnvironment } from '../../context.ts';
 import { expectAuthSuccessResponse, expectErrorResponse } from '../../tests/auth.ts';
 import { integrationTest } from '../../tests/fixtures.ts';
 import { createTestUser } from '../../tests/utils.ts';
+import { SESSION_ROUTE_PATH } from '../handlers/session.ts';
 import { SIGN_IN_ROUTE_PATH } from '../handlers/sign-in.ts';
 import { SessionResponseSchema } from '../schemas/responses.ts';
-import { SESSION_ROUTE_PATH } from '../handlers/session.ts';
 
 describe('Session integration', () => {
   integrationTest(
@@ -82,12 +84,24 @@ describe('Session integration', () => {
 
       expect(response.status).toBe(STATUS_CODES.OK);
       const body = SessionResponseSchema.parse(await response.json());
+      const persistedSessions = await db.query.session.findMany({
+        where: { userId: createdUser.userId },
+        orderBy: { createdAt: 'desc' },
+      });
+
+      const persistedSession = persistedSessions[0];
+      assert(persistedSession);
 
       expect(body.user).toMatchObject({
         id: createdUser.userId,
         name: createdUser.name,
         email: createdUser.email,
         email_verified: false,
+      });
+      expect(body.session).toEqual({
+        expires_at: new Date(Math.floor(persistedSession.expiresAt.getTime() / 1000) * 1000).toISOString(),
+        created_at: new Date(Math.floor(persistedSession.createdAt.getTime() / 1000) * 1000).toISOString(),
+        updated_at: new Date(Math.floor(persistedSession.updatedAt.getTime() / 1000) * 1000).toISOString(),
       });
       expect(getLogsForRequestId(requestId)).toEqual(
         expect.arrayContaining([
@@ -105,15 +119,15 @@ describe('Session integration', () => {
   );
 
   integrationTest(
-    'returns a not-found error without an authenticated session',
+    'returns an unauthorized error without an authenticated session',
     async ({ app, getLogsForRequestId, withRequestId }) => {
       const { headers, requestId } = withRequestId();
       const response = await sendSessionRequest(app, headers);
 
-      const body = await expectErrorResponse(response, STATUS_CODES.NOT_FOUND);
+      const body = await expectErrorResponse(response, STATUS_CODES.UNAUTHORIZED);
 
       expect(body).toEqual({
-        message: 'Not found',
+        message: 'Unauthorized',
         code: 'SESSION_NOT_FOUND',
       });
       expect(getLogsForRequestId(requestId)).toEqual(

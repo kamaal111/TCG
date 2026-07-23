@@ -1,5 +1,6 @@
 import { eq } from 'drizzle-orm';
 
+import { createCardRequest, sessionHeaders, validCardPayload } from './utils.ts';
 import { STATUS_CODES } from '../../constants/http.ts';
 import { cardConditionQuantity } from '../../db/schema/cards.ts';
 import { expectErrorResponse, expectValidationIssueForField } from '../../tests/auth.ts';
@@ -7,12 +8,11 @@ import { integrationTest } from '../../tests/fixtures.ts';
 import { createTestUser } from '../../tests/utils.ts';
 import { CREATE_CARD_ROUTE_PATH } from '../handlers/create-card.ts';
 import { CardSchema } from '../schemas/responses.ts';
-import { createCardRequest, sessionHeaders, validCardPayload } from './utils.ts';
 
 describe('Create card integration', () => {
   integrationTest('requires an authenticated session', async ({ app }) => {
     const response = await app.request(CREATE_CARD_ROUTE_PATH, { method: 'POST' });
-    expect(await expectErrorResponse(response, STATUS_CODES.NOT_FOUND)).toMatchObject({
+    expect(await expectErrorResponse(response, STATUS_CODES.UNAUTHORIZED)).toMatchObject({
       code: 'SESSION_NOT_FOUND',
     });
   });

@@ -6,7 +6,10 @@
 //
 
 import Foundation
+import KamaalLogger
 import TCGUtils
+
+private let logger = KamaalLogger(from: CredentialsStore.self)
 
 public protocol CredentialsStore: Sendable {
     func delete(forKey key: String) throws
@@ -32,8 +35,23 @@ struct KeychainCredentialsStore: CredentialsStore {
 
 extension CredentialsStore {
     func credentials(forKey key: String) throws -> Credentials? {
-        guard let data = try get(forKey: key) else { return nil }
+        let data: Data?
+        do {
+            data = try get(forKey: key)
+        } catch {
+            logger.error("Couldn't read credentials from the store; key=\(key); reason=\(error)")
+            throw error
+        }
+        guard let data else {
+            logger.info("No credentials data found in the store; key=\(key)")
+            return nil
+        }
 
-        return try JSONDecoder().decode(Credentials.self, from: data)
+        do {
+            return try JSONDecoder().decode(Credentials.self, from: data)
+        } catch {
+            logger.error("Couldn't decode credentials from the store; key=\(key); reason=\(error)")
+            throw error
+        }
     }
 }

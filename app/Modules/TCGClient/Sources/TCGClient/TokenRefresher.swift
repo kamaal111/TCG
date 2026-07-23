@@ -39,7 +39,7 @@ struct TokenRefresher: Sendable {
 
         let payload: Operations.GetAppApiAuthToken.Output.Ok
         switch response {
-        case .unauthorized, .notFound:
+        case .unauthorized:
             logger.warning("Authentication token refresh rejected; credentials_deleted=true")
             return await deleteCredentials(then: .unauthorized)
         case .undocumented(let statusCode, let payload):

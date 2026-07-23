@@ -10,6 +10,7 @@ let package = Package(
     products: [
         .library(name: "TCGAuth", targets: ["TCGAuth"]),
         .library(name: "TCGCards", targets: ["TCGCards"]),
+        .library(name: "TCGSearch", targets: ["TCGSearch"]),
     ],
     dependencies: [
         .package(url: "https://github.com/Kamaalio/KamaalSwift", .upToNextMajor(from: "3.5.0")),
@@ -18,6 +19,7 @@ let package = Package(
         .package(url: "https://github.com/pointfreeco/swift-snapshot-testing", .upToNextMajor(from: "1.19.3")),
         .package(path: "../TCGClient"),
         .package(path: "../TCGDesignSystem"),
+        .package(path: "../TCGModels"),
     ],
     targets: [
         .target(
@@ -41,8 +43,23 @@ let package = Package(
                 .product(name: "KamaalUI", package: "KamaalSwift"),
                 .product(name: "KamaalUtils", package: "KamaalSwift"),
                 .product(name: "KamaalLogger", package: "KamaalSwift"),
+                .product(name: "KamaalExtensions", package: "KamaalSwift"),
+                "TCGDesignSystem",
+                "TCGClient",
+                "TCGModels",
+            ],
+            swiftSettings: [
+                .enableUpcomingFeature("ApproachableConcurrency"),
+                .treatAllWarnings(as: .error),
+            ],
+        ),
+        .target(
+            name: "TCGSearch",
+            dependencies: [
+                .product(name: "KamaalLogger", package: "KamaalSwift"),
                 .product(name: "TCGDesignSystem", package: "TCGDesignSystem"),
                 "TCGClient",
+                "TCGModels",
             ],
             swiftSettings: [
                 .enableUpcomingFeature("ApproachableConcurrency"),
@@ -81,6 +98,22 @@ let package = Package(
                 "TCGCards",
                 "TCGClient",
                 "TCGSnapshotTesting",
+                .product(name: "SnapshotTesting", package: "swift-snapshot-testing"),
+            ],
+            exclude: ["__Snapshots__"],
+            swiftSettings: [
+                .enableUpcomingFeature("ApproachableConcurrency"),
+                .treatAllWarnings(as: .error),
+            ],
+        ),
+        .testTarget(
+            name: "TCGSearchTests",
+            dependencies: [
+                "TCGSearch",
+                "TCGClient",
+                "TCGSnapshotTesting",
+                .product(name: "HTTPTypes", package: "swift-http-types"),
+                .product(name: "OpenAPIRuntime", package: "swift-openapi-runtime"),
                 .product(name: "SnapshotTesting", package: "swift-snapshot-testing"),
             ],
             exclude: ["__Snapshots__"],

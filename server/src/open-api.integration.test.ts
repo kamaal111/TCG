@@ -1,5 +1,5 @@
-import * as yaml from 'js-yaml';
 import type { Hono } from 'hono';
+import * as yaml from 'js-yaml';
 
 import { STATUS_CODES } from './constants/http.ts';
 import { MIME_TYPES } from './constants/request.ts';

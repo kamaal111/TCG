@@ -9,7 +9,7 @@ import Foundation
 import TCGClient
 
 struct CardFormValues: Equatable {
-    var game: CardGame
+    var game: ClientCardGame
     var name: String
     var setName: String
     var cardNumber: String
@@ -17,7 +17,7 @@ struct CardFormValues: Equatable {
     var quantities: [CardCondition: Int]
 
     init(
-        game: CardGame, name: String, setName: String, cardNumber: String, notes: String,
+        game: ClientCardGame, name: String, setName: String, cardNumber: String, notes: String,
         quantities: [CardCondition: Int]
     ) {
         self.game = game

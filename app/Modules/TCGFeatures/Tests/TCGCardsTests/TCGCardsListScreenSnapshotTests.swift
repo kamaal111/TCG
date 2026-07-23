@@ -18,21 +18,21 @@ struct TCGCardsListScreenSnapshotTests {
     @Test
     func `Renders a populated collection`() async throws {
         let feature = TCGCards(client: .preview(cardsOutcome: .success(cards: PreviewTCGCardsClient.sampleCards)))
-        try await feature.loadCards().get()
+        try await feature.load(game: .onePiece).get()
         assertScreenSnapshot(testName: #function) { makeScreen(feature: feature) }
     }
 
     @Test
     func `Renders an empty collection`() async throws {
         let feature = TCGCards(client: .preview(cardsOutcome: .empty))
-        try await feature.loadCards().get()
+        try await feature.load(game: nil).get()
         assertScreenSnapshot(testName: #function) { makeScreen(feature: feature) }
     }
 
     @Test
     func `Renders a One Piece filter`() async throws {
         let feature = TCGCards(client: .preview(cardsOutcome: .success(cards: PreviewTCGCardsClient.sampleCards)))
-        try await feature.loadCards().get()
+        try await feature.load(game: nil).get()
         let model = TCGCardsListScreenModel()
         model.gameFilter = .onePiece
         assertScreenSnapshot(testName: #function) { makeScreen(feature: feature, model: model) }

@@ -1,7 +1,7 @@
 import { z } from '@hono/zod-openapi';
 
-import { CARD_CONDITIONS } from '../../db/schema/cards.ts';
 import { CardConditionQuantitySchema, CardCoreFieldsSchema } from './fields.ts';
+import { CARD_CONDITIONS } from '../../db/schema/cards.ts';
 
 export const UpsertCardSchema = CardCoreFieldsSchema.extend({
   notes: z

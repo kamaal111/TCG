@@ -969,12 +969,12 @@ private actor RequestTransport: ClientTransport {
 
     static func notFound() -> RequestTransport {
         RequestTransport(
-            response: .init(status: .notFound, headerFields: [.contentType: "application/json"]),
+            response: .init(status: .unauthorized, headerFields: [.contentType: "application/json"]),
             responseBody: Data(
                 """
                 {
-                  "message": "Not found",
-                  "code": "NOT_FOUND"
+                  "message": "Unauthorized",
+                  "code": "SESSION_NOT_FOUND"
                 }
                 """.utf8)
         )
@@ -982,12 +982,12 @@ private actor RequestTransport: ClientTransport {
 
     private static var notFoundResponse: (HTTPResponse, HTTPBody?) {
         (
-            .init(status: .notFound, headerFields: [.contentType: "application/json"]),
+            .init(status: .unauthorized, headerFields: [.contentType: "application/json"]),
             HTTPBody(
                 Data(
                     """
                     {
-                      "message": "Not found",
+                      "message": "Unauthorized",
                       "code": "SESSION_NOT_FOUND"
                     }
                     """.utf8))

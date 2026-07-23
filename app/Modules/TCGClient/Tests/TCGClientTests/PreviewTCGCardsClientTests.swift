@@ -14,27 +14,34 @@ struct PreviewTCGCardsClientTests {
     @Test
     func `Success seeds the configured cards`() async throws {
         let client = TCGClient.preview(cardsOutcome: .success(cards: PreviewTCGCardsClient.sampleCards))
-        #expect(try await client.cards.list().get() == PreviewTCGCardsClient.sampleCards)
+        #expect(try await client.cards.list(game: nil).get().map(\.card) == PreviewTCGCardsClient.sampleCards)
+    }
+
+    @Test
+    func `Lists only cards from the requested game`() async throws {
+        let client = TCGClient.preview(cardsOutcome: .success(cards: PreviewTCGCardsClient.sampleCards))
+
+        #expect(try await client.cards.list(game: .pokemon).get().map(\.card.id) == ["preview-card-2"])
     }
 
     @Test
     func `Empty starts with no cards`() async throws {
-        #expect(try await TCGClient.preview(cardsOutcome: .empty).cards.list().get() == [])
+        #expect(try await TCGClient.preview(cardsOutcome: .empty).cards.list(game: nil).get() == [])
     }
 
     @Test
     func `Create appends a card`() async throws {
         let client = TCGClient.preview(cardsOutcome: .empty)
         let created = try await client.cards.create(with: previewPayload).get()
-        #expect(try await client.cards.list().get() == [created])
+        #expect(try await client.cards.list(game: nil).get().map(\.card) == [created.card])
     }
 
     @Test
     func `Update replaces a card`() async throws {
         let client = TCGClient.preview(cardsOutcome: .success(cards: PreviewTCGCardsClient.sampleCards))
         let updated = try await client.cards.update(id: "preview-card-1", with: previewPayload).get()
-        #expect(updated.name == previewPayload.name)
-        #expect(try await client.cards.list().get().first == updated)
+        #expect(updated.card.name == previewPayload.name)
+        #expect(try await client.cards.list(game: nil).get().first?.card == updated.card)
     }
 
     @Test
@@ -49,7 +56,7 @@ struct PreviewTCGCardsClientTests {
     func `Delete removes a card`() async throws {
         let client = TCGClient.preview(cardsOutcome: .success(cards: PreviewTCGCardsClient.sampleCards))
         _ = try await client.cards.delete(id: "preview-card-1").get()
-        #expect(try await client.cards.list().get().map(\.id) == ["preview-card-2"])
+        #expect(try await client.cards.list(game: nil).get().map(\.card.id) == ["preview-card-2"])
     }
 
     @Test
@@ -75,13 +82,13 @@ struct PreviewTCGCardsClientTests {
     @Test
     func `Server unavailable outcome rejects every operation`() async {
         let client = TCGClient.preview(cardsOutcome: .serverUnavailable)
-        await #expect(throws: ListCardsErrors.unknown(status: 503, payload: nil, cause: nil)) {
-            try await client.cards.list().get()
+        await #expect(throws: ListCardsErrors.unavailable) {
+            try await client.cards.list(game: nil).get()
         }
-        await #expect(throws: CreateCardErrors.unknown(status: 503, payload: nil, cause: nil)) {
+        await #expect(throws: CreateCardErrors.unavailable) {
             try await client.cards.create(with: previewPayload).get()
         }
-        await #expect(throws: UpdateCardErrors.unknown(status: 503, payload: nil, cause: nil)) {
+        await #expect(throws: UpdateCardErrors.unavailable) {
             try await client.cards.update(id: "preview-card-1", with: previewPayload).get()
         }
         await #expect(throws: DeleteCardErrors.unknown(status: 503, payload: nil, cause: nil)) {

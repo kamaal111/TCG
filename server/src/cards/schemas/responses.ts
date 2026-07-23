@@ -1,7 +1,8 @@
 import { z } from '@hono/zod-openapi';
 
-import { ApiCommonDatetimeShape } from '../../schemas/common.ts';
 import { CardConditionQuantitySchema, CardCoreFieldsSchema, CardIdSchema } from './fields.ts';
+import { OwnedCardPriceSchema } from '../../card-pricing/schemas/responses.ts';
+import { ApiCommonDatetimeShape } from '../../schemas/common.ts';
 
 export const CardSchema = CardCoreFieldsSchema.extend({
   id: CardIdSchema.openapi({
@@ -34,8 +35,29 @@ export const CardSchema = CardCoreFieldsSchema.extend({
   },
 });
 
+export const CardWithPriceSchema = CardSchema.extend({
+  price: OwnedCardPriceSchema,
+}).openapi('CardWithPrice', {
+  title: 'Card With Price',
+  description: 'An owned trading card entry with its freshly refreshed price',
+  example: {
+    id: '550e8400-e29b-41d4-a716-446655440000',
+    game: 'one_piece',
+    name: 'Monkey D. Luffy',
+    set_name: 'Romance Dawn',
+    card_number: 'OP01-003',
+    notes: null,
+    quantities: [{ condition: 'near_mint', quantity: 2 }],
+    created_at: '2026-07-20T10:30:00.000Z',
+    updated_at: '2026-07-20T10:30:00.000Z',
+    price: { card_id: '550e8400-e29b-41d4-a716-446655440000', status: 'priced' },
+  },
+});
+
 export const CardsListResponseSchema = z
-  .object({ cards: z.array(CardSchema).openapi({ description: 'Owned card entries, newest first' }) })
+  .object({
+    cards: z.array(CardWithPriceSchema).openapi({ description: 'Owned card entries with daily pricing, newest first' }),
+  })
   .openapi('CardsListResponse', {
     title: 'Cards List Response',
     description: "The authenticated user's card collection",
@@ -49,5 +71,6 @@ export const DeleteCardResponseSchema = z.object({}).openapi('DeleteCardResponse
 });
 
 export type CardResponse = z.infer<typeof CardSchema>;
+export type CardWithPriceResponse = z.infer<typeof CardWithPriceSchema>;
 export type CardsListResponse = z.infer<typeof CardsListResponseSchema>;
 export type DeleteCardResponse = z.infer<typeof DeleteCardResponseSchema>;

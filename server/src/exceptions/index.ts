@@ -1,10 +1,10 @@
 import { HTTPException } from 'hono/http-exception';
 import type z from 'zod';
 
-import type { HonoContext } from '../context.ts';
 import { STATUS_CODES, type StatusCode } from '../constants/http.ts';
+import type { HonoContext } from '../context.ts';
 
-type ExceptionContext = Pick<HonoContext, 'get'>;
+export type ExceptionContext = Pick<HonoContext, 'get'>;
 
 export class APIException<TContext = unknown> extends HTTPException {
   readonly context?: TContext;
@@ -57,10 +57,10 @@ export class InvalidValidation extends InvalidPayload<{
 }
 
 export class Unauthorized extends APIException {
-  constructor(c: ExceptionContext, options?: { message?: string }) {
+  constructor(c: ExceptionContext, options?: { message?: string; code?: string }) {
     super(c, STATUS_CODES.UNAUTHORIZED, {
       message: options?.message ?? 'Unauthorized',
-      code: 'UNAUTHORIZED',
+      code: options?.code ?? 'UNAUTHORIZED',
     });
   }
 }
