@@ -10,6 +10,8 @@ import TCGClient
 
 struct CardRow: View {
     let card: Card
+    let price: OwnedCardPrice?
+    let isLoadingPrice: Bool
 
     var body: some View {
         HStack(alignment: .top) {
@@ -23,10 +25,29 @@ struct CardRow: View {
                     .background(.tint.opacity(0.12), in: Capsule())
             }
             Spacer()
-            Text("×\(card.quantities.reduce(0) { $0 + $1.quantity })")
-                .font(.title3.monospacedDigit())
+            VStack(alignment: .trailing, spacing: 6) {
+                Text("×\(card.quantities.reduce(0) { $0 + $1.quantity })")
+                    .font(.title3.monospacedDigit())
+                priceView
+            }
         }
         .padding(.vertical, 4)
         .contentShape(Rectangle())
+    }
+
+    @ViewBuilder
+    private var priceView: some View {
+        if isLoadingPrice, price == nil {
+            ProgressView()
+                .controlSize(.small)
+                .accessibilityLabel("Loading price")
+        } else if let headline = price?.price?.headline, price?.status == .priced {
+            Text(headline.amount, format: .currency(code: headline.currency))
+                .font(.subheadline.weight(.semibold).monospacedDigit())
+        } else {
+            Text(price?.status == .noPrice ? "No price" : "—")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+        }
     }
 }

@@ -132,6 +132,7 @@ test-snapshots-macos:
         -only-testing:TCGAuthTests/TCGAuthSignInScreenSnapshotTests \
         -only-testing:TCGCardsTests/TCGCardsListScreenSnapshotTests \
         -only-testing:TCGCardsTests/TCGCardFormScreenSnapshotTests \
+        -only-testing:TCGSearchTests/TCGSearchScreenSnapshotTests \
         test
 
 # Run iOS screen snapshot tests
@@ -144,6 +145,7 @@ test-snapshots-ios:
         -only-testing:TCGAuthTests/TCGAuthSignInScreenSnapshotTests \
         -only-testing:TCGCardsTests/TCGCardsListScreenSnapshotTests \
         -only-testing:TCGCardsTests/TCGCardFormScreenSnapshotTests \
+        -only-testing:TCGSearchTests/TCGSearchScreenSnapshotTests \
         test
 
 # Run screen snapshot tests on macOS and iOS

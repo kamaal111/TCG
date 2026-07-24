@@ -31,6 +31,9 @@ export interface BaseLogFields {
   error_code?: string;
   error_name?: string;
   cache_status?: 'hit' | 'miss' | 'set' | 'skip';
+  lock_key_type?: 'card' | 'search';
+  lock_status?: 'acquired' | 'failed' | 'timeout';
+  lock_wait_ms?: number;
   result_count?: number;
   stored_count?: number;
   transaction_type?: string;

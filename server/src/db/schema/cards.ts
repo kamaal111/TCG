@@ -22,6 +22,7 @@ export const card = pgTable(
     name: text('name').notNull(),
     setName: text('set_name').notNull(),
     cardNumber: text('card_number').notNull(),
+    tcggoCardId: text('tcggo_card_id'),
     notes: text('notes'),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at')

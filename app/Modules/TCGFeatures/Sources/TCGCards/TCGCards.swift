@@ -16,7 +16,9 @@ private let logger = KamaalLogger(from: TCGCards.self)
 @Observable
 public final class TCGCards {
     private(set) var cards: [Card] = []
+    private(set) var prices: [String: OwnedCardPrice] = [:]
     private(set) var isLoading = false
+    private(set) var isLoadingPrices = false
     private let client: TCGClient
 
     init(client: TCGClient) {
@@ -42,6 +44,17 @@ public final class TCGCards {
             .mapError(mapCreateError)
     }
 
+    func loadOwnedPrices(game: CardGame? = nil) async -> Result<Void, TCGCardsOperationError> {
+        isLoadingPrices = true
+        defer { isLoadingPrices = false }
+        return await client.pricing.ownedPrices(game: game)
+            .map { setPrices($0) }
+            .mapError { _ in
+                logger.error("Couldn't load pricing for the card collection.")
+                return .serverUnavailable
+            }
+    }
+
     func updateCard(id: String, values: CardFormValues) async -> Result<Void, TCGCardsOperationError> {
         await client.cards.update(id: id, with: values.payload)
             .map { replaceCard($0, id: id) }
@@ -63,6 +76,10 @@ public final class TCGCards {
         self.cards = cards
     }
 
+    private func setPrices(_ prices: [OwnedCardPrice]) {
+        self.prices = Dictionary(prices.map { ($0.cardId, $0) }, uniquingKeysWith: { first, _ in first })
+    }
+
     private func insertCard(_ card: Card) {
         setCards(cards.prepended(card))
     }
@@ -78,6 +95,7 @@ public final class TCGCards {
         }
 
         setCards(cards.removed(at: index))
+        prices[id] = nil
     }
 
     private func mapCreateError(_ error: CreateCardErrors) -> TCGCardsOperationError {

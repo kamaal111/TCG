@@ -123,7 +123,11 @@ public struct TCGCardsListScreen: View {
         Button {
             model.presentedForm = .edit(card)
         } label: {
-            CardRow(card: card)
+            CardRow(
+                card: card,
+                price: cards.prices[card.id],
+                isLoadingPrice: cards.isLoadingPrices
+            )
         }
         .buttonStyle(.plain)
     }

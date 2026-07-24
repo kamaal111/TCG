@@ -12,6 +12,7 @@ import OpenAPIURLSession
 public struct TCGClient: Sendable {
     public let auth: TCGAuthClient
     public let cards: TCGCardsClient
+    public let pricing: TCGPricingClient
 
     private let credentialsKeychainKey: String
     private let credentialsStore: CredentialsStore
@@ -19,11 +20,13 @@ public struct TCGClient: Sendable {
     private init(
         auth: TCGAuthClient,
         cards: TCGCardsClient,
+        pricing: TCGPricingClient,
         credentialsKeychainKey: String,
         credentialsStore: CredentialsStore
     ) {
         self.auth = auth
         self.cards = cards
+        self.pricing = pricing
         self.credentialsKeychainKey = credentialsKeychainKey
         self.credentialsStore = credentialsStore
     }
@@ -46,7 +49,8 @@ public struct TCGClient: Sendable {
         preview(
             hasValidCredentials: hasValidCredentials,
             authOutcome: .success,
-            cardsOutcome: .success(cards: PreviewTCGCardsClient.sampleCards)
+            cardsOutcome: .success(cards: PreviewTCGCardsClient.sampleCards),
+            pricingOutcome: .success
         )
     }
 
@@ -54,7 +58,8 @@ public struct TCGClient: Sendable {
         preview(
             hasValidCredentials: false,
             authOutcome: authOutcome,
-            cardsOutcome: .success(cards: PreviewTCGCardsClient.sampleCards)
+            cardsOutcome: .success(cards: PreviewTCGCardsClient.sampleCards),
+            pricingOutcome: .success
         )
     }
 
@@ -62,18 +67,34 @@ public struct TCGClient: Sendable {
         preview(
             hasValidCredentials: hasValidCredentials,
             authOutcome: authOutcome,
-            cardsOutcome: .success(cards: PreviewTCGCardsClient.sampleCards)
+            cardsOutcome: .success(cards: PreviewTCGCardsClient.sampleCards),
+            pricingOutcome: .success
         )
     }
 
     static func preview(cardsOutcome: PreviewTCGCardsOutcome) -> TCGClient {
-        preview(hasValidCredentials: true, authOutcome: .success, cardsOutcome: cardsOutcome)
+        preview(
+            hasValidCredentials: true,
+            authOutcome: .success,
+            cardsOutcome: cardsOutcome,
+            pricingOutcome: .success
+        )
+    }
+
+    static func preview(pricingOutcome: PreviewTCGPricingOutcome) -> TCGClient {
+        preview(
+            hasValidCredentials: true,
+            authOutcome: .success,
+            cardsOutcome: .success(cards: PreviewTCGCardsClient.sampleCards),
+            pricingOutcome: pricingOutcome
+        )
     }
 
     static func preview(
         hasValidCredentials: Bool,
         authOutcome: PreviewTCGAuthOutcome,
-        cardsOutcome: PreviewTCGCardsOutcome
+        cardsOutcome: PreviewTCGCardsOutcome,
+        pricingOutcome: PreviewTCGPricingOutcome
     ) -> TCGClient {
         let seed: Data?
         if hasValidCredentials {
@@ -95,10 +116,12 @@ public struct TCGClient: Sendable {
             outcome: authOutcome
         )
         let cards = PreviewTCGCardsClient(outcome: cardsOutcome)
+        let pricing = PreviewTCGPricingClient(outcome: pricingOutcome)
 
         return TCGClient(
             auth: auth,
             cards: cards,
+            pricing: pricing,
             credentialsKeychainKey: credentialsKeychainKey,
             credentialsStore: credentialsStore
         )
@@ -156,10 +179,12 @@ public struct TCGClient: Sendable {
             credentialsKeychainKey: credentialsKeychainKey
         )
         let cards = TCGCardsClientImpl(client: client)
+        let pricing = TCGPricingClientImpl(client: client)
 
         return TCGClient(
             auth: auth,
             cards: cards,
+            pricing: pricing,
             credentialsKeychainKey: credentialsKeychainKey,
             credentialsStore: credentialsStore
         )
