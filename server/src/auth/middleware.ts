@@ -13,6 +13,7 @@ import type { SessionResponse } from './schemas/responses.ts';
 import { SessionNotFound } from './exceptions.ts';
 import { JWKS_URL } from './constants.ts';
 import { jwks } from '../db/schema/index.ts';
+import { getCredentialKind } from './utils/credentials.ts';
 
 const RemoteJWKS = createRemoteJWKSet(JWKS_URL);
 
@@ -62,6 +63,8 @@ async function verifyJwt(c: HonoContext): Promise<SessionResponse | null> {
         event: 'auth.jwt.verification',
         outcome: 'failure',
         error_name: error instanceof Error ? error.name : typeof error,
+        error_code: error instanceof Error ? error.name : typeof error,
+        credential_kind: getCredentialKind(c),
       },
       'Authentication token verification failed.',
     );
@@ -71,6 +74,16 @@ async function verifyJwt(c: HonoContext): Promise<SessionResponse | null> {
   const payload = verificationResult.payload;
   const zResult = BetterAuthJWTPayloadSchema.safeParse(payload);
   if (!zResult.success) {
+    logWarn(
+      withRequestLogger(c, { component: 'auth' }),
+      {
+        event: 'auth.jwt.verification',
+        outcome: 'failure',
+        error_code: 'INVALID_JWT_PAYLOAD',
+        credential_kind: getCredentialKind(c),
+      },
+      'Authentication token payload was invalid.',
+    );
     throw new APIException(c, STATUS_CODES.UNAUTHORIZED, {
       message: 'Invalid JWT payload',
       code: 'INVALID_JWT_PAYLOAD',
@@ -107,6 +120,16 @@ async function verifyJwt(c: HonoContext): Promise<SessionResponse | null> {
 async function verifySession(c: HonoContext): Promise<SessionResponse> {
   const sessionResponse = await c.get('auth').api.getSession({ headers: c.req.raw.headers });
   if (!sessionResponse) {
+    logWarn(
+      withRequestLogger(c, { component: 'auth' }),
+      {
+        event: 'auth.session.lookup',
+        outcome: 'failure',
+        error_code: 'SESSION_NOT_FOUND',
+        credential_kind: getCredentialKind(c),
+      },
+      'Authenticated user session was not found.',
+    );
     throw new SessionNotFound(c);
   }
 
@@ -116,6 +139,8 @@ async function verifySession(c: HonoContext): Promise<SessionResponse> {
       event: 'auth.session.lookup',
       user_id: sessionResponse.user.id,
       outcome: 'success',
+      session_expires_in_s: Math.floor((sessionResponse.session.expiresAt.getTime() - Date.now()) / 1000),
+      session_age_s: Math.floor((Date.now() - sessionResponse.session.createdAt.getTime()) / 1000),
     },
     'Retrieved the authenticated user session.',
   );

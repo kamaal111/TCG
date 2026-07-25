@@ -5,11 +5,12 @@ import type { HonoContext } from '../../context.ts';
 import { AUTH_ROUTE_NAME } from '../constants.ts';
 import tokenRoute from '../routes/token.ts';
 import { SessionNotFound } from '../exceptions.ts';
-import { logInfo } from '../../logging/index.ts';
+import { logInfo, logWarn } from '../../logging/index.ts';
 import { STATUS_CODES } from '../../constants/http.ts';
 import { withRequestLogger } from '../../logging/http.ts';
 import { parseTokenResponseAndCreateHeaders } from '../utils/request.ts';
 import type { TypedResponse } from 'hono';
+import { getCredentialKind } from '../utils/credentials.ts';
 
 type TokenContext = HonoContext<typeof TOKEN_ROUTE_PATH>;
 type TokenResponse = TypedResponse<{ token: string }, typeof TOKEN_STATUS_CODE>;
@@ -21,6 +22,17 @@ async function tokenHandler(c: TokenContext): Promise<TokenResponse> {
   const request = await cloneRawRequest(c.req);
   const response = await c.get('auth').handler(request);
   if (!response.ok) {
+    logWarn(
+      withRequestLogger(c, { component: 'auth' }),
+      {
+        event: 'auth.token.rejected',
+        outcome: 'failure',
+        error_code: 'SESSION_NOT_FOUND',
+        credential_kind: getCredentialKind(c),
+        status_code: response.status,
+      },
+      'Authentication token request was rejected.',
+    );
     throw new SessionNotFound(c);
   }
 

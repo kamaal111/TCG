@@ -29,7 +29,7 @@ func makeAuth(
 func validCredentialsStore() throws -> CredentialsStoreSpy {
     let credentials = Credentials(
         authToken: "auth-token",
-        expiryDate: .distantFuture,
+        authTokenExpiryDate: .distantFuture,
         sessionToken: "session-token",
         sessionUpdateAge: 1800,
         lastSessionUpdate: .now

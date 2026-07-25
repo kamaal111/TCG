@@ -32,7 +32,7 @@ public struct TCGClient: Sendable {
         let credentials = try? credentialsStore.credentials(forKey: credentialsKeychainKey)
         guard let credentials else { return false }
 
-        return !credentials.hasExpired
+        return !credentials.sessionHasExpired
     }
 
     public static func `default`() -> TCGClient {
@@ -79,10 +79,11 @@ public struct TCGClient: Sendable {
         if hasValidCredentials {
             let credentials = Credentials(
                 authToken: "preview-auth-token",
-                expiryDate: .distantFuture,
+                authTokenExpiryDate: .distantFuture,
                 sessionToken: "preview-session-token",
                 sessionUpdateAge: 1800,
-                lastSessionUpdate: .now
+                lastSessionUpdate: .now,
+                sessionExpiryDate: .distantFuture
             )
             seed = try? JSONEncoder().encode(credentials)
         } else {
@@ -126,10 +127,9 @@ public struct TCGClient: Sendable {
             configuration: configuration,
             transport: transport,
             middlewares: [
-                SessionAuthorizationMiddleware(
+                SessionTokenAuthorizationMiddleware(
                     credentialsKeychainKey: credentialsKeychainKey,
-                    credentialsStore: credentialsStore,
-                    tokenRefresher: nil
+                    credentialsStore: credentialsStore
                 )
             ]
         )

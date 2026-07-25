@@ -60,6 +60,26 @@ struct TCGAuthClientTests {
     }
 
     @Test
+    func `Should delete credentials and return unauthorized when token refresh finds no session`() async throws {
+        let credentialsStore = try CredentialsStoreSpy(
+            initialData: JSONEncoder().encode(makeCredentials(expiryDate: .distantFuture))
+        )
+        let client = TCGClient.default(
+            transport: RequestTransport.notFound(),
+            credentialsKeychainKey: "credentials-key",
+            credentialsStore: credentialsStore
+        )
+
+        let result = await client.auth.refreshToken()
+
+        try #require(throws: SessionErrors.unauthorized) {
+            try result.get()
+        }
+        #expect(credentialsStore.deletedKeys == ["credentials-key"])
+        #expect(credentialsStore.storedCredentialsData == nil)
+    }
+
+    @Test
     func `Should return an unknown error when token refresh transport fails`() async throws {
         let credentialsStore = try CredentialsStoreSpy(
             initialData: JSONEncoder().encode(makeCredentials(expiryDate: .distantFuture))
@@ -389,7 +409,7 @@ struct TCGAuthClientTests {
                     email: "jane@example.com",
                     expiresAt: expiresAt
                 ))
-        #expect(updatedCredentials.expiryDate == expiresAt)
+        #expect(updatedCredentials.sessionExpiryDate == expiresAt)
     }
 
     @Test
@@ -412,7 +432,9 @@ struct TCGAuthClientTests {
     @Test
     func `Should delete expired credentials before requesting a session without authorization`() async throws {
         let credentialsStore = try CredentialsStoreSpy(
-            initialData: JSONEncoder().encode(makeCredentials(expiryDate: .distantPast))
+            initialData: JSONEncoder().encode(
+                makeCredentials(expiryDate: .distantPast, sessionExpiryDate: .distantPast)
+            )
         )
         let transport = RequestTransport.notFound()
         let client = TCGClient.default(
@@ -585,17 +607,85 @@ struct TCGAuthClientTests {
         }
     }
 
+    @Test
+    func `Should send the session token as the bearer when refreshing the authentication token`() async throws {
+        let credentialsStore = try CredentialsStoreSpy(
+            initialData: JSONEncoder().encode(makeCredentials(expiryDate: .distantFuture))
+        )
+        let transport = try RequestTransport.serverLike()
+        let client = TCGClient.default(
+            transport: transport,
+            credentialsKeychainKey: "credentials-key",
+            credentialsStore: credentialsStore
+        )
+
+        try await client.auth.refreshToken().get()
+
+        let request = try #require(await transport.request)
+        #expect(request.authorization == "Bearer session-token")
+    }
+
+    @Test
+    func `Should stay signed in when the session update age has elapsed`() async throws {
+        let credentialsStore = try CredentialsStoreSpy(
+            initialData: JSONEncoder().encode(
+                makeCredentials(
+                    expiryDate: .now.addingTimeInterval(6 * 24 * 60 * 60),
+                    sessionUpdateAge: 24 * 60 * 60,
+                    lastSessionUpdate: .now.addingTimeInterval(-25 * 60 * 60)
+                ))
+        )
+        let transport = try RequestTransport.serverLike()
+        let client = TCGClient.default(
+            transport: transport,
+            credentialsKeychainKey: "credentials-key",
+            credentialsStore: credentialsStore
+        )
+
+        let session = try await client.auth.session().get()
+
+        #expect(session.email == "jane@example.com")
+        #expect(credentialsStore.deletedKeys.isEmpty)
+        let storedCredentials = try #require(credentialsStore.storedCredentialsData)
+        let credentials = try JSONDecoder().decode(Credentials.self, from: storedCredentials)
+        #expect(credentials.authToken == "refreshed-auth-token")
+    }
+
+    @Test
+    func `Should refresh an expired authentication token while the session remains live`() async throws {
+        let credentialsStore = try CredentialsStoreSpy(
+            initialData: JSONEncoder().encode(
+                makeCredentials(expiryDate: .distantPast, sessionExpiryDate: .distantFuture)
+            )
+        )
+        let transport = try RequestTransport.serverLike()
+        let client = TCGClient.default(
+            transport: transport,
+            credentialsKeychainKey: "credentials-key",
+            credentialsStore: credentialsStore
+        )
+
+        _ = try await client.auth.session().get()
+
+        #expect(credentialsStore.deletedKeys.isEmpty)
+        let storedCredentials = try #require(credentialsStore.storedCredentialsData)
+        let credentials = try JSONDecoder().decode(Credentials.self, from: storedCredentials)
+        #expect(credentials.authToken == "refreshed-auth-token")
+    }
+
     private func makeCredentials(
         expiryDate: Date,
         sessionUpdateAge: TimeInterval = 1800,
-        lastSessionUpdate: Date = .now
+        lastSessionUpdate: Date = .now,
+        sessionExpiryDate: Date? = nil
     ) -> Credentials {
         Credentials(
             authToken: "auth-token",
-            expiryDate: expiryDate,
+            authTokenExpiryDate: expiryDate,
             sessionToken: "session-token",
             sessionUpdateAge: sessionUpdateAge,
             lastSessionUpdate: lastSessionUpdate,
+            sessionExpiryDate: sessionExpiryDate,
         )
     }
 
@@ -642,7 +732,7 @@ struct TCGAuthClientTests {
         #expect(request.method == .get)
         #expect(request.path == "/app-api/auth/token")
         #expect(request.operationID == "get/app-api/auth/token")
-        #expect(request.authorization == "Bearer auth-token")
+        #expect(request.authorization == "Bearer session-token")
         #expect(request.body == nil)
     }
 
@@ -654,7 +744,7 @@ struct TCGAuthClientTests {
         #expect(refreshRequest.method == .get)
         #expect(refreshRequest.path == "/app-api/auth/token")
         #expect(refreshRequest.operationID == "get/app-api/auth/token")
-        #expect(refreshRequest.authorization == "Bearer auth-token")
+        #expect(refreshRequest.authorization == "Bearer session-token")
         #expect(refreshRequest.body == nil)
         #expect(signUpRequest.method == .post)
         #expect(signUpRequest.path == "/app-api/auth/sign-up/email")
@@ -669,17 +759,20 @@ private actor RequestTransport: ClientTransport {
     private let responseBody: Data?
     private let tokenRefreshResponse: HTTPResponse?
     private let tokenRefreshResponseBody: Data?
+    private let isServerLike: Bool
 
     private init(
         response: HTTPResponse?,
         responseBody: Data?,
         tokenRefreshResponse: HTTPResponse? = nil,
-        tokenRefreshResponseBody: Data? = nil
+        tokenRefreshResponseBody: Data? = nil,
+        isServerLike: Bool = false
     ) {
         self.response = response
         self.responseBody = responseBody
         self.tokenRefreshResponse = tokenRefreshResponse
         self.tokenRefreshResponseBody = tokenRefreshResponseBody
+        self.isServerLike = isServerLike
     }
 
     var request: RecordedRequest? {
@@ -707,6 +800,19 @@ private actor RequestTransport: ClientTransport {
             responseBody: signUpResponse.body,
             tokenRefreshResponse: tokenResponse.response,
             tokenRefreshResponseBody: tokenResponse.body
+        )
+    }
+
+    static func serverLike() throws -> RequestTransport {
+        let tokenResponse = try authSuccessResponse(status: .ok, token: "refreshed-auth-token")
+        let sessionResponse = sessionSuccessResponse()
+
+        return RequestTransport(
+            response: sessionResponse.response,
+            responseBody: sessionResponse.body,
+            tokenRefreshResponse: tokenResponse.response,
+            tokenRefreshResponseBody: tokenResponse.body,
+            isServerLike: true
         )
     }
 
@@ -820,6 +926,9 @@ private actor RequestTransport: ClientTransport {
         )
 
         if operationID == "get/app-api/auth/token" {
+            if isServerLike, request.headerFields[.authorization] != "Bearer session-token" {
+                return Self.notFoundResponse
+            }
             if let tokenRefreshResponse {
                 return (tokenRefreshResponse, tokenRefreshResponseBody.map(HTTPBody.init))
             }
@@ -831,9 +940,14 @@ private actor RequestTransport: ClientTransport {
     }
 
     static func sessionSuccess() -> RequestTransport {
-        RequestTransport(
+        let response = sessionSuccessResponse()
+        return RequestTransport(response: response.response, responseBody: response.body)
+    }
+
+    private static func sessionSuccessResponse() -> (response: HTTPResponse, body: Data) {
+        (
             response: .init(status: .ok, headerFields: [.contentType: "application/json"]),
-            responseBody: Data(
+            body: Data(
                 """
                 {
                   "session": {
@@ -856,7 +970,27 @@ private actor RequestTransport: ClientTransport {
     static func notFound() -> RequestTransport {
         RequestTransport(
             response: .init(status: .notFound, headerFields: [.contentType: "application/json"]),
-            responseBody: Data("{ \"message\": \"Not found\", \"code\": \"NOT_FOUND\" }".utf8)
+            responseBody: Data(
+                """
+                {
+                  "message": "Not found",
+                  "code": "NOT_FOUND"
+                }
+                """.utf8)
+        )
+    }
+
+    private static var notFoundResponse: (HTTPResponse, HTTPBody?) {
+        (
+            .init(status: .notFound, headerFields: [.contentType: "application/json"]),
+            HTTPBody(
+                Data(
+                    """
+                    {
+                      "message": "Not found",
+                      "code": "SESSION_NOT_FOUND"
+                    }
+                    """.utf8))
         )
     }
 

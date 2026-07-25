@@ -56,11 +56,56 @@ describe('Token integration', () => {
     },
   );
 
-  integrationTest('rejects a missing session token', async ({ app }) => {
-    const response = await sendTokenRequest(app);
+  integrationTest('rejects a missing session token', async ({ app, getLogsForRequestId, withRequestId }) => {
+    const { headers, requestId } = withRequestId();
+    const response = await sendTokenRequest(app, headers);
 
     await expectErrorResponse(response, STATUS_CODES.NOT_FOUND);
+    expect(getLogsForRequestId(requestId)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          event: 'auth.token.rejected',
+          msg: 'Authentication token request was rejected.',
+          outcome: 'failure',
+          error_code: 'SESSION_NOT_FOUND',
+          credential_kind: 'none',
+          status_code: STATUS_CODES.UNAUTHORIZED,
+        }),
+      ]),
+    );
   });
+
+  integrationTest(
+    'rejects the issued JWT as a bearer credential',
+    async ({ app, db, getLogsForRequestId, withRequestId }) => {
+      const createdUser = await createTestUser(app, db);
+      const tokenResponse = await sendTokenRequest(
+        app,
+        new Headers({ Authorization: `Bearer ${createdUser.sessionToken}` }),
+      );
+      const jwt = tokenResponse.headers.get('set-auth-token');
+      assert(typeof jwt === 'string');
+
+      const { headers, requestId } = withRequestId({ Authorization: `Bearer ${jwt}` });
+      const response = await sendTokenRequest(app, headers);
+
+      expect(await expectErrorResponse(response, STATUS_CODES.NOT_FOUND)).toMatchObject({
+        code: 'SESSION_NOT_FOUND',
+      });
+      const logs = getLogsForRequestId(requestId);
+      expect(logs).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            event: 'auth.token.rejected',
+            credential_kind: 'bearer_jwt',
+            outcome: 'failure',
+            error_code: 'SESSION_NOT_FOUND',
+          }),
+        ]),
+      );
+      expect(JSON.stringify(logs)).not.toContain(createdUser.sessionToken);
+    },
+  );
 
   integrationTest('rejects an invalid session token', async ({ app }) => {
     const response = await sendTokenRequest(app, new Headers({ Authorization: 'Bearer invalid-session-token' }));
