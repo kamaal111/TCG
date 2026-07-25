@@ -35,13 +35,10 @@ public struct TCGAuthClientImpl: TCGAuthClient {
     }
 
     public func session() async -> Result<Session, SessionErrors> {
-        let credentials: Credentials
         do {
-            guard let storedCredentials = try tokenRefresher.credentials(forKey: credentialsKeychainKey) else {
+            guard try tokenRefresher.credentials(forKey: credentialsKeychainKey) != nil else {
                 return .failure(.unauthorized)
             }
-
-            credentials = storedCredentials
         } catch {
             return .failure(.unknown(status: 500, payload: nil, cause: error))
         }
@@ -50,6 +47,11 @@ public struct TCGAuthClientImpl: TCGAuthClient {
         do {
             response = try await client.getAppApiAuthSession()
         } catch {
+            if let sessionError = (error as? ClientError)?.underlyingError as? SessionErrors {
+                logger.warning("Session request failed; reason=\(sessionError)")
+                return .failure(sessionError)
+            }
+            logger.warning("Session request failed; status=503")
             return .failure(.unknown(status: 503, payload: nil, cause: error))
         }
 
@@ -70,7 +72,18 @@ public struct TCGAuthClientImpl: TCGAuthClient {
             return .failure(.unknown(status: 503, payload: nil, cause: error))
         }
 
-        let updatedCredentials = credentials.setExpiryDate(responsePayload.session.expiresAt)
+        let latestCredentials: Credentials
+        do {
+            guard let storedCredentials = try tokenRefresher.credentials(forKey: credentialsKeychainKey) else {
+                return .failure(.unauthorized)
+            }
+
+            latestCredentials = storedCredentials
+        } catch {
+            return .failure(.unknown(status: 500, payload: nil, cause: error))
+        }
+
+        let updatedCredentials = latestCredentials.settingSessionExpiryDate(responsePayload.session.expiresAt)
         do {
             try tokenRefresher.store(updatedCredentials, forKey: credentialsKeychainKey)
         } catch {

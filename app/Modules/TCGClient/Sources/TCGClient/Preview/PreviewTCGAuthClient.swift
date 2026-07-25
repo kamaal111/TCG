@@ -28,7 +28,10 @@ struct PreviewTCGAuthClient: TCGAuthClient {
     }
 
     func session() async -> Result<Session, SessionErrors> {
-        let storedExpiry = (try? credentialsStore.credentials(forKey: credentialsKeychainKey))??.expiryDate
+        let credentials: Credentials? =
+            if let credentials = try? credentialsStore.credentials(forKey: credentialsKeychainKey) { credentials } else
+            { nil }
+        let storedExpiry = credentials?.sessionExpiryDate
 
         return .success(
             Session(

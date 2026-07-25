@@ -7,13 +7,15 @@
 
 import Foundation
 import HTTPTypes
+import KamaalLogger
 import OpenAPIRuntime
-import TCGUtils
+
+private let logger = KamaalLogger(from: SessionAuthorizationMiddleware.self)
 
 struct SessionAuthorizationMiddleware: ClientMiddleware {
     let credentialsKeychainKey: String
-    let credentialsStore: any CredentialsStore
-    let tokenRefresher: TokenRefresher?
+    let credentialsStore: CredentialsStore
+    let tokenRefresher: TokenRefresher
 
     func intercept(
         _ request: HTTPRequest,
@@ -22,44 +24,49 @@ struct SessionAuthorizationMiddleware: ClientMiddleware {
         operationID: String,
         next: @concurrent @Sendable (HTTPRequest, HTTPBody?, URL) async throws -> (HTTPResponse, HTTPBody?)
     ) async throws -> (HTTPResponse, HTTPBody?) {
-        guard var credentials = try credentialsStore.credentials(forKey: credentialsKeychainKey) else {
-            return try await next(request, body, baseURL)
-        }
+        let credentials = try credentialsStore.credentials(forKey: credentialsKeychainKey)
+        guard let credentials else { return try await next(request, body, baseURL) }
 
-        guard !credentials.hasExpired else {
+        guard !credentials.sessionHasExpired else {
             try credentialsStore.delete(forKey: credentialsKeychainKey)
+            logger.warning("Deleted authentication credentials; reason=session_expired")
 
             return try await next(request, body, baseURL)
         }
 
-        if credentials.shouldUpdateSession || credentials.willExpireSoon() {
-            guard let tokenRefresher else {
-                return try await authenticatedRequest(
-                    from: credentials,
-                    request: request,
-                    body: body,
-                    baseURL: baseURL,
-                    next: next
-                )
-            }
-
-            try await tokenRefresher.refreshToken().get()
-
-            let refreshedCredentials = try credentialsStore.credentials(
-                forKey: credentialsKeychainKey
-            )
-            guard let refreshedCredentials else { throw SessionErrors.unauthorized }
-
-            credentials = refreshedCredentials
-        }
+        let refreshedToken = try await refreshIfNeeded(credentials, operationID: operationID)
 
         return try await authenticatedRequest(
-            from: credentials,
+            from: refreshedToken,
             request: request,
             body: body,
             baseURL: baseURL,
+            operationID: operationID,
             next: next
         )
+    }
+
+    private func refreshIfNeeded(_ credentials: Credentials, operationID: String) async throws -> Credentials {
+        guard credentials.shouldUpdateSession || credentials.authTokenWillExpireSoon() else { return credentials }
+
+        let reason = credentials.shouldUpdateSession ? "session_update_age" : "auth_token_expiring"
+        let authTokenAge = Int(Date.now.timeIntervalSince(credentials.lastSessionUpdate))
+        let authTokenRemaining = Int(credentials.authTokenExpiryDate.timeIntervalSinceNow)
+        logger.info(
+            "Refreshing the authentication token; reason=\(reason); credential=session_token; auth_token_age_s=\(authTokenAge); auth_token_remaining_s=\(authTokenRemaining)"
+        )
+
+        do {
+            try await tokenRefresher.refreshToken().get()
+        } catch {
+            logger.warning("Authentication token refresh failed; operationID=\(operationID); error=\(error)")
+            throw error
+        }
+
+        let refreshedCredentials = try credentialsStore.credentials(forKey: credentialsKeychainKey)
+        guard let refreshedCredentials else { throw SessionErrors.unauthorized }
+
+        return refreshedCredentials
     }
 
     private func authenticatedRequest(
@@ -67,10 +74,12 @@ struct SessionAuthorizationMiddleware: ClientMiddleware {
         request: HTTPRequest,
         body: HTTPBody?,
         baseURL: URL,
+        operationID: String,
         next: @concurrent @Sendable (HTTPRequest, HTTPBody?, URL) async throws -> (HTTPResponse, HTTPBody?)
     ) async throws -> (HTTPResponse, HTTPBody?) {
         var authenticatedRequest = request
         authenticatedRequest.headerFields[.authorization] = "Bearer \(credentials.authToken)"
+        logger.info("Attached authentication credential; credential=jwt; operationID=\(operationID)")
 
         return try await next(authenticatedRequest, body, baseURL)
     }

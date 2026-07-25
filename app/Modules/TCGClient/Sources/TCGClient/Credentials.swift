@@ -6,54 +6,57 @@
 //
 
 import Foundation
-import TCGUtils
 
-public struct Credentials: Codable, Expirable {
+public struct Credentials: Codable {
     let authToken: String
-    let expiryDate: Date
+    let authTokenExpiryDate: Date
     let sessionToken: String
     let sessionUpdateAge: TimeInterval
     let lastSessionUpdate: Date
+    let sessionExpiryDate: Date?
 
     public init(
         authToken: String,
-        expiryDate: Date,
+        authTokenExpiryDate: Date,
         sessionToken: String,
         sessionUpdateAge: TimeInterval,
-        lastSessionUpdate: Date
+        lastSessionUpdate: Date,
+        sessionExpiryDate: Date? = nil
     ) {
         self.authToken = authToken
-        self.expiryDate = expiryDate
+        self.authTokenExpiryDate = authTokenExpiryDate
         self.sessionToken = sessionToken
         self.sessionUpdateAge = sessionUpdateAge
         self.lastSessionUpdate = lastSessionUpdate
+        self.sessionExpiryDate = sessionExpiryDate
     }
 
-    public var expiresAt: Date {
-        expiryDate
+    var authTokenHasExpired: Bool {
+        authTokenExpiryDate <= .now
     }
 
-    func setExpiryDate(_ date: Date) -> Credentials {
+    var sessionHasExpired: Bool {
+        guard let sessionExpiryDate else { return false }
+
+        return sessionExpiryDate <= .now
+    }
+
+    func authTokenWillExpireSoon(within interval: TimeInterval = 3600) -> Bool {
+        authTokenExpiryDate <= .now.addingTimeInterval(interval)
+    }
+
+    func settingSessionExpiryDate(_ date: Date) -> Credentials {
         Credentials(
             authToken: authToken,
-            expiryDate: date,
+            authTokenExpiryDate: authTokenExpiryDate,
             sessionToken: sessionToken,
             sessionUpdateAge: sessionUpdateAge,
             lastSessionUpdate: lastSessionUpdate,
+            sessionExpiryDate: date,
         )
     }
 
     var shouldUpdateSession: Bool {
         Date.now.timeIntervalSince(lastSessionUpdate) >= sessionUpdateAge
-    }
-
-    func updatedSession() -> Credentials {
-        Credentials(
-            authToken: authToken,
-            expiryDate: expiryDate,
-            sessionToken: sessionToken,
-            sessionUpdateAge: sessionUpdateAge,
-            lastSessionUpdate: Date.now,
-        )
     }
 }

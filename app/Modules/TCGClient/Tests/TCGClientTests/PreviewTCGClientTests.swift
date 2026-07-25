@@ -42,10 +42,11 @@ struct PreviewTCGClientTests {
         let expiryDate = try #require(ISO8601DateFormatter().date(from: "2026-08-12T12:00:00Z"))
         let credentials = Credentials(
             authToken: "preview-auth-token",
-            expiryDate: expiryDate,
+            authTokenExpiryDate: expiryDate,
             sessionToken: "preview-session-token",
             sessionUpdateAge: 1800,
-            lastSessionUpdate: .now
+            lastSessionUpdate: .now,
+            sessionExpiryDate: expiryDate
         )
         let credentialsStore = InMemoryCredentialsStore(seed: try JSONEncoder().encode(credentials))
         let auth = PreviewTCGAuthClient(

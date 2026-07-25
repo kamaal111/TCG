@@ -33,6 +33,12 @@ const tokenRoute = createRoute({
         [MIME_TYPES.JSON]: { schema: ErrorResponseSchema },
       },
     },
+    [STATUS_CODES.NOT_FOUND]: {
+      description: 'Session not found',
+      content: {
+        [MIME_TYPES.JSON]: { schema: ErrorResponseSchema },
+      },
+    },
   },
 });
 

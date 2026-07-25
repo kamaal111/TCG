@@ -99,9 +99,10 @@ public final class TCGAuth {
             .mapError {
                 switch $0 {
                 case .unauthorized:
+                    logger.warning("Couldn't load the authenticated session; reason=\($0)")
                     return .unauthorized(context: $0)
                 case .unknown:
-                    logger.error("Couldn't load the authenticated session from the server.")
+                    logger.error("Couldn't load the authenticated session from the server; reason=\($0)")
                     return .serverUnavailable(context: $0)
                 }
             }

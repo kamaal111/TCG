@@ -52,6 +52,8 @@ describe('Session integration', () => {
             outcome: 'success',
             user_id: createdUser.userId,
             user_agent: 'TCG integration test client',
+            session_expires_in_s: expect.any(Number),
+            session_age_s: expect.any(Number),
           }),
         ]),
       );
@@ -102,16 +104,31 @@ describe('Session integration', () => {
     },
   );
 
-  integrationTest('returns a not-found error without an authenticated session', async ({ app }) => {
-    const response = await sendSessionRequest(app);
+  integrationTest(
+    'returns a not-found error without an authenticated session',
+    async ({ app, getLogsForRequestId, withRequestId }) => {
+      const { headers, requestId } = withRequestId();
+      const response = await sendSessionRequest(app, headers);
 
-    const body = await expectErrorResponse(response, STATUS_CODES.NOT_FOUND);
+      const body = await expectErrorResponse(response, STATUS_CODES.NOT_FOUND);
 
-    expect(body).toEqual({
-      message: 'Not found',
-      code: 'SESSION_NOT_FOUND',
-    });
-  });
+      expect(body).toEqual({
+        message: 'Not found',
+        code: 'SESSION_NOT_FOUND',
+      });
+      expect(getLogsForRequestId(requestId)).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            event: 'auth.session.lookup',
+            msg: 'Authenticated user session was not found.',
+            outcome: 'failure',
+            error_code: 'SESSION_NOT_FOUND',
+            credential_kind: 'none',
+          }),
+        ]),
+      );
+    },
+  );
 });
 
 async function sendSessionRequest(app: Hono<HonoEnvironment>, headers?: Headers) {

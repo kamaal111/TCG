@@ -7,6 +7,7 @@
 
 import Foundation
 import KamaalLogger
+import OpenAPIRuntime
 
 private let logger = KamaalLogger(from: TokenRefresher.self)
 
@@ -23,18 +24,26 @@ struct TokenRefresher: Sendable {
     }
 
     func refreshToken() async -> Result<Void, SessionErrors> {
+        logger.info("Starting authentication token refresh; credential=session_token")
         let response: Operations.GetAppApiAuthToken.Output
         do {
             response = try await client.getAppApiAuthToken()
         } catch {
+            if let sessionError = (error as? ClientError)?.underlyingError as? SessionErrors {
+                logger.warning("Authentication token refresh failed; reason=\(sessionError)")
+                return .failure(sessionError)
+            }
+            logger.warning("Authentication token refresh request failed; status=503")
             return .failure(.unknown(status: 503, payload: nil, cause: error))
         }
 
         let payload: Operations.GetAppApiAuthToken.Output.Ok
         switch response {
-        case .unauthorized:
+        case .unauthorized, .notFound:
+            logger.warning("Authentication token refresh rejected; credentials_deleted=true")
             return await deleteCredentials(then: .unauthorized)
         case .undocumented(let statusCode, let payload):
+            logger.warning("Authentication token refresh received an undocumented response; status=\(statusCode)")
             return .failure(.unknown(status: statusCode, payload: payload, cause: nil))
         case .ok(let ok):
             payload = ok
@@ -53,6 +62,7 @@ struct TokenRefresher: Sendable {
             return .failure(.unknown(status: 500, payload: nil, cause: error))
         }
 
+        logger.info("Authentication token refresh completed; credential=session_token")
         return .success(())
     }
 
@@ -66,17 +76,19 @@ struct TokenRefresher: Sendable {
         guard let tokenUpdateAge = Int(sessionUpdateAge) else { return false }
 
         let expiryTime = Date.now.timeIntervalSince1970 + TimeInterval(tokenExpiryTime)
-        let expiryDate = Date(timeIntervalSince1970: expiryTime)
+        let authTokenExpiryDate = Date(timeIntervalSince1970: expiryTime)
         let sessionUpdateAge = TimeInterval(tokenUpdateAge)
 
         logger.info("Saving sign-in details securely.")
 
+        let existingCredentials = try credentialsStore.credentials(forKey: credentialsKeychainKey)
         let credentials = Credentials(
             authToken: token,
-            expiryDate: expiryDate,
+            authTokenExpiryDate: authTokenExpiryDate,
             sessionToken: sessionToken,
             sessionUpdateAge: sessionUpdateAge,
             lastSessionUpdate: .now,
+            sessionExpiryDate: existingCredentials?.sessionExpiryDate,
         )
         let credentialsData = try jsonEncoder.encode(credentials)
         try credentialsStore.set(credentialsData, forKey: credentialsKeychainKey)
@@ -101,6 +113,7 @@ struct TokenRefresher: Sendable {
     func deleteCredentials<Success>(then result: SessionErrors) async -> Result<Success, SessionErrors> {
         do {
             try credentialsStore.delete(forKey: credentialsKeychainKey)
+            logger.warning("Deleted authentication credentials; reason=\(result)")
         } catch {
             return .failure(.unknown(status: 500, payload: nil, cause: error))
         }
