@@ -17,6 +17,21 @@ app/TCG.xctestplan
   s_8a8491ab37d2aa::t_79d689ad65ca13 28-34
 app/Modules/TCGClient/Tests/TCGClientTests/TCGAuthClientTests.swift
   s_6e61afb22401ef::t_9fd1bfad6af186 1-193
+  s_6e61afb22401ef::t_ce6868d729a9f2 65
+  s_6e61afb22401ef::t_ed70a91bc9f49e 8,10,17,26-32,62,66,72-74,82-90,86-90,151-153,152-153,160-163,165-170,172
+  s_6e61afb22401ef::t_49623b0d6acbd3 9
+  s_6e61afb22401ef::t_aaf3cb075e583d 19-20,23-24,36,39-41,49-50,99-104,110-113,117-126,136-147,180-192
+  s_6e61afb22401ef::t_8f1862f66e9ef1 18,21-22,25-35,42-46,42-45,46,67-69,71,91-98,115-116,127-135,148-151,171
+  s_6e61afb22401ef::t_fc4d32b7937681 33,53-58,79,79-81,154-159,164,173-179,173-180
+  s_6e61afb22401ef::t_5af1a6915a6b07 78
+  s_6e61afb22401ef::t_c30c21b17d9605 75-77
+  s_6e61afb22401ef::t_a5a6de9f94f6b8 47-48,51
+  s_6e61afb22401ef::t_14f46482d9e3ae 105
+  s_6e61afb22401ef::t_62bf7dce22725e 52
+  s_6e61afb22401ef::t_de3fa67a83567c 60-64,80-85,106-109,114
+  s_6e61afb22401ef::t_649b082bffa551 37-38
+  s_6e61afb22401ef::t_72a838974af60c 63,70
+  s_6e61afb22401ef::t_e26f662388ddac 59
 server/scripts/download-openapi-spec.ts
   s_8a8491ab37d2aa::t_a28b366054b491 27
 justfile
@@ -26,7 +41,7 @@ app/Modules/TCGClient/Sources/TCGClient/CredentialsStore.swift
 app/Modules/TCGClient/Sources/TCGClient/TCGAuthClient.swift
   s_6e61afb22401ef::t_eaadf57be5f72f 66-68
   s_6e61afb22401ef::t_802e0e81587dd9 78-80
-  s_6e61afb22401ef::t_e3239933ca3fbb 81-95
+  s_6e61afb22401ef::t_e3239933ca3fbb 81-95,81-83,93-95
   s_6e61afb22401ef::t_6818609dad0e64 97-99
   s_6e61afb22401ef::t_74bf6b6d83e1e6 77
   s_6e61afb22401ef::t_aaf3cb075e583d 21-22,24,26-27,31-65,70-71,73,96
