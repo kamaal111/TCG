@@ -1,8 +1,8 @@
 justfile
   s_f4c89af720fb4f::t_561abbf742c387 27-29,45,71-79,135,142,163-176
 app/Modules/TCGClient/Package.swift
-  s_f4c89af720fb4f::t_61206493a19c19 1-28,30
-  s_f4c89af720fb4f::t_221ac1922d0ed2 29
+  s_f4c89af720fb4f::t_61206493a19c19 1-28,1-30,30
+  s_f4c89af720fb4f::t_221ac1922d0ed2 29,31
   s_f4c89af720fb4f::t_1da42a9bda2cc2 31
 app/Modules/TCGClient/Sources/TCGClient/openapi-generator-config.yaml
   s_f4c89af720fb4f::t_90b1b3b32c7302 1-5
@@ -14,6 +14,8 @@ app/Modules/TCGClient/.gitignore
 app/Modules/TCGClient/Sources/TCGClient/TCGClient.swift
   s_f4c89af720fb4f::t_61206493a19c19 1-5
   s_f4c89af720fb4f::t_25a6b2ba3f834b 6
+app/Modules/TCGClient/Tests/TCGClientTests/TCGClientTests.swift
+  s_f4c89af720fb4f::t_61206493a19c19 2-3,5
 ---
 {
   "schema_version": "authorship/3.0.0",
