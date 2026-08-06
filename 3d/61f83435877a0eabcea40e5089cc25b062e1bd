@@ -4,15 +4,15 @@ server/src/auth/tests/sign-out.integration.test.ts
   s_f5318b254d5eb5::t_c0fbb92845b9e7 12-23,25,27,29-33,35-50,52-56,58,60,62-75
   s_f5318b254d5eb5::t_2f89153cd19829 7
   s_f5318b254d5eb5::t_4774c776ff6b76 26,59
-  s_f5318b254d5eb5::t_5f7642b689b20a 1-6,8-11,24,28,34,51,57,61,76-87
+  s_f5318b254d5eb5::t_5f7642b689b20a 1-6,1-11,8-11,24,28,34,51,57,61,76-87
 server/src/auth/handlers/sign-out.ts
   s_f5318b254d5eb5::t_1e31522fff65bf 1
-  s_f5318b254d5eb5::t_1cb6f6cf15f29d 2-9
+  s_f5318b254d5eb5::t_1cb6f6cf15f29d 2-9,2-4,8-10
   s_f5318b254d5eb5::t_5f7642b689b20a 11,15
   s_f5318b254d5eb5::t_ad464fbe82faeb 19,22-23
   s_f5318b254d5eb5::t_c5e99bb12db521 18
   s_f5318b254d5eb5::t_feadedfa196edd 10
-  s_f5318b254d5eb5::t_4774c776ff6b76 16-17,24
+  s_f5318b254d5eb5::t_4774c776ff6b76 15-17,16-17,24
   s_f5318b254d5eb5::t_2f89153cd19829 20
   s_f5318b254d5eb5::t_28a3f400fcbb16 12-14
   s_f5318b254d5eb5::t_0ce70525580db1 21
@@ -23,8 +23,8 @@ server/src/auth/handlers/sign-out.ts
   s_3381c52f8f8790::t_38d1f8b501cfc6 3,8,10,12-14,16,18-21,23,25-30,32,34-36,38,40-44,46,48-53,55,57,59-62
 server/src/auth/utils/request.ts
   s_f5318b254d5eb5::t_e0d7bbb2abc75a 31,47
-  s_f5318b254d5eb5::t_5f7642b689b20a 42-46,52-53,55
-  s_f5318b254d5eb5::t_15bdd3c8130d99 32-41,48-51,54,56-57,70
+  s_f5318b254d5eb5::t_5f7642b689b20a 42-46,42-45,52-53,55
+  s_f5318b254d5eb5::t_15bdd3c8130d99 32-41,48-51,50-51,54,56-57,70
 server/src/auth/schemas/payloads.ts
   s_f5318b254d5eb5::t_363a9fb5e7d146 76-77
   s_f5318b254d5eb5::t_ba7fbe17a784e3 7-8
