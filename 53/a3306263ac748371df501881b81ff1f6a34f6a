@@ -12,7 +12,7 @@ server/src/auth/schemas/responses.ts
   s_fe75b115ed8aa7::t_a4b720f36f8cda 11,15,19,31
   s_fe75b115ed8aa7::t_8bfcb4a52ca375 5
 server/src/tests/utils.ts
-  s_3381c52f8f8790::t_a9cfcccd5e48ff 57,59-61,68-70,72,75-90
+  s_3381c52f8f8790::t_a9cfcccd5e48ff 57,59-61,68-70,72,75-90,75-87,88-90
   s_3381c52f8f8790::t_b3f8080e1c569b 5,8,11-13,58,62-67,71,73-74
 ---
 {
