@@ -1,3 +1,4 @@
+import { AUTH_SESSION_CONTEXT_KEY } from '@kamaalio/kamaal-auth-hono';
 import { routePath } from 'hono/route';
 import type { Logger } from 'pino';
 
@@ -56,7 +57,7 @@ function bindAuthenticatedUserIdFromContext(c: HonoContext, logger: Logger) {
     return logger;
   }
 
-  const session = c.get('session');
+  const session = c.get(AUTH_SESSION_CONTEXT_KEY);
   const userId = session?.user.id;
   if (!userId) {
     return logger;

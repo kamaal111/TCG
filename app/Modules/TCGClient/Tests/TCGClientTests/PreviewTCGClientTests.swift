@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import KamaalAuth
 import Testing
 
 @testable import TCGClient
@@ -40,18 +41,16 @@ struct PreviewTCGClientTests {
     @Test
     func `Should derive the session expiry from the stored credentials`() async throws {
         let expiryDate = try #require(ISO8601DateFormatter().date(from: "2026-08-12T12:00:00Z"))
-        let credentials = Credentials(
-            authToken: "preview-auth-token",
-            authTokenExpiryDate: expiryDate,
-            sessionToken: "preview-session-token",
-            sessionUpdateAge: 1800,
-            lastSessionUpdate: .now,
-            sessionExpiryDate: expiryDate
-        )
-        let credentialsStore = InMemoryCredentialsStore(seed: try JSONEncoder().encode(credentials))
-        let auth = PreviewTCGAuthClient(
-            credentialsStore: credentialsStore,
-            credentialsKeychainKey: "credentials-key"
+        let auth = PreviewKamaalAuthClient(
+            hasValidCredentials: true,
+            session: AuthSession(
+                id: "preview-user",
+                name: "Jane Doe",
+                email: "jane@example.com",
+                emailVerified: true,
+                createdAt: .now,
+                expiresAt: expiryDate,
+            )
         )
 
         let session = try await auth.session().get()
@@ -72,8 +71,8 @@ struct PreviewTCGClientTests {
 
     @Test
     func `Should return configured validation errors when signing in`() async {
-        let issue = TCGClientValidationIssue(code: "invalid_format", path: ["email"], message: "Email is invalid")
-        let client = TCGClient.preview(authOutcome: .validationErrors([issue]))
+        let issue = AuthValidationIssue(code: "invalid_format", path: ["email"], message: "Email is invalid")
+        let client = TCGClient.preview(authOutcome: .validation(issues: [issue]))
 
         await #expect(throws: SignInErrors.badRequest(validations: [issue])) {
             try await client.auth.signIn(with: .init(email: "jane@example.com", password: "Password123!")).get()
@@ -89,7 +88,7 @@ struct PreviewTCGClientTests {
         }
         await #expect(throws: SignUpErrors.sessionUnavailable) {
             try await client.auth.signUp(
-                with: .init(name: "Jane Doe", email: "jane@example.com", password: "Password123!")
+                with: .init(email: "jane@example.com", password: "Password123!", name: "Jane Doe")
             ).get()
         }
     }
@@ -98,12 +97,12 @@ struct PreviewTCGClientTests {
     func `Should return an unknown error when the server is unavailable`() async {
         let client = TCGClient.preview(authOutcome: .serverUnavailable)
 
-        await #expect(throws: SignInErrors.unknown(status: 500, payload: nil, cause: nil)) {
+        await #expect(throws: SignInErrors.unknown(status: 503, payload: nil, cause: nil)) {
             try await client.auth.signIn(with: .init(email: "jane@example.com", password: "Password123!")).get()
         }
-        await #expect(throws: SignUpErrors.unknown(status: 500, payload: nil, cause: nil)) {
+        await #expect(throws: SignUpErrors.unknown(status: 503, payload: nil, cause: nil)) {
             try await client.auth.signUp(
-                with: .init(name: "Jane Doe", email: "jane@example.com", password: "Password123!")
+                with: .init(email: "jane@example.com", password: "Password123!", name: "Jane Doe")
             ).get()
         }
     }
@@ -114,7 +113,7 @@ struct PreviewTCGClientTests {
 
         await #expect(throws: SignUpErrors.conflict) {
             try await client.auth.signUp(
-                with: .init(name: "Jane Doe", email: "jane@example.com", password: "Password123!")
+                with: .init(email: "jane@example.com", password: "Password123!", name: "Jane Doe")
             ).get()
         }
     }

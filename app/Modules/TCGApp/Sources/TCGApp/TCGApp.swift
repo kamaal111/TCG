@@ -5,13 +5,20 @@
 //  Created by Kamaal M Farah on 6/28/26.
 //
 
+import KamaalAuth
 import SwiftUI
-import TCGAuth
 import TCGCards
+import TCGClient
 import TCGSearch
 
 public struct TCGScene: Scene {
-    @State private var auth = TCGAuth.default()
+    @State private var auth = KamaalAuth(
+        client: TCGClient.default().auth,
+        configuration: KamaalAuthConfiguration(
+            appName: "TCG",
+            storageNamespace: "\(Bundle.main.bundleIdentifier ?? "io.kamaal.TCG").TCGAuth"
+        )
+    )
     @State private var cards = TCGCards.default()
     @State private var search = TCGSearch.default()
 
@@ -28,7 +35,7 @@ public struct TCGScene: Scene {
             }
             .tcgCards(cards)
             .tcgSearch(search)
-            .tcgAuth(auth)
+            .kamaalAuth(auth)
         }
     }
 }

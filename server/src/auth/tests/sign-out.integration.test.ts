@@ -1,3 +1,4 @@
+import { SignOutResponseSchema } from '@kamaalio/kamaal-auth-hono';
 import type { Hono } from 'hono';
 
 import { STATUS_CODES } from '../../constants/http.ts';
@@ -5,8 +6,7 @@ import { MIME_TYPES } from '../../constants/request.ts';
 import type { HonoEnvironment } from '../../context.ts';
 import { integrationTest } from '../../tests/fixtures.ts';
 import { createTestUser } from '../../tests/utils.ts';
-import { SIGN_OUT_ROUTE_PATH } from '../handlers/sign-out.ts';
-import { SignOutResponseSchema } from '../schemas/payloads.ts';
+import { SIGN_OUT_ROUTE_PATH } from '../constants.ts';
 
 describe('Sign-out integration', () => {
   integrationTest(

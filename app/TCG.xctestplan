@@ -36,13 +36,6 @@
     {
       "target" : {
         "containerPath" : "container:Modules\/TCGFeatures",
-        "identifier" : "TCGAuthTests",
-        "name" : "TCGAuthTests"
-      }
-    },
-    {
-      "target" : {
-        "containerPath" : "container:Modules\/TCGFeatures",
         "identifier" : "TCGCardsTests",
         "name" : "TCGCardsTests"
       }

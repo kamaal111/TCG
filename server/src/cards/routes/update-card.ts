@@ -1,6 +1,6 @@
 import { createRoute } from '@hono/zod-openapi';
 
-import { requireLoggedInSessionMiddleware } from '../../auth/middleware.ts';
+import { requireSessionMiddleware } from '../../auth/module.ts';
 import { STATUS_CODES } from '../../constants/http.ts';
 import { MIME_TYPES } from '../../constants/request.ts';
 import {
@@ -21,7 +21,7 @@ const updateCardRoute = createRoute({
   tags: [CARDS_OPENAPI_TAG],
   summary: 'Replace an owned card',
   description: 'Replace an owned card entry and all quantities for the authenticated user.',
-  middleware: [requireLoggedInSessionMiddleware] as const,
+  middleware: [requireSessionMiddleware] as const,
   security: [{ bearerAuth: [] }],
   request: {
     params: CardIdParamsSchema,

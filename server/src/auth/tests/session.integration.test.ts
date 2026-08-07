@@ -8,9 +8,9 @@ import type { HonoEnvironment } from '../../context.ts';
 import { expectAuthSuccessResponse, expectErrorResponse } from '../../tests/auth.ts';
 import { integrationTest } from '../../tests/fixtures.ts';
 import { createTestUser } from '../../tests/utils.ts';
-import { SESSION_ROUTE_PATH } from '../handlers/session.ts';
-import { SIGN_IN_ROUTE_PATH } from '../handlers/sign-in.ts';
-import { SessionResponseSchema } from '../schemas/responses.ts';
+import { SESSION_ROUTE_PATH } from '../constants.ts';
+import { SIGN_IN_ROUTE_PATH } from '../constants.ts';
+import { authModule } from '../module.ts';
 
 describe('Session integration', () => {
   integrationTest(
@@ -25,7 +25,7 @@ describe('Session integration', () => {
       const response = await sendSessionRequest(app, headers);
 
       expect(response.status).toBe(STATUS_CODES.OK);
-      const body = SessionResponseSchema.parse(await response.json());
+      const body = authModule.schemas.SessionResponseSchema.parse(await response.json());
       const persistedUser = await db.query.user.findFirst({
         where: { id: createdUser.userId },
       });
@@ -83,7 +83,7 @@ describe('Session integration', () => {
       const response = await sendSessionRequest(app, requestHeaders);
 
       expect(response.status).toBe(STATUS_CODES.OK);
-      const body = SessionResponseSchema.parse(await response.json());
+      const body = authModule.schemas.SessionResponseSchema.parse(await response.json());
       const persistedSessions = await db.query.session.findMany({
         where: { userId: createdUser.userId },
         orderBy: { createdAt: 'desc' },

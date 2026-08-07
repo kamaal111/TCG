@@ -129,7 +129,6 @@ test-snapshots-macos:
         -project "{{ APP_PROJECT }}" \
         -scheme "{{ APP_SCHEME }}" \
         -destination "platform=macOS" \
-        -only-testing:TCGAuthTests/TCGAuthSignInScreenSnapshotTests \
         -only-testing:TCGCardsTests/TCGCardsListScreenSnapshotTests \
         -only-testing:TCGCardsTests/TCGCardFormScreenSnapshotTests \
         -only-testing:TCGSearchTests/TCGSearchScreenSnapshotTests \
@@ -142,7 +141,6 @@ test-snapshots-ios:
         -project "{{ APP_PROJECT }}" \
         -scheme "{{ APP_SCHEME }}" \
         -destination "{{ APP_IOS_TEST_DESTINATION }}" \
-        -only-testing:TCGAuthTests/TCGAuthSignInScreenSnapshotTests \
         -only-testing:TCGCardsTests/TCGCardsListScreenSnapshotTests \
         -only-testing:TCGCardsTests/TCGCardFormScreenSnapshotTests \
         -only-testing:TCGSearchTests/TCGSearchScreenSnapshotTests \

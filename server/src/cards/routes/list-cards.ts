@@ -1,6 +1,6 @@
 import { createRoute } from '@hono/zod-openapi';
 
-import { requireLoggedInSessionMiddleware } from '../../auth/middleware.ts';
+import { requireSessionMiddleware } from '../../auth/module.ts';
 import { STATUS_CODES } from '../../constants/http.ts';
 import { MIME_TYPES } from '../../constants/request.ts';
 import { ErrorResponseSchema } from '../../schemas/errors.ts';
@@ -16,7 +16,7 @@ const listCardsRoute = createRoute({
   tags: [CARDS_OPENAPI_TAG],
   summary: 'List owned cards',
   description: "List the authenticated user's owned card entries, newest first.",
-  middleware: [requireLoggedInSessionMiddleware] as const,
+  middleware: [requireSessionMiddleware] as const,
   security: [{ bearerAuth: [] }],
   request: { query: CardsListQuerySchema },
   responses: {

@@ -6,7 +6,7 @@ import type { HonoContext } from '../context.ts';
 import { PricingLockTimeout } from './exceptions.ts';
 import env from '../env.ts';
 import type { CardGame, NormalizedPricingCard, PricingSource } from './types.ts';
-import { getSessionWhereSessionIsRequired } from '../auth/utils/session.ts';
+import { getSession } from '../auth/module.ts';
 import { classifyPostgresError } from '../db/errors.ts';
 import { cardPrice, cardPriceSearch } from '../db/schema/card-pricing.ts';
 import { card } from '../db/schema/cards.ts';
@@ -45,7 +45,7 @@ export class CardPricingRepository {
   }
 
   private get userId() {
-    return getSessionWhereSessionIsRequired(this.c).user.id;
+    return getSession(this.c).user.id;
   }
 
   /**
