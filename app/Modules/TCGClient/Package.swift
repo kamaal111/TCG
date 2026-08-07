@@ -16,6 +16,7 @@ let package = Package(
         .package(url: "https://github.com/apple/swift-openapi-runtime", .upToNextMajor(from: "1.12.0")),
         .package(url: "https://github.com/apple/swift-openapi-urlsession", .upToNextMajor(from: "1.3.1")),
         .package(url: "https://github.com/Kamaalio/KamaalSwift", .upToNextMajor(from: "3.5.0")),
+        .package(url: "https://github.com/Kamaalio/kamaal-auth", .upToNextMinor(from: "0.0.2")),
         .package(path: "../TCGUtils"),
     ],
     targets: [
@@ -27,6 +28,7 @@ let package = Package(
                 .product(name: "OpenAPIRuntime", package: "swift-openapi-runtime"),
                 .product(name: "KamaalLogger", package: "KamaalSwift"),
                 .product(name: "KamaalExtensions", package: "KamaalSwift"),
+                .product(name: "KamaalAuth", package: "kamaal-auth"),
                 "TCGUtils",
             ],
             swiftSettings: [
@@ -43,6 +45,8 @@ let package = Package(
                 "TCGClient",
                 .product(name: "HTTPTypes", package: "swift-http-types"),
                 .product(name: "OpenAPIRuntime", package: "swift-openapi-runtime"),
+                .product(name: "KamaalAuth", package: "kamaal-auth"),
+                .product(name: "KamaalAuthTestSupport", package: "kamaal-auth"),
             ],
             swiftSettings: [
                 .enableUpcomingFeature("ApproachableConcurrency"),

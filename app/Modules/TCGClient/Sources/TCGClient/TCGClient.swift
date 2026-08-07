@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import KamaalAuth
 import KamaalLogger
 import OpenAPIRuntime
 import OpenAPIURLSession
@@ -13,7 +14,7 @@ import OpenAPIURLSession
 private let logger = KamaalLogger(from: TCGClient.self)
 
 public struct TCGClient: Sendable {
-    public let auth: TCGAuthClient
+    public let auth: KamaalAuthClient
     public let cards: TCGCardsClient
     public let pricing: TCGPricingClient
 
@@ -21,7 +22,7 @@ public struct TCGClient: Sendable {
     private let credentialsStore: CredentialsStore
 
     private init(
-        auth: TCGAuthClient,
+        auth: KamaalAuthClient,
         cards: TCGCardsClient,
         pricing: TCGPricingClient,
         credentialsKeychainKey: String,
@@ -35,22 +36,7 @@ public struct TCGClient: Sendable {
     }
 
     public var hasValidCredentials: Bool {
-        let credentials: Credentials?
-        do {
-            credentials = try credentialsStore.credentials(forKey: credentialsKeychainKey)
-        } catch {
-            logger.error("Couldn't decode stored credentials; treating as signed out; reason=\(error)")
-            return false
-        }
-        guard let credentials else {
-            logger.info("No stored credentials found; treating as signed out.")
-            return false
-        }
-
-        let hasExpired = credentials.sessionHasExpired
-        logger.info("Loaded stored credentials; sessionHasExpired=\(hasExpired)")
-
-        return !hasExpired
+        auth.hasValidCredentials
     }
 
     public static func `default`() -> TCGClient {
@@ -69,7 +55,7 @@ public struct TCGClient: Sendable {
         )
     }
 
-    static func preview(authOutcome: PreviewTCGAuthOutcome) -> TCGClient {
+    static func preview(authOutcome: PreviewAuthOutcome) -> TCGClient {
         preview(
             hasValidCredentials: false,
             authOutcome: authOutcome,
@@ -78,7 +64,7 @@ public struct TCGClient: Sendable {
         )
     }
 
-    static func preview(hasValidCredentials: Bool, authOutcome: PreviewTCGAuthOutcome) -> TCGClient {
+    static func preview(hasValidCredentials: Bool, authOutcome: PreviewAuthOutcome) -> TCGClient {
         preview(
             hasValidCredentials: hasValidCredentials,
             authOutcome: authOutcome,
@@ -107,29 +93,18 @@ public struct TCGClient: Sendable {
 
     static func preview(
         hasValidCredentials: Bool,
-        authOutcome: PreviewTCGAuthOutcome,
+        authOutcome: PreviewAuthOutcome,
         cardsOutcome: PreviewTCGCardsOutcome,
         pricingOutcome: PreviewTCGPricingOutcome
     ) -> TCGClient {
-        let seed: Data?
+        let credentialsStore = InMemoryCredentialsStore()
         if hasValidCredentials {
-            let credentials = Credentials(
-                authToken: "preview-auth-token",
-                authTokenExpiryDate: .distantFuture,
-                sessionToken: "preview-session-token",
-                sessionUpdateAge: 1800,
-                lastSessionUpdate: .now,
-                sessionExpiryDate: .distantFuture
-            )
-            seed = try? JSONEncoder().encode(credentials)
-        } else {
-            seed = nil
+            try? credentialsStore.store(Self.previewCredentials, forKey: credentialsKeychainKey)
         }
-        let credentialsStore = InMemoryCredentialsStore(seed: seed)
-        let auth = PreviewTCGAuthClient(
-            credentialsStore: credentialsStore,
-            credentialsKeychainKey: credentialsKeychainKey,
-            outcome: authOutcome
+        let auth = PreviewKamaalAuthClient(
+            outcome: authOutcome,
+            hasValidCredentials: hasValidCredentials,
+            session: Self.previewSession,
         )
         let cards = PreviewTCGCardsClient(outcome: cardsOutcome)
         let pricing = PreviewTCGPricingClient(outcome: pricingOutcome)
@@ -158,40 +133,31 @@ public struct TCGClient: Sendable {
     public static func `default`(
         transport: ClientTransport,
         credentialsKeychainKey: String,
-        credentialsStore: CredentialsStore
+        credentialsStore: any CredentialsStore
     ) -> TCGClient {
         let tokenClient = Client(
             serverURL: serverURL,
             configuration: configuration,
             transport: transport,
             middlewares: [
-                SessionTokenAuthorizationMiddleware(
-                    credentialsKeychainKey: credentialsKeychainKey,
-                    credentialsStore: credentialsStore
-                )
+                SessionTokenMiddleware(credentialsKey: credentialsKeychainKey, credentialsStore: credentialsStore)
             ]
         )
-        let tokenRefresher = TokenRefresher(
-            client: tokenClient,
-            credentialsKeychainKey: credentialsKeychainKey,
-            credentialsStore: credentialsStore
-        )
+        // The provider only needs the token client, so it can be built before the client whose middleware uses it.
+        // Building the authenticated client first would be circular.
+        let tokenProvider = AuthTokenProvider(
+            credentialsKey: credentialsKeychainKey,
+            credentialsStore: credentialsStore,
+        ) { await AuthTokenIssuer.issue(using: tokenClient) }
         let client = Client(
             serverURL: serverURL,
             configuration: configuration,
             transport: transport,
-            middlewares: [
-                SessionAuthorizationMiddleware(
-                    credentialsKeychainKey: credentialsKeychainKey,
-                    credentialsStore: credentialsStore,
-                    tokenRefresher: tokenRefresher
-                )
-            ]
+            middlewares: [AuthorizationMiddleware(tokenProvider: tokenProvider)]
         )
-        let auth = TCGAuthClientImpl(
-            client: client,
-            tokenRefresher: tokenRefresher,
-            credentialsKeychainKey: credentialsKeychainKey
+        let auth = KamaalAuthClientImpl(
+            hooks: TCGAuthRequestHooks(client: client, tokenClient: tokenClient),
+            tokenProvider: tokenProvider,
         )
         let cards = TCGCardsClientImpl(client: client)
         let pricing = TCGPricingClientImpl(client: client)
@@ -206,6 +172,25 @@ public struct TCGClient: Sendable {
     }
 
     private static let credentialsKeychainKey = ModuleConfig.credentialsKeychainKey
+
+    /// Kept stable so previews and the screen snapshot baselines do not move.
+    private static let previewSession = AuthSession(
+        id: "preview-user",
+        name: "Jane Doe",
+        email: "jane@example.com",
+        emailVerified: true,
+        createdAt: .now,
+        expiresAt: .distantFuture,
+    )
+
+    private static let previewCredentials = Credentials(
+        authToken: "preview-auth-token",
+        authTokenExpiryDate: .distantFuture,
+        sessionToken: "preview-session-token",
+        sessionUpdateAge: 1800,
+        lastSessionUpdate: .now,
+        sessionExpiryDate: .distantFuture,
+    )
 
     private static let configuration = Configuration(dateTranscoder: .iso8601WithFractionalSeconds)
 

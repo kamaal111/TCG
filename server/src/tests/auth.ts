@@ -1,12 +1,13 @@
-import { TokenHeaders } from '../auth/schemas/headers.ts';
-import { AuthResponseSchema } from '../auth/schemas/responses.ts';
+import { TokenHeaders } from '@kamaalio/kamaal-auth-hono';
+
+import { authModule } from '../auth/module.ts';
 import { STATUS_CODES } from '../constants/http.ts';
 import { ErrorResponseSchema, ValidationErrorResponseSchema } from '../schemas/errors.ts';
 
 export async function expectAuthSuccessResponse(response: Response, status: number) {
   expect(response.status).toBe(status);
 
-  const body = AuthResponseSchema.parse(await response.json());
+  const body = authModule.schemas.AuthResponseSchema.parse(await response.json());
   const headers = TokenHeaders.parse({
     'set-auth-token': response.headers.get('set-auth-token'),
     'set-auth-token-expiry': response.headers.get('set-auth-token-expiry'),

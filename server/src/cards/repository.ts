@@ -5,7 +5,7 @@ import { and, eq, sql } from 'drizzle-orm';
 import type { HonoContext } from '../context.ts';
 import type { CardGame } from './schemas/params.ts';
 import type { UpsertCard } from './schemas/payloads.ts';
-import { getSessionWhereSessionIsRequired } from '../auth/utils/session.ts';
+import { getSession } from '../auth/module.ts';
 import { card, cardConditionQuantity } from '../db/schema/cards.ts';
 
 export type CardWithQuantities = typeof card.$inferSelect & {
@@ -24,7 +24,7 @@ export class CardRepository {
   }
 
   private get userId() {
-    return getSessionWhereSessionIsRequired(this.c).user.id;
+    return getSession(this.c).user.id;
   }
 
   /**

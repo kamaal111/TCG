@@ -1,6 +1,6 @@
 import { createRoute } from '@hono/zod-openapi';
 
-import { requireLoggedInSessionMiddleware } from '../../auth/middleware.ts';
+import { requireSessionMiddleware } from '../../auth/module.ts';
 import { STATUS_CODES } from '../../constants/http.ts';
 import { MIME_TYPES } from '../../constants/request.ts';
 import { ErrorResponseSchema, ValidationErrorResponseSchema } from '../../schemas/errors.ts';
@@ -16,7 +16,7 @@ const createCardRoute = createRoute({
   tags: [CARDS_OPENAPI_TAG],
   summary: 'Add an owned card',
   description: "Add an owned trading card entry to the authenticated user's collection.",
-  middleware: [requireLoggedInSessionMiddleware] as const,
+  middleware: [requireSessionMiddleware] as const,
   security: [{ bearerAuth: [] }],
   request: { body: { content: { [MIME_TYPES.JSON]: { schema: UpsertCardSchema } } } },
   responses: {

@@ -11,15 +11,18 @@ let package = Package(
         .library(name: "TCGApp", targets: ["TCGApp"])
     ],
     dependencies: [
-        .package(path: "../TCGFeatures")
+        .package(url: "https://github.com/Kamaalio/kamaal-auth", .upToNextMinor(from: "0.0.2")),
+        .package(path: "../TCGFeatures"),
+        .package(path: "../TCGClient"),
     ],
     targets: [
         .target(
             name: "TCGApp",
             dependencies: [
-                .product(name: "TCGAuth", package: "TCGFeatures"),
                 .product(name: "TCGCards", package: "TCGFeatures"),
                 .product(name: "TCGSearch", package: "TCGFeatures"),
+                .product(name: "KamaalAuth", package: "kamaal-auth"),
+                "TCGClient",
             ],
             swiftSettings: [
                 .enableUpcomingFeature("ApproachableConcurrency"),

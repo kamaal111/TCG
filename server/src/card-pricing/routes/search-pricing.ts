@@ -1,6 +1,6 @@
 import { createRoute } from '@hono/zod-openapi';
 
-import { requireLoggedInSessionMiddleware } from '../../auth/middleware.ts';
+import { requireSessionMiddleware } from '../../auth/module.ts';
 import { STATUS_CODES } from '../../constants/http.ts';
 import { MIME_TYPES } from '../../constants/request.ts';
 import { ErrorResponseSchema, ValidationErrorResponseSchema } from '../../schemas/errors.ts';
@@ -14,7 +14,7 @@ const searchPricingRoute = createRoute({
   tags: [PRICING_OPENAPI_TAG],
   summary: 'Search card prices',
   description: 'Search cards and return globally cached daily pricing.',
-  middleware: [requireLoggedInSessionMiddleware] as const,
+  middleware: [requireSessionMiddleware] as const,
   security: [{ bearerAuth: [] }],
   request: { query: PricingSearchQuerySchema },
   responses: {

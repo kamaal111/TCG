@@ -16,7 +16,7 @@ import {
   expectValidationIssueForFields,
 } from '../../tests/auth.ts';
 import { integrationTest } from '../../tests/fixtures.ts';
-import { SIGN_UP_ROUTE_PATH } from '../handlers/sign-up.ts';
+import { SIGN_UP_ROUTE_PATH } from '../constants.ts';
 
 describe('Sign-up integration', () => {
   integrationTest(

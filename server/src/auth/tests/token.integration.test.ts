@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 
+import { TokenHeaders } from '@kamaalio/kamaal-auth-hono';
 import type { Hono } from 'hono';
 import { decodeJwt } from 'jose';
 
@@ -10,8 +11,7 @@ import env from '../../env.ts';
 import { expectErrorResponse } from '../../tests/auth.ts';
 import { integrationTest } from '../../tests/fixtures.ts';
 import { createTestUser } from '../../tests/utils.ts';
-import { TOKEN_ROUTE_PATH } from '../handlers/token.ts';
-import { TokenHeaders } from '../schemas/headers.ts';
+import { TOKEN_ROUTE_PATH } from '../constants.ts';
 
 describe('Token integration', () => {
   integrationTest(

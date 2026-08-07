@@ -7,6 +7,7 @@
 
 import Foundation
 import HTTPTypes
+import KamaalAuth
 import OpenAPIRuntime
 import Testing
 
@@ -51,7 +52,7 @@ struct TCGAuthClientTests {
 
         let result = await client.auth.refreshToken()
 
-        try #require(throws: SessionErrors.unauthorized) {
+        #expect(throws: SessionErrors.unauthorized) {
             try result.get()
         }
         try await assertRefreshTokenRequest(in: transport)
@@ -72,7 +73,7 @@ struct TCGAuthClientTests {
 
         let result = await client.auth.refreshToken()
 
-        try #require(throws: SessionErrors.unauthorized) {
+        #expect(throws: SessionErrors.unauthorized) {
             try result.get()
         }
         #expect(credentialsStore.deletedKeys == ["credentials-key"])
@@ -92,7 +93,7 @@ struct TCGAuthClientTests {
 
         let result = await client.auth.refreshToken()
 
-        try #require(throws: SessionErrors.unknown(status: 503, payload: nil, cause: nil)) {
+        #expect(throws: SessionErrors.unknown(status: 503, payload: nil, cause: nil)) {
             try result.get()
         }
     }
@@ -110,7 +111,7 @@ struct TCGAuthClientTests {
 
         let result = await client.auth.refreshToken()
 
-        try #require(throws: SessionErrors.unknown(status: 502, payload: nil, cause: nil)) {
+        #expect(throws: SessionErrors.unknown(status: 502, payload: nil, cause: nil)) {
             try result.get()
         }
     }
@@ -130,7 +131,7 @@ struct TCGAuthClientTests {
         )
 
         let result = await client.auth.signUp(
-            with: .init(name: "Jane Doe", email: "jane@example.com", password: "Password123!")
+            with: .init(email: "jane@example.com", password: "Password123!", name: "Jane Doe")
         )
 
         try result.get()
@@ -152,7 +153,7 @@ struct TCGAuthClientTests {
         )
 
         let result = await client.auth.signUp(
-            with: .init(name: "Jane Doe", email: "jane@example.com", password: "Password123!")
+            with: .init(email: "jane@example.com", password: "Password123!", name: "Jane Doe")
         )
 
         try result.get()
@@ -200,7 +201,7 @@ struct TCGAuthClientTests {
                 password: "Password123!"
             ))
 
-        try #require(throws: SignInErrors.credentialsUnavailable(cause: CredentialsStoreError.failed)) {
+        #expect(throws: SignInErrors.credentialsUnavailable(cause: CredentialsStoreError.failed)) {
             try result.get()
         }
     }
@@ -247,7 +248,7 @@ struct TCGAuthClientTests {
                 password: "Password123!"
             ))
 
-        try #require(throws: SignInErrors.badRequest(validations: [])) {
+        #expect(throws: SignInErrors.badRequest(validations: [])) {
             try result.get()
         }
 
@@ -274,7 +275,7 @@ struct TCGAuthClientTests {
                 password: "Password123!"
             ))
 
-        try #require(throws: SignInErrors.sessionUnavailable) {
+        #expect(throws: SignInErrors.sessionUnavailable) {
             try result.get()
         }
 
@@ -293,11 +294,7 @@ struct TCGAuthClientTests {
         )
 
         let result = await client.auth.signUp(
-            with: .init(
-                name: "Jane Doe",
-                email: "jane@example.com",
-                password: "Password123!"
-            ))
+            with: .init(email: "jane@example.com", password: "Password123!", name: "Jane Doe"))
 
         try result.get()
         try await assertSignUpRequest(in: transport)
@@ -318,13 +315,9 @@ struct TCGAuthClientTests {
         )
 
         let result = await client.auth.signUp(
-            with: .init(
-                name: "Jane Doe",
-                email: "jane@example.com",
-                password: "Password123!"
-            ))
+            with: .init(email: "jane@example.com", password: "Password123!", name: "Jane Doe"))
 
-        try #require(throws: SignUpErrors.credentialsUnavailable(cause: CredentialsStoreError.failed)) {
+        #expect(throws: SignUpErrors.credentialsUnavailable(cause: CredentialsStoreError.failed)) {
             try result.get()
         }
     }
@@ -339,11 +332,7 @@ struct TCGAuthClientTests {
         )
 
         let result = await client.auth.signUp(
-            with: .init(
-                name: "Jane Doe",
-                email: "jane@example.com",
-                password: "Password123!"
-            ))
+            with: .init(email: "jane@example.com", password: "Password123!", name: "Jane Doe"))
 
         try #require(
             throws: SignUpErrors.badRequest(validations: [
@@ -366,13 +355,9 @@ struct TCGAuthClientTests {
         )
 
         let result = await client.auth.signUp(
-            with: .init(
-                name: "Jane Doe",
-                email: "jane@example.com",
-                password: "Password123!"
-            ))
+            with: .init(email: "jane@example.com", password: "Password123!", name: "Jane Doe"))
 
-        try #require(throws: SignUpErrors.sessionUnavailable) {
+        #expect(throws: SignUpErrors.sessionUnavailable) {
             try result.get()
         }
 
@@ -402,13 +387,9 @@ struct TCGAuthClientTests {
         #expect(request.operationID == "get/app-api/auth/session")
         #expect(request.authorization == "Bearer auth-token")
         #expect(request.body == nil)
-        #expect(
-            session
-                == .init(
-                    name: "Jane Doe",
-                    email: "jane@example.com",
-                    expiresAt: expiresAt
-                ))
+        #expect(session.name == "Jane Doe")
+        #expect(session.email == "jane@example.com")
+        #expect(session.expiresAt == expiresAt)
         #expect(updatedCredentials.sessionExpiryDate == expiresAt)
     }
 
@@ -423,7 +404,7 @@ struct TCGAuthClientTests {
 
         let result = await client.auth.session()
 
-        try #require(throws: SessionErrors.unauthorized) {
+        #expect(throws: SessionErrors.unauthorized) {
             try result.get()
         }
         #expect(await transport.request == nil)
@@ -445,7 +426,7 @@ struct TCGAuthClientTests {
 
         let result = await client.auth.session()
 
-        try #require(throws: SessionErrors.unauthorized) {
+        #expect(throws: SessionErrors.unauthorized) {
             try result.get()
         }
         let request = try #require(await transport.request)
@@ -467,14 +448,16 @@ struct TCGAuthClientTests {
 
         let result = await client.auth.session()
 
-        try #require(throws: SessionErrors.unauthorized) {
+        #expect(throws: SessionErrors.unauthorized) {
             try result.get()
         }
         #expect(credentialsStore.deletedKeys == ["credentials-key"])
     }
 
+    /// An unreadable keychain is reported as signed out rather than as a server error: the user's recovery is to
+    /// sign in again either way, and the underlying failure is logged.
     @Test
-    func `Should return an unknown error when reading credentials fails`() async throws {
+    func `Should report signed out when reading credentials fails`() async throws {
         let transport = RequestTransport.sessionSuccess()
         let client = TCGClient.default(
             transport: transport,
@@ -484,14 +467,14 @@ struct TCGAuthClientTests {
 
         let result = await client.auth.session()
 
-        try #require(throws: SessionErrors.unknown(status: 500, payload: nil, cause: nil)) {
+        #expect(throws: SessionErrors.unauthorized) {
             try result.get()
         }
         #expect(await transport.request == nil)
     }
 
     @Test
-    func `Should return an unknown error when stored credentials cannot be decoded`() async throws {
+    func `Should report signed out when stored credentials cannot be decoded`() async throws {
         let transport = RequestTransport.sessionSuccess()
         let client = TCGClient.default(
             transport: transport,
@@ -501,14 +484,16 @@ struct TCGAuthClientTests {
 
         let result = await client.auth.session()
 
-        try #require(throws: SessionErrors.unknown(status: 500, payload: nil, cause: nil)) {
+        #expect(throws: SessionErrors.unauthorized) {
             try result.get()
         }
         #expect(await transport.request == nil)
     }
 
+    /// Caching the session expiry is best effort. The lookup itself succeeded, so a failed cache write must not
+    /// fail the call or discard the session.
     @Test
-    func `Should return an unknown error when updating session credentials fails`() async throws {
+    func `Should still return the session when caching its expiry fails`() async throws {
         let credentialsStore = try CredentialsStoreSpy(
             initialData: JSONEncoder().encode(makeCredentials(expiryDate: .distantFuture)),
             throwsOnSet: true
@@ -519,17 +504,16 @@ struct TCGAuthClientTests {
             credentialsStore: credentialsStore
         )
 
-        let result = await client.auth.session()
+        let session = try (await client.auth.session()).get()
 
-        try #require(throws: SessionErrors.unknown(status: 500, payload: nil, cause: nil)) {
-            try result.get()
-        }
-        #expect(credentialsStore.deletedKeys == ["credentials-key"])
-        #expect(credentialsStore.storedCredentialsData == nil)
+        #expect(session.email == "jane@example.com")
+        #expect(credentialsStore.deletedKeys.isEmpty)
     }
 
+    /// Clearing expired credentials is cleanup. If it fails the request still goes out unauthenticated, which the
+    /// server answers with a 401 rather than the client inventing an error.
     @Test
-    func `Should return an unknown error when deleting expired credentials in middleware fails`() async throws {
+    func `Should proceed unauthenticated when clearing expired credentials fails`() async throws {
         let credentialsStore = try CredentialsStoreSpy(
             initialData: JSONEncoder().encode(makeCredentials(expiryDate: .distantPast)),
             throwsOnDelete: true
@@ -540,11 +524,9 @@ struct TCGAuthClientTests {
             credentialsStore: credentialsStore
         )
 
-        let result = await client.auth.session()
+        let session = try (await client.auth.session()).get()
 
-        try #require(throws: SessionErrors.unknown(status: 503, payload: nil, cause: nil)) {
-            try result.get()
-        }
+        #expect(session.email == "jane@example.com")
     }
 
     @Test
@@ -560,11 +542,7 @@ struct TCGAuthClientTests {
         )
 
         let result = await client.auth.signUp(
-            with: .init(
-                name: "Jane Doe",
-                email: "jane@example.com",
-                password: "Password123!"
-            ))
+            with: .init(email: "jane@example.com", password: "Password123!", name: "Jane Doe"))
 
         try result.get()
         let request = try #require(await transport.request)
@@ -584,7 +562,7 @@ struct TCGAuthClientTests {
 
         let result = await client.auth.session()
 
-        try #require(throws: SessionErrors.unknown(status: 503, payload: nil, cause: nil)) {
+        #expect(throws: SessionErrors.unknown(status: 503, payload: nil, cause: nil)) {
             try result.get()
         }
     }
@@ -602,7 +580,7 @@ struct TCGAuthClientTests {
 
         let result = await client.auth.session()
 
-        try #require(throws: SessionErrors.unknown(status: 502, payload: nil, cause: nil)) {
+        #expect(throws: SessionErrors.unknown(status: 502, payload: nil, cause: nil)) {
             try result.get()
         }
     }
@@ -700,14 +678,8 @@ struct TCGAuthClientTests {
         #expect(request.path == "/app-api/auth/sign-up/email")
         #expect(request.operationID == "post/app-api/auth/sign-up/email")
         let requestBody = try #require(request.body)
-        let signUpPayload = try JSONDecoder().decode(SignUpPayload.self, from: requestBody)
-        #expect(
-            signUpPayload
-                == .init(
-                    name: "Jane Doe",
-                    email: "jane@example.com",
-                    password: "Password123!"
-                ))
+        let signUpPayload = try JSONDecoder().decode(SentSignUpBody.self, from: requestBody)
+        #expect(signUpPayload == .init(email: "jane@example.com", password: "Password123!", name: "Jane Doe"))
     }
 
     private func assertSignInRequest(in transport: RequestTransport) async throws {
@@ -717,13 +689,8 @@ struct TCGAuthClientTests {
         #expect(request.path == "/app-api/auth/sign-in/email")
         #expect(request.operationID == "post/app-api/auth/sign-in/email")
         let requestBody = try #require(request.body)
-        let signInPayload = try JSONDecoder().decode(SignInPayload.self, from: requestBody)
-        #expect(
-            signInPayload
-                == .init(
-                    email: "jane@example.com",
-                    password: "Password123!"
-                ))
+        let signInPayload = try JSONDecoder().decode(SentSignInBody.self, from: requestBody)
+        #expect(signInPayload == .init(email: "jane@example.com", password: "Password123!"))
     }
 
     private func assertRefreshTokenRequest(in transport: RequestTransport) async throws {
@@ -1097,4 +1064,19 @@ private struct StoredCredentials: Sendable {
 
 private enum CredentialsStoreError: Error {
     case failed
+}
+
+/// What the generated client actually puts on the wire.
+///
+/// Mirrored here rather than decoding `SignUpPayload`, which is an input type for the shared auth client and not a
+/// wire format.
+private struct SentSignUpBody: Decodable, Equatable {
+    let email: String
+    let password: String
+    let name: String
+}
+
+private struct SentSignInBody: Decodable, Equatable {
+    let email: String
+    let password: String
 }

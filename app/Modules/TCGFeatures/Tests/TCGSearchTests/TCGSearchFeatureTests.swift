@@ -5,6 +5,7 @@
 
 import Foundation
 import HTTPTypes
+import KamaalAuth
 import OpenAPIRuntime
 import Testing
 

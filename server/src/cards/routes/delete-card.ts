@@ -1,6 +1,6 @@
 import { createRoute } from '@hono/zod-openapi';
 
-import { requireLoggedInSessionMiddleware } from '../../auth/middleware.ts';
+import { requireSessionMiddleware } from '../../auth/module.ts';
 import { STATUS_CODES } from '../../constants/http.ts';
 import { MIME_TYPES } from '../../constants/request.ts';
 import { CardNotFoundErrorResponseSchema, ErrorResponseSchema } from '../../schemas/errors.ts';
@@ -16,7 +16,7 @@ const deleteCardRoute = createRoute({
   tags: [CARDS_OPENAPI_TAG],
   summary: 'Delete an owned card',
   description: "Delete an owned card entry from the authenticated user's collection.",
-  middleware: [requireLoggedInSessionMiddleware] as const,
+  middleware: [requireSessionMiddleware] as const,
   security: [{ bearerAuth: [] }],
   request: { params: CardIdParamsSchema },
   responses: {

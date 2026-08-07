@@ -1,4 +1,5 @@
 allowBuilds:
   esbuild: true
-minimumReleaseAgeExclude:
-  - '@kamaalio/kamaal@0.9.6'
+
+patchedDependencies:
+  '@hono/zod-openapi@1.5.2': patches/@hono__zod-openapi@1.5.2.patch

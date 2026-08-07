@@ -17,7 +17,7 @@ import {
 } from '../../tests/auth.ts';
 import { integrationTest } from '../../tests/fixtures.ts';
 import { createTestUser } from '../../tests/utils.ts';
-import { SIGN_IN_ROUTE_PATH } from '../handlers/sign-in.ts';
+import { SIGN_IN_ROUTE_PATH } from '../constants.ts';
 
 describe('Sign-in integration', () => {
   integrationTest(

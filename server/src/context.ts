@@ -1,9 +1,9 @@
+import type { AuthVariables } from '@kamaalio/kamaal-auth-hono';
 import type { Context, Input, Next } from 'hono';
 import type { RequestIdVariables } from 'hono/request-id';
 import type { Logger } from 'pino';
 
 import type { Auth } from './auth/better-auth.ts';
-import type { SessionResponse } from './auth/schemas/responses.ts';
 import type { PricingClient } from './card-pricing/client.ts';
 import { CardPricingRepository } from './card-pricing/repository.ts';
 import { CardPricingService } from './card-pricing/service.ts';
@@ -38,7 +38,8 @@ export type HonoVariables = RequestIdVariables &
   RepositoryVariables &
   ServiceVariables &
   LoggingVariables &
-  RequestLifecycleVariables & { session?: SessionResponse };
+  RequestLifecycleVariables &
+  AuthVariables;
 
 export interface HonoEnvironment {
   Variables: HonoVariables;
