@@ -7,6 +7,7 @@
 - Use `pnpm` for Node.js work and `uv run` for Python code that needs project packages.
 - Prefer root `just` recipes for project workflows; do not start the server directly or in the background. Use `just dev-server` only when explicitly asked to start it.
 - Never invoke iOS `xcodebuild` tests directly. Use `just test-app-ios` or `just test-snapshots-ios`; these recipes serialize access to the shared CoreSimulator device across agents.
+- Agents must run recipes that include iOS simulator tests outside any filesystem sandbox. The simulator wrapper intentionally fails before launching CoreSimulator when the required access is unavailable.
 - For TCG Swift-client endpoint work, use the repository-local `tcg-client-endpoint` skill alongside the relevant Kamaal Super Mind skills.
 
 ## Verification
