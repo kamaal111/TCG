@@ -3,9 +3,8 @@ import type { TypedResponse } from 'hono';
 import { APP_API_ROUTE_NAME } from '../../constants/common.ts';
 import { STATUS_CODES } from '../../constants/http.ts';
 import type { HonoContext } from '../../context.ts';
-import { withRequestLogger } from '../../logging/http.ts';
-import { logInfo } from '../../logging/index.ts';
 import { CARDS_ROUTE_NAME } from '../constants.ts';
+import { cardsLogger } from '../logging.ts';
 import type { UpsertCard } from '../schemas/payloads.ts';
 import type { CardWithPriceResponse } from '../schemas/responses.ts';
 import { serializeCardWithPrice } from '../utils/cards.ts';
@@ -21,9 +20,8 @@ async function createCardHandler(
   const [price] = await c.get('cardPricingService').priceOwnedCards([createdCard]);
 
   const response = serializeCardWithPrice(createdCard, price);
-  logInfo(
-    withRequestLogger(c, { component: 'cards' }),
-    { event: 'cards.create', route: CREATE_CARD_ROUTE_PATH, outcome: 'success', card_id: response.id },
+  cardsLogger(c).info(
+    { event: 'cards.create', outcome: 'success', card_id: response.id },
     'Added an owned card to the collection.',
   );
 

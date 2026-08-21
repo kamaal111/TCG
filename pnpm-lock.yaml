@@ -216,6 +216,9 @@ importers:
       '@hono/node-server':
         specifier: ^2.0.11
         version: 2.1.0(hono@4.13.1)
+      '@hono/structured-logger':
+        specifier: ^1.0.0
+        version: 1.0.0(hono@4.13.1)
       '@hono/swagger-ui':
         specifier: ~0.6.1
         version: 0.6.1(hono@4.13.1)
@@ -226,8 +229,8 @@ importers:
         specifier: ~0.9.6
         version: 0.9.11
       '@kamaalio/kamaal-auth-hono':
-        specifier: ^0.0.2
-        version: 0.0.2(@asteasolutions/zod-to-openapi@8.5.0(zod@4.4.3))(@hono/zod-openapi@1.5.2(patch_hash=302c5a22091d23de10bd02188cae56291bf6e22381f80e5d326b1b5061ef3ed6)(hono@4.13.1)(zod@4.4.3))(hono@4.13.1)(jose@6.2.8)(zod@4.4.3)
+        specifier: ^0.0.4
+        version: 0.0.4(@asteasolutions/zod-to-openapi@8.5.0(zod@4.4.3))(@hono/zod-openapi@1.5.2(patch_hash=302c5a22091d23de10bd02188cae56291bf6e22381f80e5d326b1b5061ef3ed6)(hono@4.13.1)(zod@4.4.3))(hono@4.13.1)(jose@6.2.8)(zod@4.4.3)
       better-auth:
         specifier: 1.7.0-rc.1
         version: 1.7.0-rc.1(drizzle-kit@1.0.0-rc.4)(drizzle-orm@1.0.0-rc.4(@types/pg@8.21.0)(pg@8.23.0)(zod@4.4.3))(pg@8.23.0)(vitest@4.1.10)
@@ -774,6 +777,12 @@ packages:
     peerDependencies:
       hono: ^4
 
+  '@hono/structured-logger@1.0.0':
+    resolution: {integrity: sha512-MozQvH7oFsi/Pc/0sK6ai7cYpDX81t4UnrxgOo/MslfC7lPFnRcvayVkY3g1Wi/cX6dFmtLhZoGALOfdvAIDgA==}
+    engines: {node: '>=16.0.0'}
+    peerDependencies:
+      hono: '>=4.0.0'
+
   '@hono/swagger-ui@0.6.1':
     resolution: {integrity: sha512-sJTvldu1GPeEPfyeLG7gRj+W4vEuD+JDi+JjJ3TJs/DvMUtBLs0KJO5yokGegWWdy5qrbdnQGekbhgNRmPmYKQ==}
     peerDependencies:
@@ -832,16 +841,16 @@ packages:
     resolution: {integrity: sha512-hloP58zRVCRSpgDxmqCWJNlizAlUgJFqG2ypq79DCvyv9tHjRYMDOcPFjzfl/A1/YxDvRCZz8wvZvmapQnKwFQ==}
     engines: {node: '>=12'}
 
-  '@kamaalio/kamaal-auth-core@0.0.2':
-    resolution: {integrity: sha512-62aPTx2iRlG622ikXsfvoaa5YxA/03/osfHcLl/3aNy1WEQHMky1ZBwg2PYNSVh/iKFseOnXi3dBdF33zKvsgw==}
+  '@kamaalio/kamaal-auth-core@0.0.4':
+    resolution: {integrity: sha512-Q611+MMZk+bxApac+/6r7S5qoRhzjRS6MuyaFI7kHnKSyGyV10kRWe/8sADH+8nixTBBN/g4XbXOUKg0Xk8dYg==}
     engines: {node: '>=24'}
     peerDependencies:
       '@asteasolutions/zod-to-openapi': ^8.5.0
       jose: ^6.2.4
       zod: ^4.4.3
 
-  '@kamaalio/kamaal-auth-hono@0.0.2':
-    resolution: {integrity: sha512-VoI05QOFMgHxw1V4OU+pErwwUZW00brtXxIGybizgTpfRUDicu+R7zBDl5WlO75BdhgutZ4/bHbfwH0NQ+WxEA==}
+  '@kamaalio/kamaal-auth-hono@0.0.4':
+    resolution: {integrity: sha512-uDFHEgHUNxb0XV5sZMMqG7S402d8yXt5so1ox2GwhKXMxG/uP3u6jhVn1dF0trBPvybiEXU8lOscNBGHGBtg5A==}
     engines: {node: '>=24'}
     peerDependencies:
       '@hono/zod-openapi': ^1.5.1
@@ -2002,6 +2011,7 @@ packages:
   eslint@9.39.5:
     resolution: {integrity: sha512-DgZS62aPLXKlnxILS/AYCoRvHaZeXceIzlXPkkGGzJWSow1aEk0lbTlxUSlyjC8jcaKxAdOnTDz+o1JFSBsyjw==}
     engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
+    deprecated: This version is no longer supported. Please see https://eslint.org/version-support for other options.
     hasBin: true
     peerDependencies:
       jiti: '*'
@@ -3600,6 +3610,10 @@ snapshots:
     dependencies:
       hono: 4.13.1
 
+  '@hono/structured-logger@1.0.0(hono@4.13.1)':
+    dependencies:
+      hono: 4.13.1
+
   '@hono/swagger-ui@0.6.1(hono@4.13.1)':
     dependencies:
       hono: 4.13.1
@@ -3656,16 +3670,16 @@ snapshots:
     dependencies:
       jsbi: 4.3.2
 
-  '@kamaalio/kamaal-auth-core@0.0.2(@asteasolutions/zod-to-openapi@8.5.0(zod@4.4.3))(jose@6.2.8)(zod@4.4.3)':
+  '@kamaalio/kamaal-auth-core@0.0.4(@asteasolutions/zod-to-openapi@8.5.0(zod@4.4.3))(jose@6.2.8)(zod@4.4.3)':
     dependencies:
       '@asteasolutions/zod-to-openapi': 8.5.0(zod@4.4.3)
       jose: 6.2.8
       zod: 4.4.3
 
-  '@kamaalio/kamaal-auth-hono@0.0.2(@asteasolutions/zod-to-openapi@8.5.0(zod@4.4.3))(@hono/zod-openapi@1.5.2(patch_hash=302c5a22091d23de10bd02188cae56291bf6e22381f80e5d326b1b5061ef3ed6)(hono@4.13.1)(zod@4.4.3))(hono@4.13.1)(jose@6.2.8)(zod@4.4.3)':
+  '@kamaalio/kamaal-auth-hono@0.0.4(@asteasolutions/zod-to-openapi@8.5.0(zod@4.4.3))(@hono/zod-openapi@1.5.2(patch_hash=302c5a22091d23de10bd02188cae56291bf6e22381f80e5d326b1b5061ef3ed6)(hono@4.13.1)(zod@4.4.3))(hono@4.13.1)(jose@6.2.8)(zod@4.4.3)':
     dependencies:
       '@hono/zod-openapi': 1.5.2(patch_hash=302c5a22091d23de10bd02188cae56291bf6e22381f80e5d326b1b5061ef3ed6)(hono@4.13.1)(zod@4.4.3)
-      '@kamaalio/kamaal-auth-core': 0.0.2(@asteasolutions/zod-to-openapi@8.5.0(zod@4.4.3))(jose@6.2.8)(zod@4.4.3)
+      '@kamaalio/kamaal-auth-core': 0.0.4(@asteasolutions/zod-to-openapi@8.5.0(zod@4.4.3))(jose@6.2.8)(zod@4.4.3)
       hono: 4.13.1
       zod: 4.4.3
     transitivePeerDependencies:

@@ -55,7 +55,7 @@ describe('List cards integration', () => {
       expect(body.cards[0]?.quantities).toEqual([{ condition: 'mint', quantity: 1 }]);
       expect(body.cards.map(card => card.price.card_id)).toEqual([second.id, first.id]);
       expect(getLogsForRequestId(requestId)).toEqual(
-        expect.arrayContaining([expect.objectContaining({ event: 'cards.list', card_count: 2 })]),
+        expect.arrayContaining([expect.objectContaining({ event: 'cards.list', result_count: 2 })]),
       );
     },
   );

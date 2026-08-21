@@ -11,6 +11,7 @@
   "dependencies": {
     "@better-auth/drizzle-adapter": "workspace:*",
     "@hono/node-server": "workspace:*",
+    "@hono/structured-logger": "workspace:*",
     "@hono/swagger-ui": "workspace:*",
     "@hono/zod-openapi": "workspace:*",
     "@kamaalio/kamaal": "workspace:*",

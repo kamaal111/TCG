@@ -221,7 +221,7 @@ describe('Card pricing integration', () => {
             outcome: 'failure',
             provider: 'scrydex',
             provider_operation: 'search',
-            provider_source: 'scrydex_static',
+            pricing_source: 'scrydex_static',
             provider_error_reason: 'http_error',
             provider_error_message: 'Scrydex search failed with status 429',
             provider_status_code: 429,

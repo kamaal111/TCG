@@ -67,7 +67,6 @@ describe('Sign-up integration', () => {
             event: 'auth.sign_up.succeeded',
             request_id: requestId,
             route: SIGN_UP_ROUTE_PATH,
-            component: 'auth',
             outcome: 'success',
           }),
         ]),

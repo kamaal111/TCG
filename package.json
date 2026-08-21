@@ -14,10 +14,11 @@
   "dependencies": {
     "@better-auth/drizzle-adapter": "1.7.0-rc.1",
     "@hono/node-server": "^2.0.11",
+    "@hono/structured-logger": "^1.0.0",
     "@hono/swagger-ui": "~0.6.1",
     "@hono/zod-openapi": "1.5.2",
     "@kamaalio/kamaal": "~0.9.6",
-    "@kamaalio/kamaal-auth-hono": "^0.0.2",
+    "@kamaalio/kamaal-auth-hono": "^0.0.4",
     "better-auth": "1.7.0-rc.1",
     "drizzle-orm": "1.0.0-rc.4",
     "hono": "^4.12.31",

@@ -16,13 +16,11 @@ import env from './env.ts';
 import { handleServerError } from './exceptions/handler.ts';
 import { NotFound } from './exceptions/index.ts';
 import healthRoute, { HEALTH_ROUTE_NAME } from './health/index.ts';
-import { getComponentLogger, logInfo, logWarn } from './logging/index.ts';
 import loggingMiddleware from './logging/middleware.ts';
+import { serverLogger } from './logging/server.ts';
 import { OPENAPI_YAML_SPEC_URL, openAPIRouterFactory, withOpenAPIDocumentation } from './open-api.ts';
 
 const SIGNALS_TO_TERMINATE_ON: NodeJS.Signals[] = ['SIGINT', 'SIGTERM'];
-
-const logger = getComponentLogger('server');
 
 class App {
   readonly app: Hono<HonoEnvironment>;
@@ -54,11 +52,7 @@ class App {
     }
 
     this.server = serve({ fetch: app.fetch, port: env.PORT }, info => {
-      logInfo(logger, {
-        event: 'server.started',
-        port: info.port,
-        outcome: 'success',
-      });
+      serverLogger().info({ event: 'server.started', port: info.port, outcome: 'success' }, 'Started the HTTP server.');
     });
   };
 
@@ -70,25 +64,19 @@ class App {
 
     for (const signal of SIGNALS_TO_TERMINATE_ON) {
       process.on(signal, () => {
-        logInfo(logger, {
-          event: 'server.shutdown.started',
-          signal,
-          outcome: 'success',
-        });
+        const logger = serverLogger();
+        logger.info({ event: 'server.shutdown.started', signal, outcome: 'success' }, 'Shutting the HTTP server down.');
 
         server.close(() => {
-          logInfo(logger, {
-            event: 'server.shutdown.completed',
-            outcome: 'success',
-          });
+          logger.info({ event: 'server.shutdown.completed', outcome: 'success' }, 'Shut the HTTP server down.');
           process.exit(0);
         });
 
         setTimeout(() => {
-          logWarn(logger, {
-            event: 'server.shutdown.forced',
-            outcome: 'failure',
-          });
+          logger.warn(
+            { event: 'server.shutdown.forced', outcome: 'failure', error_code: 'SHUTDOWN_TIMEOUT' },
+            'Forced the HTTP server down after it did not close in time.',
+          );
           process.exit(1);
         }, 10_000);
       });
