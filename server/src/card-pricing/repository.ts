@@ -4,14 +4,13 @@ import { and, eq, sql } from 'drizzle-orm';
 
 import type { HonoContext } from '../context.ts';
 import { PricingLockTimeout } from './exceptions.ts';
+import { pricingLogger } from './logging.ts';
 import env from '../env.ts';
 import type { CardGame, NormalizedPricingCard, PricingSource } from './types.ts';
 import { getSession } from '../auth/module.ts';
 import { classifyPostgresError } from '../db/errors.ts';
 import { cardPrice, cardPriceSearch } from '../db/schema/card-pricing.ts';
 import { card } from '../db/schema/cards.ts';
-import { withRequestLogger } from '../logging/http.ts';
-import { logInfo, logWarn } from '../logging/index.ts';
 import { isNonEmpty, type NonEmptyArray } from '../utils/type-utils.ts';
 
 export type CardPriceRow = typeof cardPrice.$inferSelect;
@@ -259,18 +258,23 @@ export class CardPricingRepository {
     lockWaitMs: number,
     outcome: 'failure' | 'success',
   ) {
-    const log = outcome === 'success' ? logInfo : logWarn;
-    log(
-      withRequestLogger(this.c, { component: 'card-pricing' }),
-      {
-        event: 'pricing.lock.completed',
-        game: lock.game,
-        lock_key_type: lock.keyType,
-        lock_status: lockStatus,
-        lock_wait_ms: lockWaitMs,
-        outcome,
-        priced_on: lock.pricedOn,
-      },
+    const fields = {
+      event: 'pricing.lock.completed',
+      game: lock.game,
+      lock_key_type: lock.keyType,
+      lock_status: lockStatus,
+      lock_wait_ms: lockWaitMs,
+      priced_on: lock.pricedOn,
+    } as const;
+    const logger = pricingLogger(this.c);
+    if (outcome === 'success') {
+      logger.info({ ...fields, outcome }, 'Completed a card pricing lock operation.');
+
+      return;
+    }
+
+    logger.warn(
+      { ...fields, outcome, error_code: 'PRICING_LOCK_UNAVAILABLE' },
       'Completed a card pricing lock operation.',
     );
   }

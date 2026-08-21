@@ -60,7 +60,6 @@ describe('Sign-in integration', () => {
             event: 'auth.sign_in.succeeded',
             request_id: requestId,
             route: SIGN_IN_ROUTE_PATH,
-            component: 'auth',
             outcome: 'success',
           }),
         ]),

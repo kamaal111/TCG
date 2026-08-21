@@ -1,8 +1,8 @@
 import { REQUEST_ID_HEADER_NAME } from '../constants/common.ts';
-import { type LogFields, createMemoryLogDestination, setRootLoggerDestination } from '../logging/index.ts';
+import { createMemoryLogDestination, setRootLoggerDestination } from '../logging/index.ts';
 
 const rawLogs: string[] = [];
-type StructuredLog = Partial<LogFields> & Record<string, unknown>;
+type StructuredLog = Record<string, unknown>;
 
 export function initializeTestLogs() {
   rawLogs.length = 0;

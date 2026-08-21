@@ -1,10 +1,12 @@
-import { createAuthModule } from '@kamaalio/kamaal-auth-hono';
+import { AUTH_SESSION_CONTEXT_KEY, createAuthModule } from '@kamaalio/kamaal-auth-hono';
+import type { Next } from 'hono';
+import { every } from 'hono/combine';
 
 import { BETTER_AUTH_BASE_PATH, JWKS_URL } from './constants.ts';
 import { type AuthLocals, authHooks } from './hooks.ts';
 import { ONE_DAY_IN_SECONDS } from '../constants/common.ts';
+import type { HonoContext } from '../context.ts';
 import env from '../env.ts';
-import { withRequestLogger } from '../logging/http.ts';
 import { openAPIRouterFactory } from '../open-api.ts';
 import { ErrorResponseSchema, ValidationErrorResponseSchema } from '../schemas/errors.ts';
 
@@ -36,9 +38,22 @@ export const authModule = createAuthModule({
     // Passed in rather than declared by the package, so these components are registered exactly once.
     errorSchemas: { error: ErrorResponseSchema, validation: ValidationErrorResponseSchema },
   },
-  logger: c => withRequestLogger(c, { component: 'auth' }),
+  logger: c => c.get('logger'),
   locals: (c): AuthLocals => ({ db: c.get('db'), auth: c.get('auth') }),
   requestId: c => c.get('requestId'),
 });
 
-export const { requireSessionMiddleware, getSession } = authModule;
+function bindSessionUser() {
+  return async (c: HonoContext, next: Next) => {
+    const userId = c.get(AUTH_SESSION_CONTEXT_KEY)?.user.id;
+    if (userId != null) {
+      c.set('logger', c.get('logger').child({ user_id: userId }));
+    }
+
+    await next();
+  };
+}
+
+export const requireSessionMiddleware = every(authModule.requireSessionMiddleware, bindSessionUser());
+
+export const { getSession } = authModule;

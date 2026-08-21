@@ -48,7 +48,6 @@ describe('Token integration', () => {
             event: 'auth.token.issued',
             request_id: requestId,
             route: TOKEN_ROUTE_PATH,
-            component: 'auth',
             outcome: 'success',
           }),
         ]),

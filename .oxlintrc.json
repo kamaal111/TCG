@@ -23,5 +23,13 @@
   },
   "env": {
     "builtin": true
-  }
+  },
+  "overrides": [
+    {
+      "files": ["server/src/**"],
+      "rules": {
+        "no-console": "error"
+      }
+    }
+  ]
 }

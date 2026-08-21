@@ -4,9 +4,8 @@ import type { CardWithQuantities } from '../cards/repository.ts';
 import type { HonoContext } from '../context.ts';
 import type { PricingClient, PricingClientError, PricingSearchResult } from './client.ts';
 import { PricingLockTimeout, PricingProviderUnavailable } from './exceptions.ts';
+import { type PricingLogFields, pricingLogger } from './logging.ts';
 import type { CardPricingRepository } from './repository.ts';
-import { withRequestLogger } from '../logging/http.ts';
-import { logInfo, logWarn } from '../logging/index.ts';
 import {
   OWNED_CARD_PRICE_STATUSES,
   type OwnedCardPriceResponse,
@@ -30,6 +29,10 @@ export class CardPricingService {
 
   private get client(): PricingClient {
     return this.c.get('pricingClient');
+  }
+
+  private get logger() {
+    return pricingLogger(this.c);
   }
 
   /**
@@ -264,14 +267,14 @@ export class CardPricingService {
     startedAt: number,
     cardId?: string,
   ): never {
-    logWarn(
-      withRequestLogger(this.c, { component: 'card-pricing' }),
+    this.logger.warn(
       {
         event: 'pricing.provider.request_completed',
         outcome: 'failure',
+        error_code: 'PRICING_PROVIDER_UNAVAILABLE',
         provider: 'scrydex',
         provider_operation: operation,
-        provider_source: this.client.source,
+        pricing_source: this.client.source,
         provider_error_reason: error.reason,
         provider_error_message: error.message,
         provider_status_code: error.statusCode,
@@ -293,14 +296,13 @@ export class CardPricingService {
     cardId?: string,
     resultCount = searchResult?.records.length ?? 0,
   ) {
-    logInfo(
-      withRequestLogger(this.c, { component: 'card-pricing' }),
+    this.logger.info(
       {
         event: 'pricing.provider.request_completed',
         outcome: 'success',
         provider: 'scrydex',
         provider_operation: operation,
-        provider_source: this.client.source,
+        pricing_source: this.client.source,
         game,
         card_id: cardId,
         result_count: resultCount,
@@ -314,9 +316,13 @@ export class CardPricingService {
     );
   }
 
-  private logCache(event: string, cacheStatus: 'hit' | 'miss' | 'set', resultCount: number, cardId?: string) {
-    logInfo(
-      withRequestLogger(this.c, { component: 'card-pricing' }),
+  private logCache(
+    event: Extract<PricingLogFields['event'], `pricing.${string}.cache`>,
+    cacheStatus: 'hit' | 'miss' | 'set',
+    resultCount: number,
+    cardId?: string,
+  ) {
+    this.logger.info(
       {
         event,
         outcome: 'success',

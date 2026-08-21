@@ -1,7 +1,6 @@
 import type { AuthVariables } from '@kamaalio/kamaal-auth-hono';
 import type { Context, Input, Next } from 'hono';
 import type { RequestIdVariables } from 'hono/request-id';
-import type { Logger } from 'pino';
 
 import type { Auth } from './auth/better-auth.ts';
 import type { PricingClient } from './card-pricing/client.ts';
@@ -9,6 +8,7 @@ import { CardPricingRepository } from './card-pricing/repository.ts';
 import { CardPricingService } from './card-pricing/service.ts';
 import { CardRepository } from './cards/repository.ts';
 import type { Database } from './db/index.ts';
+import type { RequestLogger } from './logging/index.ts';
 
 export interface InjectedContext {
   db: Database;
@@ -26,11 +26,7 @@ interface ServiceVariables {
 }
 
 interface LoggingVariables {
-  logger: Logger;
-}
-
-interface RequestLifecycleVariables {
-  requestFailed?: boolean;
+  logger: RequestLogger;
 }
 
 export type HonoVariables = RequestIdVariables &
@@ -38,7 +34,6 @@ export type HonoVariables = RequestIdVariables &
   RepositoryVariables &
   ServiceVariables &
   LoggingVariables &
-  RequestLifecycleVariables &
   AuthVariables;
 
 export interface HonoEnvironment {
