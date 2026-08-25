@@ -1,6 +1,5 @@
-import type { z } from '@hono/zod-openapi';
 import { arrays } from '@kamaalio/kamaal';
-import type { TypedResponse } from 'hono';
+import type { z } from 'zod';
 
 import { APP_API_ROUTE_NAME } from '../../constants/common.ts';
 import { STATUS_CODES } from '../../constants/http.ts';
@@ -8,8 +7,9 @@ import type { HonoContext } from '../../context.ts';
 import { isNonEmpty } from '../../utils/type-utils.ts';
 import { CARDS_ROUTE_NAME } from '../constants.ts';
 import { cardsLogger } from '../logging.ts';
+import type { ListCardsRouteResponse } from '../routes/list-cards.ts';
 import type { CardsListQuerySchema } from '../schemas/params.ts';
-import { type CardsListResponse, CardsListResponseSchema } from '../schemas/responses.ts';
+import { CardsListResponseSchema } from '../schemas/responses.ts';
 import { serializeCardWithPrice } from '../utils/cards.ts';
 
 type ListCardsContext = HonoContext<
@@ -19,9 +19,7 @@ type ListCardsContext = HonoContext<
 
 export const LIST_CARDS_ROUTE_PATH = `${APP_API_ROUTE_NAME}${CARDS_ROUTE_NAME}` as const;
 
-async function listCardsHandler(
-  c: ListCardsContext,
-): Promise<TypedResponse<CardsListResponse, typeof STATUS_CODES.OK>> {
+async function listCardsHandler(c: ListCardsContext): Promise<ListCardsRouteResponse> {
   const { game } = c.req.valid('query');
   const cards = await c.get('cardRepository').list(game);
   const prices = isNonEmpty(cards)

@@ -1,10 +1,9 @@
-import type { TypedResponse } from 'hono';
-
 import { APP_API_ROUTE_NAME } from '../../constants/common.ts';
 import { STATUS_CODES } from '../../constants/http.ts';
 import type { HonoContext } from '../../context.ts';
 import { PRICING_ROUTE_NAME } from '../constants.ts';
 import { pricingLogger } from '../logging.ts';
+import type { SearchPricingRouteResponse } from '../routes/search-pricing.ts';
 import type { PricingSearchQuery } from '../schemas/params.ts';
 import type { PricingSearchResponse } from '../schemas/responses.ts';
 
@@ -12,9 +11,7 @@ export const SEARCH_PRICING_ROUTE_PATH = `${APP_API_ROUTE_NAME}${PRICING_ROUTE_N
 
 type SearchPricingContext = HonoContext<typeof SEARCH_PRICING_ROUTE_PATH, { out: { query: PricingSearchQuery } }>;
 
-async function searchPricingHandler(
-  c: SearchPricingContext,
-): Promise<TypedResponse<PricingSearchResponse, typeof STATUS_CODES.OK>> {
+async function searchPricingHandler(c: SearchPricingContext): Promise<SearchPricingRouteResponse> {
   const { game, query } = c.req.valid('query');
   const result = await c.get('cardPricingService').searchAndPrice(game, query);
   const response = { matches: result.matches } satisfies PricingSearchResponse;

@@ -48,7 +48,7 @@ struct TCGPricingClientImpl: TCGPricingClient {
 
     private static func makeSearchResult(_ result: Components.Schemas.PricingSearchResponse) -> CardSearchResult {
         CardSearchResult(
-            matches: result.matches.map { PricedCardMapper.makePricedCard($0.value1) }
+            matches: result.matches.map { PricedCardMapper.makePricedCard($0) }
         )
     }
 

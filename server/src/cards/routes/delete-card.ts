@@ -1,4 +1,4 @@
-import { createRoute } from '@hono/zod-openapi';
+import { createRoute, type RouteConfigToTypedResponse } from '@kamaalio/hono-standard-openapi';
 
 import { requireSessionMiddleware } from '../../auth/module.ts';
 import { STATUS_CODES } from '../../constants/http.ts';
@@ -9,6 +9,8 @@ import { CardIdParamsSchema } from '../schemas/params.ts';
 import { DeleteCardResponseSchema } from '../schemas/responses.ts';
 
 const DELETE_CARD_PATH = '/{cardId}';
+
+export type DeleteCardRouteResponse = RouteConfigToTypedResponse<typeof deleteCardRoute>;
 
 const deleteCardRoute = createRoute({
   method: 'delete',

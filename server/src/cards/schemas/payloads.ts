@@ -1,4 +1,4 @@
-import { z } from '@hono/zod-openapi';
+import { z } from 'zod';
 
 import { CardConditionQuantitySchema, CardCoreFieldsSchema } from './fields.ts';
 import { CARD_CONDITIONS } from '../../db/schema/cards.ts';
@@ -10,7 +10,7 @@ export const UpsertCardSchema = CardCoreFieldsSchema.extend({
     .max(2000)
     .transform(notes => (notes === '' ? undefined : notes))
     .optional()
-    .openapi({
+    .meta({
       description: 'Optional notes about this owned card',
       example: 'Alternate art',
     }),
@@ -21,8 +21,9 @@ export const UpsertCardSchema = CardCoreFieldsSchema.extend({
     .refine(quantities => new Set(quantities.map(quantity => quantity.condition)).size === quantities.length, {
       message: 'Conditions must be unique',
     })
-    .openapi({ description: 'Owned quantities grouped by condition' }),
-}).openapi('UpsertCard', {
+    .meta({ description: 'Owned quantities grouped by condition' }),
+}).meta({
+  $id: 'UpsertCard',
   title: 'Upsert Card',
   description: 'Fields used to create or fully replace an owned card entry',
   example: {

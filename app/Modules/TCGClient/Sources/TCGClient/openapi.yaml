@@ -5,9 +5,6 @@ info:
 paths:
   /app-api/auth/sign-up/email:
     post:
-      tags:
-        - Authentication
-      summary: Sign up with email and password
       description: Create a new user account with email and password
       requestBody:
         content:
@@ -72,11 +69,11 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-  /app-api/auth/sign-in/email:
-    post:
+      summary: Sign up with email and password
       tags:
         - Authentication
-      summary: Sign in with email and password
+  /app-api/auth/sign-in/email:
+    post:
       description: Authenticate a user with email and password credentials
       requestBody:
         content:
@@ -135,11 +132,11 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-  /app-api/auth/sign-out:
-    post:
+      summary: Sign in with email and password
       tags:
         - Authentication
-      summary: Sign out
+  /app-api/auth/sign-out:
+    post:
       description: Sign out the current user and invalidate the session
       responses:
         '200':
@@ -154,11 +151,11 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-  /app-api/auth/session:
-    get:
+      summary: Sign out
       tags:
         - Authentication
-      summary: Get session
+  /app-api/auth/session:
+    get:
       description: >-
         Get the current user session information. Can authenticate via either
         Authorization header (JWT bearer token) or session cookie.
@@ -184,16 +181,14 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-  /app-api/auth/token:
-    get:
+      summary: Get session
       tags:
         - Authentication
-      summary: Get JWT token
+  /app-api/auth/token:
+    get:
       description: >-
         Get a new JWT token for the authenticated session. Use bearer token
         authentication.
-      security:
-        - bearerAuth: []
       responses:
         '200':
           description: Token retrieved successfully
@@ -240,14 +235,14 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-  /app-api/cards:
-    post:
-      tags:
-        - Cards
-      summary: Add an owned card
-      description: Add an owned trading card entry to the authenticated user's collection.
       security:
         - bearerAuth: []
+      summary: Get JWT token
+      tags:
+        - Authentication
+  /app-api/cards:
+    post:
+      description: Add an owned trading card entry to the authenticated user's collection.
       requestBody:
         content:
           application/json:
@@ -280,13 +275,13 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-    get:
-      tags:
-        - Cards
-      summary: List owned cards
-      description: List the authenticated user's owned card entries, newest first.
       security:
         - bearerAuth: []
+      summary: Add an owned card
+      tags:
+        - Cards
+    get:
+      description: List the authenticated user's owned card entries, newest first.
       parameters:
         - schema:
             type: string
@@ -320,16 +315,16 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-  /app-api/cards/{cardId}:
-    put:
+      security:
+        - bearerAuth: []
+      summary: List owned cards
       tags:
         - Cards
-      summary: Replace an owned card
+  /app-api/cards/{cardId}:
+    put:
       description: >-
         Replace an owned card entry and all quantities for the authenticated
         user.
-      security:
-        - bearerAuth: []
       parameters:
         - schema:
             type: string
@@ -378,13 +373,13 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-    delete:
-      tags:
-        - Cards
-      summary: Delete an owned card
-      description: Delete an owned card entry from the authenticated user's collection.
       security:
         - bearerAuth: []
+      summary: Replace an owned card
+      tags:
+        - Cards
+    delete:
+      description: Delete an owned card entry from the authenticated user's collection.
       parameters:
         - schema:
             type: string
@@ -414,14 +409,14 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/CardNotFoundErrorResponse'
-  /app-api/pricing/search:
-    get:
-      tags:
-        - Pricing
-      summary: Search card prices
-      description: Search cards and return globally cached daily pricing.
       security:
         - bearerAuth: []
+      summary: Delete an owned card
+      tags:
+        - Cards
+  /app-api/pricing/search:
+    get:
+      description: Search cards and return globally cached daily pricing.
       parameters:
         - schema:
             type: string
@@ -471,6 +466,11 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearerAuth: []
+      summary: Search card prices
+      tags:
+        - Pricing
 components:
   schemas:
     AuthResponse:
@@ -776,207 +776,6 @@ components:
       example:
         condition: near_mint
         quantity: 2
-    OwnedCardPrice:
-      type: object
-      properties:
-        card_id:
-          type: string
-          format: uuid
-          description: Owned card identifier
-          example: 550e8400-e29b-41d4-a716-446655440000
-        status:
-          type: string
-          enum:
-            - priced
-            - no_match
-            - no_price
-            - unavailable
-          description: >-
-            Pricing result for the owned card; unavailable means pricing is
-            temporarily busy.
-          example: priced
-        priced_card:
-          $ref: '#/components/schemas/PricedCard'
-      required:
-        - card_id
-        - status
-      title: Owned Card Price
-      description: Daily pricing result for one owned card
-      example:
-        card_id: 550e8400-e29b-41d4-a716-446655440000
-        status: priced
-    PricedCard:
-      type: object
-      properties:
-        id:
-          type: string
-          format: uuid
-          description: Stable identifier for this priced-card record
-          example: 550e8400-e29b-41d4-a716-446655440000
-        game:
-          type: string
-          enum:
-            - one_piece
-            - pokemon
-          description: Trading card game
-          example: pokemon
-        name:
-          type: string
-          description: Card name
-          example: Giratina VSTAR
-        card_number:
-          type: string
-          description: Card number
-          example: GG69
-        rarity:
-          type: string
-          description: Card rarity when provided
-          example: Secret Rare
-        image_url:
-          type: string
-          format: uri
-          description: Card image URL when provided
-          example: https://images.example.com/giratina-vstar-gg69.png
-        headline:
-          $ref: '#/components/schemas/PriceHeadline'
-        market:
-          $ref: '#/components/schemas/MarketPrice'
-        priced_on:
-          type: string
-          format: date-time
-          description: UTC pricing date
-          example: '2026-07-23T00:00:00.000Z'
-        fetched_at:
-          type: string
-          format: date-time
-          description: Time the price was fetched from the configured source
-          example: '2026-07-23T10:30:00.000Z'
-      required:
-        - id
-        - game
-        - name
-        - card_number
-        - priced_on
-        - fetched_at
-      title: Priced Card
-      description: Matched price when available
-      example:
-        id: 550e8400-e29b-41d4-a716-446655440000
-        game: pokemon
-        name: Giratina VSTAR
-        card_number: GG69
-        rarity: Secret Rare
-        headline:
-          amount: 146.69
-          currency: USD
-          metric: lowest_near_mint
-        market:
-          condition: near_mint
-          currency: USD
-          low: 146.69
-          market: 172.42
-          trend_7d:
-            price_change: 7.36
-            percent_change: 4.46
-          trend_30d:
-            price_change: 13.88
-            percent_change: 8.75
-        priced_on: '2026-07-23T00:00:00.000Z'
-        fetched_at: '2026-07-23T10:30:00.000Z'
-    PriceHeadline:
-      type: object
-      properties:
-        amount:
-          type: number
-          minimum: 0
-          description: Headline market amount
-          example: 146.69
-        currency:
-          $ref: '#/components/schemas/Currency'
-        metric:
-          type: string
-          enum:
-            - lowest_near_mint
-          description: Raw-market metric used for the headline
-          example: lowest_near_mint
-      required:
-        - amount
-        - currency
-        - metric
-      title: Price Headline
-      description: Primary price when available
-      example:
-        amount: 146.69
-        currency: USD
-        metric: lowest_near_mint
-    Currency:
-      type: string
-      enum:
-        - JPY
-        - USD
-      title: Currency
-      description: ISO 4217 currency supported by the pricing service.
-      example: USD
-    MarketPrice:
-      type: object
-      properties:
-        condition:
-          type: string
-          enum:
-            - near_mint
-          description: Normalized raw-card condition selected for pricing
-          example: near_mint
-        currency:
-          $ref: '#/components/schemas/Currency'
-        low:
-          type: number
-          minimum: 0
-          description: Lowest known Near Mint price
-          example: 146.69
-        market:
-          type: number
-          minimum: 0
-          description: Average Near Mint market price
-          example: 172.42
-        trend_7d:
-          $ref: '#/components/schemas/PriceMovement'
-        trend_30d:
-          $ref: '#/components/schemas/PriceMovement'
-      required:
-        - condition
-        - currency
-      title: Market Price
-      description: Near Mint market pricing when available
-      example:
-        condition: near_mint
-        currency: USD
-        low: 146.69
-        market: 172.42
-        trend_7d:
-          price_change: 7.36
-          percent_change: 4.46
-        trend_30d:
-          price_change: 13.88
-          percent_change: 8.75
-    PriceMovement:
-      type: object
-      properties:
-        price_change:
-          type: number
-          description: Absolute market-price change
-          example: 7.36
-        percent_change:
-          type: number
-          description: Percentage market-price change
-          example: 4.46
-      required:
-        - price_change
-        - percent_change
-      title: Price Movement
-      description: Market-price movement over a fixed period
-      example:
-        price_change: 7.36
-        percent_change: 4.46
     Card:
       type: object
       properties:
@@ -1056,6 +855,207 @@ components:
             quantity: 2
         created_at: '2026-07-20T10:30:00.000Z'
         updated_at: '2026-07-20T10:30:00.000Z'
+    Currency:
+      type: string
+      enum:
+        - JPY
+        - USD
+      title: Currency
+      description: ISO 4217 currency supported by the pricing service.
+      example: USD
+    PriceHeadline:
+      type: object
+      properties:
+        amount:
+          type: number
+          minimum: 0
+          description: Headline market amount
+          example: 146.69
+        currency:
+          $ref: '#/components/schemas/Currency'
+        metric:
+          type: string
+          enum:
+            - lowest_near_mint
+          description: Raw-market metric used for the headline
+          example: lowest_near_mint
+      required:
+        - amount
+        - currency
+        - metric
+      title: Price Headline
+      description: Lowest raw Near Mint market price
+      example:
+        amount: 146.69
+        currency: USD
+        metric: lowest_near_mint
+    PriceMovement:
+      type: object
+      properties:
+        price_change:
+          type: number
+          description: Absolute market-price change
+          example: 7.36
+        percent_change:
+          type: number
+          description: Percentage market-price change
+          example: 4.46
+      required:
+        - price_change
+        - percent_change
+      title: Price Movement
+      description: Market-price movement over a fixed period
+      example:
+        price_change: 7.36
+        percent_change: 4.46
+    MarketPrice:
+      type: object
+      properties:
+        condition:
+          type: string
+          enum:
+            - near_mint
+          description: Normalized raw-card condition selected for pricing
+          example: near_mint
+        currency:
+          $ref: '#/components/schemas/Currency'
+        low:
+          type: number
+          minimum: 0
+          description: Lowest known Near Mint price
+          example: 146.69
+        market:
+          type: number
+          minimum: 0
+          description: Average Near Mint market price
+          example: 172.42
+        trend_7d:
+          $ref: '#/components/schemas/PriceMovement'
+        trend_30d:
+          $ref: '#/components/schemas/PriceMovement'
+      required:
+        - condition
+        - currency
+      title: Market Price
+      description: Provider-neutral raw Near Mint market pricing
+      example:
+        condition: near_mint
+        currency: USD
+        low: 146.69
+        market: 172.42
+        trend_7d:
+          price_change: 7.36
+          percent_change: 4.46
+        trend_30d:
+          price_change: 13.88
+          percent_change: 8.75
+    PricedCard:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Stable identifier for this priced-card record
+          example: 550e8400-e29b-41d4-a716-446655440000
+        game:
+          type: string
+          enum:
+            - one_piece
+            - pokemon
+          description: Trading card game
+          example: pokemon
+        name:
+          type: string
+          description: Card name
+          example: Giratina VSTAR
+        card_number:
+          type: string
+          description: Card number
+          example: GG69
+        rarity:
+          type: string
+          description: Card rarity when provided
+          example: Secret Rare
+        image_url:
+          type: string
+          format: uri
+          description: Card image URL when provided
+          example: https://images.example.com/giratina-vstar-gg69.png
+        headline:
+          $ref: '#/components/schemas/PriceHeadline'
+        market:
+          $ref: '#/components/schemas/MarketPrice'
+        priced_on:
+          type: string
+          format: date-time
+          description: UTC pricing date
+          example: '2026-07-23T00:00:00.000Z'
+        fetched_at:
+          type: string
+          format: date-time
+          description: Time the price was fetched from the configured source
+          example: '2026-07-23T10:30:00.000Z'
+      required:
+        - id
+        - game
+        - name
+        - card_number
+        - priced_on
+        - fetched_at
+      title: Priced Card
+      description: A trading card with normalized daily market pricing
+      example:
+        id: 550e8400-e29b-41d4-a716-446655440000
+        game: pokemon
+        name: Giratina VSTAR
+        card_number: GG69
+        rarity: Secret Rare
+        headline:
+          amount: 146.69
+          currency: USD
+          metric: lowest_near_mint
+        market:
+          condition: near_mint
+          currency: USD
+          low: 146.69
+          market: 172.42
+          trend_7d:
+            price_change: 7.36
+            percent_change: 4.46
+          trend_30d:
+            price_change: 13.88
+            percent_change: 8.75
+        priced_on: '2026-07-23T00:00:00.000Z'
+        fetched_at: '2026-07-23T10:30:00.000Z'
+    OwnedCardPrice:
+      type: object
+      properties:
+        card_id:
+          type: string
+          format: uuid
+          description: Owned card identifier
+          example: 550e8400-e29b-41d4-a716-446655440000
+        status:
+          type: string
+          enum:
+            - priced
+            - no_match
+            - no_price
+            - unavailable
+          description: >-
+            Pricing result for the owned card; unavailable means pricing is
+            temporarily busy.
+          example: priced
+        priced_card:
+          $ref: '#/components/schemas/PricedCard'
+      required:
+        - card_id
+        - status
+      title: Owned Card Price
+      description: Daily pricing result for one owned card
+      example:
+        card_id: 550e8400-e29b-41d4-a716-446655440000
+        status: priced
     UpsertCard:
       type: object
       properties:
@@ -1155,9 +1155,7 @@ components:
         matches:
           type: array
           items:
-            allOf:
-              - $ref: '#/components/schemas/PricedCard'
-              - description: A trading card with normalized daily market pricing
+            $ref: '#/components/schemas/PricedCard'
           description: Ordered matching cards
       required:
         - matches
@@ -1165,7 +1163,6 @@ components:
       description: Card pricing search results
       example:
         matches: []
-  parameters: {}
   securitySchemes:
     bearerAuth:
       type: http

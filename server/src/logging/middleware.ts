@@ -1,4 +1,5 @@
 import { structuredLogger } from '@hono/structured-logger';
+import type { StandardSchemaV1 } from '@standard-schema/spec';
 import { HTTPException } from 'hono/http-exception';
 import { routePath } from 'hono/route';
 
@@ -65,7 +66,7 @@ function describeError(error: Error): {
         error_code: error.code,
         validation_issue_count: validationIssues.length,
         validation_issue_paths: validationIssues.map(issue => {
-          const path = issue.path.map(segment => String(segment)).join('.');
+          const path = (issue.path ?? []).map(formatValidationPathSegment).join('.');
 
           return path.length > 0 ? path : '<root>';
         }),
@@ -95,6 +96,14 @@ function describeError(error: Error): {
     fields: { event: 'request.failed', error_code: 'INTERNAL_SERVER_ERROR', err: error },
     message: 'Request failed with an unexpected server error.',
   };
+}
+
+function formatValidationPathSegment(segment: PropertyKey | StandardSchemaV1.PathSegment) {
+  if (typeof segment === 'object') {
+    return String(segment.key);
+  }
+
+  return String(segment);
 }
 
 // Falls back to c.req.path because routePath() isn't resolved yet this early in the middleware chain.

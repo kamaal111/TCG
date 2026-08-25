@@ -16,9 +16,9 @@
     "@hono/node-server": "^2.0.11",
     "@hono/structured-logger": "^1.0.0",
     "@hono/swagger-ui": "~0.6.1",
-    "@hono/zod-openapi": "1.5.2",
+    "@kamaalio/hono-standard-openapi": "^0.0.15",
     "@kamaalio/kamaal": "~0.9.6",
-    "@kamaalio/kamaal-auth-hono": "^0.0.4",
+    "@kamaalio/kamaal-auth-hono": "~0.0.6",
     "better-auth": "1.7.0-rc.1",
     "drizzle-orm": "1.0.0-rc.4",
     "hono": "^4.12.31",
@@ -30,6 +30,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@standard-schema/spec": "^1.1.0",
     "@types/node": "^26.1.1",
     "@types/pg": "^8.20.0",
     "@vitest/coverage-v8": "^4.1.10",

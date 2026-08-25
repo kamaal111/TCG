@@ -1,9 +1,4 @@
 allowBuilds:
   esbuild: true
-
 minimumReleaseAgeExclude:
-  - '@kamaalio/kamaal-auth-core@0.0.4'
-  - '@kamaalio/kamaal-auth-hono@0.0.4'
-
-patchedDependencies:
-  '@hono/zod-openapi@1.5.2': patches/@hono__zod-openapi@1.5.2.patch
+  - '@kamaalio/hono-standard-openapi@0.0.15'

@@ -1,4 +1,4 @@
-import { createRoute } from '@hono/zod-openapi';
+import { createRoute, type RouteConfigToTypedResponse } from '@kamaalio/hono-standard-openapi';
 
 import { requireSessionMiddleware } from '../../auth/module.ts';
 import { STATUS_CODES } from '../../constants/http.ts';
@@ -14,6 +14,8 @@ import { UpsertCardSchema } from '../schemas/payloads.ts';
 import { CardWithPriceSchema } from '../schemas/responses.ts';
 
 const UPDATE_CARD_PATH = '/{cardId}';
+
+export type UpdateCardRouteResponse = RouteConfigToTypedResponse<typeof updateCardRoute>;
 
 const updateCardRoute = createRoute({
   method: 'put',

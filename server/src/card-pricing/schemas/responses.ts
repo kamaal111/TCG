@@ -1,4 +1,4 @@
-import { z } from '@hono/zod-openapi';
+import { z } from 'zod';
 
 import { CARD_GAMES } from '../../db/schema/cards.ts';
 import { ApiCommonDatetimeShape } from '../../schemas/common.ts';
@@ -13,7 +13,8 @@ export const OWNED_CARD_PRICE_STATUSES = {
   UNAVAILABLE: 'unavailable',
 } as const;
 
-export const CurrencySchema = z.enum(Object.values(CURRENCIES)).openapi('Currency', {
+export const CurrencySchema = z.enum(Object.values(CURRENCIES)).meta({
+  $id: 'Currency',
   title: 'Currency',
   description: 'ISO 4217 currency supported by the pricing service.',
   example: CURRENCIES.USD,
@@ -23,14 +24,15 @@ const AmountSchema = z.number().nonnegative();
 
 export const PriceHeadlineSchema = z
   .object({
-    amount: AmountSchema.openapi({ description: 'Headline market amount', example: 146.69 }),
+    amount: AmountSchema.meta({ description: 'Headline market amount', example: 146.69 }),
     currency: CurrencySchema,
-    metric: z.literal(Object.values(PRICE_HEADLINE_METRICS)).openapi({
+    metric: z.literal(Object.values(PRICE_HEADLINE_METRICS)).meta({
       description: 'Raw-market metric used for the headline',
       example: PRICE_HEADLINE_METRICS.LOWEST_NEAR_MINT,
     }),
   })
-  .openapi('PriceHeadline', {
+  .meta({
+    $id: 'PriceHeadline',
     title: 'Price Headline',
     description: 'Lowest raw Near Mint market price',
     example: { amount: 146.69, currency: 'USD', metric: PRICE_HEADLINE_METRICS.LOWEST_NEAR_MINT },
@@ -38,10 +40,11 @@ export const PriceHeadlineSchema = z
 
 const PriceMovementSchema = z
   .object({
-    price_change: z.number().openapi({ description: 'Absolute market-price change', example: 7.36 }),
-    percent_change: z.number().openapi({ description: 'Percentage market-price change', example: 4.46 }),
+    price_change: z.number().meta({ description: 'Absolute market-price change', example: 7.36 }),
+    percent_change: z.number().meta({ description: 'Percentage market-price change', example: 4.46 }),
   })
-  .openapi('PriceMovement', {
+  .meta({
+    $id: 'PriceMovement',
     title: 'Price Movement',
     description: 'Market-price movement over a fixed period',
     example: { price_change: 7.36, percent_change: 4.46 },
@@ -51,14 +54,15 @@ export const MarketPriceSchema = z
   .object({
     condition: z
       .literal('near_mint')
-      .openapi({ description: 'Normalized raw-card condition selected for pricing', example: 'near_mint' }),
+      .meta({ description: 'Normalized raw-card condition selected for pricing', example: 'near_mint' }),
     currency: CurrencySchema,
-    low: AmountSchema.optional().openapi({ description: 'Lowest known Near Mint price', example: 146.69 }),
-    market: AmountSchema.optional().openapi({ description: 'Average Near Mint market price', example: 172.42 }),
+    low: AmountSchema.optional().meta({ description: 'Lowest known Near Mint price', example: 146.69 }),
+    market: AmountSchema.optional().meta({ description: 'Average Near Mint market price', example: 172.42 }),
     trend_7d: PriceMovementSchema.optional(),
     trend_30d: PriceMovementSchema.optional(),
   })
-  .openapi('MarketPrice', {
+  .meta({
+    $id: 'MarketPrice',
     title: 'Market Price',
     description: 'Provider-neutral raw Near Mint market pricing',
     example: {
@@ -73,30 +77,31 @@ export const MarketPriceSchema = z
 
 export const PricedCardSchema = z
   .object({
-    id: z.uuid().openapi({
+    id: z.uuid().meta({
       description: 'Stable identifier for this priced-card record',
       example: '550e8400-e29b-41d4-a716-446655440000',
     }),
-    game: z.enum(CARD_GAMES).openapi({ description: 'Trading card game', example: 'pokemon' }),
-    name: z.string().openapi({ description: 'Card name', example: 'Giratina VSTAR' }),
-    card_number: z.string().openapi({ description: 'Card number', example: 'GG69' }),
-    rarity: z.string().optional().openapi({ description: 'Card rarity when provided', example: 'Secret Rare' }),
-    image_url: z.url().optional().openapi({
+    game: z.enum(CARD_GAMES).meta({ description: 'Trading card game', example: 'pokemon' }),
+    name: z.string().meta({ description: 'Card name', example: 'Giratina VSTAR' }),
+    card_number: z.string().meta({ description: 'Card number', example: 'GG69' }),
+    rarity: z.string().optional().meta({ description: 'Card rarity when provided', example: 'Secret Rare' }),
+    image_url: z.url().optional().meta({
       description: 'Card image URL when provided',
       example: 'https://images.example.com/giratina-vstar-gg69.png',
     }),
-    headline: PriceHeadlineSchema.optional().openapi({ description: 'Primary price when available' }),
-    market: MarketPriceSchema.optional().openapi({ description: 'Near Mint market pricing when available' }),
-    priced_on: ApiCommonDatetimeShape.openapi({
+    headline: PriceHeadlineSchema.optional(),
+    market: MarketPriceSchema.optional(),
+    priced_on: ApiCommonDatetimeShape.meta({
       description: 'UTC pricing date',
       example: '2026-07-23T00:00:00.000Z',
     }),
-    fetched_at: ApiCommonDatetimeShape.openapi({
+    fetched_at: ApiCommonDatetimeShape.meta({
       description: 'Time the price was fetched from the configured source',
       example: '2026-07-23T10:30:00.000Z',
     }),
   })
-  .openapi('PricedCard', {
+  .meta({
+    $id: 'PricedCard',
     title: 'Priced Card',
     description: 'A trading card with normalized daily market pricing',
     example: {
@@ -121,9 +126,10 @@ export const PricedCardSchema = z
 
 export const PricingSearchResponseSchema = z
   .object({
-    matches: z.array(PricedCardSchema).openapi({ description: 'Ordered matching cards' }),
+    matches: z.array(PricedCardSchema).meta({ description: 'Ordered matching cards' }),
   })
-  .openapi('PricingSearchResponse', {
+  .meta({
+    $id: 'PricingSearchResponse',
     title: 'Pricing Search Response',
     description: 'Card pricing search results',
     example: {
@@ -133,17 +139,18 @@ export const PricingSearchResponseSchema = z
 
 export const OwnedCardPriceSchema = z
   .object({
-    card_id: z.uuid().openapi({
+    card_id: z.uuid().meta({
       description: 'Owned card identifier',
       example: '550e8400-e29b-41d4-a716-446655440000',
     }),
-    status: z.enum(Object.values(OWNED_CARD_PRICE_STATUSES)).openapi({
+    status: z.enum(Object.values(OWNED_CARD_PRICE_STATUSES)).meta({
       description: 'Pricing result for the owned card; unavailable means pricing is temporarily busy.',
       example: OWNED_CARD_PRICE_STATUSES.PRICED,
     }),
-    priced_card: PricedCardSchema.optional().openapi({ description: 'Matched price when available' }),
+    priced_card: PricedCardSchema.optional(),
   })
-  .openapi('OwnedCardPrice', {
+  .meta({
+    $id: 'OwnedCardPrice',
     title: 'Owned Card Price',
     description: 'Daily pricing result for one owned card',
     example: {

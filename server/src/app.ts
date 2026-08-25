@@ -1,5 +1,5 @@
 import { type ServerType, serve } from '@hono/node-server';
-import { $ } from '@hono/zod-openapi';
+import { $ } from '@kamaalio/hono-standard-openapi';
 import type { Hono } from 'hono';
 import { compress } from 'hono/compress';
 import { showRoutes } from 'hono/dev';
