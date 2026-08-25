@@ -16,7 +16,7 @@ let package = Package(
         .package(url: "https://github.com/apple/swift-http-types", .upToNextMajor(from: "1.6.0")),
         .package(url: "https://github.com/apple/swift-openapi-runtime", .upToNextMajor(from: "1.12.0")),
         .package(url: "https://github.com/pointfreeco/swift-snapshot-testing", .upToNextMajor(from: "1.19.3")),
-        .package(url: "https://github.com/Kamaalio/kamaal-auth", .upToNextMinor(from: "0.0.2")),
+        .package(url: "https://github.com/Kamaalio/kamaal-auth", .upToNextMinor(from: "0.0.6")),
         .package(path: "../TCGClient"),
         .package(path: "../TCGDesignSystem"),
         .package(path: "../TCGModels"),

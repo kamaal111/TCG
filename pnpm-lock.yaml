@@ -203,16 +203,13 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
-patchedDependencies:
-  '@hono/zod-openapi@1.5.2': 302c5a22091d23de10bd02188cae56291bf6e22381f80e5d326b1b5061ef3ed6
-
 importers:
 
   .:
     dependencies:
       '@better-auth/drizzle-adapter':
         specifier: 1.7.0-rc.1
-        version: 1.7.0-rc.1(@better-auth/core@1.7.0-rc.1(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.1)(better-call@1.3.7(zod@4.4.3))(jose@6.2.8)(kysely@0.29.5)(nanostores@1.4.2))(@better-auth/utils@0.4.2)(drizzle-orm@1.0.0-rc.4(@types/pg@8.21.0)(pg@8.23.0)(zod@4.4.3))
+        version: 1.7.0-rc.1(@better-auth/core@1.7.2(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.1)(better-call@1.3.7(zod@4.4.3))(jose@6.2.8)(kysely@0.29.5)(nanostores@1.4.2))(@better-auth/utils@0.4.2)(drizzle-orm@1.0.0-rc.4(@types/pg@8.21.0)(pg@8.23.0)(zod@4.4.3))
       '@hono/node-server':
         specifier: ^2.0.11
         version: 2.1.0(hono@4.13.1)
@@ -222,15 +219,15 @@ importers:
       '@hono/swagger-ui':
         specifier: ~0.6.1
         version: 0.6.1(hono@4.13.1)
-      '@hono/zod-openapi':
-        specifier: 1.5.2
-        version: 1.5.2(patch_hash=302c5a22091d23de10bd02188cae56291bf6e22381f80e5d326b1b5061ef3ed6)(hono@4.13.1)(zod@4.4.3)
+      '@kamaalio/hono-standard-openapi':
+        specifier: ^0.0.15
+        version: 0.0.15(@standard-schema/spec@1.1.0)(hono@4.13.1)
       '@kamaalio/kamaal':
         specifier: ~0.9.6
         version: 0.9.11
       '@kamaalio/kamaal-auth-hono':
-        specifier: ^0.0.4
-        version: 0.0.4(@asteasolutions/zod-to-openapi@8.5.0(zod@4.4.3))(@hono/zod-openapi@1.5.2(patch_hash=302c5a22091d23de10bd02188cae56291bf6e22381f80e5d326b1b5061ef3ed6)(hono@4.13.1)(zod@4.4.3))(hono@4.13.1)(jose@6.2.8)(zod@4.4.3)
+        specifier: ~0.0.6
+        version: 0.0.6(@kamaalio/hono-standard-openapi@0.0.15(@standard-schema/spec@1.1.0)(hono@4.13.1))(hono@4.13.1)(jose@6.2.8)
       better-auth:
         specifier: 1.7.0-rc.1
         version: 1.7.0-rc.1(drizzle-kit@1.0.0-rc.4)(drizzle-orm@1.0.0-rc.4(@types/pg@8.21.0)(pg@8.23.0)(zod@4.4.3))(pg@8.23.0)(vitest@4.1.10)
@@ -259,6 +256,9 @@ importers:
         specifier: ^4.4.3
         version: 4.4.3
     devDependencies:
+      '@standard-schema/spec':
+        specifier: ^1.1.0
+        version: 1.1.0
       '@types/node':
         specifier: ^26.1.1
         version: 26.2.0
@@ -303,11 +303,6 @@ importers:
         version: 4.1.10(@types/node@26.2.0)(@vitest/coverage-v8@4.1.10)(vite@8.2.1(@types/node@26.2.0)(jiti@2.7.0)(yaml@2.9.0))
 
 packages:
-
-  '@asteasolutions/zod-to-openapi@8.5.0':
-    resolution: {integrity: sha512-SABbKiObg5dLRiTFnqiW1WWwGcg1BJfmHtT2asIBnBHg6Smy/Ms2KHc650+JI4Hw7lSkdiNebEGXpwoxfben8Q==}
-    peerDependencies:
-      zod: ^4.0.0
 
   '@babel/code-frame@7.29.7':
     resolution: {integrity: sha512-Aup7aUOfpbAUg2ROOJN6Iw5f9DMBlzu0mIkm/malLQFN/YQgO48wCj0Kxa3sEHJvPVFg7siR+qRInwXd2qhQKw==}
@@ -480,6 +475,23 @@ packages:
       '@cloudflare/workers-types': '>=4'
       '@opentelemetry/api': ^1.9.0
       better-call: 1.3.7
+      jose: ^6.1.0
+      kysely: ^0.28.5 || ^0.29.0
+      nanostores: ^1.0.1
+    peerDependenciesMeta:
+      '@cloudflare/workers-types':
+        optional: true
+      '@opentelemetry/api':
+        optional: true
+
+  '@better-auth/core@1.7.2':
+    resolution: {integrity: sha512-j0nM4ygsWbF/fcYRoKtDn8gn8uLXkmC+075HqSqsJEAV828cJR9bvYBCUQ1zmxNyRBk6Iz/qXsA0Zm2oksiOTg==}
+    peerDependencies:
+      '@better-auth/utils': 0.4.2
+      '@better-fetch/fetch': 1.3.1
+      '@cloudflare/workers-types': '>=4'
+      '@opentelemetry/api': ^1.9.0
+      better-call: 1.4.0
       jose: ^6.1.0
       kysely: ^0.28.5 || ^0.29.0
       nanostores: ^1.0.1
@@ -777,6 +789,12 @@ packages:
     peerDependencies:
       hono: ^4
 
+  '@hono/standard-validator@0.4.0':
+    resolution: {integrity: sha512-MxOm1asDh9j7c1D0KiWwppSbFgAQxTRO4YEhjMrJn3lF1BIcXenPdgjSGKDRfQmZdaTaMA8slQLETgVOKyJxFw==}
+    peerDependencies:
+      '@standard-schema/spec': ^1.0.0
+      hono: '>=4.11.2'
+
   '@hono/structured-logger@1.0.0':
     resolution: {integrity: sha512-MozQvH7oFsi/Pc/0sK6ai7cYpDX81t4UnrxgOo/MslfC7lPFnRcvayVkY3g1Wi/cX6dFmtLhZoGALOfdvAIDgA==}
     engines: {node: '>=16.0.0'}
@@ -787,19 +805,6 @@ packages:
     resolution: {integrity: sha512-sJTvldu1GPeEPfyeLG7gRj+W4vEuD+JDi+JjJ3TJs/DvMUtBLs0KJO5yokGegWWdy5qrbdnQGekbhgNRmPmYKQ==}
     peerDependencies:
       hono: '>=4.0.0'
-
-  '@hono/zod-openapi@1.5.2':
-    resolution: {integrity: sha512-FPlspM6+qObGoMfux+0SSE0of0tGO+BVo3havhKzZMxRyz/ql89kuCd/7POd70aW3T4kz/aVL6gNZ6sVd0ItUQ==}
-    engines: {node: '>=16.0.0'}
-    peerDependencies:
-      hono: '>=4.10.0'
-      zod: ^4.0.0
-
-  '@hono/zod-validator@0.9.0':
-    resolution: {integrity: sha512-n0ZSXmCiHVIp4Y5wlOOyZCeTd/rsawA/qW1cipB8QOYKZ9N8Tk0nZUZCXho9cu374AN4JpDNKioNKBJ/W+LBug==}
-    peerDependencies:
-      hono: '>=4.11.2'
-      zod: ^3.25.0 || ^4.0.0
 
   '@humanfs/core@0.19.2':
     resolution: {integrity: sha512-UhXNm+CFMWcbChXywFwkmhqjs3PRCmcSa/hfBgLIb7oQ5HNb1wS0icWsGtSAUNgefHeI+eBrA8I1fxmbHsGdvA==}
@@ -841,21 +846,23 @@ packages:
     resolution: {integrity: sha512-hloP58zRVCRSpgDxmqCWJNlizAlUgJFqG2ypq79DCvyv9tHjRYMDOcPFjzfl/A1/YxDvRCZz8wvZvmapQnKwFQ==}
     engines: {node: '>=12'}
 
-  '@kamaalio/kamaal-auth-core@0.0.4':
-    resolution: {integrity: sha512-Q611+MMZk+bxApac+/6r7S5qoRhzjRS6MuyaFI7kHnKSyGyV10kRWe/8sADH+8nixTBBN/g4XbXOUKg0Xk8dYg==}
-    engines: {node: '>=24'}
+  '@kamaalio/hono-standard-openapi@0.0.15':
+    resolution: {integrity: sha512-BHeouc1UKkoVG2uTo8rRpeG+LOq4aqFEHrTxqxUyyZqBWJ8YSoN5ffD0/lkZ7EzBFeOSL2nVq0NNF5K9G8MFMQ==}
     peerDependencies:
-      '@asteasolutions/zod-to-openapi': ^8.5.0
-      jose: ^6.2.4
-      zod: ^4.4.3
+      hono: '>=4.10.0'
 
-  '@kamaalio/kamaal-auth-hono@0.0.4':
-    resolution: {integrity: sha512-uDFHEgHUNxb0XV5sZMMqG7S402d8yXt5so1ox2GwhKXMxG/uP3u6jhVn1dF0trBPvybiEXU8lOscNBGHGBtg5A==}
+  '@kamaalio/kamaal-auth-core@0.0.6':
+    resolution: {integrity: sha512-Cv00jMi6Z8jrAQ2KEukrPnDbBXmlt04UAr/HEpdr3WU/cEn3xCXPsgK6qhewlJ39Kr3nGl2l39AMk9WT/C/cIA==}
     engines: {node: '>=24'}
     peerDependencies:
-      '@hono/zod-openapi': ^1.5.1
+      jose: ^6.2.4
+
+  '@kamaalio/kamaal-auth-hono@0.0.6':
+    resolution: {integrity: sha512-1q2vyVg6XwZnPHR9S38f9BI+rmNMjtK2ecM/rTqaZL9WzIzaFmDXs43oHlCXRIVT4PSvZNt2mp2Q2s2sMswVHQ==}
+    engines: {node: '>=24'}
+    peerDependencies:
+      '@kamaalio/hono-standard-openapi': '>=0.0.12'
       hono: ^4.12.31
-      zod: ^4.4.3
 
   '@kamaalio/kamaal@0.9.11':
     resolution: {integrity: sha512-zTzGxaPEpaR+vh3D6ck7jHtmg+KAxJ+IjYWDmzcEbavAa28PUR5c/UvOh16WWWWHbBtWoj0XFRdDAtwW05SV7Q==}
@@ -3166,11 +3173,6 @@ packages:
 
 snapshots:
 
-  '@asteasolutions/zod-to-openapi@8.5.0(zod@4.4.3)':
-    dependencies:
-      openapi3-ts: 4.6.1
-      zod: 4.4.3
-
   '@babel/code-frame@7.29.7':
     dependencies:
       '@babel/helper-validator-identifier': 7.29.7
@@ -3412,9 +3414,28 @@ snapshots:
       nanostores: 1.4.2
       zod: 4.4.3
 
+  '@better-auth/core@1.7.2(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.1)(better-call@1.3.7(zod@4.4.3))(jose@6.2.8)(kysely@0.29.5)(nanostores@1.4.2)':
+    dependencies:
+      '@better-auth/utils': 0.4.2
+      '@better-fetch/fetch': 1.3.1
+      '@opentelemetry/semantic-conventions': 1.43.0
+      '@standard-schema/spec': 1.1.0
+      better-call: 1.3.7(zod@4.4.3)
+      jose: 6.2.8
+      kysely: 0.29.5
+      nanostores: 1.4.2
+      zod: 4.4.3
+
   '@better-auth/drizzle-adapter@1.7.0-rc.1(@better-auth/core@1.7.0-rc.1(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.1)(better-call@1.3.7(zod@4.4.3))(jose@6.2.8)(kysely@0.29.5)(nanostores@1.4.2))(@better-auth/utils@0.4.2)(drizzle-orm@1.0.0-rc.4(@types/pg@8.21.0)(pg@8.23.0)(zod@4.4.3))':
     dependencies:
       '@better-auth/core': 1.7.0-rc.1(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.1)(better-call@1.3.7(zod@4.4.3))(jose@6.2.8)(kysely@0.29.5)(nanostores@1.4.2)
+      '@better-auth/utils': 0.4.2
+    optionalDependencies:
+      drizzle-orm: 1.0.0-rc.4(@types/pg@8.21.0)(pg@8.23.0)(zod@4.4.3)
+
+  '@better-auth/drizzle-adapter@1.7.0-rc.1(@better-auth/core@1.7.2(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.1)(better-call@1.3.7(zod@4.4.3))(jose@6.2.8)(kysely@0.29.5)(nanostores@1.4.2))(@better-auth/utils@0.4.2)(drizzle-orm@1.0.0-rc.4(@types/pg@8.21.0)(pg@8.23.0)(zod@4.4.3))':
+    dependencies:
+      '@better-auth/core': 1.7.2(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.1)(better-call@1.3.7(zod@4.4.3))(jose@6.2.8)(kysely@0.29.5)(nanostores@1.4.2)
       '@better-auth/utils': 0.4.2
     optionalDependencies:
       drizzle-orm: 1.0.0-rc.4(@types/pg@8.21.0)(pg@8.23.0)(zod@4.4.3)
@@ -3610,6 +3631,11 @@ snapshots:
     dependencies:
       hono: 4.13.1
 
+  '@hono/standard-validator@0.4.0(@standard-schema/spec@1.1.0)(hono@4.13.1)':
+    dependencies:
+      '@standard-schema/spec': 1.1.0
+      hono: 4.13.1
+
   '@hono/structured-logger@1.0.0(hono@4.13.1)':
     dependencies:
       hono: 4.13.1
@@ -3617,19 +3643,6 @@ snapshots:
   '@hono/swagger-ui@0.6.1(hono@4.13.1)':
     dependencies:
       hono: 4.13.1
-
-  '@hono/zod-openapi@1.5.2(patch_hash=302c5a22091d23de10bd02188cae56291bf6e22381f80e5d326b1b5061ef3ed6)(hono@4.13.1)(zod@4.4.3)':
-    dependencies:
-      '@asteasolutions/zod-to-openapi': 8.5.0(zod@4.4.3)
-      '@hono/zod-validator': 0.9.0(hono@4.13.1)(zod@4.4.3)
-      hono: 4.13.1
-      openapi3-ts: 4.6.1
-      zod: 4.4.3
-
-  '@hono/zod-validator@0.9.0(hono@4.13.1)(zod@4.4.3)':
-    dependencies:
-      hono: 4.13.1
-      zod: 4.4.3
 
   '@humanfs/core@0.19.2':
     dependencies:
@@ -3670,20 +3683,25 @@ snapshots:
     dependencies:
       jsbi: 4.3.2
 
-  '@kamaalio/kamaal-auth-core@0.0.4(@asteasolutions/zod-to-openapi@8.5.0(zod@4.4.3))(jose@6.2.8)(zod@4.4.3)':
+  '@kamaalio/hono-standard-openapi@0.0.15(@standard-schema/spec@1.1.0)(hono@4.13.1)':
     dependencies:
-      '@asteasolutions/zod-to-openapi': 8.5.0(zod@4.4.3)
+      '@hono/standard-validator': 0.4.0(@standard-schema/spec@1.1.0)(hono@4.13.1)
+      hono: 4.13.1
+      openapi3-ts: 4.6.1
+    transitivePeerDependencies:
+      - '@standard-schema/spec'
+
+  '@kamaalio/kamaal-auth-core@0.0.6(jose@6.2.8)':
+    dependencies:
       jose: 6.2.8
       zod: 4.4.3
 
-  '@kamaalio/kamaal-auth-hono@0.0.4(@asteasolutions/zod-to-openapi@8.5.0(zod@4.4.3))(@hono/zod-openapi@1.5.2(patch_hash=302c5a22091d23de10bd02188cae56291bf6e22381f80e5d326b1b5061ef3ed6)(hono@4.13.1)(zod@4.4.3))(hono@4.13.1)(jose@6.2.8)(zod@4.4.3)':
+  '@kamaalio/kamaal-auth-hono@0.0.6(@kamaalio/hono-standard-openapi@0.0.15(@standard-schema/spec@1.1.0)(hono@4.13.1))(hono@4.13.1)(jose@6.2.8)':
     dependencies:
-      '@hono/zod-openapi': 1.5.2(patch_hash=302c5a22091d23de10bd02188cae56291bf6e22381f80e5d326b1b5061ef3ed6)(hono@4.13.1)(zod@4.4.3)
-      '@kamaalio/kamaal-auth-core': 0.0.4(@asteasolutions/zod-to-openapi@8.5.0(zod@4.4.3))(jose@6.2.8)(zod@4.4.3)
+      '@kamaalio/hono-standard-openapi': 0.0.15(@standard-schema/spec@1.1.0)(hono@4.13.1)
+      '@kamaalio/kamaal-auth-core': 0.0.6(jose@6.2.8)
       hono: 4.13.1
-      zod: 4.4.3
     transitivePeerDependencies:
-      - '@asteasolutions/zod-to-openapi'
       - jose
 
   '@kamaalio/kamaal@0.9.11': {}

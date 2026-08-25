@@ -1,4 +1,4 @@
-import { createRoute } from '@hono/zod-openapi';
+import { createRoute, type RouteConfigToTypedResponse } from '@kamaalio/hono-standard-openapi';
 
 import { requireSessionMiddleware } from '../../auth/module.ts';
 import { STATUS_CODES } from '../../constants/http.ts';
@@ -7,6 +7,8 @@ import { ErrorResponseSchema, ValidationErrorResponseSchema } from '../../schema
 import { PRICING_OPENAPI_TAG } from '../constants.ts';
 import { PricingSearchQuerySchema } from '../schemas/params.ts';
 import { PricingSearchResponseSchema } from '../schemas/responses.ts';
+
+export type SearchPricingRouteResponse = RouteConfigToTypedResponse<typeof searchPricingRoute>;
 
 const searchPricingRoute = createRoute({
   method: 'get',

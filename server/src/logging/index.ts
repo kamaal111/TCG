@@ -4,13 +4,13 @@ import type { AuthLogFields } from '@kamaalio/kamaal-auth-hono';
 import type { DestinationStream, LevelWithSilent, Logger, LoggerOptions } from 'pino';
 import pino from 'pino';
 
+import type { RequestLogFields } from './request.ts';
+import type { ServerLogFields } from './server.ts';
 import type { PricingLogFields } from '../card-pricing/logging.ts';
 import type { CardsLogFields } from '../cards/logging.ts';
 import type { ServerMode } from '../constants/common.ts';
 import type { HonoContext } from '../context.ts';
 import env from '../env.ts';
-import type { RequestLogFields } from './request.ts';
-import type { ServerLogFields } from './server.ts';
 
 const SERVICE_NAME = 'tcg-server';
 

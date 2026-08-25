@@ -1,32 +1,34 @@
-import { z } from '@hono/zod-openapi';
+import { z } from 'zod';
 
 export const ErrorResponseSchema = z
   .object({
-    message: z.string().openapi({ description: 'Error message' }),
-    code: z.string().optional().openapi({ description: 'Error code' }),
+    message: z.string().meta({ description: 'Error message' }),
+    code: z.string().optional().meta({ description: 'Error code' }),
   })
-  .openapi('ErrorResponse', {
+  .meta({
+    $id: 'ErrorResponse',
     title: 'Error Response',
     description: 'Error response containing error message and optional error code',
   });
 
 export const CardNotFoundErrorResponseSchema = z
   .object({
-    message: z.string().openapi({ description: 'Error message' }),
-    code: z.literal('CARD_NOT_FOUND').openapi({ description: 'Error code' }),
+    message: z.string().meta({ description: 'Error message' }),
+    code: z.literal('CARD_NOT_FOUND').meta({ description: 'Error code' }),
   })
-  .openapi('CardNotFoundErrorResponse', {
+  .meta({
+    $id: 'CardNotFoundErrorResponse',
     title: 'Card Not Found Error Response',
     description: 'Error response for a missing or inaccessible owned card entry',
   });
 
 const ValidationIssueSchema = z
   .object({
-    code: z.string().openapi({ description: 'Validation issue code', example: 'too_small' }),
+    code: z.string().meta({ description: 'Validation issue code', example: 'too_small' }),
     path: z
       .array(z.union([z.string(), z.number()]))
-      .openapi({ description: 'Path to the invalid field', example: ['amount'] }),
-    message: z.string().openapi({
+      .meta({ description: 'Path to the invalid field', example: ['amount'] }),
+    message: z.string().meta({
       description: 'Validation issue message',
       example: 'Number must be greater than 0',
     }),
@@ -35,17 +37,18 @@ const ValidationIssueSchema = z
 
 export const ValidationErrorResponseSchema = z
   .object({
-    message: z.string().openapi({ description: 'Error message' }),
-    code: z.string().optional().openapi({ description: 'Error code' }),
+    message: z.string().meta({ description: 'Error message' }),
+    code: z.string().optional().meta({ description: 'Error code' }),
     context: z
       .object({
-        validations: z.array(ValidationIssueSchema).openapi({
+        validations: z.array(ValidationIssueSchema).meta({
           description: 'Per-field validation issues',
         }),
       })
       .optional(),
   })
-  .openapi('ValidationErrorResponse', {
+  .meta({
+    $id: 'ValidationErrorResponse',
     title: 'Validation Error Response',
     description: 'Error response for invalid request payloads, optionally including field-level validation issues',
   });

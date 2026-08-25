@@ -11,6 +11,15 @@
       }
     },
     {
+      "identity" : "kamaal-auth",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/Kamaalio/kamaal-auth",
+      "state" : {
+        "revision" : "01473a6ae3ecf8e368e55a0ab2473a2b60a01d49",
+        "version" : "0.0.7"
+      }
+    },
+    {
       "identity" : "kamaalswift",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/Kamaalio/KamaalSwift",

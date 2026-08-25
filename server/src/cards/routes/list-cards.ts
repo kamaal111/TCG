@@ -1,4 +1,4 @@
-import { createRoute } from '@hono/zod-openapi';
+import { createRoute, type RouteConfigToTypedResponse } from '@kamaalio/hono-standard-openapi';
 
 import { requireSessionMiddleware } from '../../auth/module.ts';
 import { STATUS_CODES } from '../../constants/http.ts';
@@ -9,6 +9,8 @@ import { CardsListQuerySchema } from '../schemas/params.ts';
 import { CardsListResponseSchema } from '../schemas/responses.ts';
 
 const LIST_CARDS_PATH = '/';
+
+export type ListCardsRouteResponse = RouteConfigToTypedResponse<typeof listCardsRoute>;
 
 const listCardsRoute = createRoute({
   method: 'get',
