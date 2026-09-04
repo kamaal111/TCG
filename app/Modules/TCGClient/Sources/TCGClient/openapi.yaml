@@ -563,9 +563,9 @@ components:
                   path:
                     type: array
                     items:
-                      anyOf:
-                        - type: string
-                        - type: number
+                      type:
+                        - string
+                        - number
                     description: Path to the invalid field
                     example:
                       - amount
