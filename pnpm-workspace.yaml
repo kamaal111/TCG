@@ -1,4 +1,2 @@
 allowBuilds:
   esbuild: true
-minimumReleaseAgeExclude:
-  - '@kamaalio/hono-standard-openapi@0.0.15'
