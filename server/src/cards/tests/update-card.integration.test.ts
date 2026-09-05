@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm';
 
 import { createCardRequest, sessionHeaders, validCardPayload } from './utils.ts';
-import { STATUS_CODES } from '../../constants/http.ts';
+import { CONTENTFUL_STATUS_CODES } from '../../constants/http.ts';
 import { cardConditionQuantity } from '../../db/schema/cards.ts';
 import { expectErrorResponse, expectValidationIssueForField } from '../../tests/auth.ts';
 import { integrationTest } from '../../tests/fixtures.ts';
@@ -11,7 +11,7 @@ import { CardSchema, CardWithPriceSchema } from '../schemas/responses.ts';
 describe('Update card integration', () => {
   integrationTest('requires a session and hides missing cards', async ({ app, db }) => {
     const response = await app.request('/app-api/cards/missing', { method: 'PUT' });
-    expect(await expectErrorResponse(response, STATUS_CODES.UNAUTHORIZED)).toMatchObject({
+    expect(await expectErrorResponse(response, CONTENTFUL_STATUS_CODES.UNAUTHORIZED)).toMatchObject({
       code: 'SESSION_NOT_FOUND',
     });
 
@@ -22,7 +22,9 @@ describe('Update card integration', () => {
       '00000000-0000-0000-0000-000000000000',
       validCardPayload,
     );
-    expect(await expectErrorResponse(missing, STATUS_CODES.NOT_FOUND)).toMatchObject({ code: 'CARD_NOT_FOUND' });
+    expect(await expectErrorResponse(missing, CONTENTFUL_STATUS_CODES.NOT_FOUND)).toMatchObject({
+      code: 'CARD_NOT_FOUND',
+    });
   });
 
   integrationTest(
@@ -39,7 +41,9 @@ describe('Update card integration', () => {
         headers,
         body: JSON.stringify({ ...validCardPayload, name: 'Stolen' }),
       });
-      expect(await expectErrorResponse(response, STATUS_CODES.NOT_FOUND)).toMatchObject({ code: 'CARD_NOT_FOUND' });
+      expect(await expectErrorResponse(response, CONTENTFUL_STATUS_CODES.NOT_FOUND)).toMatchObject({
+        code: 'CARD_NOT_FOUND',
+      });
       expect(await db.query.card.findFirst({ where: { id: original.id } })).toMatchObject({ name: original.name });
       expect(getLogsForRequestId(requestId)).toEqual(
         expect.arrayContaining([

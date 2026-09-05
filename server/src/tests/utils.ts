@@ -6,7 +6,7 @@ import type { Hono } from 'hono';
 import { Client, Pool } from 'pg';
 
 import { SIGN_UP_ROUTE_PATH } from '../auth/constants.ts';
-import { STATUS_CODES } from '../constants/http.ts';
+import { CONTENTFUL_STATUS_CODES } from '../constants/http.ts';
 import { MIME_TYPES } from '../constants/request.ts';
 import type { HonoEnvironment } from '../context.ts';
 import type { Database } from '../db/index.ts';
@@ -74,7 +74,7 @@ export async function createTestUser(
       name,
     }),
   });
-  if (response.status !== STATUS_CODES.CREATED) {
+  if (response.status !== CONTENTFUL_STATUS_CODES.CREATED) {
     throw new Error(`Failed to create test user: HTTP ${response.status} ${await response.text()}`);
   }
 

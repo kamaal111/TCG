@@ -3,7 +3,7 @@ import { betterAuth } from 'better-auth';
 import { bearer, jwt } from 'better-auth/plugins';
 
 import { BETTER_AUTH_BASE_PATH } from './constants.ts';
-import { ONE_DAY_IN_SECONDS } from '../constants/common.ts';
+import { ONE_DAY_IN_SECONDS } from '../constants/time.ts';
 import db, { type Database } from '../db/index.ts';
 import * as schema from '../db/schema/index.ts';
 import env from '../env.ts';

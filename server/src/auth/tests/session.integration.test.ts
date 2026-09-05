@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { SessionResponseSchema } from '@kamaalio/kamaal-auth-hono';
 import type { Hono } from 'hono';
 
-import { STATUS_CODES } from '../../constants/http.ts';
+import { CONTENTFUL_STATUS_CODES } from '../../constants/http.ts';
 import { MIME_TYPES } from '../../constants/request.ts';
 import type { HonoEnvironment } from '../../context.ts';
 import { expectAuthSuccessResponse, expectErrorResponse } from '../../tests/auth.ts';
@@ -24,7 +24,7 @@ describe('Session integration', () => {
 
       const response = await sendSessionRequest(app, headers);
 
-      expect(response.status).toBe(STATUS_CODES.OK);
+      expect(response.status).toBe(CONTENTFUL_STATUS_CODES.OK);
       const body = SessionResponseSchema.parse(await response.json());
       const persistedUser = await db.query.user.findFirst({
         where: { id: createdUser.userId },
@@ -73,7 +73,7 @@ describe('Session integration', () => {
           password: createdUser.password,
         }),
       });
-      const { headers } = await expectAuthSuccessResponse(signInResponse, STATUS_CODES.OK);
+      const { headers } = await expectAuthSuccessResponse(signInResponse, CONTENTFUL_STATUS_CODES.OK);
 
       const { headers: requestHeaders, requestId } = withRequestId({
         Authorization: `Bearer ${headers['set-auth-token']}`,
@@ -81,7 +81,7 @@ describe('Session integration', () => {
       });
       const response = await sendSessionRequest(app, requestHeaders);
 
-      expect(response.status).toBe(STATUS_CODES.OK);
+      expect(response.status).toBe(CONTENTFUL_STATUS_CODES.OK);
       const body = SessionResponseSchema.parse(await response.json());
       const persistedSessions = await db.query.session.findMany({
         where: { userId: createdUser.userId },
@@ -122,7 +122,7 @@ describe('Session integration', () => {
       const { headers, requestId } = withRequestId();
       const response = await sendSessionRequest(app, headers);
 
-      const body = await expectErrorResponse(response, STATUS_CODES.UNAUTHORIZED);
+      const body = await expectErrorResponse(response, CONTENTFUL_STATUS_CODES.UNAUTHORIZED);
 
       expect(body).toEqual({
         message: 'Unauthorized',

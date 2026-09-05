@@ -3,7 +3,7 @@ import { Client } from 'pg';
 
 import { createCardRequest, sessionHeaders, validCardPayload } from './utils.ts';
 import { todayUTC } from '../../card-pricing/utils/query.ts';
-import { STATUS_CODES } from '../../constants/http.ts';
+import { CONTENTFUL_STATUS_CODES } from '../../constants/http.ts';
 import { card } from '../../db/schema/cards.ts';
 import { expectErrorResponse } from '../../tests/auth.ts';
 import { integrationTest } from '../../tests/fixtures.ts';
@@ -15,7 +15,7 @@ import { CardsListResponseSchema } from '../schemas/responses.ts';
 describe('List cards integration', () => {
   integrationTest('requires an authenticated session', async ({ app }) => {
     const response = await app.request(LIST_CARDS_ROUTE_PATH);
-    expect(await expectErrorResponse(response, STATUS_CODES.UNAUTHORIZED)).toMatchObject({
+    expect(await expectErrorResponse(response, CONTENTFUL_STATUS_CODES.UNAUTHORIZED)).toMatchObject({
       code: 'SESSION_NOT_FOUND',
     });
   });
@@ -23,7 +23,7 @@ describe('List cards integration', () => {
   integrationTest('returns an empty collection for a fresh user', async ({ app, db }) => {
     const user = await createTestUser(app, db);
     const response = await app.request(LIST_CARDS_ROUTE_PATH, { headers: sessionHeaders(user.sessionToken) });
-    expect(response.status).toBe(STATUS_CODES.OK);
+    expect(response.status).toBe(CONTENTFUL_STATUS_CODES.OK);
     expect(CardsListResponseSchema.parse(await response.json())).toEqual({ cards: [] });
   });
 
@@ -75,7 +75,7 @@ describe('List cards integration', () => {
       headers: sessionHeaders(owner.sessionToken),
     });
 
-    expect(response.status).toBe(STATUS_CODES.OK);
+    expect(response.status).toBe(CONTENTFUL_STATUS_CODES.OK);
     const body = CardsListResponseSchema.parse(await response.json());
     expect(body.cards.map(card => card.id)).toEqual([onePiece.id]);
     expect(body.cards[0]?.price.card_id).toBe(onePiece.id);
@@ -100,7 +100,7 @@ describe('List cards integration', () => {
         const response = await app.request(LIST_CARDS_ROUTE_PATH, { headers: sessionHeaders(user.sessionToken) });
         const body = CardsListResponseSchema.parse(await response.json());
 
-        expect(response.status).toBe(STATUS_CODES.OK);
+        expect(response.status).toBe(CONTENTFUL_STATUS_CODES.OK);
         expect(body.cards).toEqual([
           expect.objectContaining({ id: created.id, price: { card_id: created.id, status: 'unavailable' } }),
         ]);

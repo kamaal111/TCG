@@ -9,6 +9,7 @@
     "typecheck": "tsc"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "workspace:*",
     "@better-auth/drizzle-adapter": "workspace:*",
     "@hono/node-server": "workspace:*",
     "@hono/structured-logger": "workspace:*",
@@ -28,6 +29,7 @@
     "zod": "workspace:*"
   },
   "devDependencies": {
+    "@testcontainers/minio": "workspace:*",
     "@types/node": "workspace:*",
     "@types/pg": "workspace:*",
     "@vitest/coverage-v8": "workspace:*",

@@ -1,6 +1,6 @@
 import { AuthResponseSchema, TokenHeaders } from '@kamaalio/kamaal-auth-hono';
 
-import { STATUS_CODES } from '../constants/http.ts';
+import { CONTENTFUL_STATUS_CODES } from '../constants/http.ts';
 import { ErrorResponseSchema, ValidationErrorResponseSchema } from '../schemas/errors.ts';
 
 export async function expectAuthSuccessResponse(response: Response, status: number) {
@@ -28,7 +28,7 @@ export async function expectValidationIssueForField(response: Response, fieldNam
 }
 
 export async function expectValidationIssueForFields(response: Response, fieldNames: string[]) {
-  expect(response.status).toBe(STATUS_CODES.BAD_REQUEST);
+  expect(response.status).toBe(CONTENTFUL_STATUS_CODES.BAD_REQUEST);
 
   const body = ValidationErrorResponseSchema.parse(await response.json());
   expect(body.message).toBe('Invalid payload');

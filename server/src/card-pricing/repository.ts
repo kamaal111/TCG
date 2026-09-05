@@ -55,7 +55,7 @@ export class CardPricingRepository {
    * @returns The operation's result.
    */
   async withPricingLock<T>(lock: PricingLock, operation: () => Promise<T>): Promise<T> {
-    let lockStartedAt: number | undefined;
+    let lockStartedAt: number | undefined = undefined;
     let lockWaitMs = 0;
     let acquired = false;
 

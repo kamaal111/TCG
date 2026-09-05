@@ -1,6 +1,6 @@
 import { err, ok } from 'neverthrow';
 
-import { STATUS_CODES } from '../../constants/http.ts';
+import { CONTENTFUL_STATUS_CODES } from '../../constants/http.ts';
 import env from '../../env.ts';
 import {
   type PricingClient,
@@ -95,7 +95,7 @@ export class RealScrydexClient implements PricingClient {
     const responseResult = await this.request(url, headers.value);
     if (responseResult.isErr()) return err(responseResult.error);
     const response = responseResult.value;
-    if (response.status === STATUS_CODES.NOT_FOUND) return ok(null);
+    if (response.status === CONTENTFUL_STATUS_CODES.NOT_FOUND) return ok(null);
     if (!response.ok) return err(this.httpError('card lookup', response.status));
 
     const bodyResult = await this.readJSON(response, 'card lookup');
