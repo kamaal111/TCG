@@ -74,7 +74,7 @@ function normalizeMovement(
 ): PriceMovement | undefined {
   const priceChange = finiteNumber(raw?.price_change);
   const percentChange = finiteNumber(raw?.percent_change);
-  return priceChange == null || percentChange == null ? undefined : { priceChange, percentChange };
+  return priceChange != null && percentChange != null ? { priceChange, percentChange } : undefined;
 }
 
 function normalizeCurrency(value: unknown): Currency | undefined {

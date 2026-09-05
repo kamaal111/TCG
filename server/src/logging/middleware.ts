@@ -5,7 +5,7 @@ import { routePath } from 'hono/route';
 
 import { type RequestLogger, createRequestLogger } from './index.ts';
 import { type RequestLogFields, requestLogger } from './request.ts';
-import { STATUS_CODES } from '../constants/http.ts';
+import { CONTENTFUL_STATUS_CODES } from '../constants/http.ts';
 import type { HonoContext, HonoEnvironment } from '../context.ts';
 import env from '../env.ts';
 import { APIException, InvalidValidation } from '../exceptions/index.ts';
@@ -28,7 +28,7 @@ function loggingMiddleware() {
           route: getRouteForLog(c),
           status_code: c.res.status,
           duration_ms: roundDurationMs(elapsedMs),
-          outcome: c.res.status >= STATUS_CODES.BAD_REQUEST ? 'failure' : 'success',
+          outcome: c.res.status >= CONTENTFUL_STATUS_CODES.BAD_REQUEST ? 'failure' : 'success',
         },
         'Completed HTTP request.',
       );

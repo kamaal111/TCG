@@ -87,7 +87,8 @@ export const PricedCardSchema = z
     rarity: z.string().optional().meta({ description: 'Card rarity when provided', example: 'Secret Rare' }),
     image_url: z.url().optional().meta({
       description: 'Card image URL when provided',
-      example: 'https://images.example.com/giratina-vstar-gg69.png',
+      example:
+        'https://api.example.com/app-api/images/388ea8083139de09f6374e248a853ecc948fe558f745a9262531eab57e52d11d',
     }),
     headline: PriceHeadlineSchema.optional(),
     market: MarketPriceSchema.optional(),

@@ -3,6 +3,8 @@
 //  TCGClient
 //
 
+import Foundation
+
 enum PricedCardMapper {
     static func makeOwnedPrice(_ apiPrice: Components.Schemas.OwnedCardPrice) -> OwnedCardPrice {
         OwnedCardPrice(
@@ -19,7 +21,7 @@ enum PricedCardMapper {
             name: card.name,
             cardNumber: card.cardNumber,
             rarity: card.rarity,
-            imageURL: card.imageUrl,
+            imageURL: card.imageUrl.flatMap(URL.init(string:)),
             headline: card.headline.map {
                 PriceHeadline(
                     amount: $0.amount, currency: makeCurrency($0.currency), metric: makeMetric($0.metric))

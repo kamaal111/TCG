@@ -1,0 +1,1 @@
+CREATE INDEX "card_image_fetching_lease_idx" ON "card_image" ("lease_expires_at") WHERE "status" = 'fetching';

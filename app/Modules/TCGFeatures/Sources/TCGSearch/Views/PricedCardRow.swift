@@ -5,12 +5,14 @@
 
 import SwiftUI
 import TCGClient
+import TCGDesignSystem
 
 struct PricedCardRow: View {
     let card: PricedCard
 
     var body: some View {
         HStack(alignment: .top, spacing: 16) {
+            CardImageView(url: card.imageURL)
             VStack(alignment: .leading, spacing: 5) {
                 Text(card.name).font(.headline)
                 Text("\(card.rarity ?? card.game.title) • \(card.cardNumber)")

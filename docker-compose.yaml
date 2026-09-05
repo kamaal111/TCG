@@ -18,6 +18,44 @@ services:
       retries: 3
       start_period: 40s
 
+  minio:
+    image: minio/minio:RELEASE.2025-09-07T16-13-09Z
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${TCG_STORAGE_ROOT_USER:-tcg_storage_user}
+      MINIO_ROOT_PASSWORD: ${TCG_STORAGE_ROOT_PASSWORD:-tcg_storage_password}
+    ports:
+      - '${TCG_STORAGE_PORT:-9000}:9000'
+      - '${TCG_STORAGE_CONSOLE_PORT:-9001}:9001'
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ['CMD', 'mc', 'ready', 'local']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  minio-init:
+    image: minio/mc:RELEASE.2025-08-13T08-35-41Z
+    profiles: ['tools']
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      TCG_STORAGE_ROOT_USER: ${TCG_STORAGE_ROOT_USER:-tcg_storage_user}
+      TCG_STORAGE_ROOT_PASSWORD: ${TCG_STORAGE_ROOT_PASSWORD:-tcg_storage_password}
+      OBJECT_STORAGE_BUCKET: ${OBJECT_STORAGE_BUCKET:-tcg-card-images}
+    entrypoint: ['/bin/sh', '-c']
+    command:
+      - >-
+        mc alias set local http://minio:9000 "$${TCG_STORAGE_ROOT_USER}" "$${TCG_STORAGE_ROOT_PASSWORD}" &&
+        mc mb --ignore-existing "local/$${OBJECT_STORAGE_BUCKET}" &&
+        mc anonymous set none "local/$${OBJECT_STORAGE_BUCKET}"
+
 volumes:
   postgres_data:
+    driver: local
+  minio_data:
     driver: local

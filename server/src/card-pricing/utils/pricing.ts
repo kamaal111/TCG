@@ -1,3 +1,4 @@
+import { proxyURLForOriginURL } from '../../card-images/keys.ts';
 import { toISO8601String } from '../../utils/strings.ts';
 import type { CardPriceRow } from '../repository.ts';
 import { PRICE_HEADLINE_METRICS, type PricedCardResponse, PricedCardSchema } from '../schemas/responses.ts';
@@ -12,19 +13,19 @@ export function serializePricedCard(game: CardGame, row: CardPriceRow): PricedCa
           low: row.prices.market.low,
           market: row.prices.market.market,
           trend_7d:
-            row.prices.market.trend7d == null
-              ? undefined
-              : {
+            row.prices.market.trend7d != null
+              ? {
                   price_change: row.prices.market.trend7d.priceChange,
                   percent_change: row.prices.market.trend7d.percentChange,
-                },
+                }
+              : undefined,
           trend_30d:
-            row.prices.market.trend30d == null
-              ? undefined
-              : {
+            row.prices.market.trend30d != null
+              ? {
                   price_change: row.prices.market.trend30d.priceChange,
                   percent_change: row.prices.market.trend30d.percentChange,
-                },
+                }
+              : undefined,
         }
       : undefined;
   const headline =
@@ -35,6 +36,7 @@ export function serializePricedCard(game: CardGame, row: CardPriceRow): PricedCa
           metric: PRICE_HEADLINE_METRICS.LOWEST_NEAR_MINT,
         }
       : undefined;
+  const imageUrl = row.prices.image != null ? proxyURLForOriginURL(row.prices.image) : undefined;
 
   return PricedCardSchema.parse({
     id: row.id,
@@ -42,7 +44,7 @@ export function serializePricedCard(game: CardGame, row: CardPriceRow): PricedCa
     name: row.name,
     card_number: row.cardNumber,
     rarity: row.prices.rarity,
-    image_url: row.prices.image,
+    image_url: imageUrl,
     headline,
     market,
     priced_on: `${row.pricedOn}T00:00:00.000Z`,

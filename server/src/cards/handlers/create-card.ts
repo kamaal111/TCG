@@ -1,5 +1,5 @@
 import { APP_API_ROUTE_NAME } from '../../constants/common.ts';
-import { STATUS_CODES } from '../../constants/http.ts';
+import { CONTENTFUL_STATUS_CODES } from '../../constants/http.ts';
 import type { HonoContext } from '../../context.ts';
 import { CARDS_ROUTE_NAME } from '../constants.ts';
 import { cardsLogger } from '../logging.ts';
@@ -21,7 +21,7 @@ async function createCardHandler(c: CreateCardContext): Promise<CreateCardRouteR
     'Added an owned card to the collection.',
   );
 
-  return c.json(response, { status: STATUS_CODES.CREATED });
+  return c.json(response, { status: CONTENTFUL_STATUS_CODES.CREATED });
 }
 
 export default createCardHandler;

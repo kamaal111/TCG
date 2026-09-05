@@ -4,7 +4,7 @@ import { every } from 'hono/combine';
 
 import { BETTER_AUTH_BASE_PATH, JWKS_URL } from './constants.ts';
 import { type AuthLocals, authHooks } from './hooks.ts';
-import { ONE_DAY_IN_SECONDS } from '../constants/common.ts';
+import { ONE_DAY_IN_SECONDS } from '../constants/time.ts';
 import type { HonoContext } from '../context.ts';
 import env from '../env.ts';
 import { openAPIRouterFactory } from '../open-api.ts';

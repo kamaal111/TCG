@@ -161,7 +161,7 @@ function makeRecord(game: CardGame, value: unknown): PricingCardRecord | null {
   const parsed = ScrydexRawCardSchema.safeParse(value);
   if (!parsed.success) return null;
   const normalized = normalizeScrydexCard(game, parsed.data);
-  return normalized == null ? null : { card: normalized.card, raw: parsed.data };
+  return normalized != null ? { card: normalized.card, raw: parsed.data } : null;
 }
 
 function makeSyntheticCard(game: CardGame, query: string): ScrydexRawCard {
