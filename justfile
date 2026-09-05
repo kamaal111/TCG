@@ -237,7 +237,7 @@ bootstrap: prepare
 prepare: install-modules
 
 # Prepare server
-prepare-server: install-js-modules
+@prepare-server: install-js-modules
 
 # Install all modules
 install-modules: install-js-modules
