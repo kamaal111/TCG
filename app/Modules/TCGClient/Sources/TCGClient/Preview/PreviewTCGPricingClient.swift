@@ -34,6 +34,7 @@ struct PreviewTCGPricingClient: TCGPricingClient {
             name: "Marshall.D.Teach",
             cardNumber: "OP09-093",
             rarity: "Manga Rare",
+            imageURL: URL(string: "https://example.com/cards/marshall-d-teach.png"),
             headline: .init(amount: 8.75, currency: .usd),
             market: .init(
                 currency: .usd,
@@ -51,6 +52,7 @@ struct PreviewTCGPricingClient: TCGPricingClient {
             name: "Giratina VSTAR",
             cardNumber: "GG69",
             rarity: "Secret Rare",
+            imageURL: URL(string: "https://example.com/cards/giratina-vstar.png"),
             headline: .init(amount: 146.69, currency: .usd),
             market: .init(
                 currency: .usd,

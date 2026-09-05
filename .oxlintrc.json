@@ -1,7 +1,10 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
   "plugins": ["typescript", "unicorn", "oxc"],
-  "jsPlugins": [{ "name": "import-js", "specifier": "eslint-plugin-import" }],
+  "jsPlugins": [
+    { "name": "import-js", "specifier": "eslint-plugin-import" },
+    "./oxlint-plugins/consistent-inline-type-imports.ts"
+  ],
   "options": {
     "typeAware": true
   },
@@ -12,6 +15,8 @@
     "typescript/no-deprecated": "error",
     "typescript/consistent-type-imports": "error",
     "typescript/no-non-null-assertion": "error",
+    "init-declarations": ["error", "always"],
+    "local/no-all-inline-type-imports": "error",
     "import-js/order": [
       "error",
       {

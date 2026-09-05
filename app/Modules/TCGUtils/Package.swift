@@ -5,7 +5,7 @@ import PackageDescription
 
 let package = Package(
     name: "TCGUtils",
-    platforms: [.macOS(.v14), .iOS(.v17)],
+    platforms: [.macOS(.v15), .iOS(.v18)],
     products: [
         .library(name: "TCGUtils", targets: ["TCGUtils"])
     ],

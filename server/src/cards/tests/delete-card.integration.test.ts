@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm';
 
 import { createCardRequest, sessionHeaders, validCardPayload } from './utils.ts';
-import { STATUS_CODES } from '../../constants/http.ts';
+import { CONTENTFUL_STATUS_CODES } from '../../constants/http.ts';
 import { cardConditionQuantity } from '../../db/schema/cards.ts';
 import { expectErrorResponse } from '../../tests/auth.ts';
 import { integrationTest } from '../../tests/fixtures.ts';
@@ -11,7 +11,7 @@ import { CardSchema } from '../schemas/responses.ts';
 describe('Delete card integration', () => {
   integrationTest('requires a session and hides missing cards', async ({ app, db }) => {
     const unauthenticated = await app.request('/app-api/cards/missing', { method: 'DELETE' });
-    expect(await expectErrorResponse(unauthenticated, STATUS_CODES.UNAUTHORIZED)).toMatchObject({
+    expect(await expectErrorResponse(unauthenticated, CONTENTFUL_STATUS_CODES.UNAUTHORIZED)).toMatchObject({
       code: 'SESSION_NOT_FOUND',
     });
     const user = await createTestUser(app, db);
@@ -19,7 +19,9 @@ describe('Delete card integration', () => {
       method: 'DELETE',
       headers: sessionHeaders(user.sessionToken),
     });
-    expect(await expectErrorResponse(missing, STATUS_CODES.NOT_FOUND)).toMatchObject({ code: 'CARD_NOT_FOUND' });
+    expect(await expectErrorResponse(missing, CONTENTFUL_STATUS_CODES.NOT_FOUND)).toMatchObject({
+      code: 'CARD_NOT_FOUND',
+    });
   });
 
   integrationTest(
@@ -32,7 +34,9 @@ describe('Delete card integration', () => {
         Object.fromEntries(sessionHeaders(otherUser.sessionToken).entries()),
       );
       const response = await app.request(`/app-api/cards/${card.id}`, { method: 'DELETE', headers });
-      expect(await expectErrorResponse(response, STATUS_CODES.NOT_FOUND)).toMatchObject({ code: 'CARD_NOT_FOUND' });
+      expect(await expectErrorResponse(response, CONTENTFUL_STATUS_CODES.NOT_FOUND)).toMatchObject({
+        code: 'CARD_NOT_FOUND',
+      });
       expect(await db.query.card.findFirst({ where: { id: card.id } })).toBeDefined();
       expect(getLogsForRequestId(requestId)).toEqual(
         expect.arrayContaining([
@@ -53,7 +57,7 @@ describe('Delete card integration', () => {
       const { headers, requestId } = withRequestId(Object.fromEntries(sessionHeaders(user.sessionToken).entries()));
       const response = await app.request(`/app-api/cards/${target.id}`, { method: 'DELETE', headers });
 
-      expect(response.status).toBe(STATUS_CODES.OK);
+      expect(response.status).toBe(CONTENTFUL_STATUS_CODES.OK);
       expect(await response.json()).toEqual({});
       expect(await db.query.card.findFirst({ where: { id: target.id } })).toBeUndefined();
       expect(await db.select().from(cardConditionQuantity).where(eq(cardConditionQuantity.cardId, target.id))).toEqual(

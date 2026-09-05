@@ -4,7 +4,7 @@ import type { Env, Schema } from 'hono/types';
 import * as yaml from 'js-yaml';
 import { z } from 'zod';
 
-import { STATUS_CODES } from './constants/http.ts';
+import { CONTENTFUL_STATUS_CODES } from './constants/http.ts';
 import { MIME_TYPES } from './constants/request.ts';
 import type { HonoEnvironment } from './context.ts';
 import env from './env.ts';
@@ -64,7 +64,7 @@ export function withOpenAPIDocumentation<E extends Env = Env, S extends Schema =
     app
       .get(OPENAPI_JSON_SPEC_PATH, c => c.json(buildSpecification(app)))
       .get(OPENAPI_YAML_SPEC_PATH, c =>
-        c.text(yaml.dump(buildSpecification(app), YAML_OPTIONS), STATUS_CODES.OK, {
+        c.text(yaml.dump(buildSpecification(app), YAML_OPTIONS), CONTENTFUL_STATUS_CODES.OK, {
           'Content-Type': MIME_TYPES.YAML,
         }),
       ),

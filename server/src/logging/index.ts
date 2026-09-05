@@ -6,6 +6,7 @@ import pino from 'pino';
 
 import type { RequestLogFields } from './request.ts';
 import type { ServerLogFields } from './server.ts';
+import type { ImagesLogFields } from '../card-images/logging.ts';
 import type { PricingLogFields } from '../card-pricing/logging.ts';
 import type { CardsLogFields } from '../cards/logging.ts';
 import type { ServerMode } from '../constants/common.ts';
@@ -32,7 +33,13 @@ interface RequestLoggerBindings {
   user_id: string;
 }
 
-type AnyLogFields = AuthLogFields | CardsLogFields | PricingLogFields | RequestLogFields | ServerLogFields;
+type AnyLogFields =
+  | AuthLogFields
+  | CardsLogFields
+  | ImagesLogFields
+  | PricingLogFields
+  | RequestLogFields
+  | ServerLogFields;
 
 export interface RequestLogger {
   info(fields: AnyLogFields, message: string): void;

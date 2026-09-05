@@ -5,7 +5,7 @@ import type { Hono } from 'hono';
 import { decodeJwt } from 'jose';
 
 import { ONE_DAY_IN_SECONDS } from '../../constants/common.ts';
-import { STATUS_CODES } from '../../constants/http.ts';
+import { CONTENTFUL_STATUS_CODES } from '../../constants/http.ts';
 import { MIME_TYPES } from '../../constants/request.ts';
 import type { HonoEnvironment } from '../../context.ts';
 import env from '../../env.ts';
@@ -29,7 +29,10 @@ describe('Sign-up integration', () => {
       const { headers, requestId } = withRequestId({ 'Content-Type': 'application/json' });
       const response = await sendSignUpRequest(app, payload, headers);
 
-      const { body, headers: responseHeaders } = await expectAuthSuccessResponse(response, STATUS_CODES.CREATED);
+      const { body, headers: responseHeaders } = await expectAuthSuccessResponse(
+        response,
+        CONTENTFUL_STATUS_CODES.CREATED,
+      );
       const persistedUser = await db.query.user.findFirst({
         where: { email: payload.email },
       });
@@ -80,10 +83,10 @@ describe('Sign-up integration', () => {
   integrationTest('rejects duplicate email sign ups without duplicating persisted auth rows', async ({ app, db }) => {
     const payload = createValidSignUpPayload();
     const firstResponse = await sendSignUpRequest(app, payload);
-    await expectAuthSuccessResponse(firstResponse, STATUS_CODES.CREATED);
+    await expectAuthSuccessResponse(firstResponse, CONTENTFUL_STATUS_CODES.CREATED);
 
     const duplicateResponse = await sendSignUpRequest(app, payload);
-    const body = await expectErrorResponse(duplicateResponse, STATUS_CODES.CONFLICT);
+    const body = await expectErrorResponse(duplicateResponse, CONTENTFUL_STATUS_CODES.CONFLICT);
     const persistedUser = await db.query.user.findFirst({
       where: { email: payload.email },
     });
@@ -106,7 +109,7 @@ describe('Sign-up integration', () => {
       callbackURL: 'tcg://signup-complete',
     });
 
-    await expectAuthSuccessResponse(response, STATUS_CODES.CREATED);
+    await expectAuthSuccessResponse(response, CONTENTFUL_STATUS_CODES.CREATED);
   });
 
   describe('payload validation', () => {
@@ -116,7 +119,7 @@ describe('Sign-up integration', () => {
         headers: new Headers({ 'Content-Type': MIME_TYPES.JSON }),
       });
 
-      expect(response.status).toBe(STATUS_CODES.BAD_REQUEST);
+      expect(response.status).toBe(CONTENTFUL_STATUS_CODES.BAD_REQUEST);
       expect(await response.text()).toContain('Malformed JSON in request body');
     });
 

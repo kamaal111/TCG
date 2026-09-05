@@ -4,6 +4,7 @@
 //
 
 import SwiftUI
+import TCGDesignSystem
 import TCGSnapshotTesting
 import Testing
 
@@ -44,6 +45,8 @@ struct TCGSearchScreenSnapshotTests {
     }
 
     private func makeScreen(feature: TCGSearch, model: TCGSearchScreenModel) -> some View {
-        NavigationStack { TCGSearchScreen(model: model) }.environment(feature)
+        NavigationStack { TCGSearchScreen(model: model) }
+            .environment(feature)
+            .cardImageLoader(PreviewCardImageLoader(outcome: .success))
     }
 }

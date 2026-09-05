@@ -5,9 +5,11 @@ import { err } from 'neverthrow';
 import { Client } from 'pg';
 
 import App from '../../app.ts';
+import { imageKeyForOriginURL } from '../../card-images/keys.ts';
 import { LIST_CARDS_ROUTE_PATH } from '../../cards/handlers/list-cards.ts';
 import { createCardRequest, sessionHeaders } from '../../cards/tests/utils.ts';
-import { STATUS_CODES } from '../../constants/http.ts';
+import { CONTENTFUL_STATUS_CODES } from '../../constants/http.ts';
+import { cardImage } from '../../db/schema/card-images.ts';
 import { cardPrice } from '../../db/schema/card-pricing.ts';
 import { expectErrorResponse, expectValidationIssueForField } from '../../tests/auth.ts';
 import { integrationTest } from '../../tests/fixtures.ts';
@@ -21,7 +23,7 @@ import { queryKey, todayUTC } from '../utils/query.ts';
 describe('Card pricing integration', () => {
   integrationTest('requires an authenticated session', async ({ app }) => {
     const response = await app.request(SEARCH_PRICING_ROUTE_PATH);
-    expect(await expectErrorResponse(response, STATUS_CODES.UNAUTHORIZED)).toMatchObject({
+    expect(await expectErrorResponse(response, CONTENTFUL_STATUS_CODES.UNAUTHORIZED)).toMatchObject({
       code: 'SESSION_NOT_FOUND',
     });
   });
@@ -32,7 +34,7 @@ describe('Card pricing integration', () => {
       headers: sessionHeaders(user.sessionToken),
     });
 
-    expect(response.status).toBe(STATUS_CODES.OK);
+    expect(response.status).toBe(CONTENTFUL_STATUS_CODES.OK);
     const body = PricingSearchResponseSchema.parse(await response.json());
     expect(body.matches[0]).toMatchObject({
       id: expect.any(String),
@@ -44,6 +46,26 @@ describe('Card pricing integration', () => {
       },
     });
     expect(body.matches[0]).not.toHaveProperty('pricing_card_id');
+  });
+
+  integrationTest('registers images when serving legacy cached pricing results', async ({ app, db }) => {
+    const user = await createTestUser(app, db);
+    const path = `${SEARCH_PRICING_ROUTE_PATH}?game=pokemon&query=Giratina%20VSTAR%20GG69`;
+    const first = await app.request(path, { headers: sessionHeaders(user.sessionToken) });
+    const firstBody = PricingSearchResponseSchema.parse(await first.json());
+    const originURL = 'https://images.example.com/giratina-vstar-gg69.png';
+    const imageKey = imageKeyForOriginURL(originURL);
+
+    await db.delete(cardImage);
+
+    const second = await app.request(path, { headers: sessionHeaders(user.sessionToken) });
+    expect(second.status).toBe(CONTENTFUL_STATUS_CODES.OK);
+    expect(PricingSearchResponseSchema.parse(await second.json()).matches).toEqual(firstBody.matches);
+    expect(await db.query.cardImage.findFirst({ where: { imageKey } })).toMatchObject({
+      imageKey,
+      originUrl: originURL,
+      status: 'pending',
+    });
   });
 
   integrationTest('returns no-results and rejects invalid search queries', async ({ app, db }) => {
@@ -70,7 +92,7 @@ describe('Card pricing integration', () => {
       headers: sessionHeaders(user.sessionToken),
     });
 
-    expect(response.status).toBe(STATUS_CODES.OK);
+    expect(response.status).toBe(CONTENTFUL_STATUS_CODES.OK);
     expect(PricingSearchResponseSchema.parse(await response.json()).matches).toHaveLength(1);
     expect(
       await db
@@ -91,7 +113,7 @@ describe('Card pricing integration', () => {
       card_number: 'GG69',
       quantities: [{ condition: 'near_mint', quantity: 1 }],
     });
-    expect(created.status).toBe(STATUS_CODES.CREATED);
+    expect(created.status).toBe(CONTENTFUL_STATUS_CODES.CREATED);
     const ownedCard = await db.query.card.findFirst({ where: { userId: user.userId } });
     assert(ownedCard != null);
     expect(ownedCard).toMatchObject({ pricingCardId: 'crown-zenith-GG69', pricingSource: 'scrydex_static' });
@@ -100,7 +122,7 @@ describe('Card pricing integration', () => {
     const realModeApp = new App({ db, pricingClient: realModeClient }).app;
     const listed = await realModeApp.request(LIST_CARDS_ROUTE_PATH, { headers: sessionHeaders(user.sessionToken) });
 
-    expect(listed.status).toBe(STATUS_CODES.OK);
+    expect(listed.status).toBe(CONTENTFUL_STATUS_CODES.OK);
     await expect(db.query.card.findFirst({ where: { id: ownedCard.id } })).resolves.toMatchObject({
       pricingCardId: 'crown-zenith-GG69',
       pricingSource: 'scrydex_real',
@@ -117,7 +139,7 @@ describe('Card pricing integration', () => {
         headers,
       });
 
-      expect(response.status).toBe(STATUS_CODES.OK);
+      expect(response.status).toBe(CONTENTFUL_STATUS_CODES.OK);
       const lockEvents = getLogsForRequestId(requestId).filter(log => log.event === 'pricing.lock.completed');
       expect(lockEvents).toEqual([
         expect.objectContaining({
@@ -149,8 +171,8 @@ describe('Card pricing integration', () => {
     pricingClient.release();
 
     const [first, second] = await Promise.all([firstRequest, secondRequest]);
-    expect(first.status).toBe(STATUS_CODES.OK);
-    expect(second.status).toBe(STATUS_CODES.OK);
+    expect(first.status).toBe(CONTENTFUL_STATUS_CODES.OK);
+    expect(second.status).toBe(CONTENTFUL_STATUS_CODES.OK);
     expect(await first.json()).toEqual(await second.json());
     expect(pricingClient.searchCallCount).toBe(1);
   });
@@ -171,7 +193,7 @@ describe('Card pricing integration', () => {
         headers: sessionHeaders(user.sessionToken),
       });
 
-      expect(await expectErrorResponse(response, STATUS_CODES.SERVICE_UNAVAILABLE)).toEqual({
+      expect(await expectErrorResponse(response, CONTENTFUL_STATUS_CODES.SERVICE_UNAVAILABLE)).toEqual({
         code: 'PRICING_LOCK_TIMEOUT',
         message: 'Pricing is busy; try again shortly.',
       });
@@ -194,8 +216,8 @@ describe('Card pricing integration', () => {
     const first = await firstApp.request(path, { headers: sessionHeaders(firstUser.sessionToken) });
     const second = await secondApp.request(path, { headers: sessionHeaders(secondUser.sessionToken) });
 
-    expect(first.status).toBe(STATUS_CODES.INTERNAL_SERVER_ERROR);
-    expect(second.status).toBe(STATUS_CODES.OK);
+    expect(first.status).toBe(CONTENTFUL_STATUS_CODES.INTERNAL_SERVER_ERROR);
+    expect(second.status).toBe(CONTENTFUL_STATUS_CODES.OK);
     expect(pricingClient.searchCallCount).toBe(2);
   });
 
@@ -211,7 +233,7 @@ describe('Card pricing integration', () => {
         headers,
       });
 
-      expect(await expectErrorResponse(response, STATUS_CODES.SERVICE_UNAVAILABLE)).toMatchObject({
+      expect(await expectErrorResponse(response, CONTENTFUL_STATUS_CODES.SERVICE_UNAVAILABLE)).toMatchObject({
         code: 'PRICING_PROVIDER_UNAVAILABLE',
       });
       expect(getLogsForRequestId(requestId)).toEqual(
@@ -248,8 +270,8 @@ describe('Card pricing integration', () => {
     pricingClient.release();
 
     const [first, second] = await Promise.all([firstRequest, secondRequest]);
-    expect(first.status).toBe(STATUS_CODES.OK);
-    expect(second.status).toBe(STATUS_CODES.OK);
+    expect(first.status).toBe(CONTENTFUL_STATUS_CODES.OK);
+    expect(second.status).toBe(CONTENTFUL_STATUS_CODES.OK);
     expect(pricingClient.searchCallCount).toBe(2);
   });
 });
@@ -378,7 +400,7 @@ async function waitForAdvisoryLockWaiter(connectionString: string) {
 }
 
 function deferred<T>() {
-  let resolve!: (value: T | PromiseLike<T>) => void;
+  let resolve: (value: T | PromiseLike<T>) => void = () => {};
   const promise = new Promise<T>(resolver => {
     resolve = resolver;
   });
@@ -386,7 +408,7 @@ function deferred<T>() {
 }
 
 async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
-  let timeout: NodeJS.Timeout | undefined;
+  let timeout: NodeJS.Timeout | undefined = undefined;
   try {
     return await Promise.race([
       promise,

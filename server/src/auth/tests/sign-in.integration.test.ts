@@ -5,7 +5,7 @@ import type { Hono } from 'hono';
 import { decodeJwt } from 'jose';
 
 import { ONE_DAY_IN_SECONDS } from '../../constants/common.ts';
-import { STATUS_CODES } from '../../constants/http.ts';
+import { CONTENTFUL_STATUS_CODES } from '../../constants/http.ts';
 import { MIME_TYPES } from '../../constants/request.ts';
 import type { HonoEnvironment } from '../../context.ts';
 import env from '../../env.ts';
@@ -34,7 +34,7 @@ describe('Sign-in integration', () => {
       const { headers, requestId } = withRequestId({ 'Content-Type': MIME_TYPES.JSON });
       const response = await sendSignInRequest(app, payload, headers);
 
-      const { body, headers: responseHeaders } = await expectAuthSuccessResponse(response, STATUS_CODES.OK);
+      const { body, headers: responseHeaders } = await expectAuthSuccessResponse(response, CONTENTFUL_STATUS_CODES.OK);
       const persistedUser = await db.query.user.findFirst({
         where: { email: createdUser.email },
       });
@@ -72,7 +72,7 @@ describe('Sign-in integration', () => {
   integrationTest('rejects unknown credentials', async ({ app }) => {
     const response = await sendSignInRequest(app, createValidSignInPayload());
 
-    const body = await expectErrorResponse(response, STATUS_CODES.UNAUTHORIZED);
+    const body = await expectErrorResponse(response, CONTENTFUL_STATUS_CODES.UNAUTHORIZED);
 
     expect(body.code).toBe('INVALID_EMAIL_OR_PASSWORD');
   });
@@ -87,7 +87,7 @@ describe('Sign-in integration', () => {
       }),
     );
 
-    const body = await expectErrorResponse(response, STATUS_CODES.UNAUTHORIZED);
+    const body = await expectErrorResponse(response, CONTENTFUL_STATUS_CODES.UNAUTHORIZED);
 
     expect(body.code).toBe('INVALID_EMAIL_OR_PASSWORD');
   });
@@ -100,7 +100,7 @@ describe('Sign-in integration', () => {
       callbackURL: 'tcg://sign-in-complete',
     });
 
-    await expectAuthSuccessResponse(response, STATUS_CODES.OK);
+    await expectAuthSuccessResponse(response, CONTENTFUL_STATUS_CODES.OK);
   });
 
   integrationTest('accepts an eight-character password', async ({ app, db }) => {
@@ -113,7 +113,7 @@ describe('Sign-in integration', () => {
       }),
     );
 
-    await expectAuthSuccessResponse(response, STATUS_CODES.OK);
+    await expectAuthSuccessResponse(response, CONTENTFUL_STATUS_CODES.OK);
   });
 
   integrationTest('accepts a 128-character password', async ({ app, db }) => {
@@ -126,7 +126,7 @@ describe('Sign-in integration', () => {
       }),
     );
 
-    await expectAuthSuccessResponse(response, STATUS_CODES.OK);
+    await expectAuthSuccessResponse(response, CONTENTFUL_STATUS_CODES.OK);
   });
 
   describe('payload validation', () => {
@@ -136,7 +136,7 @@ describe('Sign-in integration', () => {
         headers: new Headers({ 'Content-Type': MIME_TYPES.JSON }),
       });
 
-      expect(response.status).toBe(STATUS_CODES.BAD_REQUEST);
+      expect(response.status).toBe(CONTENTFUL_STATUS_CODES.BAD_REQUEST);
       expect(await response.text()).toContain('Malformed JSON in request body');
     });
 

@@ -4,7 +4,7 @@ import { requestId } from 'hono/request-id';
 
 import { cardsLogger } from '../../cards/logging.ts';
 import { REQUEST_ID_HEADER_NAME } from '../../constants/common.ts';
-import { STATUS_CODES } from '../../constants/http.ts';
+import { CONTENTFUL_STATUS_CODES } from '../../constants/http.ts';
 import type { HonoEnvironment } from '../../context.ts';
 import { handleServerError } from '../../exceptions/handler.ts';
 import { InvalidPayload } from '../../exceptions/index.ts';
@@ -17,14 +17,14 @@ describe('Request logging middleware', () => {
 
     const response = await app.request('/ok', { headers: requestHeaders(testRequestId) });
 
-    expect(response.status).toBe(STATUS_CODES.OK);
+    expect(response.status).toBe(CONTENTFUL_STATUS_CODES.OK);
     expect(getLogsForRequestId(testRequestId)).toEqual([
       expect.objectContaining({
         event: 'request.completed',
         msg: 'Completed HTTP request.',
         outcome: 'success',
         route: '/ok',
-        status_code: STATUS_CODES.OK,
+        status_code: CONTENTFUL_STATUS_CODES.OK,
         duration_ms: expect.any(Number),
         request_id: testRequestId,
         method: 'GET',
@@ -51,7 +51,7 @@ describe('Request logging middleware', () => {
 
     const response = await app.request('/api-exception', { headers: requestHeaders(testRequestId) });
 
-    expect(response.status).toBe(STATUS_CODES.BAD_REQUEST);
+    expect(response.status).toBe(CONTENTFUL_STATUS_CODES.BAD_REQUEST);
     expect(getLogsForRequestId(testRequestId)).toEqual([
       expect.objectContaining({
         event: 'request.error',
@@ -59,7 +59,7 @@ describe('Request logging middleware', () => {
         outcome: 'failure',
         error_code: 'INVALID_PAYLOAD',
         route: '/api-exception',
-        status_code: STATUS_CODES.BAD_REQUEST,
+        status_code: CONTENTFUL_STATUS_CODES.BAD_REQUEST,
       }),
     ]);
   });
@@ -69,7 +69,7 @@ describe('Request logging middleware', () => {
 
     const response = await app.request('/http-exception', { headers: requestHeaders(testRequestId) });
 
-    expect(response.status).toBe(STATUS_CODES.NOT_FOUND);
+    expect(response.status).toBe(CONTENTFUL_STATUS_CODES.NOT_FOUND);
     expect(getLogsForRequestId(testRequestId)).toEqual([
       expect.objectContaining({ event: 'request.error', outcome: 'failure', error_code: 'HTTP_ERROR' }),
     ]);
@@ -80,7 +80,7 @@ describe('Request logging middleware', () => {
 
     const response = await app.request('/boom', { headers: requestHeaders(testRequestId) });
 
-    expect(response.status).toBe(STATUS_CODES.INTERNAL_SERVER_ERROR);
+    expect(response.status).toBe(CONTENTFUL_STATUS_CODES.INTERNAL_SERVER_ERROR);
     const [logged, ...rest] = getLogsForRequestId(testRequestId);
     expect(rest).toEqual([]);
     expect(logged).toEqual(
@@ -89,7 +89,7 @@ describe('Request logging middleware', () => {
         level: ERROR_LEVEL,
         outcome: 'failure',
         error_code: 'INTERNAL_SERVER_ERROR',
-        status_code: STATUS_CODES.INTERNAL_SERVER_ERROR,
+        status_code: CONTENTFUL_STATUS_CODES.INTERNAL_SERVER_ERROR,
       }),
     );
     expect(logged.err).toEqual(expect.objectContaining({ message: 'Boom', stack: expect.any(String) }));
@@ -137,7 +137,7 @@ function createLoggingTestApp() {
     throw new InvalidPayload(c);
   });
   app.get('/http-exception', () => {
-    throw new HTTPException(STATUS_CODES.NOT_FOUND);
+    throw new HTTPException(CONTENTFUL_STATUS_CODES.NOT_FOUND);
   });
   app.get('/boom', () => {
     throw new Error('Boom');

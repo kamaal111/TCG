@@ -10,6 +10,7 @@ export const TEST_ENV = {
   SCRYDEX_CLIENT: 'static',
   SCRYDEX_REQUEST_TIMEOUT_MS: '1000',
   PRICING_LOCK_TIMEOUT_MS: '1000',
+  CARD_IMAGE_WARM_ON_REGISTER: 'false',
 };
 
 export default defineConfig({

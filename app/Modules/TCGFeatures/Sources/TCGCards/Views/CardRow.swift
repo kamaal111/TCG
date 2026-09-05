@@ -8,12 +8,14 @@
 import KamaalExtensions
 import SwiftUI
 import TCGClient
+import TCGDesignSystem
 
 struct CardRow: View {
     let cardWithPrice: CardWithPrice
 
     var body: some View {
         HStack(alignment: .top) {
+            CardImageView(url: cardWithPrice.price.price?.imageURL)
             VStack(alignment: .leading, spacing: 4) {
                 Text(cardWithPrice.card.name).font(.headline)
                 Text("\(cardWithPrice.card.setName) • \(cardWithPrice.card.cardNumber)").foregroundStyle(.secondary)

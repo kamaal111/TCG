@@ -50,6 +50,7 @@ dev-server: prepare-server start-services migrate
 # Start services
 start-services:
     docker compose up -d --wait
+    docker compose run --rm minio-init
 
 # Stop services
 stop-services:
@@ -132,6 +133,7 @@ test-snapshots-macos:
         -only-testing:TCGCardsTests/TCGCardsListScreenSnapshotTests \
         -only-testing:TCGCardsTests/TCGCardFormScreenSnapshotTests \
         -only-testing:TCGSearchTests/TCGSearchScreenSnapshotTests \
+        -only-testing:TCGDesignSystemTests/CardImageViewSnapshotTests \
         test
 
 # Run iOS screen snapshot tests
@@ -144,6 +146,7 @@ test-snapshots-ios:
         -only-testing:TCGCardsTests/TCGCardsListScreenSnapshotTests \
         -only-testing:TCGCardsTests/TCGCardFormScreenSnapshotTests \
         -only-testing:TCGSearchTests/TCGSearchScreenSnapshotTests \
+        -only-testing:TCGDesignSystemTests/CardImageViewSnapshotTests \
         test
 
 # Run screen snapshot tests on macOS and iOS
@@ -174,15 +177,20 @@ quality-app: format-check-app
 
 # Quality checks for server
 [parallel]
-quality-server: check-spec format-check-js lint-js typecheck
+quality-server: check-spec format-check-js lint-js typecheck-server
 
 # Typecheck project
-typecheck: typecheck-server
+[parallel]
+typecheck: typecheck-server typecheck-oxlint-plugins
 
 # Typecheck server code
 [working-directory("server")]
 typecheck-server:
     {{ PNR }} typecheck
+
+# Typecheck custom oxlint plugins
+typecheck-oxlint-plugins:
+    {{ PNX }} tsc -p tsconfig.oxlint-plugins.json
 
 # Lint the project
 lint: lint-js

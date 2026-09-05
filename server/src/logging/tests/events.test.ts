@@ -1,3 +1,4 @@
+import { IMAGES_EVENTS } from '../../card-images/logging.ts';
 import { PRICING_EVENTS } from '../../card-pricing/logging.ts';
 import { CARDS_EVENTS } from '../../cards/logging.ts';
 import { REQUEST_EVENTS } from '../request.ts';
@@ -8,6 +9,7 @@ const EVENT_NAME_PATTERN = /^[a-z]+(?:\.[a-z][a-z_]*)+$/;
 
 const EVENT_CATALOGUE: [domain: string, events: readonly string[]][] = [
   ['cards', CARDS_EVENTS],
+  ['images', IMAGES_EVENTS],
   ['pricing', PRICING_EVENTS],
   ['request', REQUEST_EVENTS],
   ['server', SERVER_EVENTS],

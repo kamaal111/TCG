@@ -1,7 +1,7 @@
 import { createRoute, type RouteConfigToTypedResponse } from '@kamaalio/hono-standard-openapi';
 
 import { requireSessionMiddleware } from '../../auth/module.ts';
-import { STATUS_CODES } from '../../constants/http.ts';
+import { CONTENTFUL_STATUS_CODES } from '../../constants/http.ts';
 import { MIME_TYPES } from '../../constants/request.ts';
 import { CardNotFoundErrorResponseSchema, ErrorResponseSchema } from '../../schemas/errors.ts';
 import { CARDS_OPENAPI_TAG } from '../constants.ts';
@@ -22,15 +22,15 @@ const deleteCardRoute = createRoute({
   security: [{ bearerAuth: [] }],
   request: { params: CardIdParamsSchema },
   responses: {
-    [STATUS_CODES.OK]: {
+    [CONTENTFUL_STATUS_CODES.OK]: {
       description: 'Card deleted successfully',
       content: { [MIME_TYPES.JSON]: { schema: DeleteCardResponseSchema } },
     },
-    [STATUS_CODES.UNAUTHORIZED]: {
+    [CONTENTFUL_STATUS_CODES.UNAUTHORIZED]: {
       description: 'Authenticated session not found',
       content: { [MIME_TYPES.JSON]: { schema: ErrorResponseSchema } },
     },
-    [STATUS_CODES.NOT_FOUND]: {
+    [CONTENTFUL_STATUS_CODES.NOT_FOUND]: {
       description: 'Card not found or not owned by the authenticated user',
       content: { [MIME_TYPES.JSON]: { schema: CardNotFoundErrorResponseSchema } },
     },

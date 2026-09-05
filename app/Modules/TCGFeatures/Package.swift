@@ -6,7 +6,7 @@ import PackageDescription
 let package = Package(
     name: "TCGFeatures",
     defaultLocalization: "en",
-    platforms: [.macOS(.v14), .iOS(.v17)],
+    platforms: [.macOS(.v15), .iOS(.v18)],
     products: [
         .library(name: "TCGCards", targets: ["TCGCards"]),
         .library(name: "TCGSearch", targets: ["TCGSearch"]),
@@ -67,6 +67,7 @@ let package = Package(
                 .product(name: "KamaalAuth", package: "kamaal-auth"),
                 "TCGCards",
                 "TCGClient",
+                "TCGDesignSystem",
                 "TCGSnapshotTesting",
                 .product(name: "SnapshotTesting", package: "swift-snapshot-testing"),
             ],
@@ -82,6 +83,7 @@ let package = Package(
                 .product(name: "KamaalAuth", package: "kamaal-auth"),
                 "TCGSearch",
                 "TCGClient",
+                "TCGDesignSystem",
                 "TCGSnapshotTesting",
                 .product(name: "HTTPTypes", package: "swift-http-types"),
                 .product(name: "OpenAPIRuntime", package: "swift-openapi-runtime"),

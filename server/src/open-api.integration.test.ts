@@ -3,7 +3,7 @@ import * as yaml from 'js-yaml';
 
 import { SIGN_UP_ROUTE_PATH } from './auth/constants.ts';
 import { createCardRequest, validCardPayload } from './cards/tests/utils.ts';
-import { STATUS_CODES } from './constants/http.ts';
+import { CONTENTFUL_STATUS_CODES } from './constants/http.ts';
 import { MIME_TYPES } from './constants/request.ts';
 import type { HonoEnvironment } from './context.ts';
 import { OPENAPI_JSON_SPEC_PATH, OPENAPI_YAML_SPEC_PATH } from './open-api.ts';
@@ -21,7 +21,7 @@ describe('OpenAPI specification integration', () => {
   integrationTest('downloads a specification with a valid JSON document shape', async ({ app }) => {
     const response = await sendSpecRequest(app, OPENAPI_JSON_SPEC_PATH);
 
-    expect(response.status).toBe(STATUS_CODES.OK);
+    expect(response.status).toBe(CONTENTFUL_STATUS_CODES.OK);
     expect(response.headers.get('content-type')).toContain(MIME_TYPES.JSON);
     expectDocumentShape(await response.json());
   });
@@ -29,7 +29,7 @@ describe('OpenAPI specification integration', () => {
   integrationTest('downloads a specification with a valid YAML document shape', async ({ app }) => {
     const response = await sendSpecRequest(app, OPENAPI_YAML_SPEC_PATH);
 
-    expect(response.status).toBe(STATUS_CODES.OK);
+    expect(response.status).toBe(CONTENTFUL_STATUS_CODES.OK);
     expect(response.headers.get('content-type')).toContain(MIME_TYPES.YAML);
     expectDocumentShape(yaml.load(await response.text()));
   });
@@ -63,6 +63,7 @@ describe('OpenAPI specification integration', () => {
       '/app-api/auth/sign-out',
       '/app-api/auth/session',
       '/app-api/auth/token',
+      '/app-api/images/{imageKey}',
       '/app-api/cards',
       '/app-api/cards/{cardId}',
       '/app-api/pricing/search',

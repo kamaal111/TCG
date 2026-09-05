@@ -5,10 +5,12 @@
   "scripts": {
     "dev": "node --watch --inspect .",
     "start": "node .",
+    "start:image-worker": "node src/image-worker.ts",
     "test": "env -u SCRYDEX_API_KEY -u SCRYDEX_TEAM_ID vitest --run",
     "typecheck": "tsc"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "workspace:*",
     "@better-auth/drizzle-adapter": "workspace:*",
     "@hono/node-server": "workspace:*",
     "@hono/structured-logger": "workspace:*",
@@ -28,11 +30,13 @@
     "zod": "workspace:*"
   },
   "devDependencies": {
+    "@testcontainers/minio": "workspace:*",
     "@types/node": "workspace:*",
     "@types/pg": "workspace:*",
     "@vitest/coverage-v8": "workspace:*",
     "drizzle-kit": "workspace:*",
     "pino-pretty": "workspace:*",
+    "testcontainers": "workspace:*",
     "typescript": "workspace:*",
     "vitest": "workspace:*"
   }
