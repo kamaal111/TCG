@@ -3,16 +3,57 @@
     "label": "just: dev-server",
     "command": "just",
     "args": ["dev-server"],
-    "use_new_terminal": true,
     "reveal": "always",
     "hide": "never",
     "show_summary": true,
     "show_command": true
   },
   {
+    "label": "just: start services",
+    "command": "just",
+    "args": ["start-services"],
+    "show_command": false
+  },
+  {
+    "label": "just: download spec",
+    "command": "just",
+    "args": ["download-spec"],
+    "show_command": false
+  },
+  {
     "label": "just: ready",
     "command": "just",
     "args": ["ready"],
+    "show_command": false
+  },
+  {
+    "label": "just: test",
+    "command": "just",
+    "args": ["test"],
+    "show_command": false
+  },
+  {
+    "label": "just: test app",
+    "command": "just",
+    "args": ["test-app"],
+    "show_command": false
+  },
+  {
+    "label": "just: test server",
+    "command": "just",
+    "args": ["test-server"],
+    "show_command": false
+  },
+  {
+    "label": "just: quality",
+    "command": "just",
+    "args": ["quality"],
+    "show_command": false
+  },
+  {
+    "label": "just: format",
+    "command": "just",
+    "args": ["format"],
     "show_command": false
   }
 ]
