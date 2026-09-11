@@ -17,6 +17,70 @@
         "clear": false
       },
       "problemMatcher": []
+    },
+    {
+      "label": "just: start services",
+      "type": "shell",
+      "command": "just",
+      "args": ["start-services"],
+      "options": { "cwd": "${workspaceFolder}" },
+      "problemMatcher": []
+    },
+    {
+      "label": "just: download spec",
+      "type": "shell",
+      "command": "just",
+      "args": ["download-spec"],
+      "options": { "cwd": "${workspaceFolder}" },
+      "problemMatcher": []
+    },
+    {
+      "label": "just: ready",
+      "type": "shell",
+      "command": "just",
+      "args": ["ready"],
+      "options": { "cwd": "${workspaceFolder}" },
+      "problemMatcher": []
+    },
+    {
+      "label": "just: test",
+      "type": "shell",
+      "command": "just",
+      "args": ["test"],
+      "options": { "cwd": "${workspaceFolder}" },
+      "problemMatcher": []
+    },
+    {
+      "label": "just: test app",
+      "type": "shell",
+      "command": "just",
+      "args": ["test-app"],
+      "options": { "cwd": "${workspaceFolder}" },
+      "problemMatcher": []
+    },
+    {
+      "label": "just: test server",
+      "type": "shell",
+      "command": "just",
+      "args": ["test-server"],
+      "options": { "cwd": "${workspaceFolder}" },
+      "problemMatcher": []
+    },
+    {
+      "label": "just: quality",
+      "type": "shell",
+      "command": "just",
+      "args": ["quality"],
+      "options": { "cwd": "${workspaceFolder}" },
+      "problemMatcher": []
+    },
+    {
+      "label": "just: format",
+      "type": "shell",
+      "command": "just",
+      "args": ["format"],
+      "options": { "cwd": "${workspaceFolder}" },
+      "problemMatcher": []
     }
   ]
 }
