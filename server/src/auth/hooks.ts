@@ -175,14 +175,17 @@ function toAuthUser(user: z.infer<typeof BetterAuthUserSchema>): AuthUser {
 
 /** Seconds until the JWT expires, falling back to the configured lifetime when it carries no `exp`. */
 function expiresInSeconds(token: string): number {
-  let payload: JWTPayload | undefined;
-  try {
-    payload = decodeJwt(token);
-  } catch {
-    // Fall through to the configured default.
-  }
+  const payload = decodeJwtSafely(token);
 
   if (payload?.exp == null) return ONE_DAY_IN_SECONDS * env.JWT_EXPIRY_DAYS;
 
   return payload.exp - Math.floor(Date.now() / 1000);
+}
+
+function decodeJwtSafely(token: string): JWTPayload | undefined {
+  try {
+    return decodeJwt(token);
+  } catch {
+    return undefined;
+  }
 }

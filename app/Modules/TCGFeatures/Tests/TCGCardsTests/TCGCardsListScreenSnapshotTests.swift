@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import TCGDesignSystem
 import TCGSnapshotTesting
 import Testing
 
@@ -39,6 +40,8 @@ struct TCGCardsListScreenSnapshotTests {
     }
 
     private func makeScreen(feature: TCGCards, model: TCGCardsListScreenModel = .init()) -> some View {
-        NavigationStack { TCGCardsListScreen(model: model) }.environment(feature)
+        NavigationStack { TCGCardsListScreen(model: model) }
+            .environment(feature)
+            .cardImageLoader(PreviewCardImageLoader(outcome: .success))
     }
 }

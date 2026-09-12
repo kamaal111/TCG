@@ -38,6 +38,7 @@ construct a logger.
 | ------------------------------------ | ----------- | -------------------------------------------------------- |
 | `server/src/cards/logging.ts`        | `cards.*`   | `cardsLogger(c)`                                         |
 | `server/src/card-pricing/logging.ts` | `pricing.*` | `pricingLogger(c)`                                       |
+| `server/src/card-images/logging.ts`  | `images.*`  | `imagesLogger(c)` / `processImagesLogger()`              |
 | `server/src/logging/request.ts`      | `request.*` | `requestLogger(c)`                                       |
 | `server/src/logging/server.ts`       | `server.*`  | `serverLogger()` — process lifecycle, not request-scoped |
 

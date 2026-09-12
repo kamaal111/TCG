@@ -1,5 +1,5 @@
 import { APP_API_ROUTE_NAME } from '../../constants/common.ts';
-import { STATUS_CODES } from '../../constants/http.ts';
+import { CONTENTFUL_STATUS_CODES } from '../../constants/http.ts';
 import type { HonoContext } from '../../context.ts';
 import { CARDS_ROUTE_NAME } from '../constants.ts';
 import { CardNotFound } from '../exceptions.ts';
@@ -34,7 +34,7 @@ async function updateCardHandler(c: UpdateCardContext): Promise<UpdateCardRouteR
     'Updated an owned card in the collection.',
   );
 
-  return c.json(response, { status: STATUS_CODES.OK });
+  return c.json(response, { status: CONTENTFUL_STATUS_CODES.OK });
 }
 
 export default updateCardHandler;

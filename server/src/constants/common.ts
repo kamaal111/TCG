@@ -13,3 +13,7 @@ export const SERVER_MODES = { SERVER: 'SERVER', TEST: 'TEST' } as const;
 export type PricingClientMode = GetRecordValues<typeof PRICING_CLIENT_MODES>;
 
 export const PRICING_CLIENT_MODES = { REAL: 'real', STATIC: 'static' } as const;
+
+export type ObjectStorageProvider = GetRecordValues<typeof OBJECT_STORAGE_PROVIDERS>;
+
+export const OBJECT_STORAGE_PROVIDERS = { MEMORY: 'memory', S3: 's3' } as const;

@@ -1,3 +1,4 @@
+import { proxyURLForOriginURL } from '../../card-images/keys.ts';
 import { toISO8601String } from '../../utils/strings.ts';
 import type { CardPriceRow } from '../repository.ts';
 import { PRICE_HEADLINE_METRICS, type PricedCardResponse, PricedCardSchema } from '../schemas/responses.ts';
@@ -42,7 +43,7 @@ export function serializePricedCard(game: CardGame, row: CardPriceRow): PricedCa
     name: row.name,
     card_number: row.cardNumber,
     rarity: row.prices.rarity,
-    image_url: row.prices.image,
+    image_url: row.prices.image == null ? undefined : proxyURLForOriginURL(row.prices.image),
     headline,
     market,
     priced_on: `${row.pricedOn}T00:00:00.000Z`,

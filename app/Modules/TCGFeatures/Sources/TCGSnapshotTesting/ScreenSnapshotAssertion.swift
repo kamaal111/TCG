@@ -49,7 +49,13 @@ public func assertScreenSnapshot<Screen: View>(
 #if os(macOS)
     @MainActor
     private func makeMacOSScreen<Screen: View>(screen: Screen, scheme: ColorScheme) -> NSHostingView<some View> {
-        let hostingView = NSHostingView(rootView: screen.preferredColorScheme(scheme))
+        let hostingView = NSHostingView(
+            rootView:
+                screen
+                .frame(width: 1_280, height: 960, alignment: .topLeading)
+                .preferredColorScheme(scheme)
+                .tint(.blue)
+        )
         hostingView.appearance = NSAppearance(named: scheme == .dark ? .darkAqua : .aqua)
         hostingView.frame = NSRect(x: 0, y: 0, width: 1_280, height: 960)
         hostingView.wantsLayer = true

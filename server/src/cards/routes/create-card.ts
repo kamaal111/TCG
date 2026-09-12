@@ -1,7 +1,7 @@
 import { createRoute, type RouteConfigToTypedResponse } from '@kamaalio/hono-standard-openapi';
 
 import { requireSessionMiddleware } from '../../auth/module.ts';
-import { STATUS_CODES } from '../../constants/http.ts';
+import { CONTENTFUL_STATUS_CODES } from '../../constants/http.ts';
 import { MIME_TYPES } from '../../constants/request.ts';
 import { ErrorResponseSchema, ValidationErrorResponseSchema } from '../../schemas/errors.ts';
 import { CARDS_OPENAPI_TAG } from '../constants.ts';
@@ -22,19 +22,19 @@ const createCardRoute = createRoute({
   security: [{ bearerAuth: [] }],
   request: { body: { content: { [MIME_TYPES.JSON]: { schema: UpsertCardSchema } } } },
   responses: {
-    [STATUS_CODES.CREATED]: {
+    [CONTENTFUL_STATUS_CODES.CREATED]: {
       description: 'Card added successfully',
       content: { [MIME_TYPES.JSON]: { schema: CardWithPriceSchema } },
     },
-    [STATUS_CODES.BAD_REQUEST]: {
+    [CONTENTFUL_STATUS_CODES.BAD_REQUEST]: {
       description: 'Invalid card details',
       content: { [MIME_TYPES.JSON]: { schema: ValidationErrorResponseSchema } },
     },
-    [STATUS_CODES.UNAUTHORIZED]: {
+    [CONTENTFUL_STATUS_CODES.UNAUTHORIZED]: {
       description: 'Authenticated session not found',
       content: { [MIME_TYPES.JSON]: { schema: ErrorResponseSchema } },
     },
-    [STATUS_CODES.SERVICE_UNAVAILABLE]: {
+    [CONTENTFUL_STATUS_CODES.SERVICE_UNAVAILABLE]: {
       description: 'Pricing is temporarily unavailable: the lock could not be acquired or the upstream failed',
       content: { [MIME_TYPES.JSON]: { schema: ErrorResponseSchema } },
     },

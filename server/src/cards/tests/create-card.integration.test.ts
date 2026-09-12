@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm';
 
 import { createCardRequest, sessionHeaders, validCardPayload } from './utils.ts';
-import { STATUS_CODES } from '../../constants/http.ts';
+import { CONTENTFUL_STATUS_CODES } from '../../constants/http.ts';
 import { cardConditionQuantity } from '../../db/schema/cards.ts';
 import { expectErrorResponse, expectValidationIssueForField } from '../../tests/auth.ts';
 import { integrationTest } from '../../tests/fixtures.ts';
@@ -12,7 +12,7 @@ import { CardSchema } from '../schemas/responses.ts';
 describe('Create card integration', () => {
   integrationTest('requires an authenticated session', async ({ app }) => {
     const response = await app.request(CREATE_CARD_ROUTE_PATH, { method: 'POST' });
-    expect(await expectErrorResponse(response, STATUS_CODES.UNAUTHORIZED)).toMatchObject({
+    expect(await expectErrorResponse(response, CONTENTFUL_STATUS_CODES.UNAUTHORIZED)).toMatchObject({
       code: 'SESSION_NOT_FOUND',
     });
   });
@@ -55,7 +55,7 @@ describe('Create card integration', () => {
     const user = await createTestUser(app, db);
     const response = await createCardRequest(app, user.sessionToken);
 
-    expect(response.status).toBe(STATUS_CODES.CREATED);
+    expect(response.status).toBe(CONTENTFUL_STATUS_CODES.CREATED);
     const body = CardSchema.parse(await response.json());
     expect(body).toMatchObject({ ...validCardPayload, notes: null });
 

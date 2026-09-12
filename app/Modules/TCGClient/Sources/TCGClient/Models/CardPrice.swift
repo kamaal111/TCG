@@ -219,7 +219,7 @@ public struct PricedCard: Codable, Hashable, Identifiable, Sendable {
     public let name: String
     public let cardNumber: String
     public let rarity: String?
-    public let imageURL: String?
+    public let imageURL: URL?
     public let headline: PriceHeadline?
     public let market: MarketPrice?
     public let pricedOn: Date
@@ -240,7 +240,7 @@ public struct PricedCard: Codable, Hashable, Identifiable, Sendable {
         name: String,
         cardNumber: String,
         rarity: String? = nil,
-        imageURL: String? = nil,
+        imageURL: URL? = nil,
         headline: PriceHeadline? = nil,
         market: MarketPrice? = nil,
         pricedOn: Date,

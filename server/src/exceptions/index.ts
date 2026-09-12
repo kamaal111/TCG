@@ -1,7 +1,7 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec';
 import { HTTPException } from 'hono/http-exception';
 
-import { STATUS_CODES, type StatusCode } from '../constants/http.ts';
+import { CONTENTFUL_STATUS_CODES, type ContentfulStatusCode } from '../constants/http.ts';
 import type { HonoContext } from '../context.ts';
 
 export type ExceptionContext = Pick<HonoContext, 'get'>;
@@ -12,7 +12,7 @@ export class APIException<TContext = unknown> extends HTTPException {
 
   constructor(
     c: ExceptionContext,
-    statusCode: StatusCode,
+    statusCode: ContentfulStatusCode,
     options: {
       message: string;
       code: string;
@@ -40,7 +40,7 @@ export class APIException<TContext = unknown> extends HTTPException {
 
 export class InvalidPayload<TContext = unknown> extends APIException<TContext> {
   constructor(c: ExceptionContext, options?: { message?: string; context?: TContext }) {
-    super(c, STATUS_CODES.BAD_REQUEST, {
+    super(c, CONTENTFUL_STATUS_CODES.BAD_REQUEST, {
       message: options?.message ?? 'Invalid payload',
       code: 'INVALID_PAYLOAD',
       context: options?.context,
@@ -58,7 +58,7 @@ export class InvalidValidation extends InvalidPayload<{
 
 export class Unauthorized extends APIException {
   constructor(c: ExceptionContext, options?: { message?: string; code?: string }) {
-    super(c, STATUS_CODES.UNAUTHORIZED, {
+    super(c, CONTENTFUL_STATUS_CODES.UNAUTHORIZED, {
       message: options?.message ?? 'Unauthorized',
       code: options?.code ?? 'UNAUTHORIZED',
     });
@@ -67,9 +67,15 @@ export class Unauthorized extends APIException {
 
 export class NotFound extends APIException {
   constructor(c: ExceptionContext, options?: { message?: string; code?: string }) {
-    super(c, STATUS_CODES.NOT_FOUND, {
+    super(c, CONTENTFUL_STATUS_CODES.NOT_FOUND, {
       message: options?.message ?? 'Not found',
       code: options?.code ?? 'NOT_FOUND',
     });
+  }
+}
+
+export class ServiceUnavailable extends APIException {
+  constructor(c: ExceptionContext, options: { message: string; code: string; headers?: Headers }) {
+    super(c, CONTENTFUL_STATUS_CODES.SERVICE_UNAVAILABLE, options);
   }
 }

@@ -1,6 +1,6 @@
 {
   "$schema": "./node_modules/oxfmt/configuration_schema.json",
-  "ignorePatterns": ["app"],
+  "ignorePatterns": ["app", ".agents"],
   "printWidth": 120,
   "arrowParens": "avoid",
   "singleQuote": true

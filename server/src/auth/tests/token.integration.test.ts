@@ -5,7 +5,7 @@ import type { Hono } from 'hono';
 import { decodeJwt } from 'jose';
 
 import { ONE_DAY_IN_SECONDS } from '../../constants/common.ts';
-import { STATUS_CODES } from '../../constants/http.ts';
+import { CONTENTFUL_STATUS_CODES } from '../../constants/http.ts';
 import type { HonoEnvironment } from '../../context.ts';
 import env from '../../env.ts';
 import { expectErrorResponse } from '../../tests/auth.ts';
@@ -24,7 +24,7 @@ describe('Token integration', () => {
 
       const response = await sendTokenRequest(app, headers);
 
-      expect(response.status).toBe(STATUS_CODES.OK);
+      expect(response.status).toBe(CONTENTFUL_STATUS_CODES.OK);
       const body = await response.json();
       const responseHeaders = TokenHeaders.parse({
         'set-auth-token': response.headers.get('set-auth-token'),
@@ -59,7 +59,7 @@ describe('Token integration', () => {
     const { headers, requestId } = withRequestId();
     const response = await sendTokenRequest(app, headers);
 
-    await expectErrorResponse(response, STATUS_CODES.UNAUTHORIZED);
+    await expectErrorResponse(response, CONTENTFUL_STATUS_CODES.UNAUTHORIZED);
     expect(getLogsForRequestId(requestId)).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -68,7 +68,7 @@ describe('Token integration', () => {
           outcome: 'failure',
           error_code: 'SESSION_NOT_FOUND',
           credential_kind: 'none',
-          status_code: STATUS_CODES.UNAUTHORIZED,
+          status_code: CONTENTFUL_STATUS_CODES.UNAUTHORIZED,
         }),
       ]),
     );
@@ -88,7 +88,7 @@ describe('Token integration', () => {
       const { headers, requestId } = withRequestId({ Authorization: `Bearer ${jwt}` });
       const response = await sendTokenRequest(app, headers);
 
-      expect(await expectErrorResponse(response, STATUS_CODES.UNAUTHORIZED)).toMatchObject({
+      expect(await expectErrorResponse(response, CONTENTFUL_STATUS_CODES.UNAUTHORIZED)).toMatchObject({
         code: 'SESSION_NOT_FOUND',
       });
       const logs = getLogsForRequestId(requestId);
@@ -109,7 +109,7 @@ describe('Token integration', () => {
   integrationTest('rejects an invalid session token', async ({ app }) => {
     const response = await sendTokenRequest(app, new Headers({ Authorization: 'Bearer invalid-session-token' }));
 
-    await expectErrorResponse(response, STATUS_CODES.UNAUTHORIZED);
+    await expectErrorResponse(response, CONTENTFUL_STATUS_CODES.UNAUTHORIZED);
   });
 });
 

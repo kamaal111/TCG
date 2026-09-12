@@ -46,6 +46,13 @@
         "identifier" : "TCGSearchTests",
         "name" : "TCGSearchTests"
       }
+    },
+    {
+      "target" : {
+        "containerPath" : "container:Modules\/TCGDesignSystem",
+        "identifier" : "TCGDesignSystemTests",
+        "name" : "TCGDesignSystemTests"
+      }
     }
   ],
   "version" : 1

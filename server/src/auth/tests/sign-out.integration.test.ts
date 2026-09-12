@@ -1,7 +1,7 @@
 import { SignOutResponseSchema } from '@kamaalio/kamaal-auth-hono';
 import type { Hono } from 'hono';
 
-import { STATUS_CODES } from '../../constants/http.ts';
+import { CONTENTFUL_STATUS_CODES } from '../../constants/http.ts';
 import { MIME_TYPES } from '../../constants/request.ts';
 import type { HonoEnvironment } from '../../context.ts';
 import { integrationTest } from '../../tests/fixtures.ts';
@@ -22,7 +22,7 @@ describe('Sign-out integration', () => {
       });
       const response = await sendSignOutRequest(app, headers);
 
-      expect(response.status).toBe(STATUS_CODES.OK);
+      expect(response.status).toBe(CONTENTFUL_STATUS_CODES.OK);
       expect(SignOutResponseSchema.parse(await response.json())).toEqual({});
       expect(response.headers.get('set-cookie')).toContain('better-auth.session_token=');
 
@@ -54,7 +54,7 @@ describe('Sign-out integration', () => {
       const { headers, requestId } = withRequestId({ 'Content-Type': MIME_TYPES.JSON });
       const response = await sendSignOutRequest(app, headers);
 
-      expect(response.status).toBe(STATUS_CODES.OK);
+      expect(response.status).toBe(CONTENTFUL_STATUS_CODES.OK);
       expect(SignOutResponseSchema.parse(await response.json())).toEqual({});
       expect(response.headers.get('set-cookie')).toContain('better-auth.session_token=');
 

@@ -7,10 +7,10 @@
 
 import Foundation
 import KamaalExtensions
-import os
+import Synchronization
 
 struct PreviewTCGCardsClient: TCGCardsClient {
-    private let state: OSAllocatedUnfairLock<[Card]>
+    private let state: PreviewTCGCardsState
     private let outcome: PreviewTCGCardsOutcome
 
     init(outcome: PreviewTCGCardsOutcome) {
@@ -21,7 +21,7 @@ struct PreviewTCGCardsClient: TCGCardsClient {
         case .empty, .serverUnavailable: cards = []
         case .validationErrors, .notFound: cards = Self.sampleCards
         }
-        state = OSAllocatedUnfairLock(initialState: cards)
+        state = PreviewTCGCardsState(cards: cards)
     }
 
     func list(game: ClientCardGame?) async -> Result<[CardWithPrice], ListCardsErrors> {
@@ -29,7 +29,7 @@ struct PreviewTCGCardsClient: TCGCardsClient {
             return .failure(.unavailable)
         }
         return .success(
-            state.withLock { cards in
+            state.cards.withLock { cards in
                 (game == nil ? cards : cards.filter { $0.game == game }).map {
                     CardWithPrice(card: $0, price: Self.price(for: $0))
                 }
@@ -40,7 +40,7 @@ struct PreviewTCGCardsClient: TCGCardsClient {
         if case .validationErrors(let issues) = outcome { return .failure(.badRequest(validations: issues)) }
         if case .serverUnavailable = outcome { return .failure(.unavailable) }
 
-        let card = state.withLock { cards in
+        let card = state.cards.withLock { cards in
             let card = Self.makeCard(id: "preview-card-\(cards.count + 1)", payload: payload)
             cards.append(card)
             return card
@@ -53,7 +53,7 @@ struct PreviewTCGCardsClient: TCGCardsClient {
         if case .validationErrors(let issues) = outcome { return .failure(.badRequest(validations: issues)) }
         if case .serverUnavailable = outcome { return .failure(.unavailable) }
 
-        return state.withLock { cards in
+        return state.cards.withLock { cards in
             guard let index = cards.firstIndex(where: { $0.id == id }) else { return .failure(.notFound) }
             let card = Self.makeCard(id: id, payload: payload, createdAt: cards[index].createdAt)
             cards[index] = card
@@ -70,7 +70,7 @@ struct PreviewTCGCardsClient: TCGCardsClient {
         if case .notFound = outcome { return .failure(.notFound) }
         if case .serverUnavailable = outcome { return .failure(.unknown(status: 503, payload: nil, cause: nil)) }
 
-        return state.withLock { cards in
+        return state.cards.withLock { cards in
             guard let index = cards.firstIndex(where: { $0.id == id }) else { return .failure(.notFound) }
             cards.remove(at: index)
             return .success(())
@@ -123,5 +123,13 @@ struct PreviewTCGCardsClient: TCGCardsClient {
             createdAt: createdAt,
             updatedAt: fixedDate
         )
+    }
+}
+
+private final class PreviewTCGCardsState: Sendable {
+    let cards: Mutex<[Card]>
+
+    init(cards: [Card]) {
+        self.cards = Mutex(cards)
     }
 }

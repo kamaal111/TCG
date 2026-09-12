@@ -1,5 +1,5 @@
 import { APP_API_ROUTE_NAME } from '../../constants/common.ts';
-import { STATUS_CODES } from '../../constants/http.ts';
+import { CONTENTFUL_STATUS_CODES } from '../../constants/http.ts';
 import type { HonoContext } from '../../context.ts';
 import { CARDS_ROUTE_NAME } from '../constants.ts';
 import { CardNotFound } from '../exceptions.ts';
@@ -26,7 +26,7 @@ async function deleteCardHandler(c: DeleteCardContext): Promise<DeleteCardRouteR
     'Deleted an owned card from the collection.',
   );
 
-  return c.json({}, { status: STATUS_CODES.OK });
+  return c.json({}, { status: CONTENTFUL_STATUS_CODES.OK });
 }
 
 export default deleteCardHandler;

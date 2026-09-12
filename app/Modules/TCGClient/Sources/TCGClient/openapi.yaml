@@ -240,6 +240,46 @@ paths:
       summary: Get JWT token
       tags:
         - Authentication
+  /app-api/images/{imageKey}:
+    get:
+      description: >-
+        Proxy a cached card image, materializing and persisting it from the
+        origin on first request.
+      parameters:
+        - schema:
+            type: string
+            pattern: ^[0-9a-f]{64}$
+          required: true
+          name: imageKey
+          in: path
+      responses:
+        '200':
+          description: Card image
+          content:
+            image/*: {}
+        '304':
+          description: Card image not modified
+        '400':
+          description: Invalid image key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '404':
+          description: Card image not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Card image temporarily unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      summary: Get a card image
+      tags:
+        - Images
   /app-api/cards:
     post:
       description: Add an owned trading card entry to the authenticated user's collection.
@@ -980,7 +1020,7 @@ components:
           type: string
           format: uri
           description: Card image URL when provided
-          example: https://images.example.com/giratina-vstar-gg69.png
+          example: https://api.example.com/app-api/images/388ea8083139de09f6374e248a853ecc948fe558f745a9262531eab57e52d11d
         headline:
           $ref: '#/components/schemas/PriceHeadline'
         market:

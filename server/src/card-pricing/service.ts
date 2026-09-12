@@ -1,11 +1,15 @@
 import assert from 'node:assert/strict';
 
+import { imageKeyForOriginURL, storageKeyForImageKey } from '../card-images/keys.ts';
+import { imagesLogger } from '../card-images/logging.ts';
 import type { CardWithQuantities } from '../cards/repository.ts';
 import type { HonoContext } from '../context.ts';
+import env from '../env.ts';
 import type { PricingClient, PricingClientError, PricingSearchResult } from './client.ts';
 import { PricingLockTimeout, PricingProviderUnavailable } from './exceptions.ts';
 import { type PricingLogFields, pricingLogger } from './logging.ts';
-import type { CardPricingRepository } from './repository.ts';
+import type { CardPriceRow, CardPricingRepository } from './repository.ts';
+import { isNonEmpty, type NonEmptyArray } from '../utils/type-utils.ts';
 import {
   OWNED_CARD_PRICE_STATUSES,
   type OwnedCardPriceResponse,
@@ -14,7 +18,6 @@ import {
 import type { CardGame, PricingCardRecord } from './types.ts';
 import { serializePricedCard } from './utils/pricing.ts';
 import { buildSearchQuery, normalizeCardNumber, normalizeName, queryKey, todayUTC } from './utils/query.ts';
-import { isNonEmpty, type NonEmptyArray } from '../utils/type-utils.ts';
 
 export class CardPricingService {
   private readonly c: HonoContext;
@@ -94,6 +97,7 @@ export class CardPricingService {
 
           return row;
         });
+        await this.registerImages(rows);
         await this.repository.upsertSearch({
           pricingSource: this.client.source,
           game,
@@ -175,6 +179,7 @@ export class CardPricingService {
     const pricedOn = todayUTC();
     const cached = await this.repository.getCachedCardPrice(this.client.source, card.game, pricingCardId, pricedOn);
     if (cached != null) {
+      await this.registerImages([cached]);
       this.logCache('pricing.owned.cache', 'hit', 1, card.id);
       return this.makeOwnedResponse(card.id, serializePricedCard(card.game, cached));
     }
@@ -195,6 +200,7 @@ export class CardPricingService {
           pricedOn,
         );
         if (populated != null) {
+          await this.registerImages([populated]);
           this.logCache('pricing.owned.cache', 'hit', 1, card.id);
           return this.makeOwnedResponse(card.id, serializePricedCard(card.game, populated));
         }
@@ -222,6 +228,7 @@ export class CardPricingService {
           pricedOn,
           pricingSource: this.client.source,
         });
+        await this.registerImages([row]);
         this.logCache('pricing.owned.cache', 'set', 1, card.id);
         return this.makeOwnedResponse(card.id, serializePricedCard(card.game, row));
       },
@@ -244,10 +251,12 @@ export class CardPricingService {
       pricedOn,
     );
     const rowsById = new Map(rows.map(row => [row.pricingCardId, row]));
-    const matches = cachedSearch.pricingCardIds.flatMap(id => {
+    const orderedRows = cachedSearch.pricingCardIds.flatMap(id => {
       const row = rowsById.get(id);
-      return row == null ? [] : [serializePricedCard(game, row)];
+      return row == null ? [] : [row];
     });
+    await this.registerImages(orderedRows);
+    const matches = orderedRows.map(row => serializePricedCard(game, row));
     this.logCache('pricing.search.cache', 'hit', matches.length);
     return { normalizedQuery, matches };
   }
@@ -258,6 +267,34 @@ export class CardPricingService {
       status: price.market == null ? OWNED_CARD_PRICE_STATUSES.NO_PRICE : OWNED_CARD_PRICE_STATUSES.PRICED,
       priced_card: price,
     };
+  }
+
+  private async registerImages(rows: CardPriceRow[]): Promise<void> {
+    try {
+      const uniqueOrigins = new Set(rows.flatMap(row => (row.prices.image == null ? [] : [row.prices.image])));
+      const registered = await this.c.get('cardImageRepository').registerMany(
+        [...uniqueOrigins].map(originUrl => {
+          const imageKey = imageKeyForOriginURL(originUrl);
+          return { imageKey, originUrl, storageKey: storageKeyForImageKey(imageKey) };
+        }),
+      );
+      imagesLogger(this.c).info(
+        {
+          event: 'images.register',
+          outcome: 'success',
+          cache_status: registered.length > 0 ? 'set' : 'hit',
+          result_count: registered.length,
+        },
+        'Registered card images for proxy delivery.',
+      );
+      if (env.CARD_IMAGE_WORKER_ENABLED && env.CARD_IMAGE_WARM_ON_REGISTER)
+        this.c.get('cardImageWarmer').enqueue(registered);
+    } catch (err) {
+      imagesLogger(this.c).error(
+        { event: 'images.register', outcome: 'failure', error_code: 'CARD_IMAGE_REGISTER_FAILED', err },
+        'Failed to register card images without failing pricing.',
+      );
+    }
   }
 
   private throwProviderUnavailable(
