@@ -27,6 +27,12 @@
     "show_command": false
   },
   {
+    "label": "just: ready server",
+    "command": "just",
+    "args": ["ready-server"],
+    "show_command": false
+  },
+  {
     "label": "just: test",
     "command": "just",
     "args": ["test"],

@@ -43,6 +43,14 @@
       "problemMatcher": []
     },
     {
+      "label": "just: ready server",
+      "type": "shell",
+      "command": "just",
+      "args": ["ready-server"],
+      "options": { "cwd": "${workspaceFolder}" },
+      "problemMatcher": []
+    },
+    {
       "label": "just: test",
       "type": "shell",
       "command": "just",
