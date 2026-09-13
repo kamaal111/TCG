@@ -1,0 +1,254 @@
+server/src/card-pricing/scrydex/static-client.ts
+  s_5c6f9aca29cede::t_23b77114db35a4 127-129,145-147,175-177
+  s_5c6f9aca29cede::t_062be7fcdfd2d1 148,178
+  s_5c6f9aca29cede::t_32e23353af456c 172,195,219-224
+  s_5c6f9aca29cede::t_0331c5ac602714 133,136,138,144,160,163,174,180,229,234
+  s_5c6f9aca29cede::t_4778e43fd88072 126
+server/src/card-pricing/scrydex/normalize.ts
+  s_5c6f9aca29cede::t_7baf5ee6e3be72 148
+  s_5c6f9aca29cede::t_0331c5ac602714 38,41,77,90,120,132,138,150
+  s_5c6f9aca29cede::t_01174e8454a044 13,15
+  s_5c6f9aca29cede::t_8343fa776f7de6 12,14,16
+  s_5c6f9aca29cede::t_7c483c8e1d3e06 3,17-18,21,51,55,71,75,91-92,95-112,124-127,136-137,139,142-145
+  s_5c6f9aca29cede::t_23b77114db35a4 32-34,48-50,52-54,56-58,72-74,78-80,87-89
+  s_5c6f9aca29cede::t_d57b8769aa8790 31
+  s_5c6f9aca29cede::t_847cca091c4bd1 47
+server/src/cards/handlers/delete-card.ts
+  s_5c6f9aca29cede::t_0331c5ac602714 16
+oxlint-plugins/no-nullish-check-first-ternary.ts
+  s_5c6f9aca29cede::t_762b944eb86d77 15
+  s_5c6f9aca29cede::t_503564918a1ab5 55-56,63-65,70
+  s_5c6f9aca29cede::t_85dbb807cd1179 104
+  s_5c6f9aca29cede::t_d59cea989f488b 1-3,5,10,17,24,31,39,43,48,106
+  s_5c6f9aca29cede::t_ccd3446459c914 7,12,19,26,51,53,71-73,85,87-89,100,108
+server/src/auth/tests/sign-out.integration.test.ts
+  s_5c6f9aca29cede::t_0331c5ac602714 16,20,25,35
+server/src/auth/tests/sign-up.integration.test.ts
+  s_5c6f9aca29cede::t_0331c5ac602714 29,37,41,48,52,95,99,101,105
+  s_5c6f9aca29cede::t_78d6475bb8ee17 215-222,230
+server/src/env.ts
+  s_5c6f9aca29cede::t_0331c5ac602714 99,107,115
+server/src/logging/tests/logging.test.ts
+  s_5c6f9aca29cede::t_0331c5ac602714 107
+  s_5c6f9aca29cede::t_af13c61ab9befd 127-130
+server/src/open-api.integration.test.ts
+  s_5c6f9aca29cede::t_bbf68eab8ff5cb 39
+  s_5c6f9aca29cede::t_ce92e8f6924a95 15-18,20-21
+  s_5c6f9aca29cede::t_0331c5ac602714 51,57
+  s_5c6f9aca29cede::t_030567cdb4add1 19
+  s_5c6f9aca29cede::t_b3d5f639594998 3,22-23,31,145,148-149
+server/src/tests/utils.ts
+  s_5c6f9aca29cede::t_0331c5ac602714 66,78,84,92
+server/src/card-pricing/scrydex/types.ts
+  s_5c6f9aca29cede::t_0331c5ac602714 66
+server/src/utils/request.ts
+  s_5c6f9aca29cede::t_23b77114db35a4 4-6,11-13
+  s_5c6f9aca29cede::t_0331c5ac602714 10
+  s_5c6f9aca29cede::t_46afd0e10ae7e2 3
+server/src/open-api.ts
+  s_5c6f9aca29cede::t_32e23353af456c 66
+  s_5c6f9aca29cede::t_0331c5ac602714 14,16,18,20,22,24
+server/src/auth/constants.ts
+  s_5c6f9aca29cede::t_0331c5ac602714 9,13,15,17,22,24,26,28
+server/src/cards/handlers/list-cards.ts
+  s_5c6f9aca29cede::t_0331c5ac602714 25,29,33
+server/src/card-images/repository.ts
+  s_5c6f9aca29cede::t_062be7fcdfd2d1 41
+  s_5c6f9aca29cede::t_0331c5ac602714 58,82,92,106
+  s_5c6f9aca29cede::t_23b77114db35a4 38-40
+server/src/card-pricing/scrydex/real-client.ts
+  s_5c6f9aca29cede::t_23b77114db35a4 46-48,57-59,63-65,69-71,75,77,98-100,116-118,124-126,130-132,134-136,140-142,146,148,152,154
+  s_5c6f9aca29cede::t_0331c5ac602714 56,68,74,82,85,90,92,97,115,123,139,145,151,167,181,200
+  s_5c6f9aca29cede::t_c8b43d4c4c7acf 60,72,101,127,133,143,149,155
+  s_5c6f9aca29cede::t_cddf4ff6cc07da 45,62,129
+server/src/storage/memory-client.ts
+  s_5c6f9aca29cede::t_0331c5ac602714 16,22,32,42
+  s_5c6f9aca29cede::t_23b77114db35a4 23-25,33-35
+  s_5c6f9aca29cede::t_062be7fcdfd2d1 26,36
+oxfmt.config.ts
+  s_5c6f9aca29cede::t_9a62501fe758f6 1-7
+oxlint-plugins/consistent-inline-type-imports.ts
+  s_5c6f9aca29cede::t_d59cea989f488b 5-9,16,20,24,28,33
+  s_5c6f9aca29cede::t_23b77114db35a4 48-50,53-56,60-62,65-68
+  s_5c6f9aca29cede::t_0331c5ac602714 59,80,82
+server/src/card-pricing/tests/scrydex-real-client.test.ts
+  s_5c6f9aca29cede::t_0331c5ac602714 9-10,13,59,62
+  s_5c6f9aca29cede::t_45f9cf5c60c586 3,132,163-164,166-167,169-170
+  s_5c6f9aca29cede::t_b232f01cdb62d0 12,61,165
+  s_5c6f9aca29cede::t_04b78ebd0d8b29 4
+server/src/cards/route.ts
+  s_5c6f9aca29cede::t_0331c5ac602714 14
+server/src/db/errors.ts
+  s_5c6f9aca29cede::t_c316639104f773 1-2,5,7,9,11,14-18,21-31
+  s_5c6f9aca29cede::t_1ffcd8a298af18 32-35
+server/src/auth/better-auth.ts
+  s_5c6f9aca29cede::t_0331c5ac602714 12,14,16
+server/src/auth/module.ts
+  s_5c6f9aca29cede::t_0331c5ac602714 49
+server/src/card-images/logging.ts
+  s_5c6f9aca29cede::t_0331c5ac602714 29
+server/src/exceptions/index.ts
+  s_5c6f9aca29cede::t_0331c5ac602714 35
+server/src/db/schema/cards.ts
+  s_5c6f9aca29cede::t_0331c5ac602714 9,13
+server/src/card-pricing/scrydex/query.ts
+  s_5c6f9aca29cede::t_0331c5ac602714 5,10,26
+  s_5c6f9aca29cede::t_23b77114db35a4 19-21,27-29
+  s_5c6f9aca29cede::t_062be7fcdfd2d1 30
+  s_5c6f9aca29cede::t_b581560147f7ed 18
+server/src/card-images/origin-client.ts
+  s_5c6f9aca29cede::t_23b77114db35a4 25-28,52-54
+  s_5c6f9aca29cede::t_062be7fcdfd2d1 55
+  s_5c6f9aca29cede::t_0331c5ac602714 18,23,51,57,66,68,76,78,86,88,96,105
+  s_5c6f9aca29cede::t_e68e82f626d700 24
+server/src/cards/repository.ts
+  s_5c6f9aca29cede::t_0331c5ac602714 71,121
+  s_5c6f9aca29cede::t_23b77114db35a4 116-118
+  s_5c6f9aca29cede::t_9dec6dfffa861e 115
+server/src/db/schema/card-images.ts
+  s_5c6f9aca29cede::t_b20e75ab4fcfdc 10-15
+server/src/logging/index.ts
+  s_5c6f9aca29cede::t_bbf68eab8ff5cb 31-33
+  s_5c6f9aca29cede::t_bdc87ddaf03168 47,51,79
+server/src/cards/handlers/update-card.ts
+  s_5c6f9aca29cede::t_0331c5ac602714 21
+oxlint-plugins/test-utils/lint-with-rule.ts
+  s_5c6f9aca29cede::t_0331c5ac602714 8,10,12,28,52
+oxlint.config.ts
+  s_5c6f9aca29cede::t_9a62501fe758f6 1-8,10-13,15,17-23
+server/src/cards/tests/delete-card.integration.test.ts
+  s_5c6f9aca29cede::t_0331c5ac602714 18,23,35,39,58,62
+server/src/card-pricing/service.ts
+  s_5c6f9aca29cede::t_23b77114db35a4 58-60,74-76,181-183,191-194,258-260,286-288
+  s_5c6f9aca29cede::t_0331c5ac602714 63,80,84,94,96,104,107,114,150,155,163,171,175,177,197,209,213,218,233,237,243,247,269,272,296,298,301,304,308,322,328,334,342
+  s_5c6f9aca29cede::t_d9d3b9ee95e8c0 57,73,180,257,285
+server/src/cards/tests/update-card.integration.test.ts
+  s_5c6f9aca29cede::t_0331c5ac602714 19,26,38,42,48,70,74,93,99,110,120,126,128,147,159,173,186,198,208
+server/src/cards/tests/list-cards.integration.test.ts
+  s_5c6f9aca29cede::t_0331c5ac602714 36,49,96
+server/src/cards/constants.ts
+  s_5c6f9aca29cede::t_0331c5ac602714 2
+server/src/storage/tests/s3-client.integration.test.ts
+  s_5c6f9aca29cede::t_0331c5ac602714 32,34,41,44,54
+  s_5c6f9aca29cede::t_23b77114db35a4 8-11,20-22
+  s_5c6f9aca29cede::t_062be7fcdfd2d1 23
+server/src/tests/logs.ts
+  s_5c6f9aca29cede::t_af13c61ab9befd 8-10,52
+  s_5c6f9aca29cede::t_7baf5ee6e3be72 1-2
+  s_5c6f9aca29cede::t_0331c5ac602714 7,44
+server/src/auth/tests/token.integration.test.ts
+  s_5c6f9aca29cede::t_0331c5ac602714 20,29,36,82,87
+  s_5c6f9aca29cede::t_f6490f1ce45366 4,37,88
+server/src/card-pricing/constants.ts
+  s_5c6f9aca29cede::t_0331c5ac602714 2
+server/src/card-images/materializer.ts
+  s_5c6f9aca29cede::t_062be7fcdfd2d1 99
+  s_5c6f9aca29cede::t_23b77114db35a4 68-70,96-98,234-238
+  s_5c6f9aca29cede::t_7baf5ee6e3be72 105
+  s_5c6f9aca29cede::t_0331c5ac602714 10,16,42,45,74,80,82,92,95,104,121,142,145,161,169,177,184,193,202,213,224,227,233
+  s_5c6f9aca29cede::t_6195b6b8b24678 67
+server/src/card-pricing/utils/pricing.ts
+  s_5c6f9aca29cede::t_0331c5ac602714 31,40
+server/src/auth/tests/sign-in.integration.test.ts
+  s_5c6f9aca29cede::t_78d6475bb8ee17 197-203,211
+  s_5c6f9aca29cede::t_0331c5ac602714 27,31,36,41,45,51,88,104,116,130
+oxlint-plugins/consistent-inline-type-imports.test.ts
+  s_5c6f9aca29cede::t_0331c5ac602714 4
+server/src/cards/schemas/responses.ts
+  s_5c6f9aca29cede::t_b20e75ab4fcfdc 5,14,18
+  s_5c6f9aca29cede::t_0331c5ac602714 82,84,86
+server/scripts/download-openapi-spec.ts
+  s_5c6f9aca29cede::t_0331c5ac602714 40
+server/src/card-images/constants.ts
+  s_5c6f9aca29cede::t_0331c5ac602714 4,6
+server/src/card-pricing/types.ts
+  s_5c6f9aca29cede::t_b20e75ab4fcfdc 6,9
+server/src/card-pricing/schemas/responses.ts
+  s_5c6f9aca29cede::t_0331c5ac602714 164,166
+  s_5c6f9aca29cede::t_b20e75ab4fcfdc 4,95,99
+package.json
+  s_5c6f9aca29cede::t_c345666db3ead2 35
+server/src/index.ts
+  s_5c6f9aca29cede::t_0331c5ac602714 4
+pnpm-workspace.yaml
+  s_5c6f9aca29cede::t_c345666db3ead2 6-7
+server/src/tests/auth.ts
+  s_5c6f9aca29cede::t_0331c5ac602714 10,42
+server/src/card-images/tests/origin-client.test.ts
+  s_5c6f9aca29cede::t_0331c5ac602714 18
+server/src/card-images/warmer.ts
+  s_5c6f9aca29cede::t_23b77114db35a4 24-26,40-42,47-49,53-55,62-64,86-88,132-134
+  s_5c6f9aca29cede::t_c8b43d4c4c7acf 27,43,56,65,89
+  s_5c6f9aca29cede::t_0331c5ac602714 6,10,31,46,82,85,98,104,130
+server/src/auth/hooks.ts
+  s_5c6f9aca29cede::t_23b77114db35a4 74-76,172-174,193-195
+  s_5c6f9aca29cede::t_0331c5ac602714 31,33,93,133,139,145,169,171
+  s_5c6f9aca29cede::t_84266b7c7e985c 73
+server/src/schemas/common.ts
+  s_5c6f9aca29cede::t_b20e75ab4fcfdc 3
+server/src/storage/s3-client.ts
+  s_5c6f9aca29cede::t_23b77114db35a4 77-79,103-105,112-115,136-138,145-148,162-164,178-180
+  s_5c6f9aca29cede::t_7575c2b2548702 37-41
+  s_5c6f9aca29cede::t_062be7fcdfd2d1 181
+  s_5c6f9aca29cede::t_0331c5ac602714 55,69,102,118,122,135,151,198,202,215,224,233
+  s_5c6f9aca29cede::t_7baf5ee6e3be72 193
+  s_5c6f9aca29cede::t_fc3950c995f1b2 76,161
+server/src/utils/results.ts
+  s_5c6f9aca29cede::t_0331c5ac602714 11
+  s_5c6f9aca29cede::t_32e23353af456c 2-4,22
+server/src/card-images/service.ts
+  s_5c6f9aca29cede::t_0331c5ac602714 33,36,39,52,60,65,72,99,103,105,112,134,157,187
+  s_5c6f9aca29cede::t_23b77114db35a4 27-29,66-68,73-75,113-115,135-137,139-141,143-145,196-198
+  s_5c6f9aca29cede::t_062be7fcdfd2d1 69,76,116,138,142,146
+  s_5c6f9aca29cede::t_cf7524ac824282 26
+server/src/card-images/tests/get-image.integration.test.ts
+  s_5c6f9aca29cede::t_0331c5ac602714 30,32,49,55,57,65,70,89,95,105,110,122,128,168,179,183
+  s_5c6f9aca29cede::t_fe37244b619f96 159-160
+  s_5c6f9aca29cede::t_e7e735b964e627 166,173
+server/src/card-pricing/tests/pricing.integration.test.ts
+  s_5c6f9aca29cede::t_fe37244b619f96 334-335,377-378
+  s_5c6f9aca29cede::t_155b6759b162b0 361,394
+  s_5c6f9aca29cede::t_e7e735b964e627 344,353,385
+  s_5c6f9aca29cede::t_23b77114db35a4 384,386,416-418,450-452
+  s_5c6f9aca29cede::t_0331c5ac602714 33,74,78,112,120,143,198,273,277,300,306,325,347,356,371,383,389,401,404,415,422,431,435,441
+  s_5c6f9aca29cede::t_062be7fcdfd2d1 387,419
+server/scripts/check-openapi-spec.ts
+  s_5c6f9aca29cede::t_0331c5ac602714 19,22,48
+server/src/db/schema/index.ts
+  s_5c6f9aca29cede::t_0331c5ac602714 7,9,11
+server/src/logging/middleware.ts
+  s_5c6f9aca29cede::t_ca8356e9ee8815 52,58-60,104
+server/src/card-pricing/repository.ts
+  s_5c6f9aca29cede::t_0331c5ac602714 70,73,75,84,198,282,284
+  s_5c6f9aca29cede::t_062be7fcdfd2d1 81,88
+  s_5c6f9aca29cede::t_23b77114db35a4 78-80,85-87,144-146
+server/src/cards/tests/create-card.integration.test.ts
+  s_5c6f9aca29cede::t_0331c5ac602714 22,51,87,93
+server/src/app.ts
+  s_5c6f9aca29cede::t_0331c5ac602714 36,39,67,73,90,132,140
+server/src/auth/tests/session.integration.test.ts
+  s_5c6f9aca29cede::t_0331c5ac602714 20,30,70,79,86,91
+server/src/context.ts
+  s_5c6f9aca29cede::t_23b77114db35a4 56
+  s_5c6f9aca29cede::t_0331c5ac602714 61
+oxlint-plugins/no-nullish-check-first-ternary.test.ts
+  s_5c6f9aca29cede::t_0331c5ac602714 4
+pnpm-lock.yaml
+  s_5c6f9aca29cede::t_5dab0039351ae5 221-223,896-902,1221-1224,4416-4430,4605-4606
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "46c8793ffd090e5fe35fde758db22db0ac05036d",
+  "prompts": {},
+  "sessions": {
+    "s_5c6f9aca29cede": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a09bb5-eebc-7612-a2ea-67177f002f44",
+        "model": "gpt-5.6-terra"
+      },
+      "human_author": "Kamaal Farah <kamaal.f1@gmail.com>"
+    }
+  }
+}
