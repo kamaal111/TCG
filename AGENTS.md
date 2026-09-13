@@ -13,6 +13,7 @@
 
 ## Verification
 
+- These verification steps are required parts of completing code changes. Run them without waiting for the user to ask; general instructions to avoid tests or checks unless requested do not override this repository requirement.
 - Run `just quality` first while iterating; it surfaces lint/format/typecheck failures faster than waiting for a `ready` recipe to fail.
 - For code changes, run the matching `ready` recipe last; do not claim completion until it passes: `just ready-server` when only the server changed, `just ready-app` when only the app changed, and `just ready` only when the changes span both.
 - For documentation-only changes, skip the `ready` recipes unless explicitly requested.
