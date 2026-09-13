@@ -1,5 +1,6 @@
 import type { Hono } from 'hono';
 import * as yaml from 'js-yaml';
+import { z } from 'zod';
 
 import { SIGN_UP_ROUTE_PATH } from './auth/constants.ts';
 import { createCardRequest, validCardPayload } from './cards/tests/utils.ts';
@@ -11,11 +12,15 @@ import { expectValidationIssueForFields } from './tests/auth.ts';
 import { integrationTest } from './tests/fixtures.ts';
 import { createTestUser } from './tests/utils.ts';
 
-interface SpecificationDocument {
-  openapi: string;
-  paths: Record<string, Record<string, unknown>>;
-  components: { schemas: Record<string, Record<string, unknown>> };
-}
+const SpecificationDocumentSchema = z
+  .object({
+    openapi: z.string(),
+    paths: z.record(z.string(), z.record(z.string(), z.json())),
+    components: z.object({ schemas: z.record(z.string(), z.record(z.string(), z.json())) }).loose(),
+  })
+  .loose();
+
+type SpecificationDocument = z.infer<typeof SpecificationDocumentSchema>;
 
 describe('OpenAPI specification integration', () => {
   integrationTest('downloads a specification with a valid JSON document shape', async ({ app }) => {
@@ -23,7 +28,7 @@ describe('OpenAPI specification integration', () => {
 
     expect(response.status).toBe(CONTENTFUL_STATUS_CODES.OK);
     expect(response.headers.get('content-type')).toContain(MIME_TYPES.JSON);
-    expectDocumentShape(await response.json());
+    expectSpecificationDocument(await response.json());
   });
 
   integrationTest('downloads a specification with a valid YAML document shape', async ({ app }) => {
@@ -31,7 +36,7 @@ describe('OpenAPI specification integration', () => {
 
     expect(response.status).toBe(CONTENTFUL_STATUS_CODES.OK);
     expect(response.headers.get('content-type')).toContain(MIME_TYPES.YAML);
-    expectDocumentShape(yaml.load(await response.text()));
+    expectSpecificationDocument(SpecificationDocumentSchema.parse(yaml.load(await response.text())));
   });
 
   integrationTest('agrees between the JSON and YAML documents', async ({ app }) => {
@@ -43,11 +48,13 @@ describe('OpenAPI specification integration', () => {
 
   integrationTest('rejects an invalid auth payload with the same envelope cards routes use', async ({ app, db }) => {
     const user = await createTestUser(app, db);
+
     const authResponse = await app.request(SIGN_UP_ROUTE_PATH, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email: 'not-an-email', password: 'password123', name: 'Test User' }),
     });
+
     const cardsResponse = await createCardRequest(app, user.sessionToken, { ...validCardPayload, name: '' });
 
     await expectValidationIssueForFields(authResponse, ['email']);
@@ -135,11 +142,9 @@ async function sendSpecRequest(app: Hono<HonoEnvironment>, path: string) {
 async function readSpecification(app: Hono<HonoEnvironment>): Promise<SpecificationDocument> {
   const response = await sendSpecRequest(app, OPENAPI_JSON_SPEC_PATH);
 
-  return response.json();
+  return SpecificationDocumentSchema.parse(await response.json());
 }
 
-function expectDocumentShape(document: unknown) {
-  expect(document).toEqual(expect.anything());
-  expect(typeof document).toBe('object');
-  expect(Array.isArray(document)).toBe(false);
+function expectSpecificationDocument(document: z.input<typeof SpecificationDocumentSchema>) {
+  expect(SpecificationDocumentSchema.safeParse(document).success).toBe(true);
 }

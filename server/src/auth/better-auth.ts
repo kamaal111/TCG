@@ -9,8 +9,11 @@ import * as schema from '../db/schema/index.ts';
 import env from '../env.ts';
 
 const TRUSTED_ORIGINS = ['tcg://'];
+
 const EXPIRES_IN = ONE_DAY_IN_SECONDS * env.BETTER_AUTH_SESSION_EXPIRY_DAYS;
+
 const UPDATE_AGE = ONE_DAY_IN_SECONDS * env.BETTER_AUTH_SESSION_UPDATE_AGE_DAYS;
+
 const JWT_EXPIRATION_TIME = `${env.JWT_EXPIRY_DAYS}d`;
 
 export type Auth = ReturnType<typeof createAuth>;

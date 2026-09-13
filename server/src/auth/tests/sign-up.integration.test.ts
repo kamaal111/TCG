@@ -26,6 +26,7 @@ describe('Sign-up integration', () => {
         ...createValidSignUpPayload(),
         name: '李 小龙',
       };
+
       const { headers, requestId } = withRequestId({ 'Content-Type': 'application/json' });
       const response = await sendSignUpRequest(app, payload, headers);
 
@@ -33,18 +34,22 @@ describe('Sign-up integration', () => {
         response,
         CONTENTFUL_STATUS_CODES.CREATED,
       );
+
       const persistedUser = await db.query.user.findFirst({
         where: { email: payload.email },
       });
+
       expect(persistedUser).toBeDefined();
       assert(persistedUser);
 
       const persistedAccounts = await db.query.account.findMany({
         where: { userId: persistedUser.id },
       });
+
       const persistedSessions = await db.query.session.findMany({
         where: { userId: persistedUser.id },
       });
+
       const logs = getLogsForRequestId(requestId);
       const serializedLogs = JSON.stringify(logs);
       const decodedAuthToken = decodeJwt(responseHeaders['set-auth-token']);
@@ -87,13 +92,17 @@ describe('Sign-up integration', () => {
 
     const duplicateResponse = await sendSignUpRequest(app, payload);
     const body = await expectErrorResponse(duplicateResponse, CONTENTFUL_STATUS_CODES.CONFLICT);
+
     const persistedUser = await db.query.user.findFirst({
       where: { email: payload.email },
     });
+
     assert(persistedUser);
+
     const persistedUsers = await db.query.user.findMany({
       where: { email: payload.email },
     });
+
     const persistedAccounts = await db.query.account.findMany({
       where: { userId: persistedUser.id },
     });
@@ -203,7 +212,14 @@ describe('Sign-up integration', () => {
   });
 });
 
-function createValidSignUpPayload() {
+interface SignUpPayload {
+  callbackURL?: string;
+  email?: string;
+  name?: string;
+  password?: string;
+}
+
+function createValidSignUpPayload(): Required<Pick<SignUpPayload, 'email' | 'name' | 'password'>> {
   return {
     email: `test_${crypto.randomUUID()}@example.com`,
     password: 'password123',
@@ -211,7 +227,7 @@ function createValidSignUpPayload() {
   };
 }
 
-async function sendSignUpRequest(app: Hono<HonoEnvironment>, payload: unknown, headers?: Headers) {
+async function sendSignUpRequest(app: Hono<HonoEnvironment>, payload: SignUpPayload, headers?: Headers) {
   return app.request(SIGN_UP_ROUTE_PATH, {
     method: 'POST',
     headers:

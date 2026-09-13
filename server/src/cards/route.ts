@@ -11,6 +11,7 @@ import listCardsRoute from './routes/list-cards.ts';
 import updateCardRoute from './routes/update-card.ts';
 
 const cardsRoute = openAPIRouterFactory();
+
 cardsRoute.use(allowedModes(SERVER_MODES.SERVER));
 
 // POST: /cards

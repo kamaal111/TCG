@@ -7,13 +7,13 @@ import env from '../env.ts';
 import type { DomainLogger } from '../logging/index.ts';
 import type { ObjectStorageClient } from '../storage/client.ts';
 
-export type MaterializedImage = {
+export interface MaterializedImage {
   body: Uint8Array;
   checksum: string;
   contentLength: number;
   contentType: string;
   persisted: boolean;
-};
+}
 
 export const CARD_IMAGE_MATERAILIZATION_STATUSES = {
   READY: 'ready',
@@ -39,10 +39,10 @@ export const CARD_IMAGE_MATERIALIZATION_TRIGGERS = {
 export type CardImageMaterializationTrigger =
   (typeof CARD_IMAGE_MATERIALIZATION_TRIGGERS)[keyof typeof CARD_IMAGE_MATERIALIZATION_TRIGGERS];
 
-type MaterializationOptions = {
+interface MaterializationOptions {
   logger: DomainLogger<ImagesLogFields>;
   trigger: CardImageMaterializationTrigger;
-};
+}
 
 export class CardImageMaterializer {
   private readonly dependencies: {
@@ -64,16 +64,22 @@ export class CardImageMaterializer {
 
   materialize(imageKey: string, options: MaterializationOptions): Promise<CardImageMaterializationResult> {
     const existing = this.inFlight.get(imageKey);
-    if (existing != null) return existing;
+
+    if (existing != null) {
+      return existing;
+    }
 
     const task = this.limiter.run(() => this.performMaterialization(imageKey, options));
     this.inFlight.set(imageKey, task);
+
     const cleanup = () => {
       if (this.inFlight.get(imageKey) === task) {
         this.inFlight.delete(imageKey);
       }
     };
+
     void task.then(cleanup).catch(cleanup);
+
     return task;
   }
 
@@ -83,14 +89,20 @@ export class CardImageMaterializer {
   ): Promise<CardImageMaterializationResult> {
     const leaseOwner = crypto.randomUUID();
     const row = await this.dependencies.repository.claim(imageKey, leaseOwner);
+
     if (row == null) {
       const current = await this.dependencies.repository.getByImageKey(imageKey);
-      if (current == null) return { status: CARD_IMAGE_MATERAILIZATION_STATUSES.NOT_FOUND };
+
+      if (current == null) {
+        return { status: CARD_IMAGE_MATERAILIZATION_STATUSES.NOT_FOUND };
+      }
+
       return { status: CARD_IMAGE_MATERAILIZATION_STATUSES.BUSY };
     }
 
     const originFetchStartedAt = performance.now();
-    const fetched = await this.dependencies.imageOriginClient.fetchImage(row.originUrl).catch((err: unknown) => {
+
+    const fetched = await this.dependencies.imageOriginClient.fetchImage(row.originUrl).catch(err => {
       options.logger.error(
         {
           event: 'images.origin_fetch.completed',
@@ -106,6 +118,7 @@ export class CardImageMaterializer {
       );
       throw err;
     });
+
     if (fetched.isErr()) {
       options.logger.warn(
         {
@@ -126,8 +139,10 @@ export class CardImageMaterializer {
         message: fetched.error.message,
         isRetryable: fetched.error.isRetryable,
       });
+
       return { status: CARD_IMAGE_MATERAILIZATION_STATUSES.FAILED, isRetryable: fetched.error.isRetryable };
     }
+
     options.logger.info(
       {
         event: 'images.origin_fetch.completed',
@@ -143,6 +158,7 @@ export class CardImageMaterializer {
     );
 
     const checksum = crypto.createHash('sha256').update(fetched.value.body).digest('hex');
+
     const image: MaterializedImage = {
       body: fetched.value.body,
       checksum,
@@ -150,6 +166,7 @@ export class CardImageMaterializer {
       contentType: fetched.value.contentType,
       persisted: false,
     };
+
     try {
       const stored = await this.dependencies.storageClient.put(
         row.storageKey,
@@ -157,12 +174,14 @@ export class CardImageMaterializer {
         image.contentType,
         image.checksum,
       );
+
       if (stored.isErr()) {
         await this.dependencies.repository.markFailed(imageKey, leaseOwner, {
           code: `storage_${stored.error.reason}`,
           message: stored.error.message,
           isRetryable: stored.error.isRetryable,
         });
+
         return { status: CARD_IMAGE_MATERAILIZATION_STATUSES.READY, image };
       }
     } catch (error) {
@@ -171,6 +190,7 @@ export class CardImageMaterializer {
         message: error instanceof Error ? error.message : String(error),
         isRetryable: true,
       });
+
       return { status: CARD_IMAGE_MATERAILIZATION_STATUSES.READY, image };
     }
 
@@ -179,6 +199,7 @@ export class CardImageMaterializer {
       contentLength: image.contentLength,
       checksum: image.checksum,
     });
+
     return { status: CARD_IMAGE_MATERAILIZATION_STATUSES.READY, image: { ...image, persisted } };
   }
 }
@@ -189,6 +210,7 @@ class AsyncLimiter {
 
   async run<T>(operation: () => Promise<T>): Promise<T> {
     await this.acquire();
+
     try {
       return await operation();
     } finally {
@@ -199,14 +221,20 @@ class AsyncLimiter {
   private async acquire(): Promise<void> {
     if (this.activeCount < env.CARD_IMAGE_WARM_CONCURRENCY) {
       this.activeCount += 1;
+
       return;
     }
+
     await new Promise<void>(resolve => this.waiters.push(resolve));
   }
 
   private release(): void {
     const waiter = this.waiters.shift();
-    if (waiter != null) waiter();
-    else this.activeCount -= 1;
+
+    if (waiter != null) {
+      waiter();
+    } else {
+      this.activeCount -= 1;
+    }
   }
 }

@@ -1,6 +1,7 @@
 import { lintWithRule } from './test-utils/lint-with-rule.ts';
 
 const PLUGIN = 'consistent-inline-type-imports.ts';
+
 const RULE_ID = 'local/no-all-inline-type-imports';
 
 function lint(source: string) {

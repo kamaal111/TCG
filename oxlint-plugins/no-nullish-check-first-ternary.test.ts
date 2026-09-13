@@ -1,6 +1,7 @@
 import { lintWithRule } from './test-utils/lint-with-rule.ts';
 
 const PLUGIN = 'no-nullish-check-first-ternary.ts';
+
 const RULE_ID = 'local-ternary/no-nullish-check-first-ternary';
 
 function lint(source: string) {

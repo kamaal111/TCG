@@ -1,18 +1,18 @@
 import { defineRelationsPart, sql } from 'drizzle-orm';
 import { check, index, integer, pgEnum, pgTable, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core';
 
-import { toTypedUpperCase } from '../../utils/strings.ts';
-
 type CardImageStatusMap = {
   [Status in (typeof CARD_IMAGE_STATUS_ARRAY)[number] as Uppercase<Status>]: Status;
 };
 
 const CARD_IMAGE_STATUS_ARRAY = ['pending', 'fetching', 'ready', 'failed'] as const;
 
-export const CARD_IMAGE_STATUSES = CARD_IMAGE_STATUS_ARRAY.reduce(
-  (statusMap, status) => ({ ...statusMap, [toTypedUpperCase(status)]: status }),
-  {} as CardImageStatusMap,
-);
+export const CARD_IMAGE_STATUSES = {
+  PENDING: 'pending',
+  FETCHING: 'fetching',
+  READY: 'ready',
+  FAILED: 'failed',
+} satisfies CardImageStatusMap;
 
 export const cardImageStatusEnum = pgEnum('card_image_status', CARD_IMAGE_STATUS_ARRAY);
 

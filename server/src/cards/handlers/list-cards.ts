@@ -22,12 +22,15 @@ export const LIST_CARDS_ROUTE_PATH = `${APP_API_ROUTE_NAME}${CARDS_ROUTE_NAME}` 
 async function listCardsHandler(c: ListCardsContext): Promise<ListCardsRouteResponse> {
   const { game } = c.req.valid('query');
   const cards = await c.get('cardRepository').list(game);
+
   const prices = isNonEmpty(cards)
     ? await c.get('cardPricingService').priceOwnedCards(cards, { allowUnavailable: true })
     : [];
+
   const response = CardsListResponseSchema.parse({
     cards: arrays.zip(cards, [...prices], true).flatMap(([card, price]) => [serializeCardWithPrice(card, price)]),
   });
+
   cardsLogger(c).info(
     { event: 'cards.list', outcome: 'success', result_count: response.cards.length, game },
     'Retrieved the owned card collection.',

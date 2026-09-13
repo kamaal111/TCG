@@ -1,33 +1,34 @@
-// Forbids `x == null ? a : b` style ternaries where the nullish branch comes first,
-// in favor of `x != null ? b : a`, so the value-producing branch reads first.
+interface AstNode {
+  type: string;
+}
 
-interface LiteralNode {
+interface LiteralNode extends AstNode {
   type: 'Literal';
-  value: unknown;
+  value: null;
 }
 
-interface IdentifierNode {
+interface IdentifierNode extends AstNode {
   type: 'Identifier';
-  name: string;
+  name: 'undefined';
 }
 
-type ExpressionNode = LiteralNode | IdentifierNode | { type: string };
+type ExpressionNode = LiteralNode | IdentifierNode | BinaryExpressionNode | LogicalExpressionNode | AstNode;
 
-interface BinaryExpressionNode {
+interface BinaryExpressionNode extends AstNode {
   type: 'BinaryExpression';
-  operator: string;
+  operator: '==' | '===';
   left: ExpressionNode;
   right: ExpressionNode;
 }
 
-interface LogicalExpressionNode {
+interface LogicalExpressionNode extends AstNode {
   type: 'LogicalExpression';
-  operator: string;
+  operator: '||';
   left: ExpressionNode;
   right: ExpressionNode;
 }
 
-interface ConditionalExpressionNode {
+interface ConditionalExpressionNode extends AstNode {
   type: 'ConditionalExpression';
   test: ExpressionNode;
   consequent: ExpressionNode;
@@ -35,41 +36,41 @@ interface ConditionalExpressionNode {
 }
 
 interface RuleFixer {
-  replaceText(node: unknown, text: string): unknown;
+  replaceText(node: AstNode, text: string): AstNode;
 }
 
 interface SourceCode {
-  getText(node: unknown): string;
+  getText(node: AstNode): string;
 }
 
 interface RuleContext {
   sourceCode: SourceCode;
-  report(descriptor: { node: unknown; message: string; fix?: (fixer: RuleFixer) => unknown }): void;
+  report(descriptor: { node: AstNode; message: string; fix?: (fixer: RuleFixer) => AstNode }): void;
 }
 
-const EQUALITY_OPERATORS: Record<string, string> = { '==': '!=', '===': '!==' };
+const EQUALITY_OPERATORS = { '==': '!=', '===': '!==' } as const;
 
-function isNullish(node: ExpressionNode): boolean {
+function isNullish(node: ExpressionNode): node is LiteralNode | IdentifierNode {
   return (
-    (node.type === 'Literal' && (node as LiteralNode).value === null) ||
-    (node.type === 'Identifier' && (node as IdentifierNode).name === 'undefined')
+    (node.type === 'Literal' && 'value' in node && node.value === null) ||
+    (node.type === 'Identifier' && 'name' in node && node.name === 'undefined')
   );
 }
 
 function isNullishEqualityCheck(node: ExpressionNode): node is BinaryExpressionNode {
   return (
     node.type === 'BinaryExpression' &&
-    (node as BinaryExpressionNode).operator in EQUALITY_OPERATORS &&
-    (isNullish((node as BinaryExpressionNode).left) || isNullish((node as BinaryExpressionNode).right))
+    'left' in node &&
+    'right' in node &&
+    (isNullish(node.left) || isNullish(node.right))
   );
 }
 
-function isLogicalOr(node: ExpressionNode): node is LogicalExpressionNode {
-  return node.type === 'LogicalExpression' && (node as LogicalExpressionNode).operator === '||';
-}
-
 function flattenOrOperands(node: ExpressionNode): ExpressionNode[] {
-  if (!isLogicalOr(node)) return [node];
+  if (node.type !== 'LogicalExpression' || !('left' in node && 'right' in node)) {
+    return [node];
+  }
+
   return [...flattenOrOperands(node.left), ...flattenOrOperands(node.right)];
 }
 
@@ -81,11 +82,11 @@ export default {
       create(context: RuleContext) {
         return {
           ConditionalExpression(node: ConditionalExpressionNode) {
-            const operands = flattenOrOperands(node.test);
-            if (!operands.every(isNullishEqualityCheck)) return;
-            const checks: BinaryExpressionNode[] = operands as BinaryExpressionNode[];
+            const checks = flattenOrOperands(node.test);
 
-            if (!isNullish(node.consequent)) return;
+            if (!checks.every(isNullishEqualityCheck) || !isNullish(node.consequent)) {
+              return;
+            }
 
             context.report({
               node,
@@ -96,11 +97,15 @@ export default {
                   .map(check => {
                     const leftText = context.sourceCode.getText(check.left);
                     const rightText = context.sourceCode.getText(check.right);
+
                     return `${leftText} ${EQUALITY_OPERATORS[check.operator]} ${rightText}`;
                   })
                   .join(' && ');
+
                 const consequentText = context.sourceCode.getText(node.consequent);
+
                 const alternateText = context.sourceCode.getText(node.alternate);
+
                 return fixer.replaceText(node, `${flippedTest} ? ${alternateText} : ${consequentText}`);
               },
             });

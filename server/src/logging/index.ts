@@ -1,14 +1,8 @@
 import { Writable } from 'node:stream';
 
-import type { AuthLogFields } from '@kamaalio/kamaal-auth-hono';
 import type { DestinationStream, LevelWithSilent, Logger, LoggerOptions } from 'pino';
 import pino from 'pino';
 
-import type { RequestLogFields } from './request.ts';
-import type { ServerLogFields } from './server.ts';
-import type { ImagesLogFields } from '../card-images/logging.ts';
-import type { PricingLogFields } from '../card-pricing/logging.ts';
-import type { CardsLogFields } from '../cards/logging.ts';
 import type { ServerMode } from '../constants/common.ts';
 import type { HonoContext } from '../context.ts';
 import env from '../env.ts';
@@ -33,18 +27,10 @@ interface RequestLoggerBindings {
   user_id: string;
 }
 
-type AnyLogFields =
-  | AuthLogFields
-  | CardsLogFields
-  | ImagesLogFields
-  | PricingLogFields
-  | RequestLogFields
-  | ServerLogFields;
-
 export interface RequestLogger {
-  info(fields: AnyLogFields, message: string): void;
-  warn(fields: AnyLogFields, message: string): void;
-  error(fields: AnyLogFields, message: string): void;
+  info<Fields extends DomainLogFields<string>>(fields: Fields, message: string): void;
+  warn<Fields extends DomainLogFields<string>>(fields: Fields, message: string): void;
+  error<Fields extends DomainLogFields<string>>(fields: Fields, message: string): void;
   child(bindings: RequestLoggerBindings): RequestLogger;
 }
 
@@ -58,11 +44,11 @@ interface CreateLoggerOptions {
 let rootLogger = createServerLogger();
 
 export function getDomainLogger<Fields extends DomainLogFields<string>>(c: HonoContext): DomainLogger<Fields> {
-  return c.get('logger') as DomainLogger<Fields>;
+  return c.get('logger');
 }
 
 export function getProcessLogger<Fields extends DomainLogFields<string>>(): DomainLogger<Fields> {
-  return getRootLogger() as DomainLogger<Fields>;
+  return getRootLogger();
 }
 
 export function createRequestLogger(fields: {
@@ -90,7 +76,7 @@ export function setRootLoggerDestination(destination: DestinationStream) {
 export function createMemoryLogDestination(logs: string[]) {
   return new Writable({
     write(chunk: string | Uint8Array, _encoding, callback) {
-      logs.push(typeof chunk === 'string' ? chunk : Buffer.from(chunk).toString('utf8'));
+      logs.push(Buffer.from(chunk).toString('utf8'));
       callback();
     },
   });

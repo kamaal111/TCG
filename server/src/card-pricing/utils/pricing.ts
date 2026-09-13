@@ -28,6 +28,7 @@ export function serializePricedCard(game: CardGame, row: CardPriceRow): PricedCa
               : undefined,
         }
       : undefined;
+
   const headline =
     market?.low != null
       ? {
@@ -36,6 +37,7 @@ export function serializePricedCard(game: CardGame, row: CardPriceRow): PricedCa
           metric: PRICE_HEADLINE_METRICS.LOWEST_NEAR_MINT,
         }
       : undefined;
+
   const imageUrl = row.prices.image != null ? proxyURLForOriginURL(row.prices.image) : undefined;
 
   return PricedCardSchema.parse({

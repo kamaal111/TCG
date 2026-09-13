@@ -63,6 +63,7 @@ export async function createTestUser(
   const email = `test_${crypto.randomUUID()}@example.com`;
   const password = overrides.password ?? 'password123';
   const name = 'Test User';
+
   const response = await app.request(SIGN_UP_ROUTE_PATH, {
     method: 'POST',
     headers: new Headers({
@@ -74,11 +75,13 @@ export async function createTestUser(
       name,
     }),
   });
+
   if (response.status !== CONTENTFUL_STATUS_CODES.CREATED) {
     throw new Error(`Failed to create test user: HTTP ${response.status} ${await response.text()}`);
   }
 
   const sessionToken = response.headers.get('set-session-token');
+
   if (sessionToken == null) {
     throw new Error('Failed to retrieve created session token');
   }
@@ -86,6 +89,7 @@ export async function createTestUser(
   const user = await db.query.user.findFirst({
     where: { email },
   });
+
   if (user == null) {
     throw new Error('Failed to find created test user');
   }

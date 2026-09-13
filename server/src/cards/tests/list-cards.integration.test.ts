@@ -33,6 +33,7 @@ describe('List cards integration', () => {
       const owner = await createTestUser(app, db);
       const otherUser = await createTestUser(app, db);
       const first = CardSchema.parse(await (await createCardRequest(app, owner.sessionToken)).json());
+
       const second = CardSchema.parse(
         await (
           await createCardRequest(app, owner.sessionToken, {
@@ -45,6 +46,7 @@ describe('List cards integration', () => {
           })
         ).json(),
       );
+
       await createCardRequest(app, otherUser.sessionToken);
 
       const { headers, requestId } = withRequestId(Object.fromEntries(sessionHeaders(owner.sessionToken).entries()));
@@ -91,6 +93,7 @@ describe('List cards integration', () => {
 
       const lockHolder = new Client({ connectionString });
       await lockHolder.connect();
+
       try {
         await lockHolder.query('begin');
         await lockHolder.query('select pg_advisory_xact_lock(hashtextextended($1, 0))', [

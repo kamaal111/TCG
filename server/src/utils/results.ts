@@ -5,6 +5,7 @@ export function tryCatch<T>(callback: () => T): Result<T, unknown>;
 export function tryCatch<T>(callback: () => T | Promise<T>): Result<T, unknown> | ResultAsync<T, unknown> {
   try {
     const value = callback();
+
     if (value instanceof Promise) {
       return ResultAsync.fromPromise(value, error => error);
     }
@@ -15,10 +16,10 @@ export function tryCatch<T>(callback: () => T | Promise<T>): Result<T, unknown> 
   }
 }
 
-export function toError(value: unknown): Error {
-  if (value instanceof Error) {
-    return value;
+export function toError(cause: unknown): Error {
+  if (cause instanceof Error) {
+    return cause;
   }
 
-  return new Error(String(value));
+  return new Error(String(cause));
 }

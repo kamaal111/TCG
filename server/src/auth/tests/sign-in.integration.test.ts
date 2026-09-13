@@ -24,25 +24,31 @@ describe('Sign-in integration', () => {
     'creates a new session and returns auth/session headers for a valid user',
     async ({ app, db, getLogsForRequestId, withRequestId }) => {
       const createdUser = await createTestUser(app, db);
+
       const initialSessions = await db.query.session.findMany({
         where: { userId: createdUser.userId },
       });
+
       const payload = createValidSignInPayload({
         email: createdUser.email,
         password: createdUser.password,
       });
+
       const { headers, requestId } = withRequestId({ 'Content-Type': MIME_TYPES.JSON });
       const response = await sendSignInRequest(app, payload, headers);
 
       const { body, headers: responseHeaders } = await expectAuthSuccessResponse(response, CONTENTFUL_STATUS_CODES.OK);
+
       const persistedUser = await db.query.user.findFirst({
         where: { email: createdUser.email },
       });
+
       assert(persistedUser);
 
       const persistedSessions = await db.query.session.findMany({
         where: { userId: persistedUser.id },
       });
+
       const logs = getLogsForRequestId(requestId);
       const serializedLogs = JSON.stringify(logs);
       const decodedAuthToken = decodeJwt(responseHeaders['set-auth-token']);
@@ -79,6 +85,7 @@ describe('Sign-in integration', () => {
 
   integrationTest('rejects an incorrect password for an existing user', async ({ app, db }) => {
     const createdUser = await createTestUser(app, db);
+
     const response = await sendSignInRequest(
       app,
       createValidSignInPayload({
@@ -94,6 +101,7 @@ describe('Sign-in integration', () => {
 
   integrationTest('accepts a valid app callback URL', async ({ app, db }) => {
     const createdUser = await createTestUser(app, db);
+
     const response = await sendSignInRequest(app, {
       email: createdUser.email,
       password: createdUser.password,
@@ -105,6 +113,7 @@ describe('Sign-in integration', () => {
 
   integrationTest('accepts an eight-character password', async ({ app, db }) => {
     const createdUser = await createTestUser(app, db, { password: '12345678' });
+
     const response = await sendSignInRequest(
       app,
       createValidSignInPayload({
@@ -118,6 +127,7 @@ describe('Sign-in integration', () => {
 
   integrationTest('accepts a 128-character password', async ({ app, db }) => {
     const createdUser = await createTestUser(app, db, { password: 'a'.repeat(128) });
+
     const response = await sendSignInRequest(
       app,
       createValidSignInPayload({
@@ -184,7 +194,13 @@ describe('Sign-in integration', () => {
   });
 });
 
-function createValidSignInPayload(overrides: Partial<{ callbackURL: string; email: string; password: string }> = {}) {
+interface SignInPayload {
+  callbackURL?: string;
+  email?: string;
+  password?: string;
+}
+
+function createValidSignInPayload(overrides: SignInPayload = {}) {
   return {
     email: `test_${crypto.randomUUID()}@example.com`,
     password: 'password123',
@@ -192,7 +208,7 @@ function createValidSignInPayload(overrides: Partial<{ callbackURL: string; emai
   };
 }
 
-async function sendSignInRequest(app: Hono<HonoEnvironment>, payload: unknown, headers?: Headers) {
+async function sendSignInRequest(app: Hono<HonoEnvironment>, payload: SignInPayload, headers?: Headers) {
   return app.request(SIGN_IN_ROUTE_PATH, {
     method: 'POST',
     headers:

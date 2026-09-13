@@ -1,6 +1,6 @@
 import z from 'zod';
 
-import type { CardGame, Currency, NormalizedPricingCard, PriceMovement } from '../types.ts';
+import type { CardGame, Currency, NormalizedPricing, NormalizedPricingCard, PriceMovement } from '../types.ts';
 import { CARD_GAME_MAP, CURRENCIES } from '../types.ts';
 import type { ScrydexRawCard, ScrydexRawPrice } from './types.ts';
 
@@ -9,10 +9,16 @@ const RequiredCardSchema = z.object({
   name: z.string().min(1),
 });
 
-const BASE_VARIANT_NAMES: Record<CardGame, readonly string[]> = {
+const CurrencySchema = z.enum(Object.values(CURRENCIES));
+
+const NonEmptyStringSchema = z.string().trim().min(1);
+
+const FiniteNumberSchema = z.number();
+
+const BASE_VARIANT_NAMES = {
   [CARD_GAME_MAP.ONE_PIECE]: ['normal'],
   [CARD_GAME_MAP.POKEMON]: ['normal', 'unlimitednormal', 'holofoil', 'unlimitedholofoil'],
-};
+} satisfies Record<CardGame, readonly string[]>;
 
 export interface ScrydexNormalizationResult {
   card: NormalizedPricingCard;
@@ -22,20 +28,34 @@ export interface ScrydexNormalizationResult {
 export function normalizeScrydexCard(game: CardGame, raw: ScrydexRawCard): ScrydexNormalizationResult | null {
   const parsed = RequiredCardSchema.safeParse(raw);
   const cardNumber = stringValue(raw.printed_number) ?? stringValue(raw.number);
-  if (!parsed.success || cardNumber == null) return null;
+
+  if (!parsed.success || cardNumber == null) {
+    return null;
+  }
 
   const baseVariant = raw.variants?.find(variant => {
     const name = stringValue(variant.name)?.toLowerCase();
+
     return name != null && BASE_VARIANT_NAMES[game].includes(name);
   });
+
   const rawPrice = baseVariant?.prices?.find(price => price.condition === 'NM' && price.type === 'raw');
   const market = normalizeRawPrice(rawPrice);
   const image = imageURL(baseVariant?.images) ?? imageURL(raw.images);
   const rarity = stringValue(raw.rarity);
   const pricing: NormalizedPricingCard['pricing'] = {};
-  if (market != null) pricing.market = market;
-  if (image != null) pricing.image = image;
-  if (rarity != null) pricing.rarity = rarity;
+
+  if (market != null) {
+    pricing.market = market;
+  }
+
+  if (image != null) {
+    pricing.image = image;
+  }
+
+  if (rarity != null) {
+    pricing.rarity = rarity;
+  }
 
   return {
     card: {
@@ -48,25 +68,48 @@ export function normalizeScrydexCard(game: CardGame, raw: ScrydexRawCard): Scryd
   };
 }
 
-function normalizeRawPrice(raw: ScrydexRawPrice | undefined) {
-  if (raw == null) return undefined;
+function normalizeRawPrice(raw: ScrydexRawPrice | undefined): NormalizedPricing['market'] {
+  if (raw == null) {
+    return undefined;
+  }
+
   const currency = normalizeCurrency(raw.currency);
-  if (currency == null) return undefined;
+
+  if (currency == null) {
+    return undefined;
+  }
 
   const low = finiteNonnegativeNumber(raw.low);
   const market = finiteNonnegativeNumber(raw.market);
   const trend7d = normalizeMovement(raw.trends?.days_7);
   const trend30d = normalizeMovement(raw.trends?.days_30);
-  if (low == null && market == null && trend7d == null && trend30d == null) return undefined;
 
-  return {
-    condition: 'near_mint' as const,
+  if (low == null && market == null && trend7d == null && trend30d == null) {
+    return undefined;
+  }
+
+  const normalized: NonNullable<NormalizedPricing['market']> = {
+    condition: 'near_mint',
     currency,
-    ...(low == null ? {} : { low }),
-    ...(market == null ? {} : { market }),
-    ...(trend7d == null ? {} : { trend7d }),
-    ...(trend30d == null ? {} : { trend30d }),
   };
+
+  if (low != null) {
+    normalized.low = low;
+  }
+
+  if (market != null) {
+    normalized.market = market;
+  }
+
+  if (trend7d != null) {
+    normalized.trend7d = trend7d;
+  }
+
+  if (trend30d != null) {
+    normalized.trend30d = trend30d;
+  }
+
+  return normalized;
 }
 
 function normalizeMovement(
@@ -74,31 +117,36 @@ function normalizeMovement(
 ): PriceMovement | undefined {
   const priceChange = finiteNumber(raw?.price_change);
   const percentChange = finiteNumber(raw?.percent_change);
+
   return priceChange != null && percentChange != null ? { priceChange, percentChange } : undefined;
 }
 
-function normalizeCurrency(value: unknown): Currency | undefined {
-  return typeof value === 'string' && Object.values(CURRENCIES).includes(value as Currency)
-    ? (value as Currency)
-    : undefined;
+function normalizeCurrency(value: ScrydexRawPrice['currency']): Currency | undefined {
+  const parsed = CurrencySchema.safeParse(value);
+
+  return parsed.success ? parsed.data : undefined;
 }
 
 function imageURL(images: ScrydexRawCard['images']): string | undefined {
   const front = images?.find(image => image.type === 'front') ?? images?.[0];
+
   return stringValue(front?.large) ?? stringValue(front?.medium) ?? stringValue(front?.small);
 }
 
-function stringValue(value: unknown): string | undefined {
-  if (typeof value !== 'string') return undefined;
-  const trimmed = value.trim();
-  return trimmed.length === 0 ? undefined : trimmed;
+function stringValue(value: ScrydexRawCard['name']): string | undefined {
+  const parsed = NonEmptyStringSchema.safeParse(value);
+
+  return parsed.success ? parsed.data : undefined;
 }
 
-function finiteNumber(value: unknown): number | undefined {
-  return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+function finiteNumber(value: ScrydexRawPrice['low']): number | undefined {
+  const parsed = FiniteNumberSchema.safeParse(value);
+
+  return parsed.success ? parsed.data : undefined;
 }
 
-function finiteNonnegativeNumber(value: unknown): number | undefined {
+function finiteNonnegativeNumber(value: ScrydexRawPrice['low']): number | undefined {
   const number = finiteNumber(value);
+
   return number != null && number >= 0 ? number : undefined;
 }

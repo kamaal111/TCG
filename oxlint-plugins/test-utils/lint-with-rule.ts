@@ -5,8 +5,11 @@ import path from 'node:path';
 import url from 'node:url';
 
 const HERE = path.dirname(url.fileURLToPath(import.meta.url));
+
 const OXLINT_PLUGINS_DIR = path.resolve(HERE, '..');
+
 const REPO_ROOT = path.resolve(OXLINT_PLUGINS_DIR, '..');
+
 const OXLINT_BIN = path.join(REPO_ROOT, 'node_modules', '.bin', 'oxlint');
 
 interface LintWithRuleInput {
@@ -22,6 +25,7 @@ interface LintWithRuleResult {
 
 function ruleDiagnosticCode(ruleId: string): string {
   const [namespace, ruleName] = ruleId.split('/');
+
   return `${namespace}(${ruleName})`;
 }
 
@@ -45,6 +49,7 @@ export async function lintWithRule({ plugin, ruleId, source }: LintWithRuleInput
     const reportRun = childProcess.spawnSync(OXLINT_BIN, ['-c', configPath, '--format', 'json', fixturePath], {
       encoding: 'utf8',
     });
+
     const diagnosticCode = ruleDiagnosticCode(ruleId);
     const isReported = reportRun.stdout.includes(diagnosticCode);
 

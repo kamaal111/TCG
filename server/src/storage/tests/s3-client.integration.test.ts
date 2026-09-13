@@ -5,7 +5,10 @@ import { MinioContainer, type StartedMinioContainer } from '@testcontainers/mini
 
 import { S3ObjectStorageClient } from '../s3-client.ts';
 
-type Fixture = { container: StartedMinioContainer; storage: S3ObjectStorageClient };
+interface Fixture {
+  container: StartedMinioContainer;
+  storage: S3ObjectStorageClient;
+}
 
 describe('S3ObjectStorageClient with MinIO', () => {
   const bucket = 'card-images-test';
@@ -14,7 +17,10 @@ describe('S3ObjectStorageClient with MinIO', () => {
   let fixture: Fixture | undefined = undefined;
 
   function requireFixture(): Fixture {
-    if (fixture == null) throw new Error('MinIO fixture not initialized');
+    if (fixture == null) {
+      throw new Error('MinIO fixture not initialized');
+    }
+
     return fixture;
   }
 
@@ -23,15 +29,19 @@ describe('S3ObjectStorageClient with MinIO', () => {
       .withUsername(username)
       .withPassword(password)
       .start();
+
     const endpoint = container.getConnectionUrl();
+
     const client = new S3Client({
       region: 'us-east-1',
       endpoint,
       forcePathStyle: true,
       credentials: { accessKeyId: username, secretAccessKey: password },
     });
+
     await client.send(new CreateBucketCommand({ Bucket: bucket }));
     client.destroy();
+
     const storage = new S3ObjectStorageClient({
       accessKeyId: username,
       secretAccessKey: password,
@@ -41,6 +51,7 @@ describe('S3ObjectStorageClient with MinIO', () => {
       region: 'us-east-1',
       requestTimeoutMs: 5_000,
     });
+
     fixture = { container, storage };
   }, 60_000);
 

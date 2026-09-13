@@ -30,6 +30,7 @@ describe('Card pricing integration', () => {
 
   integrationTest('searches and returns normalized market pricing', async ({ app, db }) => {
     const user = await createTestUser(app, db);
+
     const response = await app.request(`${SEARCH_PRICING_ROUTE_PATH}?game=pokemon&query=Giratina%20VSTAR%20GG69`, {
       headers: sessionHeaders(user.sessionToken),
     });
@@ -70,9 +71,11 @@ describe('Card pricing integration', () => {
 
   integrationTest('returns no-results and rejects invalid search queries', async ({ app, db }) => {
     const user = await createTestUser(app, db);
+
     const noResults = await app.request(`${SEARCH_PRICING_ROUTE_PATH}?game=pokemon&query=no%20results`, {
       headers: sessionHeaders(user.sessionToken),
     });
+
     const invalid = await app.request(`${SEARCH_PRICING_ROUTE_PATH}?game=pokemon&query=x`, {
       headers: sessionHeaders(user.sessionToken),
     });
@@ -106,6 +109,7 @@ describe('Card pricing integration', () => {
     const staticClient = new CountingPricingClient();
     const staticApp = new App({ db, pricingClient: staticClient }).app;
     const user = await createTestUser(staticApp, db);
+
     const created = await createCardRequest(staticApp, user.sessionToken, {
       game: 'pokemon',
       name: 'Giratina VSTAR',
@@ -113,6 +117,7 @@ describe('Card pricing integration', () => {
       card_number: 'GG69',
       quantities: [{ condition: 'near_mint', quantity: 1 }],
     });
+
     expect(created.status).toBe(CONTENTFUL_STATUS_CODES.CREATED);
     const ownedCard = await db.query.card.findFirst({ where: { userId: user.userId } });
     assert(ownedCard != null);
@@ -135,6 +140,7 @@ describe('Card pricing integration', () => {
     async ({ app, db, getLogsForRequestId, withRequestId }) => {
       const user = await createTestUser(app, db);
       const { headers, requestId } = withRequestId(Object.fromEntries(sessionHeaders(user.sessionToken).entries()));
+
       const response = await app.request(`${SEARCH_PRICING_ROUTE_PATH}?game=pokemon&query=Sensitive%20Search%20Term`, {
         headers,
       });
@@ -189,6 +195,7 @@ describe('Card pricing integration', () => {
     try {
       await lockHolder.query('begin');
       await lockHolder.query('select pg_advisory_xact_lock(hashtextextended($1, 0))', [lockKey]);
+
       const response = await app.request(`${SEARCH_PRICING_ROUTE_PATH}?game=pokemon&query=Charizard%20ex%20199`, {
         headers: sessionHeaders(user.sessionToken),
       });
@@ -263,9 +270,11 @@ describe('Card pricing integration', () => {
     const firstRequest = firstApp.request(`${SEARCH_PRICING_ROUTE_PATH}?game=pokemon&query=Charizard%20ex%20199`, {
       headers: sessionHeaders(firstUser.sessionToken),
     });
+
     const secondRequest = secondApp.request(`${SEARCH_PRICING_ROUTE_PATH}?game=pokemon&query=Giratina%20VSTAR%20GG69`, {
       headers: sessionHeaders(secondUser.sessionToken),
     });
+
     await withTimeout(pricingClient.bothStarted, 750, 'Different pricing keys did not proceed concurrently');
     pricingClient.release();
 
@@ -288,11 +297,13 @@ class CountingPricingClient implements PricingClient {
 
   searchCards(game: Parameters<PricingClient['searchCards']>[0], query: string) {
     this.searchCallCount += 1;
+
     return this.client.searchCards(game, query);
   }
 
   getCardById(game: Parameters<PricingClient['getCardById']>[0], id: string) {
     this.getByIdCallCount += 1;
+
     return this.client.getCardById(game, id);
   }
 }
@@ -311,6 +322,7 @@ class UnavailablePricingClient extends StaticScrydexClient {
 class DuplicateSearchPricingClient extends StaticScrydexClient {
   override async searchCards(game: Parameters<PricingClient['searchCards']>[0], query: string) {
     const result = await super.searchCards(game, query);
+
     return result.map(search => ({
       ...search,
       records: [...search.records, ...search.records.slice(0, 1)],
@@ -319,8 +331,8 @@ class DuplicateSearchPricingClient extends StaticScrydexClient {
 }
 
 class BlockingPricingClient extends CountingPricingClient {
-  private readonly gate = deferred<void>();
-  private readonly startedGate = deferred<void>();
+  private readonly gate = deferred<undefined>();
+  private readonly startedGate = deferred<undefined>();
   readonly started = this.startedGate.promise;
 
   constructor(private readonly method: 'card' | 'search') {
@@ -329,22 +341,24 @@ class BlockingPricingClient extends CountingPricingClient {
 
   override async searchCards(game: Parameters<PricingClient['searchCards']>[0], query: string) {
     if (this.method === 'search' && this.searchCallCount === 0) {
-      this.startedGate.resolve();
+      this.startedGate.resolve(undefined);
       await this.gate.promise;
     }
+
     return super.searchCards(game, query);
   }
 
   override async getCardById(game: Parameters<PricingClient['getCardById']>[0], id: string) {
     if (this.method === 'card' && this.getByIdCallCount === 0) {
-      this.startedGate.resolve();
+      this.startedGate.resolve(undefined);
       await this.gate.promise;
     }
+
     return super.getCardById(game, id);
   }
 
   release() {
-    this.gate.resolve();
+    this.gate.resolve(undefined);
   }
 }
 
@@ -354,32 +368,40 @@ class FailOncePricingClient extends CountingPricingClient {
       this.searchCallCount += 1;
       throw new Error('Simulated upstream failure');
     }
+
     return super.searchCards(game, query);
   }
 }
 
 class TwoCallBarrierPricingClient extends CountingPricingClient {
-  private readonly gate = deferred<void>();
-  private readonly startedGate = deferred<void>();
+  private readonly gate = deferred<undefined>();
+  private readonly startedGate = deferred<undefined>();
   readonly bothStarted = this.startedGate.promise;
 
   override async searchCards(game: Parameters<PricingClient['searchCards']>[0], query: string) {
     this.searchCallCount += 1;
-    if (this.searchCallCount === 2) this.startedGate.resolve();
+
+    if (this.searchCallCount === 2) {
+      this.startedGate.resolve(undefined);
+    }
+
     await this.gate.promise;
+
     return new StaticScrydexClient().searchCards(game, query);
   }
 
   release() {
-    this.gate.resolve();
+    this.gate.resolve(undefined);
   }
 }
 
 async function waitForAdvisoryLockWaiter(connectionString: string) {
   const observer = new Client({ connectionString });
   await observer.connect();
+
   try {
     const deadline = Date.now() + 750;
+
     while (Date.now() < deadline) {
       const result = await observer.query<{ waiting: boolean }>(
         `select exists (
@@ -390,9 +412,14 @@ async function waitForAdvisoryLockWaiter(connectionString: string) {
              and not granted
          ) as waiting`,
       );
-      if (result.rows[0]?.waiting === true) return;
+
+      if (result.rows[0]?.waiting === true) {
+        return;
+      }
+
       await new Promise(resolve => setTimeout(resolve, 10));
     }
+
     throw new Error('Timed out waiting for an advisory-lock waiter');
   } finally {
     await observer.end();
@@ -401,14 +428,17 @@ async function waitForAdvisoryLockWaiter(connectionString: string) {
 
 function deferred<T>() {
   let resolve: (value: T | PromiseLike<T>) => void = () => {};
+
   const promise = new Promise<T>(resolver => {
     resolve = resolver;
   });
+
   return { promise, resolve };
 }
 
 async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
   let timeout: NodeJS.Timeout | undefined = undefined;
+
   try {
     return await Promise.race([
       promise,
@@ -417,6 +447,8 @@ async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: s
       }),
     ]);
   } finally {
-    if (timeout != null) clearTimeout(timeout);
+    if (timeout != null) {
+      clearTimeout(timeout);
+    }
   }
 }

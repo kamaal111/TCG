@@ -23,14 +23,20 @@ export class CardImageService {
   async get(imageKey: string): Promise<Response> {
     const startedAt = performance.now();
     const row = await this.repository.getByImageKey(imageKey);
-    if (row == null) throw new CardImageNotFound(this.c);
+
+    if (row == null) {
+      throw new CardImageNotFound(this.c);
+    }
 
     if (row.status === CARD_IMAGE_STATUSES.READY) {
       const response = await this.readStored(row);
+
       if (response != null) {
         this.logCompleted(imageKey, 'hit', startedAt);
+
         return response;
       }
+
       await this.repository.resetMissingObject(imageKey);
     }
 
@@ -43,6 +49,7 @@ export class CardImageService {
       },
       'Started cold card image materialization.',
     );
+
     const result = await withTimeout(
       this.c.get('cardImageMaterializer').materialize(imageKey, {
         logger: this.logger,
@@ -50,14 +57,23 @@ export class CardImageService {
       }),
       env.CARD_IMAGE_FOREGROUND_WAIT_MS,
     );
+
     if (result == null || result.status === CARD_IMAGE_MATERAILIZATION_STATUSES.BUSY) {
       this.logCompleted(imageKey, result == null ? 'timeout' : 'joined', startedAt, 'CARD_IMAGE_BUSY');
       throw new CardImageBusy(this.c, 'Card image is being prepared');
     }
-    if (result.status === CARD_IMAGE_MATERAILIZATION_STATUSES.NOT_FOUND) throw new CardImageNotFound(this.c);
+
+    if (result.status === CARD_IMAGE_MATERAILIZATION_STATUSES.NOT_FOUND) {
+      throw new CardImageNotFound(this.c);
+    }
+
     if (result.status === CARD_IMAGE_MATERAILIZATION_STATUSES.FAILED) {
       this.logCompleted(imageKey, 'cold', startedAt, 'CARD_IMAGE_ORIGIN_UNAVAILABLE');
-      if (!result.isRetryable) throw new CardImageNotFound(this.c);
+
+      if (!result.isRetryable) {
+        throw new CardImageNotFound(this.c);
+      }
+
       throw new CardImageBusy(this.c, 'Card image is temporarily unavailable');
     }
 
@@ -80,17 +96,24 @@ export class CardImageService {
 
   private async readStored(row: CardImageRow): Promise<Response | undefined> {
     const etag = `"${row.checksum}"`;
+
     if (this.c.req.header('If-None-Match') === etag) {
       return new Response(null, { status: CONTENTLESS_STATUS_CODES.NOT_MODIFIED, headers: this.headers(row, true) });
     }
+
     const stored = await this.storage.get(row.storageKey);
+
     if (stored.isOk()) {
       return new Response(Buffer.from(stored.value.body), {
         status: CONTENTFUL_STATUS_CODES.OK,
         headers: this.headers(row, true),
       });
     }
-    if (stored.error.reason === OBJECT_STORAGE_ERROR_REASONS.NOT_FOUND) return undefined;
+
+    if (stored.error.reason === OBJECT_STORAGE_ERROR_REASONS.NOT_FOUND) {
+      return undefined;
+    }
+
     throw new CardImageStorageUnavailable(this.c);
   }
 
@@ -108,9 +131,19 @@ export class CardImageService {
     const headers = new Headers({
       'Cache-Control': persisted ? `public, max-age=${ONE_YEAR_IN_SECONDS}, immutable` : 'no-store',
     });
-    if (image.contentType != null) headers.set('Content-Type', image.contentType);
-    if (image.contentLength != null) headers.set('Content-Length', String(image.contentLength));
-    if (image.checksum != null) headers.set('ETag', `"${image.checksum}"`);
+
+    if (image.contentType != null) {
+      headers.set('Content-Type', image.contentType);
+    }
+
+    if (image.contentLength != null) {
+      headers.set('Content-Length', String(image.contentLength));
+    }
+
+    if (image.checksum != null) {
+      headers.set('ETag', `"${image.checksum}"`);
+    }
+
     return headers;
   }
 
@@ -121,6 +154,7 @@ export class CardImageService {
     errorCode?: string,
   ): void {
     const durationMs = Math.round(performance.now() - startedAt);
+
     if (errorCode == null) {
       this.logger.info(
         {
@@ -150,6 +184,7 @@ export class CardImageService {
 
 async function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T | undefined> {
   let timeout: number | undefined = undefined;
+
   try {
     return await Promise.race([
       promise,
@@ -158,6 +193,8 @@ async function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T
       }),
     ]);
   } finally {
-    if (timeout != null) clearTimeout(timeout);
+    if (timeout != null) {
+      clearTimeout(timeout);
+    }
   }
 }

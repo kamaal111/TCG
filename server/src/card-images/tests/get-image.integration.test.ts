@@ -27,7 +27,9 @@ describe('Card image proxy integration', () => {
       repository.claim(imageKey, 'worker-one'),
       repository.claim(imageKey, 'worker-two'),
     ]);
+
     const claimed = [first, second].filter(row => row != null);
+
     const staleCompletion = await repository.markReady(imageKey, 'stale-worker', {
       contentType: 'image/png',
       contentLength: 3,
@@ -44,12 +46,15 @@ describe('Card image proxy integration', () => {
     const origin = new BlockingImageOriginClient();
     const storageClient = new InMemoryObjectStorageClient();
     const repository = new CardImageRepository(createDatabaseOnlyContext(db));
+
     const cardImageMaterializer = new CardImageMaterializer({
       repository,
       storageClient,
       imageOriginClient: origin,
     });
+
     const cardImageWarmer = new CardImageWarmer({ repository, materializer: cardImageMaterializer, concurrency: 1 });
+
     const { app } = new App({
       db,
       storageClient,
@@ -57,10 +62,12 @@ describe('Card image proxy integration', () => {
       cardImageMaterializer,
       cardImageWarmer,
     });
+
     const [row] = await db
       .insert(cardImage)
       .values({ imageKey, originUrl: 'https://images.example.com/test.png', storageKey: 'card-images/test' })
       .returning();
+
     assert(row != null, 'Expected the image row to be inserted');
 
     cardImageWarmer.enqueue([row]);
@@ -79,11 +86,13 @@ describe('Card image proxy integration', () => {
     const origin = new BlockingImageOriginClient();
     const storageClient = new InMemoryObjectStorageClient();
     const repository = new CardImageRepository(createDatabaseOnlyContext(db));
+
     const cardImageMaterializer = new CardImageMaterializer({
       repository,
       storageClient,
       imageOriginClient: origin,
     });
+
     const { app } = new App({ db, storageClient, imageOriginClient: origin, cardImageMaterializer });
     await db.insert(cardImage).values({
       imageKey,
@@ -93,10 +102,12 @@ describe('Card image proxy integration', () => {
 
     const responsePromise = app.request(`/app-api/images/${imageKey}`);
     await origin.started;
+
     const databaseRead = await Promise.race([
       repository.getByImageKey(imageKey),
       new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Database read was starved')), 500)),
     ]);
+
     origin.release();
 
     expect(databaseRead?.status).toBe('fetching');
@@ -108,11 +119,13 @@ describe('Card image proxy integration', () => {
     const origin = new BlockingImageOriginClient();
     const storageClient = new InMemoryObjectStorageClient();
     const repository = new CardImageRepository(createDatabaseOnlyContext(db));
+
     const cardImageMaterializer = new CardImageMaterializer({
       repository,
       storageClient,
       imageOriginClient: origin,
     });
+
     const { app } = new App({ db, storageClient, imageOriginClient: origin, cardImageMaterializer });
     await db.insert(cardImage).values({
       imageKey,
@@ -143,27 +156,30 @@ describe('Card image proxy integration', () => {
 });
 
 class BlockingImageOriginClient implements CardImageOriginClient {
-  private readonly releaseGate = deferred<void>();
-  private readonly startedGate = deferred<void>();
+  private readonly releaseGate = deferred<undefined>();
+  private readonly startedGate = deferred<undefined>();
   callCount = 0;
   readonly started = this.startedGate.promise;
 
   async fetchImage(): Promise<CardImageOriginResult> {
     this.callCount += 1;
-    this.startedGate.resolve();
+    this.startedGate.resolve(undefined);
     await this.releaseGate.promise;
+
     return ok({ body: new Uint8Array([1, 2, 3]), contentType: 'image/png' });
   }
 
   release() {
-    this.releaseGate.resolve();
+    this.releaseGate.resolve(undefined);
   }
 }
 
 function deferred<T>() {
   let resolve: (value: T | PromiseLike<T>) => void = () => {};
+
   const promise = new Promise<T>(resolver => {
     resolve = resolver;
   });
+
   return { promise, resolve };
 }

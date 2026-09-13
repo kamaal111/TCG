@@ -46,6 +46,7 @@ export const authModule = createAuthModule({
 function bindSessionUser() {
   return async (c: HonoContext, next: Next) => {
     const userId = c.get(AUTH_SESSION_CONTEXT_KEY)?.user.id;
+
     if (userId != null) {
       c.set('logger', c.get('logger').child({ user_id: userId }));
     }

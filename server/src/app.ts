@@ -33,10 +33,10 @@ import { createObjectStorageClient } from './storage/factory.ts';
 
 const SIGNALS_TO_TERMINATE_ON: NodeJS.Signals[] = ['SIGINT', 'SIGTERM'];
 
-type Lifecycle = {
+interface Lifecycle {
   start: () => void;
   stop: () => void;
-};
+}
 
 class App {
   readonly app: Hono<HonoEnvironment>;
@@ -64,11 +64,13 @@ class App {
 
   generateSpec = async () => {
     const response = await this.app.request(OPENAPI_YAML_SPEC_URL, { headers: { Accept: 'text/yaml' } });
+
     return response.text();
   };
 
   private start = () => {
     const app = this.app;
+
     if (app == null) {
       return;
     }
@@ -85,6 +87,7 @@ class App {
 
   private cleanupUnShotdown = () => {
     const server = this.server;
+
     if (server == null) {
       return;
     }
@@ -126,6 +129,7 @@ function createApp(
   const storageClient = overrides.storageClient ?? createObjectStorageClient();
   const imageOriginClient = overrides.imageOriginClient ?? new HttpCardImageOriginClient();
   const cardImageRepository = new CardImageRepository(createDatabaseOnlyContext(db));
+
   const cardImageMaterializer =
     overrides.cardImageMaterializer ??
     new CardImageMaterializer({
@@ -133,6 +137,7 @@ function createApp(
       storageClient,
       imageOriginClient,
     });
+
   const cardImageWarmer =
     overrides.cardImageWarmer ??
     new CardImageWarmer({ repository: cardImageRepository, materializer: cardImageMaterializer });

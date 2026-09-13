@@ -53,15 +53,12 @@ export interface HonoEnvironment {
   Variables: HonoVariables;
 }
 
-export type HonoContext<P extends string = string, I extends Input = Record<string, unknown>> = Context<
-  HonoEnvironment,
-  P,
-  I
->;
+export type HonoContext<P extends string = string, I extends Input = Input> = Context<HonoEnvironment, P, I>;
 
 export function createDatabaseOnlyContext(db: Database): HonoContext {
   const c = new Context<HonoEnvironment>(new Request('http://localhost'));
   c.set('db', db);
+
   return c;
 }
 

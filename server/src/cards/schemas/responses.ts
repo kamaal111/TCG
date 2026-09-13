@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 import { CardConditionQuantitySchema, CardCoreFieldsSchema, CardIdSchema } from './fields.ts';
 import { OwnedCardPriceSchema } from '../../card-pricing/schemas/responses.ts';
-import { ApiCommonDatetimeShape } from '../../schemas/common.ts';
+import { ApiCommonDatetime } from '../../schemas/common.ts';
 
 export const CardSchema = CardCoreFieldsSchema.extend({
   id: CardIdSchema.meta({
@@ -11,11 +11,11 @@ export const CardSchema = CardCoreFieldsSchema.extend({
   }),
   notes: z.string().max(2000).nullable().meta({ description: 'Optional notes', example: 'Alternate art' }),
   quantities: z.array(CardConditionQuantitySchema).meta({ description: 'Owned quantities by condition' }),
-  created_at: ApiCommonDatetimeShape.meta({
+  created_at: ApiCommonDatetime.meta({
     description: 'Creation timestamp',
     example: '2026-07-20T10:30:00.000Z',
   }),
-  updated_at: ApiCommonDatetimeShape.meta({
+  updated_at: ApiCommonDatetime.meta({
     description: 'Last update timestamp',
     example: '2026-07-20T10:30:00.000Z',
   }),
@@ -79,6 +79,9 @@ export const DeleteCardResponseSchema = z.object({}).meta({
 });
 
 export type CardResponse = z.infer<typeof CardSchema>;
+
 export type CardWithPriceResponse = z.infer<typeof CardWithPriceSchema>;
+
 export type CardsListResponse = z.infer<typeof CardsListResponseSchema>;
+
 export type DeleteCardResponse = z.infer<typeof DeleteCardResponseSchema>;

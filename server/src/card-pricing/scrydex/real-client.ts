@@ -42,7 +42,10 @@ export class RealScrydexClient implements PricingClient {
 
   async searchCards(game: CardGame, query: string): Promise<PricingClientResult<PricingSearchResult>> {
     const headers = this.headers();
-    if (headers.isErr()) return err(headers.error);
+
+    if (headers.isErr()) {
+      return err(headers.error);
+    }
 
     const url = this.makeURL(game, '/cards');
     url.searchParams.set('q', buildScrydexQuery(game, query));
@@ -50,31 +53,52 @@ export class RealScrydexClient implements PricingClient {
     url.searchParams.set('page', '1');
     url.searchParams.set('page_size', '20');
     const responseResult = await this.request(url, headers.value);
-    if (responseResult.isErr()) return err(responseResult.error);
+
+    if (responseResult.isErr()) {
+      return err(responseResult.error);
+    }
+
     const response = responseResult.value;
-    if (!response.ok) return err(this.httpError('search', response.status));
+
+    if (!response.ok) {
+      return err(this.httpError('search', response.status));
+    }
 
     const bodyResult = await this.readJSON(response, 'search');
-    if (bodyResult.isErr()) return err(bodyResult.error);
+
+    if (bodyResult.isErr()) {
+      return err(bodyResult.error);
+    }
+
     const parsed = ScrydexSearchResponseSchema.safeParse(bodyResult.value);
-    if (!parsed.success)
+
+    if (!parsed.success) {
       return err(this.invalidResponse('Scrydex search returned an invalid response', response.status));
+    }
 
     const records: PricingCardRecord[] = [];
     let rejectedCount = 0;
     let missingBaseVariantCount = 0;
+
     for (const value of parsed.data.data) {
       const raw = ScrydexRawCardSchema.safeParse(value);
+
       if (!raw.success) {
         rejectedCount += 1;
         continue;
       }
+
       const normalized = normalizeScrydexCard(game, raw.data);
+
       if (normalized == null) {
         rejectedCount += 1;
         continue;
       }
-      if (!normalized.hasBaseVariant) missingBaseVariantCount += 1;
+
+      if (!normalized.hasBaseVariant) {
+        missingBaseVariantCount += 1;
+      }
+
       records.push({ card: normalized.card, raw: raw.data });
     }
 
@@ -88,24 +112,47 @@ export class RealScrydexClient implements PricingClient {
 
   async getCardById(game: CardGame, id: string): Promise<PricingClientResult<PricingCardRecord | null>> {
     const headers = this.headers();
-    if (headers.isErr()) return err(headers.error);
+
+    if (headers.isErr()) {
+      return err(headers.error);
+    }
 
     const url = this.makeURL(game, `/cards/${encodeURIComponent(id)}`);
     url.searchParams.set('include', 'prices');
     const responseResult = await this.request(url, headers.value);
-    if (responseResult.isErr()) return err(responseResult.error);
+
+    if (responseResult.isErr()) {
+      return err(responseResult.error);
+    }
+
     const response = responseResult.value;
-    if (response.status === CONTENTFUL_STATUS_CODES.NOT_FOUND) return ok(null);
-    if (!response.ok) return err(this.httpError('card lookup', response.status));
+
+    if (response.status === CONTENTFUL_STATUS_CODES.NOT_FOUND) {
+      return ok(null);
+    }
+
+    if (!response.ok) {
+      return err(this.httpError('card lookup', response.status));
+    }
 
     const bodyResult = await this.readJSON(response, 'card lookup');
-    if (bodyResult.isErr()) return err(bodyResult.error);
+
+    if (bodyResult.isErr()) {
+      return err(bodyResult.error);
+    }
+
     const raw = ScrydexRawCardSchema.safeParse(bodyResult.value);
-    if (!raw.success)
+
+    if (!raw.success) {
       return err(this.invalidResponse('Scrydex card lookup returned an invalid response', response.status));
+    }
+
     const normalized = normalizeScrydexCard(game, raw.data);
-    if (normalized == null)
+
+    if (normalized == null) {
       return err(this.invalidResponse('Scrydex card lookup returned an unusable card', response.status));
+    }
+
     return ok({ card: normalized.card, raw: raw.data });
   }
 
@@ -117,6 +164,7 @@ export class RealScrydexClient implements PricingClient {
         isRetryable: false,
       });
     }
+
     return ok({ 'X-Api-Key': this.apiKey, 'X-Team-ID': this.teamId });
   }
 
@@ -130,6 +178,7 @@ export class RealScrydexClient implements PricingClient {
       );
     } catch (error) {
       const timedOut = error instanceof Error && (error.name === 'TimeoutError' || error.name === 'AbortError');
+
       return err({
         reason: timedOut ? PRICING_CLIENT_ERROR_REASONS.REQUEST_TIMEOUT : PRICING_CLIENT_ERROR_REASONS.NETWORK_ERROR,
         message: timedOut ? 'Scrydex request timed out' : 'Scrydex request failed before a response was received',
@@ -148,6 +197,7 @@ export class RealScrydexClient implements PricingClient {
 
   private makeURL(game: CardGame, suffix: string): URL {
     const path = game === CARD_GAME_MAP.POKEMON ? 'pokemon/v1/en' : 'onepiece/v1';
+
     return new URL(`${path}${suffix}`, `${this.baseURL.replace(/\/$/, '')}/`);
   }
 

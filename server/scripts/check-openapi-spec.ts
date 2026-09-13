@@ -16,8 +16,10 @@ async function checkOpenAPISpec(outputFile: string) {
   console.log('🔄 Generating OpenAPI spec from the server app...');
   const generatedSpec = await app.generateSpec();
   const existingSpec = await fs.readFile(outputFile, 'utf8');
+
   if (generatedSpec === existingSpec) {
     console.log('✅ OpenAPI spec is up to date.');
+
     return;
   }
 
@@ -43,4 +45,5 @@ function parseArgs() {
 }
 
 const outputFile = parseArgs();
+
 await checkOpenAPISpec(outputFile);

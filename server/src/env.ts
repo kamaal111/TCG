@@ -96,6 +96,7 @@ export const EnvSchema = z
         message: 'SCRYDEX_API_KEY is required when SCRYDEX_CLIENT is real',
       });
     }
+
     if (value.SCRYDEX_CLIENT === PRICING_CLIENT_MODES.REAL && value.SCRYDEX_TEAM_ID == null) {
       context.addIssue({
         code: 'custom',
@@ -103,6 +104,7 @@ export const EnvSchema = z
         message: 'SCRYDEX_TEAM_ID is required when SCRYDEX_CLIENT is real',
       });
     }
+
     if (value.OBJECT_STORAGE_CLIENT === OBJECT_STORAGE_PROVIDERS.S3 && value.OBJECT_STORAGE_ACCESS_KEY_ID == null) {
       context.addIssue({
         code: 'custom',
@@ -110,6 +112,7 @@ export const EnvSchema = z
         message: 'OBJECT_STORAGE_ACCESS_KEY_ID is required when OBJECT_STORAGE_CLIENT is s3',
       });
     }
+
     if (value.OBJECT_STORAGE_CLIENT === OBJECT_STORAGE_PROVIDERS.S3 && value.OBJECT_STORAGE_SECRET_ACCESS_KEY == null) {
       context.addIssue({
         code: 'custom',

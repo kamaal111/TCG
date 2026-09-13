@@ -15,14 +15,18 @@ export const CARD_IMAGE_ORIGIN_ERROR_REASONS = {
 type CardImageOriginErrorReason =
   (typeof CARD_IMAGE_ORIGIN_ERROR_REASONS)[keyof typeof CARD_IMAGE_ORIGIN_ERROR_REASONS];
 
-type CardImageOriginError = {
+interface CardImageOriginError {
   reason: CardImageOriginErrorReason;
   message: string;
   statusCode?: number;
   isRetryable: boolean;
-};
+}
 
-type OriginImage = { body: Uint8Array; contentType: string };
+interface OriginImage {
+  body: Uint8Array;
+  contentType: string;
+}
+
 export type CardImageOriginResult = Result<OriginImage, CardImageOriginError>;
 
 export interface CardImageOriginClient {
@@ -44,8 +48,13 @@ export class HttpCardImageOriginClient implements CardImageOriginClient {
 
   async fetchImage(url: string): Promise<CardImageOriginResult> {
     const fetchResult = await this.fetchFromOrigin(url);
-    if (fetchResult.isErr()) return err(fetchResult.error);
+
+    if (fetchResult.isErr()) {
+      return err(fetchResult.error);
+    }
+
     const response = fetchResult.value;
+
     if (!response.ok) {
       return err({
         reason: CARD_IMAGE_ORIGIN_ERROR_REASONS.HTTP_ERROR,
@@ -54,7 +63,9 @@ export class HttpCardImageOriginClient implements CardImageOriginClient {
         isRetryable: response.status === 429 || response.status >= 500,
       });
     }
+
     const contentType = response.headers.get('Content-Type')?.split(';', 1)[0]?.trim().toLowerCase();
+
     if (contentType == null || !ALLOWED_CONTENT_TYPES.has(contentType)) {
       return err({
         reason: CARD_IMAGE_ORIGIN_ERROR_REASONS.INVALID_CONTENT_TYPE,
@@ -62,7 +73,9 @@ export class HttpCardImageOriginClient implements CardImageOriginClient {
         isRetryable: false,
       });
     }
+
     const declaredLength = Number(response.headers.get('Content-Length'));
+
     if (Number.isFinite(declaredLength) && declaredLength > this.maxBytes) {
       return err({
         reason: CARD_IMAGE_ORIGIN_ERROR_REASONS.INVALID_CONTENT_LENGTH,
@@ -70,7 +83,9 @@ export class HttpCardImageOriginClient implements CardImageOriginClient {
         isRetryable: false,
       });
     }
+
     const body = new Uint8Array(await response.arrayBuffer());
+
     if (body.byteLength > this.maxBytes) {
       return err({
         reason: CARD_IMAGE_ORIGIN_ERROR_REASONS.INVALID_CONTENT_LENGTH,
@@ -78,6 +93,7 @@ export class HttpCardImageOriginClient implements CardImageOriginClient {
         isRetryable: false,
       });
     }
+
     return ok({ body, contentType });
   }
 
@@ -86,6 +102,7 @@ export class HttpCardImageOriginClient implements CardImageOriginClient {
       return ok(await this.fetchImplementation(url, { signal: AbortSignal.timeout(this.requestTimeoutMs) }));
     } catch (error) {
       const timedOut = error instanceof Error && (error.name === 'TimeoutError' || error.name === 'AbortError');
+
       return err({
         reason: timedOut
           ? CARD_IMAGE_ORIGIN_ERROR_REASONS.REQUEST_TIMEOUT

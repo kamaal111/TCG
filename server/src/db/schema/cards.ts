@@ -6,9 +6,11 @@ import { check, index, integer, pgEnum, pgTable, text, timestamp, uniqueIndex } 
 import { user } from './better-auth.ts';
 
 export const CARD_GAMES = ['one_piece', 'pokemon'] as const;
+
 export const CARD_CONDITIONS = ['mint', 'near_mint', 'excellent', 'good', 'played', 'damaged'] as const;
 
 export const cardGameEnum = pgEnum('card_game', CARD_GAMES);
+
 export const cardConditionEnum = pgEnum('card_condition', CARD_CONDITIONS);
 
 export const card = pgTable(

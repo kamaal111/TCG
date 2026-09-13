@@ -68,6 +68,7 @@ export class CardRepository {
           notes: values.notes,
         })
         .returning();
+
       assert(createdCard, 'Card insert did not return a row');
 
       const quantities = await tx
@@ -111,9 +112,13 @@ export class CardRepository {
         })
         .where(and(eq(card.id, cardId), eq(card.userId, this.userId)))
         .returning();
-      if (updatedCard == null) return undefined;
+
+      if (updatedCard == null) {
+        return undefined;
+      }
 
       await tx.delete(cardConditionQuantity).where(eq(cardConditionQuantity.cardId, cardId));
+
       const quantities = await tx
         .insert(cardConditionQuantity)
         .values(values.quantities.map(quantity => ({ cardId, ...quantity })))

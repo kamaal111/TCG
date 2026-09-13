@@ -13,6 +13,7 @@ export const DELETE_CARD_ROUTE_PATH = `${APP_API_ROUTE_NAME}${CARDS_ROUTE_NAME}$
 async function deleteCardHandler(c: DeleteCardContext): Promise<DeleteCardRouteResponse> {
   const { cardId } = c.req.valid('param');
   const deleted = await c.get('cardRepository').delete(cardId);
+
   if (!deleted) {
     cardsLogger(c).warn(
       { event: 'cards.access_denied', outcome: 'failure', error_code: 'CARD_NOT_FOUND', card_id: cardId },
