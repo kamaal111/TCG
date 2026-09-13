@@ -2,7 +2,8 @@ import crypto from 'node:crypto';
 
 import type { ImagesLogFields } from './logging.ts';
 import type { CardImageOriginClient } from './origin-client.ts';
-import type { CardImageRepository } from './repository.ts';
+import type { CardImageRepository, CardImageRow, ClaimedCardImageRow } from './repository.ts';
+import { CARD_IMAGE_STATUSES } from '../db/schema/card-images.ts';
 import env from '../env.ts';
 import type { DomainLogger } from '../logging/index.ts';
 import type { ObjectStorageClient } from '../storage/client.ts';
@@ -63,13 +64,42 @@ export class CardImageMaterializer {
   }
 
   materialize(imageKey: string, options: MaterializationOptions): Promise<CardImageMaterializationResult> {
+    return this.singleFlight(imageKey, () => this.claimAndMaterialize(imageKey, options));
+  }
+
+  /**
+   * The proxy registers in `inFlight` before it claims, so a batch claim can win the row while a
+   * proxy request is queued behind the concurrency limiter. Joining that request without giving
+   * the lease back would strand the row in `fetching` until the lease expired, leaving both
+   * callers reporting `busy` for an image nobody was fetching.
+   */
+  async materializeClaimed(
+    row: ClaimedCardImageRow,
+    leaseOwner: string,
+    options: MaterializationOptions,
+  ): Promise<CardImageMaterializationResult> {
+    const existing = this.inFlight.get(row.imageKey);
+
+    if (existing != null) {
+      await this.dependencies.repository.releaseClaim(row.imageKey, leaseOwner);
+
+      return existing;
+    }
+
+    return this.singleFlight(row.imageKey, () => this.materializeRow(row, leaseOwner, options));
+  }
+
+  private singleFlight(
+    imageKey: string,
+    operation: () => Promise<CardImageMaterializationResult>,
+  ): Promise<CardImageMaterializationResult> {
     const existing = this.inFlight.get(imageKey);
 
     if (existing != null) {
       return existing;
     }
 
-    const task = this.limiter.run(() => this.performMaterialization(imageKey, options));
+    const task = this.limiter.run(operation);
     this.inFlight.set(imageKey, task);
 
     const cleanup = () => {
@@ -83,7 +113,7 @@ export class CardImageMaterializer {
     return task;
   }
 
-  private async performMaterialization(
+  private async claimAndMaterialize(
     imageKey: string,
     options: MaterializationOptions,
   ): Promise<CardImageMaterializationResult> {
@@ -93,13 +123,22 @@ export class CardImageMaterializer {
     if (row == null) {
       const current = await this.dependencies.repository.getByImageKey(imageKey);
 
-      if (current == null) {
+      if (current == null || isExhausted(current)) {
         return { status: CARD_IMAGE_MATERAILIZATION_STATUSES.NOT_FOUND };
       }
 
       return { status: CARD_IMAGE_MATERAILIZATION_STATUSES.BUSY };
     }
 
+    return this.materializeRow(row, leaseOwner, options);
+  }
+
+  private async materializeRow(
+    row: ClaimedCardImageRow,
+    leaseOwner: string,
+    options: MaterializationOptions,
+  ): Promise<CardImageMaterializationResult> {
+    const imageKey = row.imageKey;
     const originFetchStartedAt = performance.now();
 
     const fetched = await this.dependencies.imageOriginClient.fetchImage(row.originUrl).catch(err => {
@@ -138,6 +177,7 @@ export class CardImageMaterializer {
         code: `origin_${fetched.error.reason}`,
         message: fetched.error.message,
         isRetryable: fetched.error.isRetryable,
+        attemptCount: row.attemptCount,
       });
 
       return { status: CARD_IMAGE_MATERAILIZATION_STATUSES.FAILED, isRetryable: fetched.error.isRetryable };
@@ -167,6 +207,10 @@ export class CardImageMaterializer {
       persisted: false,
     };
 
+    const storagePutStartedAt = performance.now();
+
+    // A storage failure never withholds bytes we already hold; the row is marked failed so the
+    // image is retried, and the response is served with `no-store` because it was not persisted.
     try {
       const stored = await this.dependencies.storageClient.put(
         row.storageKey,
@@ -176,23 +220,62 @@ export class CardImageMaterializer {
       );
 
       if (stored.isErr()) {
+        options.logger.warn(
+          {
+            event: 'images.storage.completed',
+            outcome: 'failure',
+            error_code: `storage_${stored.error.reason}`,
+            image_key: imageKey,
+            trigger: options.trigger,
+            duration_ms: Math.round(performance.now() - storagePutStartedAt),
+            is_retryable: stored.error.isRetryable,
+          },
+          'Failed to store a card image.',
+        );
         await this.dependencies.repository.markFailed(imageKey, leaseOwner, {
           code: `storage_${stored.error.reason}`,
           message: stored.error.message,
           isRetryable: stored.error.isRetryable,
+          attemptCount: row.attemptCount,
         });
 
         return { status: CARD_IMAGE_MATERAILIZATION_STATUSES.READY, image };
       }
-    } catch (error) {
+    } catch (err) {
+      options.logger.error(
+        {
+          event: 'images.storage.completed',
+          outcome: 'failure',
+          error_code: 'storage_unexpected',
+          image_key: imageKey,
+          trigger: options.trigger,
+          duration_ms: Math.round(performance.now() - storagePutStartedAt),
+          err,
+        },
+        'Storing a card image failed unexpectedly.',
+      );
       await this.dependencies.repository.markFailed(imageKey, leaseOwner, {
         code: 'storage_unexpected',
-        message: error instanceof Error ? error.message : String(error),
+        message: err instanceof Error ? err.message : String(err),
         isRetryable: true,
+        attemptCount: row.attemptCount,
       });
 
       return { status: CARD_IMAGE_MATERAILIZATION_STATUSES.READY, image };
     }
+
+    options.logger.info(
+      {
+        event: 'images.storage.completed',
+        outcome: 'success',
+        image_key: imageKey,
+        trigger: options.trigger,
+        duration_ms: Math.round(performance.now() - storagePutStartedAt),
+        content_length: image.contentLength,
+        content_type: image.contentType,
+      },
+      'Stored a card image.',
+    );
 
     const persisted = await this.dependencies.repository.markReady(imageKey, leaseOwner, {
       contentType: image.contentType,
@@ -202,6 +285,14 @@ export class CardImageMaterializer {
 
     return { status: CARD_IMAGE_MATERAILIZATION_STATUSES.READY, image: { ...image, persisted } };
   }
+}
+
+/**
+ * A row is out of attempts and will never be retried. A row currently being fetched is excluded:
+ * claiming increments the count, so an in-flight attempt can legitimately sit at the cap.
+ */
+function isExhausted(row: CardImageRow): boolean {
+  return row.attemptCount >= env.CARD_IMAGE_MAX_ATTEMPTS && row.status !== CARD_IMAGE_STATUSES.FETCHING;
 }
 
 class AsyncLimiter {

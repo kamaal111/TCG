@@ -208,6 +208,11 @@ lint-fix:
     {{ PNR }} lint:fix
 
 # Verify the committed OpenAPI specification is up to date
+# Re-fetch stored card images by image key or origin URL pattern
+[working-directory("server")]
+refresh-card-images target: prepare-server
+    node scripts/refresh-card-images.ts {{ target }}
+
 [working-directory("server")]
 check-spec:
     #!/usr/bin/env bash
@@ -249,7 +254,7 @@ bootstrap: prepare
 prepare: install-modules
 
 # Prepare server
-@prepare-server: install-js-modules
+prepare-server: install-js-modules
 
 # Install all modules
 install-modules: install-js-modules

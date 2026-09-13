@@ -29,7 +29,7 @@ import healthRoute, { HEALTH_ROUTE_NAME } from './health/index.ts';
 import loggingMiddleware from './logging/middleware.ts';
 import { serverLogger } from './logging/server.ts';
 import { OPENAPI_YAML_SPEC_URL, openAPIRouterFactory, withOpenAPIDocumentation } from './open-api.ts';
-import { createObjectStorageClient } from './storage/factory.ts';
+import { S3ObjectStorageClient } from './storage/s3-client.ts';
 
 const SIGNALS_TO_TERMINATE_ON: NodeJS.Signals[] = ['SIGINT', 'SIGTERM'];
 
@@ -58,6 +58,7 @@ class App {
   }
 
   serve = () => {
+    assertObjectStorageIsConfigured();
     this.start();
     this.cleanupUnShotdown();
   };
@@ -115,6 +116,21 @@ class App {
   };
 }
 
+function assertObjectStorageIsConfigured() {
+  const missing = (['OBJECT_STORAGE_ACCESS_KEY_ID', 'OBJECT_STORAGE_SECRET_ACCESS_KEY'] as const).filter(
+    key => env[key] == null,
+  );
+
+  if (missing.length === 0) {
+    return;
+  }
+
+  throw new Error(
+    `Missing object storage configuration: ${missing.join(', ')}. ` +
+      'Run `just start-services` and copy the object storage settings from .env.example.',
+  );
+}
+
 function createApp(
   overrides: Partial<
     Pick<
@@ -126,7 +142,7 @@ function createApp(
   const db = overrides.db ?? dbSingleton;
   const auth = overrides.db != null ? createAuth(db) : authSingleton;
   const pricingClient = overrides.pricingClient ?? createPricingClient();
-  const storageClient = overrides.storageClient ?? createObjectStorageClient();
+  const storageClient = overrides.storageClient ?? new S3ObjectStorageClient();
   const imageOriginClient = overrides.imageOriginClient ?? new HttpCardImageOriginClient();
   const cardImageRepository = new CardImageRepository(createDatabaseOnlyContext(db));
 

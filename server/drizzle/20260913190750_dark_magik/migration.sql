@@ -1,0 +1,1 @@
+CREATE INDEX "card_image_claim_order_idx" ON "card_image" (coalesce("next_attempt_at", "created_at"),"image_key") WHERE "status" <> 'ready';
