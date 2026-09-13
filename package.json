@@ -18,7 +18,7 @@
     "@hono/node-server": "^2.1.1",
     "@hono/structured-logger": "^1.0.0",
     "@hono/swagger-ui": "~0.6.1",
-    "@kamaalio/hono-standard-openapi": "^0.0.19",
+    "@kamaalio/hono-standard-openapi": "^0.0.20",
     "@kamaalio/kamaal": "~0.9.11",
     "@kamaalio/kamaal-auth-hono": "~0.0.9",
     "better-auth": "1.7.2",

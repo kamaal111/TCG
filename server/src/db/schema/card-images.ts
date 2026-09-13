@@ -40,6 +40,11 @@ export const cardImage = pgTable(
   table => [
     uniqueIndex('card_image_image_key_idx').on(table.imageKey),
     index('card_image_work_queue_idx').on(table.status, table.nextAttemptAt, table.leaseExpiresAt),
+    // Backs the worker's claim order over everything still needing work; >99% of rows
+    // settle at `ready` and are excluded.
+    index('card_image_claim_order_idx')
+      .on(sql`coalesce(${table.nextAttemptAt}, ${table.createdAt})`, table.imageKey)
+      .where(sql`${table.status} <> 'ready'`),
     index('card_image_fetching_lease_idx')
       .on(table.leaseExpiresAt)
       .where(sql`${table.status} = 'fetching'`),
