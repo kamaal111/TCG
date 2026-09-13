@@ -15,10 +15,12 @@ describe('Delete card integration', () => {
       code: 'SESSION_NOT_FOUND',
     });
     const user = await createTestUser(app, db);
+
     const missing = await app.request('/app-api/cards/00000000-0000-0000-0000-000000000000', {
       method: 'DELETE',
       headers: sessionHeaders(user.sessionToken),
     });
+
     expect(await expectErrorResponse(missing, CONTENTFUL_STATUS_CODES.NOT_FOUND)).toMatchObject({
       code: 'CARD_NOT_FOUND',
     });
@@ -30,9 +32,11 @@ describe('Delete card integration', () => {
       const owner = await createTestUser(app, db);
       const otherUser = await createTestUser(app, db);
       const card = CardSchema.parse(await (await createCardRequest(app, owner.sessionToken)).json());
+
       const { headers, requestId } = withRequestId(
         Object.fromEntries(sessionHeaders(otherUser.sessionToken).entries()),
       );
+
       const response = await app.request(`/app-api/cards/${card.id}`, { method: 'DELETE', headers });
       expect(await expectErrorResponse(response, CONTENTFUL_STATUS_CODES.NOT_FOUND)).toMatchObject({
         code: 'CARD_NOT_FOUND',
@@ -51,9 +55,11 @@ describe('Delete card integration', () => {
     async ({ app, db, getLogsForRequestId, withRequestId }) => {
       const user = await createTestUser(app, db);
       const target = CardSchema.parse(await (await createCardRequest(app, user.sessionToken)).json());
+
       const preserved = CardSchema.parse(
         await (await createCardRequest(app, user.sessionToken, { ...validCardPayload, name: 'Preserved' })).json(),
       );
+
       const { headers, requestId } = withRequestId(Object.fromEntries(sessionHeaders(user.sessionToken).entries()));
       const response = await app.request(`/app-api/cards/${target.id}`, { method: 'DELETE', headers });
 

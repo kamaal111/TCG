@@ -18,6 +18,7 @@ describe('Token integration', () => {
     'returns a JWT and refresh headers for a valid session token',
     async ({ app, db, getLogsForRequestId, withRequestId }) => {
       const createdUser = await createTestUser(app, db);
+
       const { headers, requestId } = withRequestId({
         Authorization: `Bearer ${createdUser.sessionToken}`,
       });
@@ -26,14 +27,16 @@ describe('Token integration', () => {
 
       expect(response.status).toBe(CONTENTFUL_STATUS_CODES.OK);
       const body = await response.json();
+
       const responseHeaders = TokenHeaders.parse({
         'set-auth-token': response.headers.get('set-auth-token'),
         'set-auth-token-expiry': response.headers.get('set-auth-token-expiry'),
         'set-session-token': response.headers.get('set-session-token'),
         'set-session-update-age': response.headers.get('set-session-update-age'),
       });
-      const token = body.token;
-      assert(typeof token === 'string');
+
+      const { token } = body;
+      assert(isString(token), 'Token responses must include a string token');
 
       expect(token).toBe(responseHeaders['set-auth-token']);
       expect(Number(responseHeaders['set-auth-token-expiry'])).toBeGreaterThan(0);
@@ -78,12 +81,14 @@ describe('Token integration', () => {
     'rejects the issued JWT as a bearer credential',
     async ({ app, db, getLogsForRequestId, withRequestId }) => {
       const createdUser = await createTestUser(app, db);
+
       const tokenResponse = await sendTokenRequest(
         app,
         new Headers({ Authorization: `Bearer ${createdUser.sessionToken}` }),
       );
+
       const jwt = tokenResponse.headers.get('set-auth-token');
-      assert(typeof jwt === 'string');
+      assert(isString(jwt), 'Token responses must include an authentication token header');
 
       const { headers, requestId } = withRequestId({ Authorization: `Bearer ${jwt}` });
       const response = await sendTokenRequest(app, headers);
@@ -118,4 +123,8 @@ async function sendTokenRequest(app: Hono<HonoEnvironment>, headers?: Headers) {
     method: 'GET',
     headers,
   });
+}
+
+function isString(value: unknown): value is string {
+  return typeof value === 'string';
 }

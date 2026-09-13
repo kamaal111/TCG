@@ -37,4 +37,5 @@ function parseArgs() {
 }
 
 const outputFile = parseArgs();
+
 await downloadOpenAPISpec(outputFile);

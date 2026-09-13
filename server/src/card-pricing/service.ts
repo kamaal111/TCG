@@ -54,9 +54,13 @@ export class CardPricingService {
     const normalizedQueryKey = queryKey(game, normalizedQuery);
     const pricedOn = todayUTC();
     const cached = await this.cachedSearch(game, normalizedQuery, normalizedQueryKey, pricedOn);
-    if (cached != null) return cached;
+
+    if (cached != null) {
+      return cached;
+    }
 
     this.logCache('pricing.search.cache', 'miss', 0);
+
     return this.repository.withPricingLock(
       {
         game,
@@ -66,13 +70,18 @@ export class CardPricingService {
       },
       async () => {
         const populated = await this.cachedSearch(game, normalizedQuery, normalizedQueryKey, pricedOn);
-        if (populated != null) return populated;
+
+        if (populated != null) {
+          return populated;
+        }
 
         const providerStartedAt = performance.now();
         const searchResult = await this.client.searchCards(game, normalizedQuery);
+
         if (searchResult.isErr()) {
           this.throwProviderUnavailable('search', game, searchResult.error, providerStartedAt);
         }
+
         this.logProviderSuccess('search', game, searchResult.value, providerStartedAt);
 
         const normalizedCardsById = searchResult.value.records.reduce((normalizedCardsById, record) => {
@@ -82,7 +91,9 @@ export class CardPricingService {
 
           return normalizedCardsById;
         }, new Map<string, PricingCardRecord>());
+
         const normalizedCards = normalizedCardsById.values().toArray();
+
         const upsertValues = normalizedCards.map(({ card, raw }) => ({
           game,
           card,
@@ -90,14 +101,17 @@ export class CardPricingService {
           pricedOn,
           pricingSource: this.client.source,
         }));
+
         const upsertedRows = isNonEmpty(upsertValues) ? await this.repository.upsertCardPrices(upsertValues) : [];
         const rowsByPricingCardId = new Map(upsertedRows.map(row => [row.pricingCardId, row]));
+
         const rows = normalizedCards.map(({ card }) => {
           const row = rowsByPricingCardId.get(card.id);
           assert(row != null, `Bulk card price upsert did not return card ${card.id}`);
 
           return row;
         });
+
         await this.registerImages(rows);
         await this.repository.upsertSearch({
           pricingSource: this.client.source,
@@ -133,10 +147,12 @@ export class CardPricingService {
           if (options.allowUnavailable && error instanceof PricingLockTimeout) {
             return { card_id: card.id, status: OWNED_CARD_PRICE_STATUSES.UNAVAILABLE };
           }
+
           throw error;
         }
       }),
     );
+
     assert(priced != null, 'Owned card pricing did not return a result for at least one card');
 
     return [priced, ...rest];
@@ -144,6 +160,7 @@ export class CardPricingService {
 
   private async priceOwnedCard(card: CardWithQuantities): Promise<OwnedCardPriceResponse> {
     const pricingCardId = card.pricingCardId;
+
     if (pricingCardId != null && card.pricingSource === this.client.source) {
       return this.priceOwnedCardById({ ...card, pricingCardId });
     }
@@ -151,13 +168,19 @@ export class CardPricingService {
     const query = buildSearchQuery(card.name, card.cardNumber);
     const search = await this.searchAndPrice(card.game, query);
     const normalizedNumber = normalizeCardNumber(card.cardNumber);
+
     const numberMatch = search.matches.find(
       candidate => normalizeCardNumber(candidate.card_number) === normalizedNumber,
     );
+
     const normalizedName = normalizeName(card.name).toLowerCase();
+
     const matched =
       numberMatch ?? search.matches.find(candidate => normalizeName(candidate.name).toLowerCase() === normalizedName);
-    if (matched == null) return { card_id: card.id, status: OWNED_CARD_PRICE_STATUSES.NO_MATCH };
+
+    if (matched == null) {
+      return { card_id: card.id, status: OWNED_CARD_PRICE_STATUSES.NO_MATCH };
+    }
 
     const matchedRow = await this.repository.getCachedCardPriceById(
       this.client.source,
@@ -165,9 +188,13 @@ export class CardPricingService {
       matched.id,
       todayUTC(),
     );
-    if (matchedRow == null) return { card_id: card.id, status: OWNED_CARD_PRICE_STATUSES.NO_MATCH };
+
+    if (matchedRow == null) {
+      return { card_id: card.id, status: OWNED_CARD_PRICE_STATUSES.NO_MATCH };
+    }
 
     await this.repository.setOwnedCardPricingIdentity(card.id, matchedRow.pricingCardId, this.client.source);
+
     return this.makeOwnedResponse(card.id, matched);
   }
 
@@ -179,13 +206,16 @@ export class CardPricingService {
     const pricingCardId = card.pricingCardId;
     const pricedOn = todayUTC();
     const cached = await this.repository.getCachedCardPrice(this.client.source, card.game, pricingCardId, pricedOn);
+
     if (cached != null) {
       await this.registerImages([cached]);
       this.logCache('pricing.owned.cache', 'hit', 1, card.id);
+
       return this.makeOwnedResponse(card.id, serializePricedCard(card.game, cached));
     }
 
     this.logCache('pricing.owned.cache', 'miss', 0, card.id);
+
     return this.repository.withPricingLock(
       {
         game: card.game,
@@ -200,17 +230,21 @@ export class CardPricingService {
           pricingCardId,
           pricedOn,
         );
+
         if (populated != null) {
           await this.registerImages([populated]);
           this.logCache('pricing.owned.cache', 'hit', 1, card.id);
+
           return this.makeOwnedResponse(card.id, serializePricedCard(card.game, populated));
         }
 
         const providerStartedAt = performance.now();
         const cardResult = await this.client.getCardById(card.game, pricingCardId);
+
         if (cardResult.isErr()) {
           this.throwProviderUnavailable('card_lookup', card.game, cardResult.error, providerStartedAt, card.id);
         }
+
         const record = cardResult.value;
         this.logProviderSuccess(
           'card_lookup',
@@ -220,7 +254,10 @@ export class CardPricingService {
           card.id,
           record == null ? 0 : 1,
         );
-        if (record == null) return { card_id: card.id, status: OWNED_CARD_PRICE_STATUSES.NO_MATCH };
+
+        if (record == null) {
+          return { card_id: card.id, status: OWNED_CARD_PRICE_STATUSES.NO_MATCH };
+        }
 
         const row = await this.repository.upsertCardPrice({
           game: card.game,
@@ -229,8 +266,10 @@ export class CardPricingService {
           pricedOn,
           pricingSource: this.client.source,
         });
+
         await this.registerImages([row]);
         this.logCache('pricing.owned.cache', 'set', 1, card.id);
+
         return this.makeOwnedResponse(card.id, serializePricedCard(card.game, row));
       },
     );
@@ -243,7 +282,10 @@ export class CardPricingService {
     pricedOn: string,
   ): Promise<{ normalizedQuery: string; matches: PricedCardResponse[] } | undefined> {
     const cachedSearch = await this.repository.getCachedSearch(this.client.source, game, normalizedQueryKey, pricedOn);
-    if (cachedSearch == null) return undefined;
+
+    if (cachedSearch == null) {
+      return undefined;
+    }
 
     const rows = await this.repository.getCachedCardPrices(
       this.client.source,
@@ -251,14 +293,19 @@ export class CardPricingService {
       cachedSearch.pricingCardIds,
       pricedOn,
     );
+
     const rowsById = new Map(rows.map(row => [row.pricingCardId, row]));
+
     const orderedRows = cachedSearch.pricingCardIds.flatMap(id => {
       const row = rowsById.get(id);
+
       return row == null ? [] : [row];
     });
+
     await this.registerImages(orderedRows);
     const matches = orderedRows.map(row => serializePricedCard(game, row));
     this.logCache('pricing.search.cache', 'hit', matches.length);
+
     return { normalizedQuery, matches };
   }
 
@@ -272,16 +319,19 @@ export class CardPricingService {
 
   private async registerImages(rows: CardPriceRow[]): Promise<void> {
     const uniqueOrigins = new Set(rows.flatMap(row => (row.prices.image == null ? [] : [row.prices.image])));
+
     const originsToRegister = uniqueOrigins
       .values()
       .map(originUrl => {
         const imageKey = imageKeyForOriginURL(originUrl);
         const storageKey = storageKeyForImageKey(imageKey);
+
         return { imageKey, originUrl, storageKey };
       })
       .toArray();
 
     let registered: CardImageRow[] | undefined = undefined;
+
     try {
       registered = await this.c.get('cardImageRepository').registerMany(originsToRegister);
     } catch (err) {
@@ -289,6 +339,7 @@ export class CardPricingService {
         { event: 'images.register', outcome: 'failure', error_code: 'CARD_IMAGE_REGISTER_FAILED', err },
         'Failed to register card images without failing pricing.',
       );
+
       return;
     }
 

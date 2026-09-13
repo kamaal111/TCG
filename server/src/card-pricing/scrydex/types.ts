@@ -63,4 +63,5 @@ export const ScrydexSearchResponseSchema = z
   .catchall(z.unknown());
 
 export type ScrydexRawCard = z.infer<typeof ScrydexRawCardSchema>;
+
 export type ScrydexRawPrice = z.infer<typeof ScrydexRawPriceSchema>;

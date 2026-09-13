@@ -35,7 +35,10 @@ export class CardImageRepository {
   }
 
   async registerMany(values: { imageKey: string; originUrl: string; storageKey: string }[]): Promise<CardImageRow[]> {
-    if (values.length === 0) return [];
+    if (values.length === 0) {
+      return [];
+    }
+
     return this.db.insert(cardImage).values(values).onConflictDoNothing({ target: cardImage.imageKey }).returning();
   }
 
@@ -52,6 +55,7 @@ export class CardImageRepository {
       })
       .where(and(eq(cardImage.imageKey, imageKey), claimableCondition(now)))
       .returning();
+
     return claimed;
   }
 
@@ -75,6 +79,7 @@ export class CardImageRepository {
       })
       .where(and(eq(cardImage.imageKey, imageKey), eq(cardImage.leaseOwner, leaseOwner)))
       .returning({ imageKey: cardImage.imageKey });
+
     return rows.length === 1;
   }
 
@@ -84,6 +89,7 @@ export class CardImageRepository {
     failure: { code: string; message: string; isRetryable: boolean },
   ): Promise<boolean> {
     const now = new Date();
+
     const rows = await this.db
       .update(cardImage)
       .set({
@@ -97,6 +103,7 @@ export class CardImageRepository {
       })
       .where(and(eq(cardImage.imageKey, imageKey), eq(cardImage.leaseOwner, leaseOwner)))
       .returning({ imageKey: cardImage.imageKey });
+
     return rows.length === 1;
   }
 

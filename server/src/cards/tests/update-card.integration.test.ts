@@ -16,12 +16,14 @@ describe('Update card integration', () => {
     });
 
     const user = await createTestUser(app, db);
+
     const missing = await updateRequest(
       app,
       user.sessionToken,
       '00000000-0000-0000-0000-000000000000',
       validCardPayload,
     );
+
     expect(await expectErrorResponse(missing, CONTENTFUL_STATUS_CODES.NOT_FOUND)).toMatchObject({
       code: 'CARD_NOT_FOUND',
     });
@@ -33,14 +35,17 @@ describe('Update card integration', () => {
       const owner = await createTestUser(app, db);
       const otherUser = await createTestUser(app, db);
       const original = CardSchema.parse(await (await createCardRequest(app, owner.sessionToken)).json());
+
       const { headers, requestId } = withRequestId(
         Object.fromEntries(sessionHeaders(otherUser.sessionToken).entries()),
       );
+
       const response = await app.request(`/app-api/cards/${original.id}`, {
         method: 'PUT',
         headers,
         body: JSON.stringify({ ...validCardPayload, name: 'Stolen' }),
       });
+
       expect(await expectErrorResponse(response, CONTENTFUL_STATUS_CODES.NOT_FOUND)).toMatchObject({
         code: 'CARD_NOT_FOUND',
       });
@@ -62,9 +67,11 @@ describe('Update card integration', () => {
 
   integrationTest('clears notes when the replacement payload omits them', async ({ app, db }) => {
     const user = await createTestUser(app, db);
+
     const original = CardSchema.parse(
       await (await createCardRequest(app, user.sessionToken, { ...validCardPayload, notes: 'Alternate art' })).json(),
     );
+
     expect(original.notes).toBe('Alternate art');
 
     const response = await updateRequest(app, user.sessionToken, original.id, validCardPayload);
@@ -83,11 +90,13 @@ describe('Update card integration', () => {
         await updateRequest(app, user.sessionToken, original.id, { ...validCardPayload, notes: '  Foil  ' })
       ).json(),
     );
+
     expect(padded.notes).toBe('Foil');
 
     const blanked = CardSchema.parse(
       await (await updateRequest(app, user.sessionToken, original.id, { ...validCardPayload, notes: '   ' })).json(),
     );
+
     expect(blanked.notes).toBeNull();
     expect(await db.query.card.findFirst({ where: { id: original.id } })).toMatchObject({ notes: null });
   });
@@ -98,6 +107,7 @@ describe('Update card integration', () => {
       const user = await createTestUser(app, db);
       const original = CardSchema.parse(await (await createCardRequest(app, user.sessionToken)).json());
       const { headers, requestId } = withRequestId(Object.fromEntries(sessionHeaders(user.sessionToken).entries()));
+
       const replacement = {
         ...validCardPayload,
         game: 'pokemon' as const,
@@ -107,12 +117,15 @@ describe('Update card integration', () => {
         notes: 'First edition',
         quantities: [{ condition: 'mint' as const, quantity: 1 }],
       };
+
       const response = await app.request(`/app-api/cards/${original.id}`, {
         method: 'PUT',
         headers,
         body: JSON.stringify(replacement),
       });
+
       const body = CardSchema.parse(await response.json());
+
       const quantities = await db
         .select()
         .from(cardConditionQuantity)
@@ -131,6 +144,7 @@ describe('Update card integration', () => {
     're-resolves provider pricing instead of pricing the card under its stale identity',
     async ({ app, db }) => {
       const user = await createTestUser(app, db);
+
       const original = CardWithPriceSchema.parse(
         await (
           await createCardRequest(app, user.sessionToken, {
@@ -142,6 +156,7 @@ describe('Update card integration', () => {
           })
         ).json(),
       );
+
       expect(original.price.priced_card?.id).toEqual(expect.any(String));
       await expect(db.query.card.findFirst({ where: { id: original.id } })).resolves.toMatchObject({
         pricingCardId: 'crown-zenith-GG69',
@@ -155,6 +170,7 @@ describe('Update card integration', () => {
         set_name: '151',
         card_number: '199',
       });
+
       const updated = CardWithPriceSchema.parse(await response.json());
 
       expect(updated.price.priced_card?.id).toEqual(expect.any(String));
@@ -167,6 +183,7 @@ describe('Update card integration', () => {
 
   integrationTest('clears a stale provider identity when the replacement has no match', async ({ app, db }) => {
     const user = await createTestUser(app, db);
+
     const original = CardWithPriceSchema.parse(
       await (
         await createCardRequest(app, user.sessionToken, {
@@ -178,6 +195,7 @@ describe('Update card integration', () => {
         })
       ).json(),
     );
+
     expect(original.price.priced_card?.id).toEqual(expect.any(String));
 
     const response = await updateRequest(app, user.sessionToken, original.id, {
@@ -187,6 +205,7 @@ describe('Update card integration', () => {
       set_name: 'Unknown',
       card_number: 'results',
     });
+
     const updated = CardWithPriceSchema.parse(await response.json());
 
     expect(updated.price.status).toBe('no_match');

@@ -1,8 +1,13 @@
+import { z } from 'zod';
+
 import { REQUEST_ID_HEADER_NAME } from '../constants/common.ts';
 import { createMemoryLogDestination, setRootLoggerDestination } from '../logging/index.ts';
 
 const rawLogs: string[] = [];
-type StructuredLog = Record<string, unknown>;
+
+const StructuredLogSchema = z.record(z.string(), z.json());
+
+type StructuredLog = z.infer<typeof StructuredLogSchema>;
 
 export function initializeTestLogs() {
   rawLogs.length = 0;
@@ -36,6 +41,7 @@ function getStructuredLogs(): StructuredLog[] {
 function parseStructuredLog(line: string): StructuredLog[] {
   try {
     const parsed: unknown = JSON.parse(line);
+
     return isStructuredLog(parsed) ? [parsed] : [];
   } catch {
     return [];
@@ -43,5 +49,5 @@ function parseStructuredLog(line: string): StructuredLog[] {
 }
 
 function isStructuredLog(value: unknown): value is StructuredLog {
-  return value != null && typeof value === 'object';
+  return StructuredLogSchema.safeParse(value).success;
 }

@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 import { CARD_GAMES } from '../../db/schema/cards.ts';
-import { ApiCommonDatetimeShape } from '../../schemas/common.ts';
+import { ApiCommonDatetime } from '../../schemas/common.ts';
 import { CURRENCIES } from '../types.ts';
 
 export const PRICE_HEADLINE_METRICS = { LOWEST_NEAR_MINT: 'lowest_near_mint' } as const;
@@ -92,11 +92,11 @@ export const PricedCardSchema = z
     }),
     headline: PriceHeadlineSchema.optional(),
     market: MarketPriceSchema.optional(),
-    priced_on: ApiCommonDatetimeShape.meta({
+    priced_on: ApiCommonDatetime.meta({
       description: 'UTC pricing date',
       example: '2026-07-23T00:00:00.000Z',
     }),
-    fetched_at: ApiCommonDatetimeShape.meta({
+    fetched_at: ApiCommonDatetime.meta({
       description: 'Time the price was fetched from the configured source',
       example: '2026-07-23T10:30:00.000Z',
     }),
@@ -161,5 +161,7 @@ export const OwnedCardPriceSchema = z
   });
 
 export type PricedCardResponse = z.infer<typeof PricedCardSchema>;
+
 export type PricingSearchResponse = z.infer<typeof PricingSearchResponseSchema>;
+
 export type OwnedCardPriceResponse = z.infer<typeof OwnedCardPriceSchema>;

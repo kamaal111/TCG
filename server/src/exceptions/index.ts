@@ -32,6 +32,7 @@ export class APIException<TContext = unknown> extends HTTPException {
       }),
       { status: statusCode, headers },
     );
+
     super(statusCode, { res: response, message: options.message });
     this.code = options.code;
     this.context = options.context;

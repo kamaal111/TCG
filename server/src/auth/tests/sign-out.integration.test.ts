@@ -13,13 +13,16 @@ describe('Sign-out integration', () => {
     'invalidates the current session, clears the session cookie, and logs the request',
     async ({ app, db, getLogsForRequestId, withRequestId }) => {
       const createdUser = await createTestUser(app, db);
+
       const sessionsBeforeSignOut = await db.query.session.findMany({
         where: { userId: createdUser.userId },
       });
+
       const { headers, requestId } = withRequestId({
         Cookie: `better-auth.session_token=${createdUser.sessionToken}`,
         'Content-Type': MIME_TYPES.JSON,
       });
+
       const response = await sendSignOutRequest(app, headers);
 
       expect(response.status).toBe(CONTENTFUL_STATUS_CODES.OK);
@@ -29,6 +32,7 @@ describe('Sign-out integration', () => {
       const sessionsAfterSignOut = await db.query.session.findMany({
         where: { userId: createdUser.userId },
       });
+
       const logs = getLogsForRequestId(requestId);
       const serializedLogs = JSON.stringify(logs);
 

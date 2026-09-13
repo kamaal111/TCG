@@ -18,6 +18,7 @@ export const UPDATE_CARD_ROUTE_PATH = `${APP_API_ROUTE_NAME}${CARDS_ROUTE_NAME}$
 async function updateCardHandler(c: UpdateCardContext): Promise<UpdateCardRouteResponse> {
   const { cardId } = c.req.valid('param');
   const updatedCard = await c.get('cardRepository').update(cardId, c.req.valid('json'));
+
   if (updatedCard == null) {
     cardsLogger(c).warn(
       { event: 'cards.access_denied', outcome: 'failure', error_code: 'CARD_NOT_FOUND', card_id: cardId },

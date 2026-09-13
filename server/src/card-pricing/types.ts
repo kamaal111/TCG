@@ -3,10 +3,10 @@ import type { GetRecordValues } from '../utils/type-utils.ts';
 
 export type CardGame = (typeof CARD_GAMES)[number];
 
-export const CARD_GAME_MAP: { [K in (typeof CARD_GAMES)[number] as Uppercase<K>]: K } = {
+export const CARD_GAME_MAP = {
   ONE_PIECE: 'one_piece',
   POKEMON: 'pokemon',
-};
+} satisfies { [K in (typeof CARD_GAMES)[number] as Uppercase<K>]: K };
 
 export const CURRENCIES = {
   JPY: 'JPY',

@@ -11,11 +11,17 @@ import env from './env.ts';
 import { InvalidValidation } from './exceptions/index.ts';
 
 const SPEC_NAME = '/spec';
+
 export const OPENAPI_JSON_SPEC_PATH = `${SPEC_NAME}.json`;
+
 export const OPENAPI_YAML_SPEC_PATH = `${SPEC_NAME}.yaml`;
+
 export const OPENAPI_YAML_SPEC_URL = new URL(`${env.BASE_URL}${OPENAPI_YAML_SPEC_PATH}`);
+
 const SPEC_SOURCE_OF_TRUTH_URL = OPENAPI_JSON_SPEC_PATH;
+
 export const YAML_OPTIONS = { indent: 2, noRefs: true };
+
 const OPENAPI_INFO = {
   openapi: '3.1.1',
   info: { version: '1.0.0', title: 'TCG API' },
@@ -57,7 +63,7 @@ export function openAPIRouterFactory(): StandardOpenAPIHono<HonoEnvironment> {
   });
 }
 
-export function withOpenAPIDocumentation<E extends Env = Env, S extends Schema = {}, BasePath extends string = '/'>(
+export function withOpenAPIDocumentation<E extends Env = Env, S extends Schema = Schema, BasePath extends string = '/'>(
   app: StandardOpenAPIHono<E, S, BasePath>,
 ) {
   const appWithSpecs = $(

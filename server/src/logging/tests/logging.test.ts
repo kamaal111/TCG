@@ -104,6 +104,7 @@ describe('Request logging middleware', () => {
 });
 
 const WARN_LEVEL = 40;
+
 const ERROR_LEVEL = 50;
 
 function requestHeaders(testRequestId: string) {
@@ -123,11 +124,10 @@ function createLoggingTestApp() {
     return c.json({ message: 'ok' });
   });
   app.get('/dependency-log', c => {
-    // Simulates a dependency logging an untyped shape through the same logger instance.
-    const untypedLogger = c.get('logger') as unknown as {
-      info: (fields: Record<string, unknown>, message: string) => void;
-    };
-    untypedLogger.info({ email: 'someone@example.com', token: 'a-secret-token' }, 'Dependency line.');
+    c.get('logger').info(
+      { event: 'dependency.log', outcome: 'success', email: 'someone@example.com', token: 'a-secret-token' },
+      'Dependency line.',
+    );
 
     return c.json({ message: 'ok' });
   });

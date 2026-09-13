@@ -3,11 +3,11 @@ import { CARD_IMAGE_MATERIALIZATION_TRIGGERS, type CardImageMaterializer } from 
 import type { CardImageRepository, CardImageRow } from './repository.ts';
 import env from '../env.ts';
 
-type CardImageWarmerDependencies = {
+interface CardImageWarmerDependencies {
   repository: CardImageRepository;
   materializer: CardImageMaterializer;
   concurrency?: number;
-};
+}
 
 export class CardImageWarmer {
   private readonly dependencies: CardImageWarmerDependencies;
@@ -21,10 +21,14 @@ export class CardImageWarmer {
   }
 
   enqueue(jobs: CardImageRow[]): void {
-    if (jobs.length === 0) return;
+    if (jobs.length === 0) {
+      return;
+    }
+
     for (const job of jobs) {
       this.queuedKeys.add(job.imageKey);
     }
+
     processImagesLogger().info(
       { event: 'images.warm.queued', outcome: 'success', result_count: jobs.length },
       'Queued card images for warming.',
@@ -33,20 +37,32 @@ export class CardImageWarmer {
   }
 
   start(options: { keepProcessAlive?: boolean } = {}): void {
-    if (this.interval != null) return;
+    if (this.interval != null) {
+      return;
+    }
+
     void this.scan();
     this.interval = setInterval(() => void this.scan(), env.CARD_IMAGE_WORKER_POLL_INTERVAL_MS);
-    if (!options.keepProcessAlive) this.interval.unref();
+
+    if (!options.keepProcessAlive) {
+      this.interval.unref();
+    }
   }
 
   stop(): void {
-    if (this.interval == null) return;
+    if (this.interval == null) {
+      return;
+    }
+
     clearInterval(this.interval);
     this.interval = undefined;
   }
 
   idle(): Promise<void> {
-    if (this.queuedKeys.size === 0 && this.activeWorkers === 0) return Promise.resolve();
+    if (this.queuedKeys.size === 0 && this.activeWorkers === 0) {
+      return Promise.resolve();
+    }
+
     return new Promise(resolve => this.idleResolvers.push(resolve));
   }
 
@@ -63,9 +79,14 @@ export class CardImageWarmer {
 
   private pump(): void {
     const concurrency = this.dependencies.concurrency ?? env.CARD_IMAGE_WARM_CONCURRENCY;
+
     while (this.activeWorkers < concurrency) {
       const imageKey = this.queuedKeys.values().next().value;
-      if (imageKey == null) break;
+
+      if (imageKey == null) {
+        break;
+      }
+
       this.queuedKeys.delete(imageKey);
       this.activeWorkers += 1;
       void this.run(imageKey);
@@ -74,11 +95,13 @@ export class CardImageWarmer {
 
   private async run(imageKey: string): Promise<void> {
     const startedAt = performance.now();
+
     try {
       const result = await this.dependencies.materializer.materialize(imageKey, {
         logger: processImagesLogger(),
         trigger: CARD_IMAGE_MATERIALIZATION_TRIGGERS.WORKER,
       });
+
       processImagesLogger().info(
         {
           event: 'images.warm.completed',
@@ -104,8 +127,11 @@ export class CardImageWarmer {
     } finally {
       this.activeWorkers -= 1;
       this.pump();
+
       if (this.queuedKeys.size === 0 && this.activeWorkers === 0) {
-        for (const resolve of this.idleResolvers.splice(0)) resolve();
+        for (const resolve of this.idleResolvers.splice(0)) {
+          resolve();
+        }
       }
     }
   }

@@ -15,6 +15,7 @@ describe('HttpCardImageOriginClient', () => {
     const unsupported = new HttpCardImageOriginClient({
       fetch: () => Promise.resolve(new Response('html', { headers: { 'Content-Type': 'text/html' } })),
     });
+
     const oversized = new HttpCardImageOriginClient({
       maxBytes: 1,
       fetch: () => Promise.resolve(new Response(new Uint8Array([1, 2]), { headers: { 'Content-Type': 'image/png' } })),

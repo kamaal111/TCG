@@ -26,4 +26,5 @@ export type ImagesLogFields = DomainLogFields<(typeof IMAGES_EVENTS)[number]> & 
 };
 
 export const imagesLogger = (c: HonoContext): DomainLogger<ImagesLogFields> => getDomainLogger(c);
+
 export const processImagesLogger = (): DomainLogger<ImagesLogFields> => getProcessLogger();

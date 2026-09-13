@@ -50,6 +50,7 @@ export class S3ObjectStorageClient implements ObjectStorageClient {
     this.secretAccessKey = options.secretAccessKey ?? env.OBJECT_STORAGE_SECRET_ACCESS_KEY;
     this.bucket = options.bucket ?? env.OBJECT_STORAGE_BUCKET;
     this.requestTimeoutMs = options.requestTimeoutMs ?? env.OBJECT_STORAGE_REQUEST_TIMEOUT_MS;
+
     const configuration: S3ClientConfig = {
       region: options.region ?? env.OBJECT_STORAGE_REGION,
       endpoint: options.endpoint ?? env.OBJECT_STORAGE_ENDPOINT,
@@ -63,13 +64,17 @@ export class S3ObjectStorageClient implements ObjectStorageClient {
       responseChecksumValidation: 'WHEN_REQUIRED',
       maxAttempts: env.OBJECT_STORAGE_MAX_ATTEMPTS,
     };
+
     const clientFactory = options.clientFactory ?? (config => new S3Client(config));
     this.client = clientFactory(configuration);
   }
 
   async put(key: string, body: Uint8Array, contentType: string, checksum: string): Promise<ObjectStorageResult<void>> {
     const missing = this.missingCredentials();
-    if (missing != null) return err(missing);
+
+    if (missing != null) {
+      return err(missing);
+    }
 
     return (
       await tryCatch(() => {
@@ -87,24 +92,32 @@ export class S3ObjectStorageClient implements ObjectStorageClient {
       })
     )
       .map(() => undefined)
-      .mapErr(error => this.mapError(error, 'put'));
+      .mapErr(error => this.mapError(toError(error), 'put'));
   }
 
   async get(key: string): Promise<ObjectStorageResult<StoredObject>> {
     const missing = this.missingCredentials();
-    if (missing != null) return err(missing);
+
+    if (missing != null) {
+      return err(missing);
+    }
 
     const response = await tryCatch(() => {
       return this.client.send(new GetObjectCommand({ Bucket: this.bucket, Key: key }), {
         abortSignal: AbortSignal.timeout(this.requestTimeoutMs),
       });
-    }).mapErr(error => this.mapError(error, 'get'));
-    if (response.isErr()) return err(response.error);
+    }).mapErr(error => this.mapError(toError(error), 'get'));
+
+    if (response.isErr()) {
+      return err(response.error);
+    }
 
     const { Body, ContentType, ContentLength, Metadata } = response.value;
+
     if (Body == null || ContentType == null) {
       return err(this.invalidResponse('S3 get response lacked a body or content type'));
     }
+
     const body = await Body.transformToByteArray();
 
     return ok({
@@ -117,16 +130,23 @@ export class S3ObjectStorageClient implements ObjectStorageClient {
 
   async head(key: string): Promise<ObjectStorageResult<StoredObjectHead>> {
     const missing = this.missingCredentials();
-    if (missing != null) return err(missing);
+
+    if (missing != null) {
+      return err(missing);
+    }
 
     const response = await tryCatch(() => {
       return this.client.send(new HeadObjectCommand({ Bucket: this.bucket, Key: key }), {
         abortSignal: AbortSignal.timeout(this.requestTimeoutMs),
       });
-    }).mapErr(error => this.mapError(error, 'head'));
-    if (response.isErr()) return err(response.error);
+    }).mapErr(error => this.mapError(toError(error), 'head'));
+
+    if (response.isErr()) {
+      return err(response.error);
+    }
 
     const { ContentLength, ContentType, Metadata } = response.value;
+
     if (ContentLength == null || ContentType == null) {
       return err(this.invalidResponse('S3 head response lacked content metadata'));
     }
@@ -136,7 +156,10 @@ export class S3ObjectStorageClient implements ObjectStorageClient {
 
   async delete(key: string): Promise<ObjectStorageResult<void>> {
     const missing = this.missingCredentials();
-    if (missing != null) return err(missing);
+
+    if (missing != null) {
+      return err(missing);
+    }
 
     return (
       await tryCatch(() => {
@@ -146,11 +169,14 @@ export class S3ObjectStorageClient implements ObjectStorageClient {
       })
     )
       .map(() => undefined)
-      .mapErr(error => this.mapError(error, 'delete'));
+      .mapErr(error => this.mapError(toError(error), 'delete'));
   }
 
   private missingCredentials(): ObjectStorageError | undefined {
-    if (this.accessKeyId != null && this.secretAccessKey != null) return undefined;
+    if (this.accessKeyId != null && this.secretAccessKey != null) {
+      return undefined;
+    }
+
     return {
       reason: OBJECT_STORAGE_ERROR_REASONS.MISSING_CREDENTIALS,
       message: 'Object storage access key and secret are required for the S3 client',
@@ -162,14 +188,15 @@ export class S3ObjectStorageClient implements ObjectStorageClient {
     return { reason: OBJECT_STORAGE_ERROR_REASONS.INVALID_RESPONSE, message, isRetryable: false };
   }
 
-  private mapError(error: unknown, operation: string): ObjectStorageError {
-    const value = toError(error);
+  private mapError(error: Error, operation: string): ObjectStorageError {
     const parsedMetadata = AWSErrorMetadataSchema.safeParse(error);
     const statusCode = parsedMetadata.success ? parsedMetadata.data.$metadata?.httpStatusCode : undefined;
-    const name = value.name;
+    const name = error.name;
+
     if (statusCode === CONTENTFUL_STATUS_CODES.NOT_FOUND || name === 'NoSuchKey' || name === 'NotFound') {
-      return { reason: OBJECT_STORAGE_ERROR_REASONS.NOT_FOUND, message: value.message, statusCode, isRetryable: false };
+      return { reason: OBJECT_STORAGE_ERROR_REASONS.NOT_FOUND, message: error.message, statusCode, isRetryable: false };
     }
+
     if (
       statusCode === CONTENTFUL_STATUS_CODES.UNAUTHORIZED ||
       statusCode === CONTENTFUL_STATUS_CODES.FORBIDDEN ||
@@ -177,11 +204,12 @@ export class S3ObjectStorageClient implements ObjectStorageClient {
     ) {
       return {
         reason: OBJECT_STORAGE_ERROR_REASONS.ACCESS_DENIED,
-        message: value.message,
+        message: error.message,
         statusCode,
         isRetryable: false,
       };
     }
+
     if (name === 'AbortError' || name === 'TimeoutError' || name === 'RequestTimeout') {
       return {
         reason: OBJECT_STORAGE_ERROR_REASONS.REQUEST_TIMEOUT,
@@ -190,17 +218,19 @@ export class S3ObjectStorageClient implements ObjectStorageClient {
         isRetryable: true,
       };
     }
+
     if (statusCode != null) {
       return {
         reason: OBJECT_STORAGE_ERROR_REASONS.UNKNOWN,
-        message: value.message,
+        message: error.message,
         statusCode,
         isRetryable: statusCode >= CONTENTFUL_STATUS_CODES.INTERNAL_SERVER_ERROR,
       };
     }
+
     return {
       reason: OBJECT_STORAGE_ERROR_REASONS.NETWORK_ERROR,
-      message: value.message,
+      message: error.message,
       isRetryable: true,
     };
   }

@@ -1,21 +1,36 @@
+import { toError } from '../utils/results.ts';
 import type { GetRecordValues } from '../utils/type-utils.ts';
-
-type PostgresErrorCode = GetRecordValues<typeof POSTGRES_ERROR_CODES>;
-
-type PostgresInternalCode = keyof typeof POSTGRES_ERROR_CODES;
 
 const POSTGRES_ERROR_CODES = { '55P03': 'lock_not_available' } as const;
 
-export function classifyPostgresError(error: unknown): PostgresErrorCode | undefined {
-  const code = postgresErrorCode(error);
-  if (code == null) return undefined;
+type PostgresErrorCode = GetRecordValues<typeof POSTGRES_ERROR_CODES>;
 
-  return POSTGRES_ERROR_CODES[code as PostgresInternalCode];
+export function classifyPostgresError(error: Error): PostgresErrorCode | undefined {
+  const code = postgresErrorCode(error);
+
+  if (code === '55P03') {
+    return POSTGRES_ERROR_CODES[code];
+  }
+
+  return undefined;
 }
 
-function postgresErrorCode(error: unknown): string | undefined {
-  if (error == null || typeof error !== 'object') return undefined;
-  if ('code' in error && typeof error.code === 'string') return error.code;
-  if ('cause' in error) return postgresErrorCode(error.cause);
+function postgresErrorCode(error: Error): string | undefined {
+  if (hasPostgresErrorCode(error)) {
+    return error.code;
+  }
+
+  if (error.cause != null) {
+    return postgresErrorCode(toError(error.cause));
+  }
+
   return undefined;
+}
+
+function hasPostgresErrorCode(error: Error): error is Error & { code: string } {
+  if (!('code' in error)) {
+    return false;
+  }
+
+  return typeof error.code === 'string';
 }

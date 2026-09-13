@@ -19,6 +19,7 @@ describe('Create card integration', () => {
 
   integrationTest('rejects invalid card fields and quantities', async ({ app, db }) => {
     const user = await createTestUser(app, db);
+
     const cases: [string, unknown][] = [
       ['name', { ...validCardPayload, name: '' }],
       ['set_name', { ...validCardPayload, set_name: '' }],
@@ -47,6 +48,7 @@ describe('Create card integration', () => {
         headers: sessionHeaders(user.sessionToken),
         body: JSON.stringify(payload),
       });
+
       await expectValidationIssueForField(response, field);
     }
   });
@@ -82,11 +84,13 @@ describe('Create card integration', () => {
     async ({ app, db, getLogsForRequestId, withRequestId }) => {
       const user = await createTestUser(app, db);
       const { headers, requestId } = withRequestId(Object.fromEntries(sessionHeaders(user.sessionToken).entries()));
+
       const response = await app.request(CREATE_CARD_ROUTE_PATH, {
         method: 'POST',
         headers,
         body: JSON.stringify({ ...validCardPayload, notes: 'Alternate art' }),
       });
+
       const body = CardSchema.parse(await response.json());
 
       expect(body.notes).toBe('Alternate art');

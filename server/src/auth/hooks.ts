@@ -28,7 +28,9 @@ export interface AuthLocals {
 }
 
 const SESSION_COOKIE_NAME = 'better-auth.session_token';
+
 const TOKEN_URL = new URL('token', BETTER_AUTH_BASE_URL);
+
 const SESSION_UPDATE_AGE_SECONDS = ONE_DAY_IN_SECONDS * env.BETTER_AUTH_SESSION_UPDATE_AGE_DAYS;
 
 const BetterAuthErrorSchema = z.object({ code: z.string(), message: z.string() });
@@ -68,7 +70,10 @@ export const authHooks = defineAuthHooks({
 
   async getSession(c: Context) {
     const result = await c.locals.auth.api.getSession({ headers: c.headers });
-    if (result == null) return { ok: true, value: null };
+
+    if (result == null) {
+      return { ok: true, value: null };
+    }
 
     return {
       ok: true,
@@ -85,6 +90,7 @@ export const authHooks = defineAuthHooks({
 
   async issueToken(c: Context) {
     const response = await c.locals.auth.handler(c.request);
+
     if (!response.ok) {
       return { ok: false, error: { code: 'SESSION_NOT_FOUND', message: 'Session not found' } };
     }
@@ -124,16 +130,19 @@ async function authenticate(c: Context): Promise<AuthHookResult<{ user: AuthUser
   const body: unknown = await response.json();
 
   const failure = BetterAuthErrorSchema.safeParse(body);
+
   if (failure.success) {
     return { ok: false, error: { ...failure.data, headers: response.headers } };
   }
 
   const sessionToken = getValueFromSetCookie(response.headers, SESSION_COOKIE_NAME);
+
   if (sessionToken == null) {
     return { ok: false, error: { code: 'MISSING_SESSION_TOKEN', message: 'Authentication response had no session' } };
   }
 
   const token = await mintToken(c, sessionToken);
+
   if (token == null) {
     return { ok: false, error: { code: 'MISSING_SESSION_TOKEN', message: 'Could not issue an authentication token' } };
   }
@@ -157,8 +166,12 @@ async function mintToken(c: Context, sessionToken: string): Promise<string | nul
     method: 'GET',
     headers: new Headers({ Authorization: `Bearer ${sessionToken}` }),
   });
+
   const response = await c.locals.auth.handler(request);
-  if (!response.ok) return null;
+
+  if (!response.ok) {
+    return null;
+  }
 
   return TokenResponseSchema.parse(await response.json()).token;
 }
@@ -177,7 +190,9 @@ function toAuthUser(user: z.infer<typeof BetterAuthUserSchema>): AuthUser {
 function expiresInSeconds(token: string): number {
   const payload = decodeJwtSafely(token);
 
-  if (payload?.exp == null) return ONE_DAY_IN_SECONDS * env.JWT_EXPIRY_DAYS;
+  if (payload?.exp == null) {
+    return ONE_DAY_IN_SECONDS * env.JWT_EXPIRY_DAYS;
+  }
 
   return payload.exp - Math.floor(Date.now() / 1000);
 }

@@ -11,6 +11,7 @@ import { getSession } from '../auth/module.ts';
 import { classifyPostgresError } from '../db/errors.ts';
 import { cardPrice, cardPriceSearch } from '../db/schema/card-pricing.ts';
 import { card } from '../db/schema/cards.ts';
+import { toError } from '../utils/results.ts';
 import { isNonEmpty, type NonEmptyArray } from '../utils/type-utils.ts';
 
 export type CardPriceRow = typeof cardPrice.$inferSelect;
@@ -67,15 +68,25 @@ export class CardPricingRepository {
         lockWaitMs = Math.round(performance.now() - lockStartedAt);
         acquired = true;
         await transaction.execute(sql`select set_config('lock_timeout', '0', true)`);
+
         return operation();
       });
+
       this.logLock(lock, 'acquired', lockWaitMs, 'success');
+
       return result;
     } catch (error) {
-      if (!acquired) lockWaitMs = lockStartedAt == null ? 0 : Math.round(performance.now() - lockStartedAt);
-      const timedOut = classifyPostgresError(error) === 'lock_not_available';
+      if (!acquired) {
+        lockWaitMs = lockStartedAt == null ? 0 : Math.round(performance.now() - lockStartedAt);
+      }
+
+      const timedOut = classifyPostgresError(toError(error)) === 'lock_not_available';
       this.logLock(lock, timedOut ? 'timeout' : acquired ? 'acquired' : 'failed', lockWaitMs, 'failure');
-      if (timedOut) throw new PricingLockTimeout(this.c);
+
+      if (timedOut) {
+        throw new PricingLockTimeout(this.c);
+      }
+
       throw error;
     }
   }
@@ -131,7 +142,9 @@ export class CardPricingRepository {
     pricingCardIds: string[],
     pricedOn: string,
   ): Promise<CardPriceRow[]> {
-    if (pricingCardIds.length === 0) return Promise.resolve([]);
+    if (pricingCardIds.length === 0) {
+      return Promise.resolve([]);
+    }
 
     return this.db.query.cardPrice.findMany({
       where: { pricingSource, game, pricedOn, pricingCardId: { in: pricingCardIds } },
@@ -183,6 +196,7 @@ export class CardPricingRepository {
         },
       })
       .returning();
+
     assert(isNonEmpty(rows), 'Card price upsert did not return any rows');
 
     return rows;
@@ -266,7 +280,9 @@ export class CardPricingRepository {
       lock_wait_ms: lockWaitMs,
       priced_on: lock.pricedOn,
     } as const;
+
     const logger = pricingLogger(this.c);
+
     if (outcome === 'success') {
       logger.info({ ...fields, outcome }, 'Completed a card pricing lock operation.');
 

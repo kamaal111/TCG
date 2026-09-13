@@ -123,19 +123,29 @@ export class StaticScrydexClient implements PricingClient {
 
   async searchCards(game: CardGame, query: string): Promise<PricingClientResult<PricingSearchResult>> {
     const normalized = query.trim().toLowerCase();
-    if (normalized.includes('no results')) return ok(emptySearchResult());
+
+    if (normalized.includes('no results')) {
+      return ok(emptySearchResult());
+    }
 
     const matches = CANNED_CARDS[game].filter(card => {
       const haystack = `${String(card.name)} ${String(card.number)} ${String(card.printed_number)}`.toLowerCase();
+
       return normalized.split(/\s+/).every(term => haystack.includes(term));
     });
+
     const rawCards = matches.length > 0 ? matches : [makeSyntheticCard(game, query)];
+
     return ok(makeSearchResult(game, rawCards));
   }
 
   async getCardById(game: CardGame, id: string): Promise<PricingClientResult<PricingCardRecord | null>> {
     const raw = CANNED_CARDS[game].find(card => card.id === id);
-    if (raw == null) return ok(null);
+
+    if (raw == null) {
+      return ok(null);
+    }
+
     return ok(makeRecord(game, raw));
   }
 }
@@ -147,8 +157,10 @@ function emptySearchResult(): PricingSearchResult {
 function makeSearchResult(game: CardGame, rawCards: ScrydexRawCard[]): PricingSearchResult {
   const records = rawCards.flatMap(raw => {
     const record = makeRecord(game, raw);
+
     return record == null ? [] : [record];
   });
+
   return {
     records,
     providerResultCount: rawCards.length,
@@ -157,10 +169,15 @@ function makeSearchResult(game: CardGame, rawCards: ScrydexRawCard[]): PricingSe
   };
 }
 
-function makeRecord(game: CardGame, value: unknown): PricingCardRecord | null {
+function makeRecord(game: CardGame, value: ScrydexRawCard): PricingCardRecord | null {
   const parsed = ScrydexRawCardSchema.safeParse(value);
-  if (!parsed.success) return null;
+
+  if (!parsed.success) {
+    return null;
+  }
+
   const normalized = normalizeScrydexCard(game, parsed.data);
+
   return normalized != null ? { card: normalized.card, raw: parsed.data } : null;
 }
 
@@ -175,11 +192,10 @@ function makeSyntheticCard(game: CardGame, query: string): ScrydexRawCard {
   const name = (hasNumber ? terms.slice(0, -1).join(' ') : normalized) || 'Static card';
   const id = `static-${game}-${slug(`${name}-${cardNumber}`)}`;
 
-  return {
+  const card: ScrydexRawCard = {
     id,
     name,
     number: cardNumber,
-    ...(game === CARD_GAME_MAP.ONE_PIECE ? { printed_number: cardNumber } : {}),
     rarity: hash % 2 === 0 ? 'Rare' : undefined,
     variants: [
       {
@@ -200,14 +216,22 @@ function makeSyntheticCard(game: CardGame, query: string): ScrydexRawCard {
       },
     ],
   };
+
+  if (game === CARD_GAME_MAP.ONE_PIECE) {
+    card.printed_number = cardNumber;
+  }
+
+  return card;
 }
 
 function stableHash(value: string): number {
   let hash = 2_166_136_261;
+
   for (const character of value) {
     hash ^= character.charCodeAt(0);
     hash = Math.imul(hash, 16_777_619);
   }
+
   return hash >>> 0;
 }
 

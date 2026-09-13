@@ -7,6 +7,7 @@ export async function expectAuthSuccessResponse(response: Response, status: numb
   expect(response.status).toBe(status);
 
   const body = AuthResponseSchema.parse(await response.json());
+
   const headers = TokenHeaders.parse({
     'set-auth-token': response.headers.get('set-auth-token'),
     'set-auth-token-expiry': response.headers.get('set-auth-token-expiry'),
@@ -38,6 +39,7 @@ export async function expectValidationIssueForFields(response: Response, fieldNa
     const hasMatchingIssue =
       body.context?.validations.some(issue => {
         const path = issue.path.length > 0 ? issue.path : ['<root>'];
+
         return path.includes(fieldName);
       }) ?? false;
 

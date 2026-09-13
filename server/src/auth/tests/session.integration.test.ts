@@ -17,6 +17,7 @@ describe('Session integration', () => {
     'returns the current user session for a valid session cookie',
     async ({ app, db, getLogsForRequestId, withRequestId }) => {
       const createdUser = await createTestUser(app, db);
+
       const { headers, requestId } = withRequestId({
         Cookie: `better-auth.session_token=${createdUser.sessionToken}`,
         'User-Agent': 'TCG integration test client',
@@ -26,6 +27,7 @@ describe('Session integration', () => {
 
       expect(response.status).toBe(CONTENTFUL_STATUS_CODES.OK);
       const body = SessionResponseSchema.parse(await response.json());
+
       const persistedUser = await db.query.user.findFirst({
         where: { id: createdUser.userId },
       });
@@ -65,6 +67,7 @@ describe('Session integration', () => {
     'returns the current user session for a valid bearer token',
     async ({ app, db, getLogsForRequestId, withRequestId }) => {
       const createdUser = await createTestUser(app, db);
+
       const signInResponse = await app.request(SIGN_IN_ROUTE_PATH, {
         method: 'POST',
         headers: new Headers({ 'Content-Type': MIME_TYPES.JSON }),
@@ -73,16 +76,19 @@ describe('Session integration', () => {
           password: createdUser.password,
         }),
       });
+
       const { headers } = await expectAuthSuccessResponse(signInResponse, CONTENTFUL_STATUS_CODES.OK);
 
       const { headers: requestHeaders, requestId } = withRequestId({
         Authorization: `Bearer ${headers['set-auth-token']}`,
         'User-Agent': 'TCG integration test client',
       });
+
       const response = await sendSessionRequest(app, requestHeaders);
 
       expect(response.status).toBe(CONTENTFUL_STATUS_CODES.OK);
       const body = SessionResponseSchema.parse(await response.json());
+
       const persistedSessions = await db.query.session.findMany({
         where: { userId: createdUser.userId },
         orderBy: { createdAt: 'desc' },

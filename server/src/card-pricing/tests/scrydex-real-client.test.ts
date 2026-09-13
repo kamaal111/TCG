@@ -1,12 +1,16 @@
 import assert from 'node:assert/strict';
 
+import { z } from 'zod';
+
 import { RealScrydexClient } from '../scrydex/real-client.ts';
 
 describe('RealScrydexClient', () => {
   it('constructs an authenticated One Piece search and decodes pricing', async () => {
-    const requests: Array<{ url: string; headers: Headers }> = [];
+    const requests: { url: string; headers: Headers }[] = [];
+
     const client = makeClient(async (input, init) => {
-      requests.push({ url: TestRequest.urlString(input), headers: new Headers(init?.headers) });
+      requests.push({ url: stringifyRequestURL(input), headers: new Headers(init?.headers) });
+
       return jsonResponse({
         status: 'success',
         data: [onePieceCard()],
@@ -52,8 +56,10 @@ describe('RealScrydexClient', () => {
 
   it('uses the English Pokémon endpoint and encoded query', async () => {
     const requestedURLs: string[] = [];
+
     const client = makeClient(async input => {
-      requestedURLs.push(TestRequest.urlString(input));
+      requestedURLs.push(stringifyRequestURL(input));
+
       return jsonResponse({ data: [], total_count: 0 });
     });
 
@@ -123,7 +129,7 @@ function makeClient(fetchImplementation: typeof fetch): RealScrydexClient {
   });
 }
 
-function jsonResponse(body: unknown, status = 200): Response {
+function jsonResponse(body: z.input<typeof JsonValueSchema>, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
 }
 
@@ -154,9 +160,12 @@ function onePieceCard() {
   };
 }
 
-class TestRequest {
-  static urlString(input: string | URL | Request): string {
-    if (typeof input === 'string') return input;
-    return input instanceof URL ? input.href : input.url;
+const JsonValueSchema = z.json();
+
+function stringifyRequestURL(input: string | URL | Request): string {
+  if (input instanceof URL) {
+    return input.href;
   }
+
+  return input instanceof Request ? input.url : input;
 }

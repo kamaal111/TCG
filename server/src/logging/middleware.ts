@@ -49,13 +49,15 @@ function loggingMiddleware() {
   });
 }
 
-function describeError(error: Error): {
+interface ErrorLogDescription {
   level: 'error' | 'warn';
   fields: Pick<RequestLogFields, 'event' | 'error_code' | 'validation_issue_count' | 'validation_issue_paths'> & {
     err?: unknown;
   };
   message: string;
-} {
+}
+
+function describeError(error: Error): ErrorLogDescription {
   if (error instanceof InvalidValidation) {
     const validationIssues = error.context?.validations ?? [];
 
@@ -99,7 +101,7 @@ function describeError(error: Error): {
 }
 
 function formatValidationPathSegment(segment: PropertyKey | StandardSchemaV1.PathSegment) {
-  if (typeof segment === 'object') {
+  if (segment instanceof Object && 'key' in segment) {
     return String(segment.key);
   }
 
