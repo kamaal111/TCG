@@ -5,8 +5,8 @@ import { ok } from 'neverthrow';
 import App from '../../app.ts';
 import { CONTENTFUL_STATUS_CODES } from '../../constants/http.ts';
 import { createDatabaseOnlyContext } from '../../context.ts';
-import { cardImage } from '../../db/schema/card-images.ts';
-import { InMemoryObjectStorageClient } from '../../storage/memory-client.ts';
+import { CARD_IMAGE_STATUSES, cardImage } from '../../db/schema/card-images.ts';
+import env from '../../env.ts';
 import { integrationTest } from '../../tests/fixtures.ts';
 import { CardImageMaterializer } from '../materializer.ts';
 import type { CardImageOriginClient, CardImageOriginResult } from '../origin-client.ts';
@@ -41,50 +41,67 @@ describe('Card image proxy integration', () => {
     expect((await repository.getByImageKey(imageKey))?.status).toBe('fetching');
   });
 
-  integrationTest('waits for an in-flight warmer instead of returning a placeholder response', async ({ db }) => {
-    const imageKey = 'a'.repeat(64);
-    const origin = new BlockingImageOriginClient();
-    const storageClient = new InMemoryObjectStorageClient();
-    const repository = new CardImageRepository(createDatabaseOnlyContext(db));
+  integrationTest(
+    'waits for an in-flight warmer instead of returning a placeholder response',
+    async ({ db, storageClient }) => {
+      const imageKey = 'a'.repeat(64);
+      const origin = new BlockingImageOriginClient();
+      const repository = new CardImageRepository(createDatabaseOnlyContext(db));
 
-    const cardImageMaterializer = new CardImageMaterializer({
-      repository,
-      storageClient,
-      imageOriginClient: origin,
+      const cardImageMaterializer = new CardImageMaterializer({
+        repository,
+        storageClient,
+        imageOriginClient: origin,
+      });
+
+      const cardImageWarmer = new CardImageWarmer({ repository, materializer: cardImageMaterializer, concurrency: 1 });
+
+      const { app } = new App({
+        db,
+        storageClient,
+        imageOriginClient: origin,
+        cardImageMaterializer,
+        cardImageWarmer,
+      });
+
+      const [row] = await db
+        .insert(cardImage)
+        .values({ imageKey, originUrl: 'https://images.example.com/test.png', storageKey: 'card-images/test' })
+        .returning();
+
+      assert(row != null, 'Expected the image row to be inserted');
+
+      cardImageWarmer.notifyRegistered(1);
+      await origin.started;
+      const responsePromise = app.request(`/app-api/images/${imageKey}`);
+      origin.release();
+
+      const response = await responsePromise;
+      expect(response.status).toBe(CONTENTFUL_STATUS_CODES.OK);
+      expect(new Uint8Array(await response.arrayBuffer())).toEqual(new Uint8Array([1, 2, 3]));
+      expect(origin.callCount).toBe(1);
+    },
+  );
+
+  integrationTest('reports an image that ran out of attempts as missing', async ({ db, app }) => {
+    const imageKey = 'e'.repeat(64);
+    await db.insert(cardImage).values({
+      imageKey,
+      originUrl: 'https://images.example.com/exhausted.png',
+      storageKey: 'card-images/exhausted',
+      status: CARD_IMAGE_STATUSES.FAILED,
+      attemptCount: env.CARD_IMAGE_MAX_ATTEMPTS,
+      lastErrorCode: 'origin_http_error',
     });
 
-    const cardImageWarmer = new CardImageWarmer({ repository, materializer: cardImageMaterializer, concurrency: 1 });
+    const response = await app.request(`/app-api/images/${imageKey}`);
 
-    const { app } = new App({
-      db,
-      storageClient,
-      imageOriginClient: origin,
-      cardImageMaterializer,
-      cardImageWarmer,
-    });
-
-    const [row] = await db
-      .insert(cardImage)
-      .values({ imageKey, originUrl: 'https://images.example.com/test.png', storageKey: 'card-images/test' })
-      .returning();
-
-    assert(row != null, 'Expected the image row to be inserted');
-
-    cardImageWarmer.enqueue([row]);
-    await origin.started;
-    const responsePromise = app.request(`/app-api/images/${imageKey}`);
-    origin.release();
-
-    const response = await responsePromise;
-    expect(response.status).toBe(CONTENTFUL_STATUS_CODES.OK);
-    expect(new Uint8Array(await response.arrayBuffer())).toEqual(new Uint8Array([1, 2, 3]));
-    expect(origin.callCount).toBe(1);
+    expect(response.status).toBe(CONTENTFUL_STATUS_CODES.NOT_FOUND);
   });
 
-  integrationTest('does not hold a database transaction while downloading an image', async ({ db }) => {
+  integrationTest('does not hold a database transaction while downloading an image', async ({ db, storageClient }) => {
     const imageKey = 'b'.repeat(64);
     const origin = new BlockingImageOriginClient();
-    const storageClient = new InMemoryObjectStorageClient();
     const repository = new CardImageRepository(createDatabaseOnlyContext(db));
 
     const cardImageMaterializer = new CardImageMaterializer({
@@ -114,10 +131,9 @@ describe('Card image proxy integration', () => {
     expect((await responsePromise).status).toBe(CONTENTFUL_STATUS_CODES.OK);
   });
 
-  integrationTest('logs each origin image fetch', async ({ db, getLogsForRequestId, withRequestId }) => {
+  integrationTest('logs each origin image fetch', async ({ db, storageClient, getLogsForRequestId, withRequestId }) => {
     const imageKey = 'd'.repeat(64);
     const origin = new BlockingImageOriginClient();
-    const storageClient = new InMemoryObjectStorageClient();
     const repository = new CardImageRepository(createDatabaseOnlyContext(db));
 
     const cardImageMaterializer = new CardImageMaterializer({
