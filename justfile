@@ -50,7 +50,7 @@ dev-server: prepare-server start-services migrate
 # Start services
 start-services:
     docker compose up -d --wait
-    docker compose run --rm minio-init
+    ./scripts/initialize-garage.sh
 
 # Stop services
 stop-services:

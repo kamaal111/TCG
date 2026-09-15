@@ -29,12 +29,12 @@
     "zod": "workspace:*"
   },
   "devDependencies": {
-    "@testcontainers/minio": "workspace:*",
     "@types/node": "workspace:*",
     "@types/pg": "workspace:*",
     "@vitest/coverage-v8": "workspace:*",
     "drizzle-kit": "workspace:*",
     "pino-pretty": "workspace:*",
+    "testcontainers": "workspace:*",
     "typescript": "workspace:*",
     "vitest": "workspace:*"
   }
