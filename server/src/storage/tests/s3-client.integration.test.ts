@@ -1,66 +1,10 @@
 import crypto from 'node:crypto';
 
-import { CreateBucketCommand, S3Client } from '@aws-sdk/client-s3';
-import { MinioContainer, type StartedMinioContainer } from '@testcontainers/minio';
+import { createTestObjectStorage } from '../../tests/storage.ts';
 
-import { S3ObjectStorageClient } from '../s3-client.ts';
-
-interface Fixture {
-  container: StartedMinioContainer;
-  storage: S3ObjectStorageClient;
-}
-
-describe('S3ObjectStorageClient with MinIO', () => {
-  const bucket = 'card-images-test';
-  const password = 'test-storage-password';
-  const username = 'test-storage-user';
-  let fixture: Fixture | undefined = undefined;
-
-  function requireFixture(): Fixture {
-    if (fixture == null) {
-      throw new Error('MinIO fixture not initialized');
-    }
-
-    return fixture;
-  }
-
-  beforeAll(async () => {
-    const container = await new MinioContainer('minio/minio:RELEASE.2025-09-07T16-13-09Z')
-      .withUsername(username)
-      .withPassword(password)
-      .start();
-
-    const endpoint = container.getConnectionUrl();
-
-    const client = new S3Client({
-      region: 'us-east-1',
-      endpoint,
-      forcePathStyle: true,
-      credentials: { accessKeyId: username, secretAccessKey: password },
-    });
-
-    await client.send(new CreateBucketCommand({ Bucket: bucket }));
-    client.destroy();
-
-    const storage = new S3ObjectStorageClient({
-      accessKeyId: username,
-      secretAccessKey: password,
-      bucket,
-      endpoint,
-      forcePathStyle: true,
-      region: 'us-east-1',
-      requestTimeoutMs: 5_000,
-    });
-
-    fixture = { container, storage };
-  }, 60_000);
-
-  afterAll(async () => {
-    await requireFixture().container.stop();
-  });
-
+describe('S3ObjectStorageClient with Garage', () => {
   test('round trips metadata and maps a deleted object to not found', async () => {
-    const { storage } = requireFixture();
+    const storage = await createTestObjectStorage();
     const body = new Uint8Array([1, 2, 3, 4]);
     const checksum = crypto.createHash('sha256').update(body).digest('hex');
 
@@ -75,5 +19,36 @@ describe('S3ObjectStorageClient with MinIO', () => {
     expect(await storage.get('cards/test.png')).toMatchObject({
       error: { reason: 'not_found', isRetryable: false },
     });
+  });
+
+  test('reports a missing object rather than failing', async () => {
+    const storage = await createTestObjectStorage();
+
+    expect(await storage.get('cards/never-written.png')).toMatchObject({
+      error: { reason: 'not_found', isRetryable: false },
+    });
+    expect(await storage.head('cards/never-written.png')).toMatchObject({
+      error: { reason: 'not_found', isRetryable: false },
+    });
+  });
+
+  test('overwrites an existing object', async () => {
+    const storage = await createTestObjectStorage();
+    const first = new Uint8Array([1, 2, 3]);
+    const second = new Uint8Array([4, 5]);
+    const checksum = crypto.createHash('sha256').update(second).digest('hex');
+
+    await storage.put('cards/overwritten.png', first, 'image/png', 'first-checksum');
+
+    expect((await storage.put('cards/overwritten.png', second, 'image/png', checksum)).isOk()).toBe(true);
+    expect(await storage.get('cards/overwritten.png')).toMatchObject({
+      value: { body: second, contentLength: second.byteLength, checksum },
+    });
+  });
+
+  test('treats deleting a missing object as done', async () => {
+    const storage = await createTestObjectStorage();
+
+    expect((await storage.delete('cards/never-written.png')).isOk()).toBe(true);
   });
 });

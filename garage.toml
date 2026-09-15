@@ -1,0 +1,17 @@
+metadata_dir = "/var/lib/garage/meta"
+data_dir = "/var/lib/garage/data"
+db_engine = "lmdb"
+
+replication_factor = 1
+consistency_mode = "consistent"
+
+rpc_bind_addr = "[::]:3901"
+rpc_secret = "68d5c90bf5311bbba605858b41e7c4388d64da148a326b32bb82252addd9bb9b"
+
+[s3_api]
+s3_region = "us-east-1"
+api_bind_addr = "[::]:3900"
+
+[admin]
+api_bind_addr = "[::]:3903"
+admin_token = "eae633925802d157aa2968a2fbc9fa4db4d7d0afed055cb16c273f61cf115a9d"
