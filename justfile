@@ -76,7 +76,6 @@ download-spec:
     #!/usr/bin/env bash
 
     export LOG_LEVEL=silent
-
     node  scripts/download-openapi-spec.ts {{ SERVER_RELATIVE_OUTPUT_SCHEMA_FILEPATH }}
 
 # Run all verification checks
@@ -208,12 +207,16 @@ lint-fix:
     {{ PNR }} lint:fix
 
 # Verify the committed OpenAPI specification is up to date
+# Re-fetch stored card images by image key or origin URL pattern
+[working-directory("server")]
+refresh-card-images target: prepare-server
+    node scripts/refresh-card-images.ts {{ target }}
+
 [working-directory("server")]
 check-spec:
     #!/usr/bin/env bash
 
     export LOG_LEVEL=silent
-
     node scripts/check-openapi-spec.ts {{ SERVER_RELATIVE_OUTPUT_SCHEMA_FILEPATH }}
 
 # Check code formatting
