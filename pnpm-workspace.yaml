@@ -5,3 +5,4 @@ allowBuilds:
   ssh2: false
 minimumReleaseAgeExclude:
   - '@kamaal111/kamaal-quality-config@0.0.3'
+  - '@kamaalio/hono-standard-openapi@0.0.19'
