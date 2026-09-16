@@ -7,6 +7,7 @@ export const IMAGES_EVENTS = [
   'images.materialize.started',
   'images.origin_fetch.completed',
   'images.proxy.completed',
+  'images.warm.started',
   'images.warm.queued',
   'images.warm.completed',
   'images.storage.completed',
@@ -14,6 +15,8 @@ export const IMAGES_EVENTS = [
 
 export type ImagesLogFields = DomainLogFields<(typeof IMAGES_EVENTS)[number]> & {
   image_key?: string;
+  lease_owner?: string;
+  warm_concurrency?: number;
   result_count?: number;
   cache_status?: 'cold' | 'hit' | 'joined' | 'miss' | 'set' | 'timeout';
   attempt?: number;

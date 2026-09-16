@@ -1,8 +1,8 @@
 import z from 'zod';
 
-import { OBJECT_STORAGE_PROVIDERS, PRICING_CLIENT_MODES, SERVER_MODES } from './constants/common.ts';
+import { PRICING_CLIENT_MODES, SERVER_MODES } from './constants/common.ts';
 import { BYTES_PER_MB } from './constants/size.ts';
-import { ONE_MINUTE_IN_MS, ONE_SECOND_IN_MS } from './constants/time.ts';
+import { ONE_HOUR_IN_MS, ONE_MINUTE_IN_MS, ONE_SECOND_IN_MS } from './constants/time.ts';
 
 const LOG_LEVELS = {
   FATAL: 'fatal',
@@ -40,7 +40,6 @@ export const EnvSchema = z
       .int()
       .positive()
       .default(12 * ONE_SECOND_IN_MS),
-    OBJECT_STORAGE_CLIENT: z.enum(Object.values(OBJECT_STORAGE_PROVIDERS)).default(OBJECT_STORAGE_PROVIDERS.MEMORY),
     OBJECT_STORAGE_ENDPOINT: z.url().optional(),
     OBJECT_STORAGE_REGION: z.string().min(1).default('us-east-1'),
     OBJECT_STORAGE_BUCKET: z.string().min(1).default('tcg-card-images'),
@@ -80,12 +79,17 @@ export const EnvSchema = z
       .positive()
       .default(10 * ONE_SECOND_IN_MS),
     CARD_IMAGE_WORKER_ENABLED: z.stringbool().default(true),
-    CARD_IMAGE_MAX_ATTEMPTS: z.coerce.number().int().positive().default(3),
+    CARD_IMAGE_MAX_ATTEMPTS: z.coerce.number().int().positive().default(5),
     CARD_IMAGE_RETRY_AFTER_MS: z.coerce
       .number()
       .int()
       .nonnegative()
       .default(5 * ONE_MINUTE_IN_MS),
+    CARD_IMAGE_MAX_RETRY_AFTER_MS: z.coerce
+      .number()
+      .int()
+      .nonnegative()
+      .default(6 * ONE_HOUR_IN_MS),
     CARD_IMAGE_WARM_ON_REGISTER: z.stringbool().default(true),
   })
   .superRefine((value, context) => {
@@ -102,22 +106,6 @@ export const EnvSchema = z
         code: 'custom',
         path: ['SCRYDEX_TEAM_ID'],
         message: 'SCRYDEX_TEAM_ID is required when SCRYDEX_CLIENT is real',
-      });
-    }
-
-    if (value.OBJECT_STORAGE_CLIENT === OBJECT_STORAGE_PROVIDERS.S3 && value.OBJECT_STORAGE_ACCESS_KEY_ID == null) {
-      context.addIssue({
-        code: 'custom',
-        path: ['OBJECT_STORAGE_ACCESS_KEY_ID'],
-        message: 'OBJECT_STORAGE_ACCESS_KEY_ID is required when OBJECT_STORAGE_CLIENT is s3',
-      });
-    }
-
-    if (value.OBJECT_STORAGE_CLIENT === OBJECT_STORAGE_PROVIDERS.S3 && value.OBJECT_STORAGE_SECRET_ACCESS_KEY == null) {
-      context.addIssue({
-        code: 'custom',
-        path: ['OBJECT_STORAGE_SECRET_ACCESS_KEY'],
-        message: 'OBJECT_STORAGE_SECRET_ACCESS_KEY is required when OBJECT_STORAGE_CLIENT is s3',
       });
     }
   });

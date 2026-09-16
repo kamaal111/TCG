@@ -354,7 +354,7 @@ export class CardPricingService {
     );
 
     if (env.CARD_IMAGE_WORKER_ENABLED && env.CARD_IMAGE_WARM_ON_REGISTER) {
-      this.c.get('cardImageWarmer').enqueue(registered);
+      this.c.get('cardImageWarmer').notifyRegistered(registered.length);
     }
   }
 

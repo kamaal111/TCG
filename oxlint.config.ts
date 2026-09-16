@@ -19,5 +19,22 @@ export default defineConfig({
         'no-console': 'error',
       },
     },
+    {
+      files: ['server/src/**'],
+      excludeFiles: ['server/src/tests/**', 'server/src/**/tests/**', 'server/src/**/*.test.ts'],
+      rules: {
+        'no-restricted-imports': [
+          'error',
+          {
+            patterns: [
+              {
+                group: ['**/tests/**'],
+                message: 'Production code must not import test-only modules such as InMemoryObjectStorageClient.',
+              },
+            ],
+          },
+        ],
+      },
+    },
   ],
 });
