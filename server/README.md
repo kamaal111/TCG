@@ -20,7 +20,7 @@ The server refuses to start without object storage credentials — see
 
 ```sh
 just quality-server    # lint, format, typecheck, OpenAPI spec
-just test-server       # needs Postgres up and a Docker daemon
+just test-server       # needs a Docker daemon; tests start their own Postgres and Garage
 just ready-server      # both of the above
 ```
 
