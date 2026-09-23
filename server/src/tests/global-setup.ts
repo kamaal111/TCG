@@ -3,6 +3,14 @@ import type { TestProject } from 'vitest/node';
 
 const GARAGE_IMAGE = 'dxflrs/garage:v2.4.1';
 
+const POSTGRES_IMAGE = 'postgres:18';
+
+const POSTGRES_DATABASE = 'tcg';
+
+const POSTGRES_USER = 'tcg_user';
+
+const POSTGRES_PASSWORD = 'tcg_password';
+
 const ACCESS_KEY_ID = 'GK0E6CA7DF3BA4C6B0A244';
 
 const SECRET_ACCESS_KEY = 'd4f4c2d8d5ee4dd1acf59d3354e3ca7e371fd086313a37d1d1ed0ea968f48fc8';
@@ -38,45 +46,75 @@ export interface TestObjectStorageConnection {
 
 declare module 'vitest' {
   interface ProvidedContext {
+    databaseUrl: string;
     objectStorage: TestObjectStorageConnection;
   }
 }
 
 let container: StartedTestContainer | undefined = undefined;
 
+let postgresContainer: StartedTestContainer | undefined = undefined;
+
 export async function setup(project: TestProject) {
-  container = await new GenericContainer(GARAGE_IMAGE)
-    .withCommand(['/garage', '-c', '/etc/garage.toml', 'server'])
-    .withCopyContentToContainer([{ content: GARAGE_CONFIG, target: '/etc/garage.toml' }])
-    .withExposedPorts(3900)
-    .withWaitStrategy(Wait.forLogMessage('S3 API server listening'))
-    .start();
+  try {
+    postgresContainer = await new GenericContainer(POSTGRES_IMAGE)
+      .withEnvironment({
+        POSTGRES_DB: POSTGRES_DATABASE,
+        POSTGRES_USER,
+        POSTGRES_PASSWORD,
+      })
+      .withExposedPorts(5432)
+      .withHealthCheck({ test: ['CMD-SHELL', `pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DATABASE}`] })
+      .withWaitStrategy(Wait.forHealthCheck())
+      .start();
 
-  const status = await garage('status');
-  const nodeID = status.stdout.match(/^(?<id>\S+).*NO ROLE ASSIGNED/m)?.groups?.id;
+    project.provide(
+      'databaseUrl',
+      `postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${postgresContainer.getHost()}:${postgresContainer.getMappedPort(5432)}/${POSTGRES_DATABASE}`,
+    );
 
-  if (nodeID === undefined) {
-    throw new Error(`Garage did not report an unassigned node:\n${status.output}`);
+    container = await new GenericContainer(GARAGE_IMAGE)
+      .withCommand(['/garage', '-c', '/etc/garage.toml', 'server'])
+      .withCopyContentToContainer([{ content: GARAGE_CONFIG, target: '/etc/garage.toml' }])
+      .withExposedPorts(3900)
+      .withWaitStrategy(Wait.forLogMessage('S3 API server listening'))
+      .start();
+
+    const status = await garage('status');
+    const nodeID = status.stdout.match(/^(?<id>\S+).*NO ROLE ASSIGNED/m)?.groups?.id;
+
+    if (nodeID === undefined) {
+      throw new Error(`Garage did not report an unassigned node:\n${status.output}`);
+    }
+
+    await garage('layout', 'assign', '-z', 'test', '-c', '1G', nodeID);
+    await garage('layout', 'apply', '--version', '1');
+    await garage('key', 'import', '-n', 'tcg-test', '--yes', ACCESS_KEY_ID, SECRET_ACCESS_KEY);
+    await garage('key', 'allow', '--create-bucket', ACCESS_KEY_ID);
+
+    const connection = {
+      endpoint: `http://${container.getHost()}:${container.getMappedPort(3900)}`,
+      accessKeyId: ACCESS_KEY_ID,
+      secretAccessKey: SECRET_ACCESS_KEY,
+      region: REGION,
+    };
+
+    project.provide('objectStorage', connection);
+  } catch (error) {
+    await Promise.allSettled([container?.stop(), postgresContainer?.stop()]);
+    container = undefined;
+    postgresContainer = undefined;
+    throw error;
   }
-
-  await garage('layout', 'assign', '-z', 'test', '-c', '1G', nodeID);
-  await garage('layout', 'apply', '--version', '1');
-  await garage('key', 'import', '-n', 'tcg-test', '--yes', ACCESS_KEY_ID, SECRET_ACCESS_KEY);
-  await garage('key', 'allow', '--create-bucket', ACCESS_KEY_ID);
-
-  const connection = {
-    endpoint: `http://${container.getHost()}:${container.getMappedPort(3900)}`,
-    accessKeyId: ACCESS_KEY_ID,
-    secretAccessKey: SECRET_ACCESS_KEY,
-    region: REGION,
-  };
-
-  project.provide('objectStorage', connection);
 }
 
 export async function teardown() {
-  await container?.stop();
-  container = undefined;
+  try {
+    await Promise.all([container?.stop(), postgresContainer?.stop()]);
+  } finally {
+    container = undefined;
+    postgresContainer = undefined;
+  }
 }
 
 async function garage(...args: string[]) {

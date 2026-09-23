@@ -157,9 +157,11 @@ export class CardImageRepository {
     failure: { code: string; message: string; isRetryable: boolean; attemptCount: number },
   ): Promise<boolean> {
     const now = new Date();
+
     const nextAttemptAt = failure.isRetryable
       ? new Date(now.getTime() + nextAttemptDelayMs(failure.attemptCount))
       : null;
+
     const rows = await this.db
       .update(cardImage)
       .set({
