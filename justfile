@@ -38,6 +38,10 @@ alias i := install-modules
 default:
     just --list --unsorted
 
+# Create a Herdr worktree with its own local environment
+herdr-worktree branch:
+    node scripts/create-herdr-worktree.ts "$branch"
+
 # Run dev server
 [working-directory("server")]
 dev-server: prepare-server start-services migrate
@@ -97,7 +101,7 @@ ready-server: quality-server test-server
 
 # Run tests
 [parallel]
-test: test-server test-app test-oxlint-plugins
+test: test-server test-app test-oxlint-plugins test-herdr-worktree
 
 # Run heavy tests
 test-heavy: test
@@ -161,6 +165,10 @@ test-server:
 test-oxlint-plugins:
     {{ PNR }} test
 
+# Test Herdr worktree environment setup
+test-herdr-worktree:
+    node --test scripts/create-herdr-worktree.test.ts
+
 # Log available app destinations
 [working-directory("app")]
 app-destinations:
@@ -185,7 +193,7 @@ quality-server: check-spec format-check-js lint-js typecheck-server
 
 # Typecheck project
 [parallel]
-typecheck: typecheck-server typecheck-oxlint-plugins
+typecheck: typecheck-server typecheck-oxlint-plugins typecheck-scripts
 
 # Typecheck server code
 [working-directory("server")]
@@ -195,6 +203,10 @@ typecheck-server:
 # Typecheck custom oxlint plugins
 typecheck-oxlint-plugins:
     {{ PNX }} tsc -p tsconfig.oxlint-plugins.json
+
+# Typecheck repository scripts
+typecheck-scripts:
+    {{ PNX }} tsc -p tsconfig.scripts.json
 
 # Lint the project
 lint: lint-js
