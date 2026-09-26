@@ -11,5 +11,10 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true
   },
-  "include": ["scripts/create-herdr-worktree.ts", "scripts/create-herdr-worktree.test.ts"]
+  "include": [
+    "scripts/create-herdr-worktree.ts",
+    "scripts/create-herdr-worktree.test.ts",
+    "scripts/check-versions-in-sync.ts",
+    "scripts/check-versions-in-sync.test.ts"
+  ]
 }
