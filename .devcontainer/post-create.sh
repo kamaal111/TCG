@@ -5,8 +5,15 @@ cd "$(dirname "$0")/.."
 
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq
-apt-get install -y -qq --no-install-recommends libncurses6 libpython3.13
+apt-get install -y -qq --no-install-recommends libncurses6 libpython3.13 zsh-autosuggestions zsh-syntax-highlighting
 rm -rf /var/lib/apt/lists/*
+
+for plugin in zsh-autosuggestions zsh-syntax-highlighting; do
+    source_line="source /usr/share/$plugin/$plugin.zsh"
+    if ! grep -Fqx "$source_line" /root/.zshrc; then
+        printf '%s\n' "$source_line" >> /root/.zshrc
+    fi
+done
 
 mise install
 
