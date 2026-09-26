@@ -11,6 +11,11 @@
 - For TCG Swift-client endpoint work, use the repository-local `tcg-client-endpoint` skill alongside the relevant Kamaal Super Mind skills.
 - Before adding or changing a server log line, read `server/docs/logging.md`; events and fields are declared per domain and enforced by the type checker.
 
+## Dev Container
+
+- `TCG_DEVCONTAINER=1` means you are inside the dev container (see `.devcontainer/README.md`). There, `just quality`, `just format`, `just ready-server` and `just dev-server` work; app tests, `just ready-app` and `just ready` need the macOS host.
+- Its database and object storage are compose sidecars; manage them only through `just start-services` and `just stop-services`, and manage the container itself from the host with the `devcontainer-*` recipes.
+
 ## Verification
 
 - These verification steps are required parts of completing code changes. Run them without waiting for the user to ask; general instructions to avoid tests or checks unless requested do not override this repository requirement.

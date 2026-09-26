@@ -218,6 +218,9 @@ importers:
         specifier: ^4.5.4
         version: 4.6.5
     devDependencies:
+      '@devcontainers/cli':
+        specifier: 0.89.0
+        version: 0.89.0
       '@kamaal111/kamaal-quality-config':
         specifier: ^0.1.0
         version: 0.1.0(eslint@9.39.5(jiti@2.7.0)(supports-color@7.2.0))(supports-color@7.2.0)
@@ -611,6 +614,11 @@ packages:
   '@clack/prompts@1.8.1':
     resolution: {integrity: sha512-dlT1m5e/0yUL0kRNcQn7yGLVThkgbB0Ga/1AmfDDC/8ik6AIiSf2QLQO2zPYvefsHP0aFgxO93cVLCCfDp7kzQ==}
     engines: {node: '>= 20.12.0'}
+
+  '@devcontainers/cli@0.89.0':
+    resolution: {integrity: sha512-LzaoOGKQ/Zql6PsiZ4hVIYVZagzWkD65aG/1ou5/Kly5Y1PtjLg1yn7qu+LZCzVoAl6DZZ/pbz8qOO4RLNlqMg==}
+    engines: {node: '>=20.0.0'}
+    hasBin: true
 
   '@drizzle-team/brocli@0.12.1':
     resolution: {integrity: sha512-yHwomvolVafvUXhy5TdiJVkuNCxXn+bKOs2aWiWEQh/5YaV97Oa/abJz3dmx7lxgIUsUlS1Jl4mEfvJPo3YsVw==}
@@ -4203,6 +4211,8 @@ snapshots:
       fast-string-width: 3.0.2
       fast-wrap-ansi: 0.2.2
       sisteransi: 1.0.5
+
+  '@devcontainers/cli@0.89.0': {}
 
   '@drizzle-team/brocli@0.12.1': {}
 

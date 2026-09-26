@@ -1,0 +1,6 @@
+name: ${TCG_DEVCONTAINER_PROJECT:?Run .devcontainer/initialize.sh first}
+
+include:
+  - path:
+      - ../docker-compose.yaml
+      - services.override.yaml
