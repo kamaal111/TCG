@@ -219,8 +219,8 @@ importers:
         version: 4.6.5
     devDependencies:
       '@kamaal111/kamaal-quality-config':
-        specifier: ^0.0.3
-        version: 0.0.3(eslint@9.39.5(jiti@2.7.0)(supports-color@7.2.0))(supports-color@7.2.0)
+        specifier: ^0.1.0
+        version: 0.1.0(eslint@9.39.5(jiti@2.7.0)(supports-color@7.2.0))(supports-color@7.2.0)
       '@standard-schema/spec':
         specifier: ^1.1.0
         version: 1.1.0
@@ -893,8 +893,8 @@ packages:
     resolution: {integrity: sha512-hloP58zRVCRSpgDxmqCWJNlizAlUgJFqG2ypq79DCvyv9tHjRYMDOcPFjzfl/A1/YxDvRCZz8wvZvmapQnKwFQ==}
     engines: {node: '>=12'}
 
-  '@kamaal111/kamaal-quality-config@0.0.3':
-    resolution: {integrity: sha512-dKE8qrmS4igYlRkYLbZCDo9e5/k9HgWHoislYHDjPA1e0JSu2zar/ioIQ0CeireLtVgWqjwGyttWBDsN54Djmw==}
+  '@kamaal111/kamaal-quality-config@0.1.0':
+    resolution: {integrity: sha512-PIy/PMf/pyzbLlFqXnVlWR7sGNdUlm93QbzDsTU/mnBOzS7/qFjac207pOej+On+8uHI+xyRMa11HPLpUaLpHw==}
     engines: {node: '>=26.0.0'}
 
   '@kamaal111/oxlint-plugin-anti-slop@0.0.4':
@@ -4416,7 +4416,7 @@ snapshots:
     dependencies:
       jsbi: 4.3.2
 
-  '@kamaal111/kamaal-quality-config@0.0.3(eslint@9.39.5(jiti@2.7.0)(supports-color@7.2.0))(supports-color@7.2.0)':
+  '@kamaal111/kamaal-quality-config@0.1.0(eslint@9.39.5(jiti@2.7.0)(supports-color@7.2.0))(supports-color@7.2.0)':
     dependencies:
       '@kamaal111/oxlint-plugin-anti-slop': 0.0.4
       eslint-plugin-import: 2.32.0(eslint@9.39.5(jiti@2.7.0)(supports-color@7.2.0))(supports-color@7.2.0)

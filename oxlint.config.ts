@@ -1,8 +1,8 @@
-import kamaalQualityConfig from '@kamaal111/kamaal-quality-config';
+import kamaalOxlintConfig from '@kamaal111/kamaal-quality-config/oxlint';
 import { defineConfig } from 'oxlint';
 
 export default defineConfig({
-  extends: [kamaalQualityConfig],
+  extends: [kamaalOxlintConfig],
   jsPlugins: [
     './oxlint-plugins/consistent-inline-type-imports.ts',
     './oxlint-plugins/no-nullish-check-first-ternary.ts',
@@ -11,6 +11,7 @@ export default defineConfig({
   rules: {
     'local/no-all-inline-type-imports': 'error',
     'local-ternary/no-nullish-check-first-ternary': 'error',
+    'vitest/no-standalone-expect': ['error', { additionalTestBlockFunctions: ['integrationTest'] }],
   },
   overrides: [
     {
