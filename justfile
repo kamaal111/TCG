@@ -28,11 +28,15 @@ AUTH_SCHEMA := "src/db/schema/better-auth.ts"
 OUTPUT_SCHEMA_FILEPATH := "app/Modules/TCGClient/Sources/TCGClient/openapi.yaml"
 SERVER_RELATIVE_OUTPUT_SCHEMA_FILEPATH := ".." / OUTPUT_SCHEMA_FILEPATH
 
+DEVCONTAINER_COMPOSE := "docker compose -f .devcontainer/compose.services.yaml -f .devcontainer/compose.yaml"
+
 alias z := zed
 alias fmt := format
 alias fmt-c := format-check
 alias prep := prepare
 alias i := install-modules
+alias dc-up := devcontainer-up
+alias dc-sh := devcontainer-shell
 
 # List available commands
 default:
@@ -59,6 +63,45 @@ start-services:
 # Stop services
 stop-services:
     docker compose down
+
+# Create or start this checkout's dev container
+[group("devcontainer")]
+devcontainer-up: _outside-devcontainer
+    {{ PNX }} devcontainer up --workspace-folder .
+
+# Recreate this checkout's dev container, keeping its volumes
+[group("devcontainer")]
+devcontainer-rebuild: _outside-devcontainer
+    {{ PNX }} devcontainer up --workspace-folder . --remove-existing-container
+
+# Open a shell in this checkout's dev container
+[group("devcontainer")]
+devcontainer-shell: _outside-devcontainer
+    {{ PNX }} devcontainer exec --workspace-folder . zsh
+
+# Run a command in this checkout's dev container
+[group("devcontainer")]
+devcontainer-exec +command: _outside-devcontainer
+    {{ PNX }} devcontainer exec --workspace-folder . {{ command }}
+
+# Stop this checkout's dev container and its services, keeping their data
+[group("devcontainer")]
+devcontainer-stop: _outside-devcontainer
+    {{ DEVCONTAINER_COMPOSE }} stop
+
+# Delete this checkout's dev container, services and volumes
+[group("devcontainer")]
+devcontainer-delete: _outside-devcontainer
+    {{ DEVCONTAINER_COMPOSE }} down --volumes --remove-orphans
+    rm -f .devcontainer/.env
+
+[no-exit-message]
+_outside-devcontainer:
+    #!/usr/bin/env bash
+    if [[ -n "${TCG_DEVCONTAINER:-}" ]]; then
+        echo "Run dev container recipes from the host, not from inside the dev container." >&2
+        exit 1
+    fi
 
 [working-directory("server")]
 make-migrations: prepare-server
