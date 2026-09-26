@@ -144,7 +144,7 @@ ready-server: quality-server test-server
 
 # Run tests
 [parallel]
-test: test-server test-app test-oxlint-plugins test-herdr-worktree
+test: test-server test-app test-oxlint-plugins test-herdr-worktree test-check-versions-in-sync
 
 # Run heavy tests
 test-heavy: test
@@ -212,6 +212,10 @@ test-oxlint-plugins:
 test-herdr-worktree:
     node --test scripts/create-herdr-worktree.test.ts
 
+# Run tests for the version-sync check script
+test-check-versions-in-sync:
+    node --test scripts/check-versions-in-sync.test.ts
+
 # Log available app destinations
 [working-directory("app")]
 app-destinations:
@@ -225,7 +229,7 @@ app-destinations:
 
 # Run quality checks
 [parallel]
-quality: check-spec format-check lint typecheck
+quality: check-spec check-versions format-check lint typecheck
 
 # Run quality checks for app
 quality-app: format-check-app
@@ -275,6 +279,10 @@ check-spec:
     export LOG_LEVEL=silent
 
     node scripts/check-openapi-spec.ts {{ SERVER_RELATIVE_OUTPUT_SCHEMA_FILEPATH }}
+
+# Verify node, pnpm and swift versions stay in sync across mise.toml, .node-version, package.json and Package.swift
+check-versions:
+    node scripts/check-versions-in-sync.ts
 
 # Check code formatting
 [parallel]

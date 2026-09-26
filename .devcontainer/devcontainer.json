@@ -20,6 +20,7 @@
       "moby": false
     },
     "ghcr.io/devcontainers-extra/features/mise:1": {},
+    "ghcr.io/guiyomh/features/just:0": {},
     "ghcr.io/devcontainers-extra/features/zsh-plugins:0": {
       "plugins": "git zsh-autosuggestions zsh-syntax-highlighting",
       "omzPlugins": "https://github.com/zsh-users/zsh-autosuggestions https://github.com/zsh-users/zsh-syntax-highlighting"

@@ -20,8 +20,10 @@ VS Code (**Dev Containers: Reopen in Container**) and Zed open the same configur
 
 ## What's inside
 
-- Node, Swift, pnpm and just, installed by [mise](https://mise.jdx.dev) from the `mise.toml` at the
-  repository root, the single manifest for every language and tool version this project needs.
+- Node, Swift and pnpm, installed by [mise](https://mise.jdx.dev) from the `mise.toml` at the
+  repository root, the single manifest for every versioned language and tool this project needs.
+- `just`, installed by its own devcontainer feature at whatever release is latest when the
+  container image builds; it isn't version-pinned.
 - Claude Code and Codex, installed by npm on top of that Node.
 - Docker CLI, for the server's testcontainers and for the sidecars below.
 - PostgreSQL (`db:5432`) and Garage (`garage:3900`) sidecars, already initialized.
@@ -54,6 +56,9 @@ need distinct `PORT` values to run side by side; `just herdr-worktree` assigns t
 ## Updating tool versions
 
 Change versions in `mise.toml`, then `just devcontainer-exec mise install`, or `devcontainer-rebuild`
-to start clean. Keep the `node` entry in sync with `.node-version` and `pnpm` with
-`devEngines.packageManager`; the container fails to set up when Node drifts. After changing
-features (not `mise.toml`), refresh the lockfile with `pnpm exec devcontainer upgrade --workspace-folder .`.
+to start clean. Keep the `node` entry in sync with `.node-version`, `pnpm` with
+`devEngines.packageManager`, and `swift` with every `Package.swift`'s `swift-tools-version`;
+`just quality` runs `just check-versions` to catch drift, and the container fails to set up when
+Node drifts. `just` isn't tracked in `mise.toml` — it comes from its own feature and always
+installs the latest release. After changing features (not `mise.toml`), refresh the lockfile with
+`pnpm exec devcontainer upgrade --workspace-folder .`.
