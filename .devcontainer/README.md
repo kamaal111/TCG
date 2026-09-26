@@ -24,6 +24,7 @@ VS Code (**Dev Containers: Reopen in Container**) and Zed open the same configur
   repository root, the single manifest for every versioned language and tool this project needs.
 - `just`, installed by its own devcontainer feature at whatever release is latest when the
   container image builds; it isn't version-pinned.
+- Zsh autosuggestions and syntax highlighting, installed from Debian packages during setup.
 - Claude Code and Codex, installed by npm on top of that Node.
 - Docker CLI, for the server's testcontainers and for the sidecars below.
 - PostgreSQL (`db:5432`) and Garage (`garage:3900`) sidecars, already initialized.
