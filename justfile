@@ -280,7 +280,7 @@ check-spec:
 
     node scripts/check-openapi-spec.ts {{ SERVER_RELATIVE_OUTPUT_SCHEMA_FILEPATH }}
 
-# Verify node, pnpm and swift versions stay in sync across mise.toml, .node-version, package.json and Package.swift
+# Verify Node, pnpm and Swift versions stay in sync across mise.toml, .node-version, package.json, Package.swift and devcontainer.json
 check-versions:
     node scripts/check-versions-in-sync.ts
 

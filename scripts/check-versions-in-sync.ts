@@ -25,6 +25,23 @@ const PackageJsonSchema = z.object({
   }),
 });
 
+const DevcontainerSchema = z.object({
+  customizations: z
+    .object({
+      vscode: z
+        .object({
+          settings: z
+            .object({
+              'oxc.path.node': z.string().optional(),
+              'swift.path': z.string().optional(),
+            })
+            .optional(),
+        })
+        .optional(),
+    })
+    .optional(),
+});
+
 interface Mismatch {
   tool: string;
   source: string;
@@ -42,6 +59,35 @@ export function parseSwiftToolsVersion(contents: string): string | undefined {
 
 export function parsePackageManagerVersion(contents: string): string {
   return PackageJsonSchema.parse(JSON.parse(contents)).devEngines.packageManager.version;
+}
+
+export function checkDevcontainerVersions(mise: MiseTools, contents: string): Mismatch[] {
+  const settings = DevcontainerSchema.parse(JSON.parse(contents)).customizations?.vscode?.settings;
+  const mismatches: Mismatch[] = [];
+
+  const paths = [
+    { tool: 'node', setting: 'oxc.path.node', expected: `/root/.local/share/mise/installs/node/${mise.node}/bin/node` },
+    { tool: 'swift', setting: 'swift.path', expected: `/root/.local/share/mise/installs/swift/${mise.swift}/bin` },
+  ] as const;
+
+  for (const { tool, setting, expected } of paths) {
+    if (mise[tool] === undefined) {
+      continue;
+    }
+
+    const found = settings?.[setting];
+
+    if (found !== expected) {
+      mismatches.push({
+        tool,
+        source: `.devcontainer/devcontainer.json customizations.vscode.settings["${setting}"]`,
+        expected,
+        found: found ?? '(missing)',
+      });
+    }
+  }
+
+  return mismatches;
 }
 
 async function collectPackageSwiftFiles(): Promise<string[]> {
@@ -62,15 +108,18 @@ async function collectPackageSwiftFiles(): Promise<string[]> {
 async function checkVersionsInSync(): Promise<Mismatch[]> {
   const mismatches: Mismatch[] = [];
 
-  const [miseContents, nodeVersionContents, packageJsonContents] = await Promise.all([
+  const [miseContents, nodeVersionContents, packageJsonContents, devcontainerContents] = await Promise.all([
     fs.readFile(path.join(repoRoot, 'mise.toml'), 'utf8'),
     fs.readFile(path.join(repoRoot, '.node-version'), 'utf8'),
     fs.readFile(path.join(repoRoot, 'package.json'), 'utf8'),
+    fs.readFile(path.join(repoRoot, '.devcontainer/devcontainer.json'), 'utf8'),
   ]);
 
   const mise = parseMiseTools(miseContents);
   const nodeVersion = nodeVersionContents.trim();
   const packageManagerVersion = parsePackageManagerVersion(packageJsonContents);
+
+  mismatches.push(...checkDevcontainerVersions(mise, devcontainerContents));
 
   if (mise.node === undefined) {
     mismatches.push({ tool: 'node', source: 'mise.toml', expected: '(a node entry)', found: '(missing)' });
@@ -126,5 +175,5 @@ if (import.meta.url === url.pathToFileURL(process.argv[1] ?? '').href) {
     process.exit(1);
   }
 
-  console.log('✅ Node, pnpm and Swift versions are in sync.');
+  console.log('✅ Node, pnpm and Swift versions are in sync, including the dev container paths.');
 }
