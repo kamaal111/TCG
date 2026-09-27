@@ -146,19 +146,23 @@ async function checkVersionsInSync(): Promise<Mismatch[]> {
 
   const packageSwiftFiles = await collectPackageSwiftFiles();
 
-  for (const packageFile of packageSwiftFiles) {
-    const contents = await fs.readFile(packageFile, 'utf8');
-    const toolsVersion = parseSwiftToolsVersion(contents);
-    const relativePath = path.relative(repoRoot, packageFile);
+  const packageSwiftMismatches = await Promise.all(
+    packageSwiftFiles.map(async packageFile => {
+      const contents = await fs.readFile(packageFile, 'utf8');
+      const toolsVersion = parseSwiftToolsVersion(contents);
+      const relativePath = path.relative(repoRoot, packageFile);
 
-    if (toolsVersion === undefined) {
-      mismatches.push({ tool: 'swift', source: relativePath, expected: mise.swift, found: '(missing)' });
-    } else if (toolsVersion !== mise.swift) {
-      mismatches.push({ tool: 'swift', source: relativePath, expected: mise.swift, found: toolsVersion });
-    }
-  }
+      if (toolsVersion === undefined) {
+        return { tool: 'swift', source: relativePath, expected: mise.swift, found: '(missing)' };
+      } else if (toolsVersion !== mise.swift) {
+        return { tool: 'swift', source: relativePath, expected: mise.swift, found: toolsVersion };
+      }
 
-  return mismatches;
+      return null;
+    }),
+  );
+
+  return mismatches.concat(packageSwiftMismatches.filter((miss): miss is Mismatch => miss != null));
 }
 
 if (import.meta.url === url.pathToFileURL(process.argv[1] ?? '').href) {
