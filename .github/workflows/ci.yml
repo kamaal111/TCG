@@ -118,6 +118,19 @@ jobs:
       - name: Run macOS app tests
         run: just test-app-macos
 
+      - name: Collect failed snapshots
+        if: failure()
+        run: bash .github/scripts/collect-snapshot-failures.sh "$RUNNER_TEMP/macos-snapshot-failures"
+
+      - name: Upload failed snapshots
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: macos-snapshot-failures
+          path: ${{ runner.temp }}/macos-snapshot-failures
+          if-no-files-found: ignore
+          retention-days: 7
+
   app-ios:
     name: iOS snapshot checks
     needs: changes
@@ -146,3 +159,16 @@ jobs:
 
       - name: Run iOS snapshots
         run: just test-snapshots-ios
+
+      - name: Collect failed snapshots
+        if: failure()
+        run: bash .github/scripts/collect-snapshot-failures.sh "$RUNNER_TEMP/ios-snapshot-failures"
+
+      - name: Upload failed snapshots
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ios-snapshot-failures
+          path: ${{ runner.temp }}/ios-snapshot-failures
+          if-no-files-found: ignore
+          retention-days: 7

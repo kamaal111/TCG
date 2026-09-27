@@ -23,3 +23,10 @@
 - For code changes, run the matching `ready` recipe last; do not claim completion until it passes: `just ready-server` when only the server changed, `just ready-app` when only the app changed, and `just ready` only when the changes span both.
 - For documentation-only changes, skip the `ready` recipes unless explicitly requested.
 - Use `just lint`, `just format-check`, `just typecheck`, and `just test` as the relevant narrower checks while iterating.
+
+## Snapshot Failures in CI
+
+- When the `macOS app checks` or `iOS snapshot checks` job fails, download the `macos-snapshot-failures` or `ios-snapshot-failures` artifact from that GitHub Actions run (`gh run download <run-id> -n ios-snapshot-failures`). The workflow uploads it only on failure and keeps it for 7 days.
+- `.github/scripts/collect-snapshot-failures.sh` builds the artifact. It copies every failing PNG from folders named `*SnapshotTests` in `$TMPDIR` (macOS) and in each simulator's `data/tmp` (iOS), grouped by suite. Newly recorded references, which appear as untracked PNGs, go under `new-references/`. It also logs the runner's macOS and Xcode versions. Name new snapshot suites `…SnapshotTests` so their failures are collected.
+- The artifact holds the newly taken image; compare it with the committed reference under the suite's `__Snapshots__` folder. Inspect both before touching references: a failing image can reveal a layout, timing or rendering bug that needs fixing instead of re-recording.
+- Record references on the destination CI uses: macOS runs on the `xcode-27` runner, and iOS runs on `iPhone 17` (iOS 27.0), set by `TCG_APP_IOS_TEST_DESTINATION` in `.github/workflows/ci.yml`. Rerun CI after committing reviewed references.
