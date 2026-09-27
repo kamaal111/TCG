@@ -31,5 +31,14 @@ EOF
     rm -f "$probe_file"
 done
 
+# CI runs each iOS job on its own runner claimed serially from the queue, so
+# there is no concurrent agent to lock against there. Locking anyway would let
+# a cancelled run's lockf wait survive cancellation and block the runner from
+# picking up the next push, which is the expensive failure mode we're
+# avoiding. GitHub Actions sets GITHUB_ACTIONS=true on every job it runs.
+if [[ "${GITHUB_ACTIONS:-}" == "true" ]]; then
+    exec xcodebuild "$@"
+fi
+
 # The lock is released automatically when xcodebuild exits or is interrupted.
 exec /usr/bin/lockf -k -t 1800 "$lock_file" xcodebuild "$@"
