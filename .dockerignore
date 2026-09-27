@@ -1,0 +1,16 @@
+.git
+.env*
+**/node_modules
+**/dist
+**/coverage
+.devcontainer
+.github
+.agents
+.codex
+app
+server/drizzle
+server/docs
+server/scripts
+server/src/tests
+**/*.test.ts
+**/tests

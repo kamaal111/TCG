@@ -90,6 +90,56 @@ export function checkDevcontainerVersions(mise: MiseTools, contents: string): Mi
   return mismatches;
 }
 
+export function checkDockerfileVersions(mise: MiseTools, contents: string): Mismatch[] {
+  const images = Array.from(contents.matchAll(/^\s*FROM\s+(?:--platform=\S+\s+)?(\S+)/gim), match => match[1] ?? '');
+  const globalContents = contents.split(/^\s*FROM\b/im)[0] ?? '';
+
+  const argumentsByName = new Map<string, string | undefined>(
+    Array.from(globalContents.matchAll(/^\s*ARG\s+(\w+)(?:=(\S+))?\s*$/gim), match => [match[1] ?? '', match[2]]),
+  );
+
+  const mismatches: Mismatch[] = [];
+
+  const tools = [
+    { tool: 'node', repository: 'node', argument: 'NODE_VERSION' },
+    { tool: 'pnpm', repository: 'ghcr.io/pnpm/pnpm', argument: 'PNPM_VERSION' },
+  ] as const;
+
+  for (const { tool, repository, argument } of tools) {
+    const expected = mise[tool];
+
+    if (expected === undefined) {
+      continue;
+    }
+
+    const defaultVersion = argumentsByName.get(argument);
+
+    if (defaultVersion !== expected) {
+      mismatches.push({ tool, source: `Dockerfile ARG ${argument}`, expected, found: defaultVersion ?? '(missing)' });
+    }
+
+    const toolImages = images.filter(
+      image => image === repository || image.startsWith(`${repository}:`) || image.startsWith(`${repository}@`),
+    );
+
+    if (toolImages.length === 0) {
+      mismatches.push({ tool, source: `Dockerfile FROM ${repository}`, expected, found: '(missing)' });
+    }
+
+    for (const image of toolImages) {
+      const tag = image.split('@')[0]?.slice(repository.length + 1);
+      const argumentTag = `\${${argument}}`;
+      const usesArgument = tag === argumentTag || (tool === 'node' && tag?.startsWith(`${argumentTag}-`));
+
+      if (!usesArgument) {
+        mismatches.push({ tool, source: `Dockerfile FROM ${image}`, expected: argumentTag, found: tag || '(missing)' });
+      }
+    }
+  }
+
+  return mismatches;
+}
+
 async function collectPackageSwiftFiles(): Promise<string[]> {
   const packageFiles: string[] = [];
 
@@ -108,18 +158,21 @@ async function collectPackageSwiftFiles(): Promise<string[]> {
 async function checkVersionsInSync(): Promise<Mismatch[]> {
   const mismatches: Mismatch[] = [];
 
-  const [miseContents, nodeVersionContents, packageJsonContents, devcontainerContents] = await Promise.all([
-    fs.readFile(path.join(repoRoot, 'mise.toml'), 'utf8'),
-    fs.readFile(path.join(repoRoot, '.node-version'), 'utf8'),
-    fs.readFile(path.join(repoRoot, 'package.json'), 'utf8'),
-    fs.readFile(path.join(repoRoot, '.devcontainer/devcontainer.json'), 'utf8'),
-  ]);
+  const [miseContents, nodeVersionContents, packageJsonContents, devcontainerContents, dockerfileContents] =
+    await Promise.all([
+      fs.readFile(path.join(repoRoot, 'mise.toml'), 'utf8'),
+      fs.readFile(path.join(repoRoot, '.node-version'), 'utf8'),
+      fs.readFile(path.join(repoRoot, 'package.json'), 'utf8'),
+      fs.readFile(path.join(repoRoot, '.devcontainer/devcontainer.json'), 'utf8'),
+      fs.readFile(path.join(repoRoot, 'Dockerfile'), 'utf8'),
+    ]);
 
   const mise = parseMiseTools(miseContents);
   const nodeVersion = nodeVersionContents.trim();
   const packageManagerVersion = parsePackageManagerVersion(packageJsonContents);
 
   mismatches.push(...checkDevcontainerVersions(mise, devcontainerContents));
+  mismatches.push(...checkDockerfileVersions(mise, dockerfileContents));
 
   if (mise.node === undefined) {
     mismatches.push({ tool: 'node', source: 'mise.toml', expected: '(a node entry)', found: '(missing)' });
@@ -179,5 +232,5 @@ if (import.meta.url === url.pathToFileURL(process.argv[1] ?? '').href) {
     process.exit(1);
   }
 
-  console.log('✅ Node, pnpm and Swift versions are in sync, including the dev container paths.');
+  console.log('✅ Node, pnpm and Swift versions are in sync, including Docker images and dev container paths.');
 }

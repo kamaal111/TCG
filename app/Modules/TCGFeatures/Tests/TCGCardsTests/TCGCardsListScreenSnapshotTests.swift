@@ -20,14 +20,14 @@ struct TCGCardsListScreenSnapshotTests {
     func `Renders a populated collection`() async throws {
         let feature = TCGCards(client: .preview(cardsOutcome: .success(cards: PreviewTCGCardsClient.sampleCards)))
         try await feature.load(game: .onePiece).get()
-        assertScreenSnapshot(testName: #function) { makeScreen(feature: feature) }
+        await assertScreenSnapshot(testName: #function) { makeScreen(feature: feature) }
     }
 
     @Test
     func `Renders an empty collection`() async throws {
         let feature = TCGCards(client: .preview(cardsOutcome: .empty))
         try await feature.load(game: nil).get()
-        assertScreenSnapshot(testName: #function) { makeScreen(feature: feature) }
+        await assertScreenSnapshot(testName: #function) { makeScreen(feature: feature) }
     }
 
     @Test
@@ -36,7 +36,7 @@ struct TCGCardsListScreenSnapshotTests {
         try await feature.load(game: nil).get()
         let model = TCGCardsListScreenModel()
         model.gameFilter = .onePiece
-        assertScreenSnapshot(testName: #function) { makeScreen(feature: feature, model: model) }
+        await assertScreenSnapshot(testName: #function) { makeScreen(feature: feature, model: model) }
     }
 
     private func makeScreen(feature: TCGCards, model: TCGCardsListScreenModel = .init()) -> some View {

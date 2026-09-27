@@ -43,6 +43,8 @@ run_pull_request_case() {
 }
 
 run_pull_request_case server/src/ci-test.ts true false
+run_pull_request_case Dockerfile true false
+run_pull_request_case .dockerignore true false
 run_pull_request_case app/Modules/TCGClient/ci-test.swift false true
 run_pull_request_case .github/workflows/ci.yml true true
 run_pull_request_case mise.toml true true
