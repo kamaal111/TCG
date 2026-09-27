@@ -59,7 +59,8 @@ need distinct `PORT` values to run side by side; `just herdr-worktree` assigns t
 Change versions in `mise.toml`, then `just devcontainer-exec mise install`, or `devcontainer-rebuild`
 to start clean. Keep the `node` entry in sync with `.node-version`, `pnpm` with
 `devEngines.packageManager`, and `swift` with every `Package.swift`'s `swift-tools-version`;
-`just quality` runs `just check-versions` to catch drift, and the container fails to set up when
-Node drifts. `just` isn't tracked in `mise.toml` — it comes from its own feature and always
+also update the Node and Swift paths in `devcontainer.json`'s VS Code settings. `just quality`
+runs `just check-versions` to catch drift, and the container fails to set up when Node drifts.
+`just` isn't tracked in `mise.toml` — it comes from its own feature and always
 installs the latest release. After changing features (not `mise.toml`), refresh the lockfile with
 `pnpm exec devcontainer upgrade --workspace-folder .`.
