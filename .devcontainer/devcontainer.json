@@ -48,6 +48,8 @@
         "streetsidesoftware.code-spell-checker"
       ],
       "settings": {
+        "swift.path": "/root/.local/share/mise/installs/swift/6.4/bin",
+        "oxc.path.node": "/root/.local/share/mise/installs/node/26/bin/node",
         "terminal.integrated.defaultProfile.linux": "zsh",
         "editor.formatOnSave": true,
         "editor.defaultFormatter": "oxc.oxc-vscode",
