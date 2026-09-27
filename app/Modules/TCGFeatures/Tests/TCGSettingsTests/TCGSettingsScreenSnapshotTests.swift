@@ -14,10 +14,10 @@ import Testing
 @MainActor
 struct TCGSettingsScreenSnapshotTests {
     @Test
-    func `Renders sign out and version`() {
+    func `Renders sign out and version`() async {
         let auth = KamaalAuth(client: PreviewKamaalAuthClient(), configuration: .init(appName: "TCG"))
 
-        assertScreenSnapshot(testName: #function) {
+        await assertScreenSnapshot(testName: #function) {
             NavigationStack { TCGSettingsScreen(version: AppVersion(marketing: "1.0", build: "1")) }
                 .environment(auth)
         }

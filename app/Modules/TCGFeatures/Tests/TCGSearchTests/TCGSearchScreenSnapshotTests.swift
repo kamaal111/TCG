@@ -11,7 +11,7 @@ import Testing
 @testable import TCGClient
 @testable import TCGSearch
 
-@Suite("TCGSearch Screen Snapshot Tests")
+@Suite("TCGSearch Screen Snapshot Tests", .serialized)
 @MainActor
 struct TCGSearchScreenSnapshotTests {
     @Test
@@ -22,14 +22,14 @@ struct TCGSearchScreenSnapshotTests {
         model.game = .pokemon
         try await feature.search(game: model.game, query: model.query).get()
 
-        assertScreenSnapshot(testName: #function) { makeScreen(feature: feature, model: model) }
+        await assertScreenSnapshot(testName: #function) { makeScreen(feature: feature, model: model) }
     }
 
     @Test
-    func `Renders an empty search`() {
+    func `Renders an empty search`() async {
         let feature = TCGSearch(client: .preview(pricingOutcome: .empty))
 
-        assertScreenSnapshot(testName: #function) {
+        await assertScreenSnapshot(testName: #function) {
             makeScreen(feature: feature, model: TCGSearchScreenModel())
         }
     }
@@ -41,7 +41,7 @@ struct TCGSearchScreenSnapshotTests {
         model.query = "Missing card"
         try await feature.search(game: model.game, query: model.query).get()
 
-        assertScreenSnapshot(testName: #function) { makeScreen(feature: feature, model: model) }
+        await assertScreenSnapshot(testName: #function) { makeScreen(feature: feature, model: model) }
     }
 
     private func makeScreen(feature: TCGSearch, model: TCGSearchScreenModel) -> some View {

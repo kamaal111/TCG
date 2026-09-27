@@ -16,13 +16,13 @@ import Testing
 @MainActor
 struct TCGCardFormScreenSnapshotTests {
     @Test
-    func `Renders an empty add form`() {
-        assertScreenSnapshot(testName: #function) { makeScreen(model: .init(mode: .add)) }
+    func `Renders an empty add form`() async {
+        await assertScreenSnapshot(testName: #function) { makeScreen(model: .init(mode: .add)) }
     }
 
     @Test
-    func `Renders a prefilled edit form`() {
-        assertScreenSnapshot(testName: #function) {
+    func `Renders a prefilled edit form`() async {
+        await assertScreenSnapshot(testName: #function) {
             makeScreen(model: .init(mode: .edit(PreviewTCGCardsClient.sampleCards[0])))
         }
     }
@@ -31,7 +31,7 @@ struct TCGCardFormScreenSnapshotTests {
     func `Renders validation errors`() async {
         let model = TCGCardFormScreenModel(mode: .add)
         _ = await model.submit(using: TCGCards(client: .preview(cardsOutcome: .empty)))
-        assertScreenSnapshot(testName: #function) { makeScreen(model: model) }
+        await assertScreenSnapshot(testName: #function) { makeScreen(model: model) }
     }
 
     private func makeScreen(model: TCGCardFormScreenModel) -> some View {

@@ -364,3 +364,6 @@ xcuserdata/
 
 .pnpm-store
 .build
+
+# Snapshot mismatch artifacts from local and CI test runs
+.snapshot-failures/

@@ -83,6 +83,9 @@ jobs:
       - name: Run server tests
         run: just test-server
 
+      - name: Smoke test server image
+        run: just test-server-image
+
       - name: Run repository tooling tests
         run: |
           just test-oxlint-plugins
@@ -158,11 +161,11 @@ jobs:
           xcrun simctl list devices available
 
       - name: Run iOS snapshots
-        run: just test-snapshots-ios
+        run: just test-snapshots-ios -resultBundlePath "$RUNNER_TEMP/ios-snapshots.xcresult"
 
       - name: Collect failed snapshots
         if: failure()
-        run: bash .github/scripts/collect-snapshot-failures.sh "$RUNNER_TEMP/ios-snapshot-failures"
+        run: bash .github/scripts/collect-snapshot-failures.sh "$RUNNER_TEMP/ios-snapshot-failures" "$RUNNER_TEMP/ios-snapshots.xcresult"
 
       - name: Upload failed snapshots
         if: failure()

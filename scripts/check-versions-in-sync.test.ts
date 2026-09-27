@@ -3,6 +3,7 @@ import { describe, it } from 'node:test';
 
 import {
   checkDevcontainerVersions,
+  checkDockerfileVersions,
   parseMiseTools,
   parsePackageManagerVersion,
   parseSwiftToolsVersion,
@@ -31,6 +32,94 @@ void describe('parseMiseTools', () => {
     const contents = '[tools]\n# tool versions\nswift = "6.4"\n\nnode = "26"\npnpm = "12.5.1"\n';
 
     assert.deepEqual(parseMiseTools(contents), { node: '26', swift: '6.4', pnpm: '12.5.1' });
+  });
+});
+
+void describe('checkDockerfileVersions', () => {
+  const mise = { node: '26', pnpm: '12.5.1' };
+  const defaults = 'ARG NODE_VERSION=26\nARG PNPM_VERSION=12.5.1\n';
+
+  void it('accepts global version arguments matching mise.toml and referenced by both images', () => {
+    const contents =
+      defaults + 'FROM ghcr.io/pnpm/pnpm:${PNPM_VERSION} AS dependencies\nFROM node:${NODE_VERSION}-trixie-slim\n';
+
+    assert.deepEqual(checkDockerfileVersions(mise, contents), []);
+  });
+
+  void it('reports drift in Node and pnpm argument defaults', () => {
+    const contents =
+      'ARG NODE_VERSION=25\nARG PNPM_VERSION=12.4.0\nFROM ghcr.io/pnpm/pnpm:${PNPM_VERSION}\nFROM node:${NODE_VERSION}-trixie-slim\n';
+
+    assert.deepEqual(checkDockerfileVersions(mise, contents), [
+      { tool: 'node', source: 'Dockerfile ARG NODE_VERSION', expected: '26', found: '25' },
+      { tool: 'pnpm', source: 'Dockerfile ARG PNPM_VERSION', expected: '12.5.1', found: '12.4.0' },
+    ]);
+  });
+
+  void it('rejects a stage that hardcodes its version instead of using the supplied argument', () => {
+    const contents =
+      defaults +
+      'FROM node:${NODE_VERSION} AS build\nFROM ghcr.io/pnpm/pnpm:${PNPM_VERSION} AS dependencies\nFROM node:26-trixie-slim\n';
+
+    assert.deepEqual(checkDockerfileVersions(mise, contents), [
+      {
+        tool: 'node',
+        source: 'Dockerfile FROM node:26-trixie-slim',
+        expected: '${NODE_VERSION}',
+        found: '26-trixie-slim',
+      },
+    ]);
+  });
+
+  void it('ignores commented images and reports missing required images', () => {
+    const contents =
+      defaults + '# FROM node:${NODE_VERSION}-trixie-slim\n# FROM ghcr.io/pnpm/pnpm:${PNPM_VERSION}\nFROM alpine:3\n';
+
+    assert.deepEqual(checkDockerfileVersions(mise, contents), [
+      { tool: 'node', source: 'Dockerfile FROM node', expected: '26', found: '(missing)' },
+      { tool: 'pnpm', source: 'Dockerfile FROM ghcr.io/pnpm/pnpm', expected: '12.5.1', found: '(missing)' },
+    ]);
+  });
+
+  void it('rejects unversioned and latest images that bypass the supplied arguments', () => {
+    const contents = defaults + 'FROM node\nFROM ghcr.io/pnpm/pnpm:latest\n';
+
+    assert.deepEqual(checkDockerfileVersions(mise, contents), [
+      { tool: 'node', source: 'Dockerfile FROM node', expected: '${NODE_VERSION}', found: '(missing)' },
+      {
+        tool: 'pnpm',
+        source: 'Dockerfile FROM ghcr.io/pnpm/pnpm:latest',
+        expected: '${PNPM_VERSION}',
+        found: 'latest',
+      },
+    ]);
+  });
+
+  void it('supports platform flags, case-insensitive instructions and digest-pinned tags', () => {
+    const contents =
+      defaults +
+      'from --platform=$BUILDPLATFORM ghcr.io/pnpm/pnpm:${PNPM_VERSION}@sha256:abc AS dependencies\nFROM node:${NODE_VERSION}-trixie-slim@sha256:def\n';
+
+    assert.deepEqual(checkDockerfileVersions(mise, contents), []);
+  });
+
+  void it('reports missing defaults even when image arguments are referenced correctly', () => {
+    const contents =
+      'ARG NODE_VERSION\nARG PNPM_VERSION\nFROM ghcr.io/pnpm/pnpm:${PNPM_VERSION}\nFROM node:${NODE_VERSION}-trixie-slim\n';
+
+    assert.deepEqual(checkDockerfileVersions(mise, contents), [
+      { tool: 'node', source: 'Dockerfile ARG NODE_VERSION', expected: '26', found: '(missing)' },
+      { tool: 'pnpm', source: 'Dockerfile ARG PNPM_VERSION', expected: '12.5.1', found: '(missing)' },
+    ]);
+  });
+
+  void it('rejects version arguments declared after the first FROM because they cannot configure base images', () => {
+    const contents = 'FROM ghcr.io/pnpm/pnpm:${PNPM_VERSION}\n' + defaults + 'FROM node:${NODE_VERSION}-trixie-slim\n';
+
+    assert.deepEqual(checkDockerfileVersions(mise, contents), [
+      { tool: 'node', source: 'Dockerfile ARG NODE_VERSION', expected: '26', found: '(missing)' },
+      { tool: 'pnpm', source: 'Dockerfile ARG PNPM_VERSION', expected: '12.5.1', found: '(missing)' },
+    ]);
   });
 });
 

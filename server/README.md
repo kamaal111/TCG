@@ -21,8 +21,15 @@ The server refuses to start without object storage credentials — see
 ```sh
 just quality-server    # lint, format, typecheck, OpenAPI spec
 just test-server       # needs a Docker daemon; tests start their own Postgres and Garage
-just ready-server      # both of the above
+just ready-server      # quality, server tests, and image smoke test
+just build-server-image # build the production image as tcg-server:local
+just test-server-image  # build and smoke test the image; needs a Docker daemon
 ```
+
+The image starts the HTTP server on port 8080. Supply `DATABASE_URL`, `BETTER_AUTH_URL`,
+`BETTER_AUTH_SECRET`, and the object storage credentials at runtime; see `.env.example` for
+the remaining settings. Run `just migrate` separately before deploying a version that needs
+new database migrations. The image does not run migrations on startup.
 
 ## Documentation
 

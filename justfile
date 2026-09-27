@@ -11,7 +11,8 @@ APP_PROJECT := "TCG.xcodeproj"
 APP_SCHEME := "TCG"
 # Update this value from `just app-destinations` when the simulator changes.
 APP_IOS_TEST_DESTINATION := env("TCG_APP_IOS_TEST_DESTINATION", "platform=iOS Simulator,OS=27.0,name=TCG Test iPhone")
-APP_CODE_SIGNING_ALLOWED := env("TCG_APP_CODE_SIGNING_ALLOWED", "YES")
+# Package tests do not need the app's development provisioning profiles.
+APP_CODE_SIGNING_ALLOWED := env("TCG_APP_CODE_SIGNING_ALLOWED", "NO")
 
 DATABASE_HOST := env("TCG_DB_HOST", "localhost")
 DATABASE_PORT := env("TCG_DB_PORT", "5432")
@@ -142,11 +143,11 @@ ready-app: quality-app test-app
 
 # Run all verification checks for server
 [parallel]
-ready-server: quality-server test-server
+ready-server: quality-server test-server test-server-image
 
 # Run tests
 [parallel]
-test: test-server test-app test-oxlint-plugins test-herdr-worktree test-check-versions-in-sync
+test: test-server test-server-image test-app test-oxlint-plugins test-herdr-worktree test-check-versions-in-sync
 
 # Run heavy tests
 test-heavy: test
@@ -191,7 +192,8 @@ test-snapshots-macos:
 
 # Run iOS screen snapshot tests
 [working-directory("app")]
-test-snapshots-ios:
+[positional-arguments]
+test-snapshots-ios *args:
     ../scripts/with-ios-simulator-lock \
         -project "{{ APP_PROJECT }}" \
         -scheme "{{ APP_SCHEME }}" \
@@ -201,6 +203,7 @@ test-snapshots-ios:
         -only-testing:TCGSearchTests/TCGSearchScreenSnapshotTests \
         -only-testing:TCGSettingsTests/TCGSettingsScreenSnapshotTests \
         -only-testing:TCGDesignSystemTests/CardImageViewSnapshotTests \
+        "$@" \
         test \
         CODE_SIGNING_ALLOWED={{ APP_CODE_SIGNING_ALLOWED }}
 
@@ -211,6 +214,44 @@ test-snapshots: test-snapshots-macos test-snapshots-ios
 [working-directory("server")]
 test-server:
     {{ PNR }} test
+
+# Build the production server image
+build-server-image:
+    node scripts/build-server-image.ts
+
+# Smoke test the production server image
+test-server-image: build-server-image
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    container="$(docker run --detach \
+        --publish 127.0.0.1::8080 \
+        --env PORT=8080 \
+        --env DATABASE_URL=postgresql://unused:unused@127.0.0.1:5432/unused \
+        --env BETTER_AUTH_URL=http://127.0.0.1:8080 \
+        --env BETTER_AUTH_SECRET=image-smoke-test-secret \
+        --env OBJECT_STORAGE_ACCESS_KEY_ID=image-smoke-test-key \
+        --env OBJECT_STORAGE_SECRET_ACCESS_KEY=image-smoke-test-secret \
+        --env CARD_IMAGE_WORKER_ENABLED=false \
+        tcg-server:local)"
+    trap 'docker rm --force "$container" >/dev/null 2>&1 || true' EXIT
+
+    port="$(docker port "$container" 8080/tcp | sed -n 's/.*://p')"
+    test -n "$port"
+
+    for attempt in {1..30}; do
+        if response="$(curl --fail --silent --max-time 2 "http://127.0.0.1:$port/health/ping")"; then
+            test "$response" = '{"message":"PONG"}'
+            test "$(docker exec "$container" id -u)" = 1000
+            docker exec "$container" test ! -e /app/node_modules/vitest
+            echo "Server image smoke test passed."
+            exit 0
+        fi
+        sleep 1
+    done
+
+    docker logs "$container"
+    exit 1
 
 # Run custom oxlint plugin tests
 test-oxlint-plugins:
@@ -289,7 +330,7 @@ check-spec:
 
     node scripts/check-openapi-spec.ts {{ SERVER_RELATIVE_OUTPUT_SCHEMA_FILEPATH }}
 
-# Verify Node, pnpm and Swift versions stay in sync across mise.toml, .node-version, package.json, Package.swift and devcontainer.json
+# Verify Node, pnpm and Swift versions stay in sync across mise.toml, Dockerfile, .node-version, package.json, Package.swift and devcontainer.json
 check-versions:
     node scripts/check-versions-in-sync.ts
 
