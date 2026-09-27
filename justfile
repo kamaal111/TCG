@@ -10,7 +10,8 @@ PNX := PN + " exec"
 APP_PROJECT := "TCG.xcodeproj"
 APP_SCHEME := "TCG"
 # Update this value from `just app-destinations` when the simulator changes.
-APP_IOS_TEST_DESTINATION := "platform=iOS Simulator,OS=27.0,name=TCG Test iPhone"
+APP_IOS_TEST_DESTINATION := env("TCG_APP_IOS_TEST_DESTINATION", "platform=iOS Simulator,OS=27.0,name=TCG Test iPhone")
+APP_CODE_SIGNING_ALLOWED := env("TCG_APP_CODE_SIGNING_ALLOWED", "YES")
 
 DATABASE_HOST := env("TCG_DB_HOST", "localhost")
 DATABASE_PORT := env("TCG_DB_PORT", "5432")
@@ -159,7 +160,8 @@ test-app-macos:
         -project "{{ APP_PROJECT }}" \
         -scheme "{{ APP_SCHEME }}" \
         -destination "platform=macOS" \
-        test
+        test \
+        CODE_SIGNING_ALLOWED={{ APP_CODE_SIGNING_ALLOWED }}
 
 # Run app tests on iOS
 [working-directory("app")]
@@ -168,7 +170,8 @@ test-app-ios:
         -project "{{ APP_PROJECT }}" \
         -scheme "{{ APP_SCHEME }}" \
         -destination "{{ APP_IOS_TEST_DESTINATION }}" \
-        test
+        test \
+        CODE_SIGNING_ALLOWED={{ APP_CODE_SIGNING_ALLOWED }}
 
 # Run macOS screen snapshot tests
 [working-directory("app")]
@@ -181,7 +184,8 @@ test-snapshots-macos:
         -only-testing:TCGCardsTests/TCGCardFormScreenSnapshotTests \
         -only-testing:TCGSearchTests/TCGSearchScreenSnapshotTests \
         -only-testing:TCGDesignSystemTests/CardImageViewSnapshotTests \
-        test
+        test \
+        CODE_SIGNING_ALLOWED={{ APP_CODE_SIGNING_ALLOWED }}
 
 # Run iOS screen snapshot tests
 [working-directory("app")]
@@ -194,7 +198,8 @@ test-snapshots-ios:
         -only-testing:TCGCardsTests/TCGCardFormScreenSnapshotTests \
         -only-testing:TCGSearchTests/TCGSearchScreenSnapshotTests \
         -only-testing:TCGDesignSystemTests/CardImageViewSnapshotTests \
-        test
+        test \
+        CODE_SIGNING_ALLOWED={{ APP_CODE_SIGNING_ALLOWED }}
 
 # Run screen snapshot tests on macOS and iOS
 test-snapshots: test-snapshots-macos test-snapshots-ios

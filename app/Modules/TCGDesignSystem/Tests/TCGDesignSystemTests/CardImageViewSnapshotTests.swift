@@ -60,11 +60,31 @@ struct CardImageViewSnapshotTests {
     }
 
     #if os(macOS)
+        // Keep bitmap dimensions independent of the host display scale.
+        private final class SnapshotHostingView<Content: View>: NSHostingView<Content> {
+            override func bitmapImageRepForCachingDisplay(in rect: NSRect) -> NSBitmapImageRep? {
+                let bitmap = NSBitmapImageRep(
+                    bitmapDataPlanes: nil,
+                    pixelsWide: Int(rect.width * 2),
+                    pixelsHigh: Int(rect.height * 2),
+                    bitsPerSample: 8,
+                    samplesPerPixel: 4,
+                    hasAlpha: true,
+                    isPlanar: false,
+                    colorSpaceName: .deviceRGB,
+                    bytesPerRow: 0,
+                    bitsPerPixel: 0
+                )
+                bitmap?.size = rect.size
+                return bitmap
+            }
+        }
+
         private func makeMacOSCardImage<CardImage: View>(
             cardImage: CardImage,
             scheme: ColorScheme
-        ) -> NSHostingView<some View> {
-            let hostingView = NSHostingView(rootView: cardImage.preferredColorScheme(scheme))
+        ) -> SnapshotHostingView<some View> {
+            let hostingView = SnapshotHostingView(rootView: cardImage.preferredColorScheme(scheme))
             hostingView.appearance = NSAppearance(named: scheme == .dark ? .darkAqua : .aqua)
             hostingView.frame = NSRect(x: 0, y: 0, width: 44, height: 61)
             hostingView.wantsLayer = true

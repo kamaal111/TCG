@@ -30,7 +30,7 @@ public func assertScreenSnapshot<Screen: View>(
             )
         #elseif os(iOS)
             assertSnapshot(
-                of: screen(),
+                of: screen().environment(\.locale, Locale(identifier: "en_US")),
                 as: .image(
                     layout: .device(config: .iPhone13),
                     traits: UITraitCollection(userInterfaceStyle: scheme == .dark ? .dark : .light)
@@ -47,13 +47,34 @@ public func assertScreenSnapshot<Screen: View>(
 }
 
 #if os(macOS)
+    // Keep bitmap dimensions independent of the host display scale.
+    private final class SnapshotHostingView<Content: View>: NSHostingView<Content> {
+        override func bitmapImageRepForCachingDisplay(in rect: NSRect) -> NSBitmapImageRep? {
+            let bitmap = NSBitmapImageRep(
+                bitmapDataPlanes: nil,
+                pixelsWide: Int(rect.width * 2),
+                pixelsHigh: Int(rect.height * 2),
+                bitsPerSample: 8,
+                samplesPerPixel: 4,
+                hasAlpha: true,
+                isPlanar: false,
+                colorSpaceName: .deviceRGB,
+                bytesPerRow: 0,
+                bitsPerPixel: 0
+            )
+            bitmap?.size = rect.size
+            return bitmap
+        }
+    }
+
     @MainActor
-    private func makeMacOSScreen<Screen: View>(screen: Screen, scheme: ColorScheme) -> NSHostingView<some View> {
-        let hostingView = NSHostingView(
+    private func makeMacOSScreen<Screen: View>(screen: Screen, scheme: ColorScheme) -> SnapshotHostingView<some View> {
+        let hostingView = SnapshotHostingView(
             rootView:
                 screen
                 .frame(width: 1_280, height: 960, alignment: .topLeading)
                 .preferredColorScheme(scheme)
+                .environment(\.locale, Locale(identifier: "en_US"))
                 .tint(.blue)
         )
         hostingView.appearance = NSAppearance(named: scheme == .dark ? .darkAqua : .aqua)
