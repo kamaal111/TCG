@@ -49,6 +49,13 @@
     },
     {
       "target" : {
+        "containerPath" : "container:Modules\/TCGFeatures",
+        "identifier" : "TCGSettingsTests",
+        "name" : "TCGSettingsTests"
+      }
+    },
+    {
+      "target" : {
         "containerPath" : "container:Modules\/TCGDesignSystem",
         "identifier" : "TCGDesignSystemTests",
         "name" : "TCGDesignSystemTests"
