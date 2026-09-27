@@ -124,6 +124,7 @@ download-spec:
     #!/usr/bin/env bash
 
     export LOG_LEVEL=silent
+    export BETTER_AUTH_URL=http://localhost:8080
 
     node  scripts/download-openapi-spec.ts {{ SERVER_RELATIVE_OUTPUT_SCHEMA_FILEPATH }}
 
@@ -282,6 +283,7 @@ check-spec:
     #!/usr/bin/env bash
 
     export LOG_LEVEL=silent
+    export BETTER_AUTH_URL=http://localhost:8080
 
     node scripts/check-openapi-spec.ts {{ SERVER_RELATIVE_OUTPUT_SCHEMA_FILEPATH }}
 
