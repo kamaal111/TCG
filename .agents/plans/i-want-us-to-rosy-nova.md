@@ -1,5 +1,7 @@
 # Card Pricing Vertical Slice
 
+> Historical implementation plan: the context, file paths, and proposed behavior below describe the project when this work was planned. For the current implementation and workflows, see [the project README](../../README.md) and [architecture guide](../../docs/architecture.md).
+
 ## Context
 
 Users can currently track the cards they own (`server/src/cards` + Swift `TCGCards`), but there is **no pricing anywhere** — no price on cards, no card search, no third-party integration. We want two capabilities:

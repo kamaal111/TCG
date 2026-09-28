@@ -1,5 +1,7 @@
 # Cache Scrydex card images in our own object storage
 
+> Historical implementation plan: the context, file paths, and proposed behavior below describe the project when this work was planned. For the current implementation and workflows, see [the project README](../../README.md) and [architecture guide](../../docs/architecture.md).
+
 ## Context
 
 Card images today come straight from Scrydex's CDN. `normalizeScrydexCard` pulls an origin URL

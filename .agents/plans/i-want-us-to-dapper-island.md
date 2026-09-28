@@ -1,5 +1,7 @@
 # Make card-image storage S3-only and harden the warmer for horizontal scale
 
+> Historical implementation plan: the context, file paths, and proposed behavior below describe the project when this work was planned. For the current implementation and workflows, see [the project README](../../README.md) and [architecture guide](../../docs/architecture.md).
+
 ## Context
 
 The `Cache card images behind the application proxy` commit (`3fc712c`) added a

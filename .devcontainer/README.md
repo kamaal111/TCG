@@ -22,8 +22,9 @@ VS Code (**Dev Containers: Reopen in Container**) and Zed open the same configur
 
 - Node, Swift and pnpm, installed by [mise](https://mise.jdx.dev) from the `mise.toml` at the
   repository root, the single manifest for every versioned language and tool this project needs.
-- `just`, installed by its own devcontainer feature at whatever release is latest when the
-  container image builds; it isn't version-pinned.
+- `just`, installed by its own devcontainer feature rather than `mise.toml`. Feature versions
+  and digests are recorded in `devcontainer-lock.json`; the binary version is not checked by
+  the repository's version-sync script.
 - Zsh autosuggestions and syntax highlighting, installed from Debian packages during setup.
 - Claude Code and Codex, installed by npm on top of that Node.
 - Docker CLI, for the server's testcontainers and for the sidecars below.
@@ -45,6 +46,8 @@ Only the API port is published, on `127.0.0.1:$PORT` from the checkout's `.env`,
 simulator and host tools reach `just dev-server` at the same URL as without a container. Checkouts
 need distinct `PORT` values to run side by side; `just herdr-worktree` assigns them, and
 `devcontainer-up` refuses to start when the port is taken.
+The editor configuration can additionally forward `db:5432` and `garage:3900`; those are
+editor tunnels, not Compose-published host ports.
 
 ## Agent configuration
 
@@ -59,8 +62,9 @@ need distinct `PORT` values to run side by side; `just herdr-worktree` assigns t
 Change versions in `mise.toml`, then `just devcontainer-exec mise install`, or `devcontainer-rebuild`
 to start clean. Keep the `node` entry in sync with `.node-version`, `pnpm` with
 `devEngines.packageManager`, and `swift` with every `Package.swift`'s `swift-tools-version`;
-also update the Node and Swift paths in `devcontainer.json`'s VS Code settings. `just quality`
+also update the Node and pnpm defaults in the root `Dockerfile`, plus the Node and Swift paths
+in `devcontainer.json`'s VS Code settings. `just quality`
 runs `just check-versions` to catch drift, and the container fails to set up when Node drifts.
-`just` isn't tracked in `mise.toml` — it comes from its own feature and always
-installs the latest release. After changing features (not `mise.toml`), refresh the lockfile with
+`just` isn't tracked in `mise.toml` — it comes from its own feature. After changing features
+(not `mise.toml`), refresh the lockfile with
 `pnpm exec devcontainer upgrade --workspace-folder .`.

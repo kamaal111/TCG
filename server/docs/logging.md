@@ -1,16 +1,19 @@
 # Logging
 
-Every log line this server emits is a single JSON object with a flat, snake_case field vocabulary that the
-compiler enforces. This document is the contract: read it before adding a log line.
+Server logging uses structured events with flat, snake_case fields. Normal output is JSON;
+`DEBUG=true` selects `pino-pretty` output for local development. Domain accessors constrain their
+event and field vocabulary. This document is the contract: read it before adding a log line.
 
 ## Where log lines come from
 
-`@hono/structured-logger` owns the request lifecycle. `server/src/logging/middleware.ts` configures it and is the
-only place that builds a logger:
+`@hono/structured-logger` owns the request lifecycle. `server/src/logging/middleware.ts` configures it;
+`server/src/logging/index.ts` constructs the root pino logger and request child loggers:
 
 - It creates one pino child logger per request and stores it on `c.var.logger`.
-- It times the handler and emits exactly **one** line per request — `request.completed` on success, or one of
+- It times the handler and emits exactly **one request lifecycle** line per request — `request.completed`
+  for a returned response (including an error status), or one of
   `request.error` / `request.validation.failed` / `request.failed` when the handler throws.
+  Domain and auth events can emit additional lines for the same request.
 - It must stay registered after `requestId()`, whose value it reads.
 
 These fields are bound once, for the whole request, and **must never be passed by a call site**:
@@ -23,16 +26,17 @@ These fields are bound once, for the whole request, and **must never be passed b
 | `user_id`                             | `bindSessionUser` in `server/src/auth/module.ts`, once the session is resolved |
 | `level`, `time`, `msg`                | pino                                                                           |
 
-The domain field types deliberately do not declare any of them, so passing one is a compile error rather than a
-silently shadowed value.
+The domain field types deliberately do not declare any of them, so passing one in a domain
+accessor's object literal is a compile error rather than a silently shadowed value.
 
 `server/src/exceptions/handler.ts` shapes error responses and does **not** log — the middleware's `onError` hook
 records every failure. Logging in both would duplicate every error line.
 
 ## The domain logger
 
-Each domain owns one `logging.ts` declaring its events and its fields, and exports an accessor. Nothing else may
-construct a logger.
+Each application domain owns one `logging.ts` declaring its events and fields, and exports an
+accessor. Logger construction stays in `server/src/logging/index.ts`. Auth events and their field
+vocabulary are supplied by `@kamaalio/kamaal-auth-hono`, which receives the request logger.
 
 | Module                               | Events      | Accessor                                                 |
 | ------------------------------------ | ----------- | -------------------------------------------------------- |
@@ -117,6 +121,9 @@ field is safe to index. The one object ever logged is `err`, which pino's standa
 whole entities, lock keys, or raw user search terms. Log the _shape_, not the value — `lock_key_type`, not
 `lock_key`. Redaction in `createLoggerOptions` is a backstop for dependencies that log a vocabulary we do not
 control, not a licence to pass secrets.
+The current request logger binds the full incoming `url`, including its query string.
+Top-level redaction does not sanitize values embedded in that URL; do not assume
+search terms or credentials in query parameters will be redacted.
 
 **`console` is banned** in `server/src` (oxlint `no-console`). The CLI scripts under `server/scripts` are exempt.
 
@@ -132,7 +139,7 @@ domain does not have yet, add it as an optional member of the domain's field typ
 
 ```ts
 pricingLogger(c).error(
-  { event: 'pricing.search.completed', outcome: 'failure', error_code: 'PRICING_UNAVAILABLE', err },
+  { event: 'pricing.search.completed', outcome: 'failure', error_code: 'PRICING_PROVIDER_UNAVAILABLE', err },
   'Card pricing search failed unexpectedly.',
 );
 ```
@@ -157,6 +164,6 @@ integrationTest('logs the deletion', async ({ app, getLogsForRequestId, withRequ
 - Re-binding a per-call `component` or `route`. `route` is emitted on `request.*` lines; correlate everything else
   by `request_id`.
 - Logging in `app.onError()` — the middleware's `onError` already covers every failure.
-- Calling `c.get('logger')` directly in application code. It typechecks — the underlying type is a closed union of
-  every domain's fields plus `@kamaalio/kamaal-auth-hono`'s `AuthLogFields` — but it also accepts every other
-  domain's events, where a domain accessor narrows to just yours.
+- Calling `c.get('logger')` directly in application code. Its generic `RequestLogger` methods
+  accept fields extending `DomainLogFields<string>`; they do not restrict event names to a closed
+  domain union. Use a domain accessor to enforce the domain's event and field vocabulary.

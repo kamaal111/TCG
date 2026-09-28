@@ -202,6 +202,10 @@ gh run download <run-id> -n macos-snapshot-failures
 gh run download <run-id> -n ios-snapshot-failures
 ```
 
+The collector reads persistent `.snapshot-failures/` output, macOS/simulator
+temporary files, and new references. iOS CI also passes an `.xcresult` bundle so
+its reference, failure, and diff attachments are exported under `attachments/`.
+
 Artifacts are uploaded on failure and retained for seven days. Compare the taken
 PNG with the committed reference under the suite's `__Snapshots__` directory
 before recording a new baseline. Artifacts also include new untracked references
