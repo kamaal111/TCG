@@ -1,5 +1,7 @@
 # TCG Card Collection Management — Fullstack Implementation Plan
 
+> Historical implementation plan: the context, file paths, and proposed behavior below describe the project when this work was planned. For the current implementation and workflows, see [the project README](../../README.md) and [architecture guide](../../docs/architecture.md).
+
 ## Context
 
 The app (One Piece TCG + Pokemon TCG collection manager) has completed auth. This feature adds the core value: adding, editing, and deleting owned card entries, fullstack — Drizzle schema + migration, Hono endpoints, OAS regeneration, Swift client wrapper, and a new `TCGCards` vertical feature slice as the post-login root screen. Shared UI (form field wrapper, submit/loading button) is extracted from `TCGAuth` into `TCGDesignSystem` so auth and cards UIs cannot drift.

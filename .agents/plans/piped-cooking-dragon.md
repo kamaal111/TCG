@@ -1,5 +1,7 @@
 # Fix the daily sign-out: refresh with the session token, and make session logs diagnosable
 
+> Historical implementation plan: the context, file paths, and proposed behavior below describe the project when this work was planned. For the current implementation and workflows, see [the project README](../../README.md) and [architecture guide](../../docs/architecture.md).
+
 ## Context
 
 The app signs the user out roughly once a day. The server is behaving correctly; the client

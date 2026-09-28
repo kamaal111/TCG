@@ -88,9 +88,10 @@ no pagination parameter.
 
 `GET /app-api/pricing/search?game=pokemon&query=Charizard` returns
 `{"matches":[...]}`. Queries are trimmed and must be 2–200 characters. Each
-priced match includes a stable local UUID, game, name, card number, pricing date,
+priced match includes a UUID for that day's cached price, game, name, card number, pricing date,
 fetch timestamp, and optional rarity, proxy image URL, headline, and market data.
-The priced-card UUID is separate from an owned-card UUID.
+The priced-card UUID is separate from an owned-card UUID and can change on the
+next pricing date; it is not a permanent provider-card identity.
 
 The default `SCRYDEX_CLIENT=static` uses sample data and synthetic fallback search
 results. Set `SCRYDEX_CLIENT=real`, `SCRYDEX_API_KEY`, and `SCRYDEX_TEAM_ID` to use
@@ -129,8 +130,9 @@ create, to avoid adding a duplicate entry.
 The pricing service registers image origins and returns the server's proxy URLs,
 using `PUBLIC_BASE_URL` or `BETTER_AUTH_URL`. The image proxy serves cached bytes
 with ETags and immutable cache headers, or materializes pending images. Temporary
-busy/retry states can return 503 with `Retry-After`; missing or exhausted images
-return 404. See [card images](card-images.md) for the full state machine and refresh
+busy/retry states can return 503 with `Retry-After`; missing images and exhausted
+rows outside `fetching` return 404. An abandoned final attempt can remain stuck
+in `fetching` and return 503; see [card images](card-images.md) for this limitation and refresh
 procedure.
 
 API errors use JSON with `message` and a machine-readable `code`. Validation
