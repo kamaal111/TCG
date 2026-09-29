@@ -1,6 +1,7 @@
 services:
   db:
-    ports: !reset []
+    ports: !override
+      - '127.0.0.1:${TCG_DB_PORT:-5432}:5432'
 
   garage:
     ports: !reset []

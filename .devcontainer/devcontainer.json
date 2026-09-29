@@ -27,9 +27,8 @@
     "MISE_EXPERIMENTAL": "1",
     "PATH": "/root/.local/share/mise/shims:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
   },
-  "forwardPorts": ["db:5432", "garage:3900"],
+  "forwardPorts": ["garage:3900"],
   "portsAttributes": {
-    "db:5432": { "label": "PostgreSQL" },
     "garage:3900": { "label": "Garage S3" }
   },
   "customizations": {
