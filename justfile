@@ -182,6 +182,7 @@ test-snapshots-macos:
         -project "{{ APP_PROJECT }}" \
         -scheme "{{ APP_SCHEME }}" \
         -destination "platform=macOS" \
+        -only-testing:TCGCardsTests/ScreenSnapshotSettlingTests \
         -only-testing:TCGCardsTests/TCGCardsListScreenSnapshotTests \
         -only-testing:TCGCardsTests/TCGCardFormScreenSnapshotTests \
         -only-testing:TCGSearchTests/TCGSearchScreenSnapshotTests \
@@ -198,6 +199,7 @@ test-snapshots-ios *args:
         -project "{{ APP_PROJECT }}" \
         -scheme "{{ APP_SCHEME }}" \
         -destination "{{ APP_IOS_TEST_DESTINATION }}" \
+        -only-testing:TCGCardsTests/ScreenSnapshotSettlingTests \
         -only-testing:TCGCardsTests/TCGCardsListScreenSnapshotTests \
         -only-testing:TCGCardsTests/TCGCardFormScreenSnapshotTests \
         -only-testing:TCGSearchTests/TCGSearchScreenSnapshotTests \

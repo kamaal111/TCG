@@ -26,6 +26,12 @@ public func assertScreenSnapshot<Screen: View>(
     await ScreenSnapshotQueue.acquire()
     defer { ScreenSnapshotQueue.release() }
 
+    #if os(iOS)
+        let animationsWereEnabled = UIView.areAnimationsEnabled
+        UIView.setAnimationsEnabled(false)
+        defer { UIView.setAnimationsEnabled(animationsWereEnabled) }
+    #endif
+
     for scheme in [ColorScheme.light, .dark] {
         #if os(macOS)
             assertSnapshot(
@@ -40,12 +46,18 @@ public func assertScreenSnapshot<Screen: View>(
             )
         #elseif os(iOS)
             let capture = MountedScreenSnapshot(
-                screen: screen().environment(\.locale, Locale(identifier: "en_US")), scheme: scheme
+                screen: screen()
+                    .environment(\.locale, Locale(identifier: "en_US"))
+                    .transaction {
+                        $0.animation = nil
+                        $0.disablesAnimations = true
+                    },
+                scheme: scheme
             )
             let image = await capture.image()
             guard let image else {
                 Issue.record(
-                    "The mounted screen did not settle within four seconds.",
+                    "The mounted screen did not settle within twelve seconds.",
                     sourceLocation: SourceLocation(
                         fileID: "\(fileID)", filePath: "\(filePath)", line: Int(line), column: Int(column)
                     )
@@ -64,6 +76,39 @@ public func assertScreenSnapshot<Screen: View>(
             )
         #endif
     }
+}
+
+struct ScreenSnapshotSettling {
+    private var previousFrame: Data?
+    private var matchingFrames = 0
+    private var lastChange: TimeInterval = 0
+
+    mutating func observe(frame: Data, at timestamp: TimeInterval, hasActiveAnimations: Bool) -> Bool {
+        if hasActiveAnimations || frame != previousFrame {
+            matchingFrames = 0
+            lastChange = timestamp
+        } else {
+            matchingFrames += 1
+        }
+        previousFrame = frame
+        return matchingFrames >= 2 && timestamp - lastChange >= 0.5
+    }
+
+    #if os(iOS)
+        static func hasActiveAnimations(in layer: CALayer) -> Bool {
+            for key in layer.animationKeys() ?? [] {
+                guard let animation = layer.animation(forKey: key) else { continue }
+                // Liquid Glass uses infinite animations to track control geometry.
+                // Those remain attached to a visually stationary hierarchy.
+                guard animation.duration.isFinite else { continue }
+                guard animation.duration > 0 else { continue }
+                guard animation.repeatCount.isFinite else { continue }
+                guard animation.repeatDuration.isFinite else { continue }
+                return true
+            }
+            return (layer.sublayers ?? []).contains { hasActiveAnimations(in: $0) }
+        }
+    #endif
 }
 
 // Swift Testing runs suites concurrently. Keep each mounted hierarchy and both
@@ -97,9 +142,7 @@ private enum ScreenSnapshotQueue {
         private let controller: UIViewController
         private let hosting: UIViewController
         private let traits: UITraitCollection
-        private var previousImage: Data?
-        private var matchingFrames = 0
-        private var lastImageChange: CFTimeInterval = 0
+        private var settling = ScreenSnapshotSettling()
         private var completion: CheckedContinuation<UIImage?, Never>?
         private var deadline: CFTimeInterval = 0
 
@@ -144,7 +187,9 @@ private enum ScreenSnapshotQueue {
         }
 
         func image() async -> UIImage? {
-            deadline = CACurrentMediaTime() + 4
+            // CI can take several seconds to render a populated form under simulator load.
+            // Keep the pixel and quiet-interval checks; only bound how long they may take.
+            deadline = CACurrentMediaTime() + 12
             return await withCheckedContinuation { completion in
                 self.completion = completion
                 let displayLink = CADisplayLink(target: self, selector: #selector(captureFrame))
@@ -167,16 +212,15 @@ private enum ScreenSnapshotQueue {
                 finish(displayLink, image: nil)
                 return
             }
-            if data == previousImage {
-                matchingFrames += 1
-            } else {
-                matchingFrames = 0
-                lastImageChange = CACurrentMediaTime()
-            }
-            previousImage = data
-            // Native controls can pause between their initial image and entrance fade.
-            // A quiet interval spans that pause; any changed pixel restarts it.
-            guard matchingFrames >= 2, CACurrentMediaTime() - lastImageChange >= 0.5 else { return }
+            // layer.render captures model values, which can remain unchanged during
+            // an animation. Its pixels alone cannot prove the hierarchy has settled.
+            guard
+                settling.observe(
+                    frame: data,
+                    at: CACurrentMediaTime(),
+                    hasActiveAnimations: ScreenSnapshotSettling.hasActiveAnimations(in: view.layer)
+                )
+            else { return }
             finish(displayLink, image: image)
         }
 
