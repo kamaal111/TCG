@@ -15,8 +15,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/Kamaalio/kamaal-auth",
       "state" : {
-        "revision" : "4a367b25a4fcd7ea028d5bc319eab319e86e0209",
-        "version" : "0.0.11"
+        "revision" : "ee2bd72b9cc0e5c6b864503c1aac336ab68fdc13",
+        "version" : "0.0.13"
       }
     },
     {
