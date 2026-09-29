@@ -1,6 +1,8 @@
 services:
   devcontainer:
-    image: mcr.microsoft.com/devcontainers/base:trixie
+    build:
+      context: ..
+      dockerfile: .devcontainer/Dockerfile
     command: sleep infinity
     init: true
     depends_on:

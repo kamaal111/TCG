@@ -20,13 +20,13 @@ VS Code (**Dev Containers: Reopen in Container**) and Zed open the same configur
 
 ## What's inside
 
-- Node, Swift and pnpm, installed by [mise](https://mise.jdx.dev) from the `mise.toml` at the
-  repository root, the single manifest for every versioned language and tool this project needs.
+- Node, Swift and pnpm, installed into the image by [mise](https://mise.jdx.dev) from the
+  `mise.toml` at the repository root. They are available before editor lifecycle commands run.
 - `just`, installed by its own devcontainer feature rather than `mise.toml`. Feature versions
   and digests are recorded in `devcontainer-lock.json`; the binary version is not checked by
   the repository's version-sync script.
-- Zsh autosuggestions and syntax highlighting, installed from Debian packages during setup.
-- Claude Code and Codex, installed by npm on top of that Node.
+- Zsh autosuggestions and syntax highlighting, installed from Debian packages in the image.
+- Claude Code and Codex, installed by npm on top of that Node in the image.
 - Docker CLI, for the server's testcontainers and for the sidecars below.
 - PostgreSQL (`db:5432`) and Garage (`garage:3900`) sidecars, already initialized.
   `DATABASE_URL` and `OBJECT_STORAGE_ENDPOINT` point at them, overriding `.env`.
@@ -67,8 +67,8 @@ not a Compose-published host port.
 
 ## Updating tool versions
 
-Change versions in `mise.toml`, then `just devcontainer-exec mise install`, or `devcontainer-rebuild`
-to start clean. Keep the `node` entry in sync with `.node-version`, `pnpm` with
+Change versions in `mise.toml`, then run `just devcontainer-rebuild` from the host to update the
+image. Keep the `node` entry in sync with `.node-version`, `pnpm` with
 `devEngines.packageManager`, and `swift` with every `Package.swift`'s `swift-tools-version`;
 also update the Node and pnpm defaults in the root `Dockerfile`, plus the Node and Swift paths
 in `devcontainer.json`'s VS Code settings. `just quality`
@@ -76,3 +76,7 @@ runs `just check-versions` to catch drift, and the container fails to set up whe
 `just` isn't tracked in `mise.toml` — it comes from its own feature. After changing features
 (not `mise.toml`), refresh the lockfile with
 `pnpm exec devcontainer upgrade --workspace-folder .`.
+
+`postCreateCommand` installs workspace dependencies into the checkout's `node_modules` volumes.
+If an editor skips that command, the first `just prepare-server` or `just dev-server` installs
+them before running server work.
