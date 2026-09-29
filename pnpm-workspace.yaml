@@ -3,3 +3,6 @@ allowBuilds:
   esbuild: true
   protobufjs: false
   ssh2: false
+minimumReleaseAgeExclude:
+  - '@kamaalio/kamaal-auth-core@0.0.13'
+  - '@kamaalio/kamaal-auth-hono@0.0.13'

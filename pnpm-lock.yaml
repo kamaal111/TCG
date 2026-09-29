@@ -188,8 +188,8 @@ importers:
         specifier: ~0.9.11
         version: 0.9.11
       '@kamaalio/kamaal-auth-hono':
-        specifier: ~0.0.9
-        version: 0.0.9(@kamaalio/hono-standard-openapi@0.0.20(@standard-schema/spec@1.1.0)(hono@4.13.7))(hono@4.13.7)(jose@6.2.12)
+        specifier: ~0.0.13
+        version: 0.0.13(@kamaalio/hono-standard-openapi@0.0.20(@standard-schema/spec@1.1.0)(hono@4.13.7))(hono@4.13.7)(jose@6.2.12)
       better-auth:
         specifier: 1.7.2
         version: 1.7.2(drizzle-kit@1.0.0-rc.4)(drizzle-orm@1.0.0-rc.4(@types/pg@8.23.1)(pg@8.23.0)(zod@4.6.5))(pg@8.23.0)(vitest@5.0.0)
@@ -916,14 +916,14 @@ packages:
     peerDependencies:
       hono: '>=4.10.0'
 
-  '@kamaalio/kamaal-auth-core@0.0.9':
-    resolution: {integrity: sha512-TsPzV+gJL2Lzdc8oHieO5s7A71F8VT6Z1n4ntXnW4se/aXrpujOcz7abfdU58ViM1VkgeEwiZ9EV9/1LWtFxlw==}
+  '@kamaalio/kamaal-auth-core@0.0.13':
+    resolution: {integrity: sha512-N+QSgBK06kxNo2DoTudEetF7px4tfxMltOABWaxOQs8FsVhV9CjUB1o/V7S8hpvoWxiGTW8GTdt5aAnvPovpog==}
     engines: {node: '>=24'}
     peerDependencies:
       jose: ^6.2.4
 
-  '@kamaalio/kamaal-auth-hono@0.0.9':
-    resolution: {integrity: sha512-X7dTfM171/+PWCIIpsbiNBu3yHVHHzY5Ygfl9fW3gkeX+C2vh7CGj2C7s7FxUNUwxNhZvFHznB3Df/fel8q8Og==}
+  '@kamaalio/kamaal-auth-hono@0.0.13':
+    resolution: {integrity: sha512-kEOU4WfU54OoiOVUj3mZpxc/RlZF+T2f8StjC+9fcJK9/B0yA1Ou60fMnpKQl75DCZM88iuGUVErEKIPgOCX+Q==}
     engines: {node: '>=24'}
     peerDependencies:
       '@kamaalio/hono-standard-openapi': '>=0.0.12'
@@ -4456,15 +4456,15 @@ snapshots:
     transitivePeerDependencies:
       - '@standard-schema/spec'
 
-  '@kamaalio/kamaal-auth-core@0.0.9(jose@6.2.12)':
+  '@kamaalio/kamaal-auth-core@0.0.13(jose@6.2.12)':
     dependencies:
       jose: 6.2.12
       zod: 4.6.5
 
-  '@kamaalio/kamaal-auth-hono@0.0.9(@kamaalio/hono-standard-openapi@0.0.20(@standard-schema/spec@1.1.0)(hono@4.13.7))(hono@4.13.7)(jose@6.2.12)':
+  '@kamaalio/kamaal-auth-hono@0.0.13(@kamaalio/hono-standard-openapi@0.0.20(@standard-schema/spec@1.1.0)(hono@4.13.7))(hono@4.13.7)(jose@6.2.12)':
     dependencies:
       '@kamaalio/hono-standard-openapi': 0.0.20(@standard-schema/spec@1.1.0)(hono@4.13.7)
-      '@kamaalio/kamaal-auth-core': 0.0.9(jose@6.2.12)
+      '@kamaalio/kamaal-auth-core': 0.0.13(jose@6.2.12)
       hono: 4.13.7
     transitivePeerDependencies:
       - jose
