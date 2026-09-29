@@ -11,6 +11,10 @@ import Testing
 @testable import TCGClient
 @testable import TCGSearch
 
+#if os(iOS)
+    import UIKit
+#endif
+
 @Suite("TCGSearch Screen Snapshot Tests", .serialized)
 @MainActor
 struct TCGSearchScreenSnapshotTests {
@@ -22,7 +26,15 @@ struct TCGSearchScreenSnapshotTests {
         model.game = .pokemon
         try await feature.search(game: model.game, query: model.query).get()
 
+        #if os(iOS)
+            let animationsWereEnabled = UIView.areAnimationsEnabled
+        #endif
+
         await assertScreenSnapshot(testName: #function) { makeScreen(feature: feature, model: model) }
+
+        #if os(iOS)
+            #expect(UIView.areAnimationsEnabled == animationsWereEnabled)
+        #endif
     }
 
     @Test
@@ -45,7 +57,11 @@ struct TCGSearchScreenSnapshotTests {
     }
 
     private func makeScreen(feature: TCGSearch, model: TCGSearchScreenModel) -> some View {
-        NavigationStack { TCGSearchScreen(model: model) }
+        #if os(iOS)
+            #expect(!UIView.areAnimationsEnabled)
+        #endif
+
+        return NavigationStack { TCGSearchScreen(model: model) }
             .environment(feature)
             .cardImageLoader(PreviewCardImageLoader(outcome: .success))
     }
