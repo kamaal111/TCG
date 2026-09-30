@@ -26,7 +26,9 @@ VS Code (**Dev Containers: Reopen in Container**) and Zed open the same configur
   and digests are recorded in `devcontainer-lock.json`; the binary version is not checked by
   the repository's version-sync script.
 - Zsh autosuggestions and syntax highlighting, installed from Debian packages in the image.
-- Claude Code and Codex, installed by npm on top of that Node in the image.
+- Claude Code and Codex, installed into the image by their official native installers.
+  Their launchers are available through `/root/.local/bin`.
+- GitHub Copilot Chat, included in the VS Code extension configuration.
 - Docker CLI, for the server's testcontainers and for the sidecars below.
 - PostgreSQL (`db:5432`) and Garage (`garage:3900`) sidecars, already initialized.
   `DATABASE_URL` and `OBJECT_STORAGE_ENDPOINT` point at them, overriding `.env`.
@@ -62,10 +64,25 @@ not a Compose-published host port.
 - Claude Code's login and settings live in the `tcg-devcontainer-claude` volume, shared by every
   checkout and kept by `devcontainer-delete`. Host `~/.claude/skills` and `~/.claude/plugins` are
   mounted read-only.
-- Codex uses the host `~/.codex`.
+- Codex uses the host `~/.codex` for login and settings. Its Linux package is installed under
+  `/opt/tcg-codex`, outside that mount.
 - Git uses the host `~/.gitconfig`, read-only.
 
 ## Updating tool versions
+
+Run `just devcontainer-rebuild` from the host to apply installer or extension configuration
+changes. Claude Code installs from the `latest` channel and automatically updates in the
+background; run `claude update` inside the container to update immediately.
+
+To update Codex inside the container, rerun its installer with the same installation-scoped
+home so the Linux package stays outside the host configuration mount:
+
+```sh
+curl -fsSL https://chatgpt.com/codex/install.sh -o /tmp/install-codex.sh \
+  && CODEX_NON_INTERACTIVE=1 CODEX_HOME=/opt/tcg-codex \
+     sh /tmp/install-codex.sh \
+  && rm /tmp/install-codex.sh
+```
 
 Change versions in `mise.toml`, then run `just devcontainer-rebuild` from the host to update the
 image. Keep the `node` entry in sync with `.node-version`, `pnpm` with
