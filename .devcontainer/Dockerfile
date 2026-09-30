@@ -6,7 +6,7 @@ COPY --from=mise /usr/local/bin/mise /usr/local/bin/mise
 
 ENV DEBIAN_FRONTEND=noninteractive \
     MISE_EXPERIMENTAL=1 \
-    PATH="/root/.local/share/mise/shims:${PATH}"
+    PATH="/root/.local/share/mise/shims:/root/.local/bin:${PATH}"
 
 RUN apt-get update -qq \
     && apt-get install -y -qq --no-install-recommends \
@@ -22,8 +22,17 @@ COPY mise.toml .node-version ./
 
 RUN mise install \
     && node_major="$(node --version | sed -E 's/^v([0-9]+).*/\1/')" \
-    && test "$node_major" = "$(cat .node-version)" \
-    && npm install --global @anthropic-ai/claude-code @openai/codex
+    && test "$node_major" = "$(cat .node-version)"
+
+RUN curl -fsSL https://claude.ai/install.sh -o /tmp/install-claude.sh \
+    && bash /tmp/install-claude.sh latest \
+    && rm /tmp/install-claude.sh \
+    && curl -fsSL https://chatgpt.com/codex/install.sh -o /tmp/install-codex.sh \
+    && CODEX_NON_INTERACTIVE=1 CODEX_HOME=/opt/tcg-codex \
+       sh /tmp/install-codex.sh \
+    && rm /tmp/install-codex.sh \
+    && claude --version \
+    && codex --version
 
 RUN mkdir -p /root/.config/mise \
     && cp mise.toml /root/.config/mise/config.toml

@@ -24,7 +24,7 @@
   "overrideFeatureInstallOrder": ["ghcr.io/devcontainers/features/common-utils"],
   "containerEnv": {
     "MISE_EXPERIMENTAL": "1",
-    "PATH": "/root/.local/share/mise/shims:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+    "PATH": "/root/.local/share/mise/shims:/root/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
   },
   "forwardPorts": ["garage:3900"],
   "portsAttributes": {
@@ -42,6 +42,7 @@
         "yoavbls.pretty-ts-errors",
         "anthropic.claude-code",
         "openai.chatgpt",
+        "github.copilot-chat",
         "eamodio.gitlens",
         "streetsidesoftware.code-spell-checker"
       ],
