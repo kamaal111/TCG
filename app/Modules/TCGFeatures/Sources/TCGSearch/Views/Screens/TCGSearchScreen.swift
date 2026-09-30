@@ -23,9 +23,7 @@ public struct TCGSearchScreen: View {
 
     public var body: some View {
         content
-            .navigationTitle("Card search")
-            .searchable(text: $model.query, prompt: "Card name or number")
-            .onSubmit(of: .search) { Task { await model.performSearch(using: search) } }
+            .navigationTitle(Text("Card search", bundle: .module))
             .onChange(of: model.query) { _, _ in model.scheduleSearch(using: search) }
             .onChange(of: model.game) { _, _ in model.scheduleSearch(using: search) }
             .toast(model.toast, dismiss: model.dismissToast)
@@ -37,6 +35,9 @@ public struct TCGSearchScreen: View {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 16) {
                     TCGGamePicker(selection: gameBinding)
+                    TCGSearchInput(query: $model.query, game: model.game) {
+                        Task { await model.performSearch(using: search) }
+                    }
                     searchResults
                 }
                 .padding(24)
@@ -44,6 +45,10 @@ public struct TCGSearchScreen: View {
         #else
             List {
                 TCGGamePicker(selection: gameBinding)
+                TCGSearchInput(query: $model.query, game: model.game) {
+                    Task { await model.performSearch(using: search) }
+                }
+                .listRowSeparator(.hidden)
                 searchResults
             }
         #endif
@@ -61,7 +66,7 @@ public struct TCGSearchScreen: View {
         if search.isSearching {
             HStack {
                 Spacer()
-                ProgressView("Searching…")
+                ProgressView { Text("Searching…", bundle: .module) }
                 Spacer()
             }
             #if !os(macOS)
@@ -84,9 +89,22 @@ public struct TCGSearchScreen: View {
 
     private var emptySearch: some View {
         ContentUnavailableView(
-            "Search cards",
-            systemImage: "magnifyingglass",
-            description: Text("Enter a card name or number to see current market pricing.")
+            label: {
+                Label {
+                    Text("Search cards", bundle: .module)
+                } icon: {
+                    Image(systemName: "magnifyingglass")
+                }
+            },
+            description: {
+                Text(
+                    model.game == .pokemon
+                        ? LocalizedStringKey(
+                            "Enter a card name, number, or set + number to see current market pricing.")
+                        : LocalizedStringKey("Enter a card name or full card number to see current market pricing."),
+                    bundle: .module
+                )
+            }
         )
         #if os(macOS)
             .frame(maxWidth: .infinity, minHeight: 480)
@@ -97,9 +115,24 @@ public struct TCGSearchScreen: View {
 
     private var noResults: some View {
         ContentUnavailableView(
-            "No match",
-            systemImage: "rectangle.and.text.magnifyingglass",
-            description: Text("No match — try adding the set number, e.g. Charizard 199.")
+            label: {
+                Label {
+                    Text("No match", bundle: .module)
+                } icon: {
+                    Image(systemName: "rectangle.and.text.magnifyingglass")
+                }
+            },
+            description: {
+                Text(
+                    model.game == .pokemon
+                        ? LocalizedStringKey(
+                            "Try a name and card number, like Charizard ex 199, or a set and printed number, like sv5m 072/071."
+                        )
+                        : LocalizedStringKey(
+                            "Try a card number, like OP14-069, or a name and card number, like Nami OP01-016."),
+                    bundle: .module
+                )
+            }
         )
         #if os(macOS)
             .frame(maxWidth: .infinity, minHeight: 480)

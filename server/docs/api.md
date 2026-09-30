@@ -99,6 +99,48 @@ live Scrydex. Caches include provider source in their keys, so static and live
 results are separate. Search and per-card prices are cached per UTC day;
 PostgreSQL advisory locks coordinate concurrent misses.
 
+### Search formats
+
+The app's information button beside the search field explains these formats.
+The API accepts the same plain-text input in `query`; it translates input into
+provider filters rather than accepting raw Scrydex query syntax.
+
+| Game      | Input                       | Meaning                                                |
+| --------- | --------------------------- | ------------------------------------------------------ |
+| Pokémon   | `Charizard` or `ダーテング` | Search by native name or available English translation |
+| Pokémon   | `Charizard ex 199`          | Search by name and exact card number                   |
+| Pokémon   | `sv5m 072/071`              | Search by expansion code and exact printed fraction    |
+| Pokémon   | `sv5m_ja 72`                | Search a specific expansion ID and exact card number   |
+| Pokémon   | `072/071`                   | Search by exact printed fraction across expansions     |
+| One Piece | `OP14-069`                  | Search by full card ID                                 |
+| One Piece | `Nami OP01-016`             | Search by name and full card ID                        |
+
+Pokémon requests use Scrydex's unfiltered language endpoint, including English
+and Japanese cards. Provider names remain in their native language in responses.
+Scrydex's `name` index also matches English translations when available; missing
+translations can require the native name or a set-and-number search. Broad searches
+return the first 20 provider matches, so add a card number to narrow results.
+
+Set-and-number shorthand recognizes short expansion IDs beginning with one to
+four letters followed by a digit, such as `base1`, `sv3pt5`, and `sv5m`. An
+unsuffixed ID searches that exact ID and its Japanese `_ja` counterpart; an
+explicit language suffix targets only the supplied ID. IDs are case-insensitive.
+Numeric card numbers ignore leading zeros, but printed fractions preserve both
+leading zeros and the denominator. A secret rare such as `072/071` is valid.
+
+For example, `sv5m 072/071` becomes
+`(!expansion.id:sv5m OR !expansion.id:sv5m_ja) AND !printed_number:"072/071"`.
+The slash must remain unescaped inside the quoted fraction: authenticated
+provider checks found that an escaped slash returned no matches. Likewise,
+`name:"Shiftry"` matches translated Japanese names, while directly querying
+`translation.en.name` returned no matches for that known card.
+
+See Scrydex's [card search documentation](https://scrydex.com/docs/pokemon/cards)
+and [language documentation](https://scrydex.com/docs/pokemon/api-reference).
+Static mode remains sample/synthetic data and does not validate live catalog matches.
+
+### Pricing normalization
+
 Normalization selects a supported base variant and raw Near Mint price. The
 headline is the lowest Near Mint amount (`metric: "lowest_near_mint"`), with
 optional market average and 7/30-day movements. Prices are not adjusted for the

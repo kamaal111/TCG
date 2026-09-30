@@ -30,7 +30,7 @@ public struct TCGSettingsScreen: View {
         Form {
             Section {
                 Button(role: .destructive, action: { isConfirmingSignOut = true }) {
-                    Text("Sign Out")
+                    Text("Sign Out", bundle: .module)
                         .fontWeight(.bold)
                         .foregroundStyle(.red)
                         .frame(maxWidth: .infinity)
@@ -39,22 +39,33 @@ public struct TCGSettingsScreen: View {
                     .buttonStyle(.borderless)
                 #endif
                 .disabled(isSigningOut)
-                .confirmationDialog("Sign out of TCG?", isPresented: $isConfirmingSignOut, titleVisibility: .visible) {
-                    Button("Sign Out", role: .destructive) { signOut() }
+                .confirmationDialog(
+                    Text("Sign out of TCG?", bundle: .module),
+                    isPresented: $isConfirmingSignOut, titleVisibility: .visible
+                ) {
+                    Button(role: .destructive) {
+                        signOut()
+                    } label: {
+                        Text("Sign Out", bundle: .module)
+                    }
                 }
             }
 
             if let versionText = version.displayText {
-                Section("About") {
-                    LabeledContent("Version") {
+                Section {
+                    LabeledContent {
                         Text(versionText)
                             .textSelection(.enabled)
+                    } label: {
+                        Text("Version", bundle: .module)
                     }
+                } header: {
+                    Text("About", bundle: .module)
                 }
             }
         }
         .formStyle(.grouped)
-        .navigationTitle("Settings")
+        .navigationTitle(Text("Settings", bundle: .module))
     }
 
     private func signOut() {

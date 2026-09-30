@@ -15,7 +15,7 @@ struct PricedCardRow: View {
             CardImageView(url: card.imageURL)
             VStack(alignment: .leading, spacing: 5) {
                 Text(card.name).font(.headline)
-                Text("\(card.rarity ?? card.game.title) • \(card.cardNumber)")
+                Text("\(card.rarity ?? card.game.title) • \(card.cardNumber)", bundle: .module)
                     .foregroundStyle(.secondary)
                 marketDetails
             }
@@ -25,7 +25,7 @@ struct PricedCardRow: View {
                     Text(headline.amount, format: .currency(code: headline.currency.rawValue))
                         .font(.title3.weight(.semibold).monospacedDigit())
                 } else {
-                    Text("No price").foregroundStyle(.secondary)
+                    Text("No price", bundle: .module).foregroundStyle(.secondary)
                 }
                 if let trend = card.market?.trend7d?.trend {
                     Label(trend.title, systemImage: trend.systemImage)
@@ -47,13 +47,17 @@ struct PricedCardRow: View {
         {
             HStack(spacing: 12) {
                 if let amount = market.market {
-                    Text("Market \(amount, format: .currency(code: market.currency.rawValue))")
+                    Text("Market \(amount, format: .currency(code: market.currency.rawValue))", bundle: .module)
                 }
                 if let movement = market.trend7d {
-                    Text("7d \(movement.percentChange / 100, format: .percent.precision(.fractionLength(1)))")
+                    Text(
+                        "7d \(movement.percentChange / 100, format: .percent.precision(.fractionLength(1)))",
+                        bundle: .module)
                 }
                 if let movement = market.trend30d {
-                    Text("30d \(movement.percentChange / 100, format: .percent.precision(.fractionLength(1)))")
+                    Text(
+                        "30d \(movement.percentChange / 100, format: .percent.precision(.fractionLength(1)))",
+                        bundle: .module)
                 }
             }
             .font(.caption.monospacedDigit())

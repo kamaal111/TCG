@@ -196,7 +196,7 @@ export class RealScrydexClient implements PricingClient {
   }
 
   private makeURL(game: CardGame, suffix: string): URL {
-    const path = game === CARD_GAME_MAP.POKEMON ? 'pokemon/v1/en' : 'onepiece/v1';
+    const path = game === CARD_GAME_MAP.POKEMON ? 'pokemon/v1' : 'onepiece/v1';
 
     return new URL(`${path}${suffix}`, `${this.baseURL.replace(/\/$/, '')}/`);
   }
