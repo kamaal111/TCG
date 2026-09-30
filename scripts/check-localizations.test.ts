@@ -6,9 +6,7 @@ import path from 'node:path';
 import { test, type TestContext } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import { checkCatalogs, translated } from './check-localizations.ts';
-
-type JSONValue = string | number | boolean | null | JSONValue[] | { [key: string]: JSONValue };
+import { checkCatalogs, translated, type JSONValue } from './check-localizations.ts';
 
 const script = fileURLToPath(new URL('./check-localizations.ts', import.meta.url));
 

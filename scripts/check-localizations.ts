@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-type JSONValue = string | number | boolean | null | JSONValue[] | JSONObject;
+export type JSONValue = string | number | boolean | null | JSONValue[] | JSONObject;
 
 interface JSONObject {
   [key: string]: JSONValue;
@@ -16,12 +16,16 @@ function isJSON(value: unknown): value is JSONValue {
     typeof value === 'string' ||
     typeof value === 'number' ||
     typeof value === 'boolean' ||
-    (Array.isArray(value) ? value.every(isJSON) : record(value))
+    (Array.isArray(value) ? value.every(isJSON) : isObject(value) && Object.values(value).every(isJSON))
   );
 }
 
-function record<Input>(value: Input): value is Input & JSONObject {
-  return typeof value === 'object' && value !== null && !Array.isArray(value) && Object.values(value).every(isJSON);
+function isObject<Input>(value: Input): value is Input & object {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function record(value: JSONValue | undefined): value is JSONObject {
+  return isObject(value);
 }
 
 function object(value: JSONValue | undefined): JSONObject {
@@ -44,31 +48,38 @@ function string(value: JSONValue | undefined): string {
   return value;
 }
 
-function readJSON(file: string): JSONValue {
-  const value: unknown = JSON.parse(fs.readFileSync(file, 'utf8'));
+function parseJSON(contents: string): JSONValue {
+  const value: unknown = JSON.parse(contents);
 
   if (!isJSON(value)) {
-    throw new Error(`Invalid JSON in ${file}`);
+    throw new Error('Invalid JSON value');
   }
 
   return value;
 }
 
-function files(root: string): string[] {
-  return fs
-    .readdirSync(root, { withFileTypes: true })
-    .flatMap(entry => {
-      const file = path.join(root, entry.name);
-
-      return entry.isDirectory() ? files(file) : [file];
-    })
-    .sort();
+function readJSON(file: string): JSONValue {
+  return parseJSON(fs.readFileSync(file, 'utf8'));
 }
 
-function contains(root: string, file: string): boolean {
-  const relative = path.relative(root, file);
+function files(root: string): string[] {
+  const results: string[] = [];
 
-  return relative === '' || (!relative.startsWith(`..${path.sep}`) && relative !== '..' && !path.isAbsolute(relative));
+  function visit(directory: string): void {
+    for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+      const file = path.join(directory, entry.name);
+
+      if (entry.isDirectory()) {
+        visit(file);
+      } else {
+        results.push(file);
+      }
+    }
+  }
+
+  visit(root);
+
+  return results.sort();
 }
 
 // Resolve existing ancestors so symlinks work without requiring compiler sources to still exist.
@@ -154,6 +165,10 @@ function parseFileListEntry(line: string, file: string): string {
 }
 
 export function translated(value: unknown): value is JSONObject {
+  return isJSON(value) && completedTranslation(value);
+}
+
+function completedTranslation(value: JSONValue | undefined): boolean {
   if (!record(value)) {
     return false;
   }
@@ -167,7 +182,7 @@ export function translated(value: unknown): value is JSONObject {
 
     const substitutions = 'substitutions' in value ? value.substitutions : {};
 
-    return record(substitutions) && Object.values(substitutions).every(translated);
+    return record(substitutions) && Object.values(substitutions).every(completedTranslation);
   }
 
   const variations = value.variations;
@@ -176,31 +191,37 @@ export function translated(value: unknown): value is JSONObject {
     record(variations) &&
     Object.keys(variations).length > 0 &&
     Object.values(variations).every(
-      cases => record(cases) && Object.keys(cases).length > 0 && Object.values(cases).every(translated),
+      cases => record(cases) && Object.keys(cases).length > 0 && Object.values(cases).every(completedTranslation),
     )
   );
 }
 
+interface CatalogEntry {
+  shouldTranslate: boolean;
+  localizations: JSONObject;
+}
+
 interface Catalog {
   sourceLanguage: string;
-  strings: JSONObject;
+  strings: Map<string, CatalogEntry>;
 }
 
 function parseCatalog(value: JSONValue): Catalog {
   const data = object(value);
   const sourceLanguage = string(data.sourceLanguage);
-  const strings = object(data.strings);
+  const strings = new Map<string, CatalogEntry>();
 
-  for (const entry of Object.values(strings)) {
+  for (const [key, entry] of Object.entries(object(data.strings))) {
     const item = object(entry);
 
     if ('shouldTranslate' in item && item.shouldTranslate !== true && item.shouldTranslate !== false) {
       throw new Error('Invalid shouldTranslate');
     }
 
-    if ('localizations' in item) {
-      object(item.localizations);
-    }
+    strings.set(key, {
+      shouldTranslate: item.shouldTranslate !== false,
+      localizations: 'localizations' in item ? object(item.localizations) : {},
+    });
   }
 
   return { sourceLanguage, strings };
@@ -230,7 +251,13 @@ export function checkCatalogs(appRoot: string, buildRoot: string, configuration:
     ...fs.globSync('Modules/*/Sources/*', { cwd: appRoot }).map(owner => path.join(appRoot, owner)),
   ]);
 
-  const sourceOwner = (source: string) => [...owners].find(owner => contains(owner, source));
+  const sourceOwner = (source: string) => {
+    const parts = path.relative(appRoot, source).split(path.sep);
+    const owner = path.join(appRoot, ...parts.slice(0, parts[0] === 'TCG' ? 1 : 4));
+
+    return owners.has(owner) ? owner : undefined;
+  };
+
   const catalogs = new Map<string, Catalog>();
   const languages = new Set<string>();
 
@@ -238,8 +265,8 @@ export function checkCatalogs(appRoot: string, buildRoot: string, configuration:
     const catalog = parseCatalog(readJSON(file));
     catalogs.set(file, catalog);
 
-    for (const entry of Object.values(catalog.strings)) {
-      for (const language of Object.keys(object(object(entry).localizations ?? {}))) {
+    for (const entry of catalog.strings.values()) {
+      for (const language of Object.keys(entry.localizations)) {
         if (language !== catalog.sourceLanguage) {
           languages.add(language);
         }
@@ -248,7 +275,7 @@ export function checkCatalogs(appRoot: string, buildRoot: string, configuration:
   }
 
   const buildFiles = files(buildRoot).filter(file => file.split(path.sep).includes(configuration));
-  const expectedSources = new Set<string>();
+  const expectedSources = new Map<string, string>();
   const extractedSources = new Set<string>();
 
   for (const file of buildFiles.filter(file => file.endsWith('.SwiftFileList'))) {
@@ -261,8 +288,10 @@ export function checkCatalogs(appRoot: string, buildRoot: string, configuration:
     for (const line of lines) {
       const source = parseFileListEntry(line, file);
 
-      if (sourceOwner(source)) {
-        expectedSources.add(source);
+      const owner = sourceOwner(source);
+
+      if (owner) {
+        expectedSources.set(source, owner);
       }
     }
   }
@@ -277,9 +306,9 @@ export function checkCatalogs(appRoot: string, buildRoot: string, configuration:
     const data = object(readJSON(file));
     const source = resolveSource(string(data.source));
     const tables = object(data.tables);
-    const owner = sourceOwner(source);
+    const owner = expectedSources.get(source);
 
-    if (!expectedSources.has(source) || !owner) {
+    if (!owner) {
       continue;
     }
 
@@ -311,7 +340,9 @@ export function checkCatalogs(appRoot: string, buildRoot: string, configuration:
     }
   }
 
-  const errors = [...expectedSources]
+  const declaredLanguages = [...languages].sort();
+
+  const errors = [...expectedSources.keys()]
     .filter(source => !extractedSources.has(source))
     .sort()
     .map(source => `${path.relative(appRoot, source)}: no compiler string extraction; enable SWIFT_EMIT_LOC_STRINGS.`);
@@ -331,20 +362,22 @@ export function checkCatalogs(appRoot: string, buildRoot: string, configuration:
       continue;
     }
 
+    const requiredLanguages = declaredLanguages.filter(language => language !== catalog.sourceLanguage);
+
     for (const key of [...keys].sort()) {
-      if (!Object.hasOwn(catalog.strings, key)) {
+      const entry = catalog.strings.get(key);
+
+      if (!entry) {
         errors.push(`${label}: missing key ${repr(key)}.`);
         continue;
       }
-
-      const entry = object(catalog.strings[key]);
 
       if (entry.shouldTranslate === false) {
         continue;
       }
 
-      for (const language of [...languages].sort().filter(language => language !== catalog.sourceLanguage)) {
-        if (!translated(object(entry.localizations ?? {})[language])) {
+      for (const language of requiredLanguages) {
+        if (!completedTranslation(entry.localizations[language])) {
           errors.push(`${label}: ${repr(key)} has no completed ${language} translation.`);
         }
       }
@@ -389,21 +422,13 @@ function main(): number {
     { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] },
   );
 
-  const data: unknown = JSON.parse(result);
+  const data = parseJSON(result);
 
   if (!Array.isArray(data)) {
     throw new Error('Invalid build settings');
   }
 
-  const target = data
-    .map(item => {
-      if (!isJSON(item)) {
-        throw new Error('Invalid build settings');
-      }
-
-      return object(item);
-    })
-    .find(item => item.target === 'TCG');
+  const target = data.map(object).find(item => item.target === 'TCG');
 
   if (!target) {
     throw new Error('Missing TCG build settings');
