@@ -77,7 +77,6 @@ jobs:
       - name: Run repository tooling checks
         run: |
           just check-versions
-          just typecheck-oxlint-plugins
           just typecheck-scripts
 
       - name: Run server tests
@@ -88,7 +87,6 @@ jobs:
 
       - name: Run repository tooling tests
         run: |
-          just test-oxlint-plugins
           just test-herdr-worktree
           just test-check-versions-in-sync
 
