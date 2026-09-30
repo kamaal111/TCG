@@ -19,7 +19,7 @@
 | `server/src/db/`, `server/drizzle/`   | Drizzle schemas/database connection and committed migrations                       |
 | `server/src/logging/`, `exceptions/`  | Request/domain logging and error response handling                                 |
 | `server/src/tests/`                   | Integration fixtures and Testcontainers setup                                      |
-| `scripts/`, `oxlint-plugins/`         | Worktree/version tooling, simulator lock, and custom lint rules                    |
+| `scripts/`                            | Worktree/version tooling and simulator lock                                        |
 | `.github/`, `.devcontainer/`          | CI and containerized development                                                   |
 | `Dockerfile`, `.dockerignore`         | Production server image and its build context                                      |
 

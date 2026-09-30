@@ -147,7 +147,7 @@ ready-server: quality-server test-server test-server-image
 
 # Run tests
 [parallel]
-test: test-server test-server-image test-app test-oxlint-plugins test-herdr-worktree test-check-versions-in-sync
+test: test-server test-server-image test-app test-herdr-worktree test-check-versions-in-sync
 
 # Run heavy tests
 test-heavy: test
@@ -255,10 +255,6 @@ test-server-image: build-server-image
     docker logs "$container"
     exit 1
 
-# Run custom oxlint plugin tests
-test-oxlint-plugins:
-    {{ PNR }} test
-
 # Test Herdr worktree environment setup
 test-herdr-worktree:
     node --test scripts/create-herdr-worktree.test.ts
@@ -291,16 +287,12 @@ quality-server: check-spec format-check-js lint-js typecheck-server
 
 # Typecheck project
 [parallel]
-typecheck: typecheck-server typecheck-oxlint-plugins typecheck-scripts
+typecheck: typecheck-server typecheck-scripts
 
 # Typecheck server code
 [working-directory("server")]
 typecheck-server:
     {{ PNR }} typecheck
-
-# Typecheck custom oxlint plugins
-typecheck-oxlint-plugins:
-    {{ PNX }} tsc -p tsconfig.oxlint-plugins.json
 
 # Typecheck repository scripts
 typecheck-scripts:

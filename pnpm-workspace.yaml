@@ -4,5 +4,4 @@ allowBuilds:
   protobufjs: false
   ssh2: false
 minimumReleaseAgeExclude:
-  - '@kamaalio/kamaal-auth-core@0.0.13'
-  - '@kamaalio/kamaal-auth-hono@0.0.13'
+  - '@kamaal111/kamaal-quality-config@0.2.1'
