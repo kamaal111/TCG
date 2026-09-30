@@ -1,0 +1,21 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "About" : {
+
+    },
+    "Settings" : {
+
+    },
+    "Sign Out" : {
+
+    },
+    "Sign out of TCG?" : {
+
+    },
+    "Version" : {
+
+    }
+  },
+  "version" : "1.3"
+}

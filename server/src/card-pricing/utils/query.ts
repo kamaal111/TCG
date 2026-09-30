@@ -14,7 +14,9 @@ export function buildSearchQuery(name: string, cardNumber: string): string {
 }
 
 export function queryKey(game: CardGame, query: string): string {
-  return `${game}|${normalizeName(query).toLowerCase()}`;
+  const version = game === 'pokemon' ? 'v2|' : '';
+
+  return `${game}|${version}${normalizeName(query).toLowerCase()}`;
 }
 
 export function todayUTC(): string {

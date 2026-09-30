@@ -139,7 +139,7 @@ heavy: quality test-heavy
 
 # Run all verification checks for app
 [parallel]
-ready-app: quality-app test-app
+ready-app: quality-app test-app test-localization-check
 
 # Run all verification checks for server
 [parallel]
@@ -147,13 +147,23 @@ ready-server: quality-server test-server test-server-image
 
 # Run tests
 [parallel]
-test: test-server test-server-image test-app test-herdr-worktree test-check-versions-in-sync
+test: test-server test-server-image test-app test-herdr-worktree test-check-versions-in-sync test-localization-check
 
 # Run heavy tests
 test-heavy: test
 
 # Run app tests on macOS and iOS
 test-app: test-app-macos test-app-ios
+    just check-localizations macos
+    just check-localizations ios
+
+# Check compiled localization keys against committed catalogs; run platform tests first
+check-localizations platform:
+    node scripts/check-localizations.ts {{ platform }}
+
+# Test localization coverage checks with isolated compiler-output fixtures
+test-localization-check:
+    node --test scripts/check-localizations.test.ts
 
 # Run app tests on macOS
 [working-directory("app")]
@@ -163,7 +173,8 @@ test-app-macos:
         -scheme "{{ APP_SCHEME }}" \
         -destination "platform=macOS" \
         test \
-        CODE_SIGNING_ALLOWED={{ APP_CODE_SIGNING_ALLOWED }}
+        CODE_SIGNING_ALLOWED={{ APP_CODE_SIGNING_ALLOWED }} \
+        SWIFT_EMIT_LOC_STRINGS=YES
 
 # Run app tests on iOS
 [working-directory("app")]
@@ -173,7 +184,8 @@ test-app-ios:
         -scheme "{{ APP_SCHEME }}" \
         -destination "{{ APP_IOS_TEST_DESTINATION }}" \
         test \
-        CODE_SIGNING_ALLOWED={{ APP_CODE_SIGNING_ALLOWED }}
+        CODE_SIGNING_ALLOWED={{ APP_CODE_SIGNING_ALLOWED }} \
+        SWIFT_EMIT_LOC_STRINGS=YES
 
 # Run macOS screen snapshot tests
 [working-directory("app")]
@@ -189,7 +201,8 @@ test-snapshots-macos:
         -only-testing:TCGSettingsTests/TCGSettingsScreenSnapshotTests \
         -only-testing:TCGDesignSystemTests/CardImageViewSnapshotTests \
         test \
-        CODE_SIGNING_ALLOWED={{ APP_CODE_SIGNING_ALLOWED }}
+        CODE_SIGNING_ALLOWED={{ APP_CODE_SIGNING_ALLOWED }} \
+        SWIFT_EMIT_LOC_STRINGS=YES
 
 # Run iOS screen snapshot tests
 [working-directory("app")]
@@ -207,7 +220,8 @@ test-snapshots-ios *args:
         -only-testing:TCGDesignSystemTests/CardImageViewSnapshotTests \
         "$@" \
         test \
-        CODE_SIGNING_ALLOWED={{ APP_CODE_SIGNING_ALLOWED }}
+        CODE_SIGNING_ALLOWED={{ APP_CODE_SIGNING_ALLOWED }} \
+        SWIFT_EMIT_LOC_STRINGS=YES
 
 # Run screen snapshot tests on macOS and iOS
 test-snapshots: test-snapshots-macos test-snapshots-ios
@@ -284,6 +298,10 @@ quality-app: format-check-app
 # Quality checks for server
 [parallel]
 quality-server: check-spec format-check-js lint-js typecheck-server
+
+# Quality checks for tools
+[parallel]
+quality-tools: typecheck-scripts lint-js format-check-js
 
 # Typecheck project
 [parallel]

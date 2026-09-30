@@ -43,10 +43,10 @@ while IFS= read -r -d '' file; do
     if matches_any "$file" "${BOTH[@]}"; then
         server=true
         app=true
-    elif matches_any "$file" "${SERVER[@]}"; then
-        server=true
     elif matches_any "$file" "${APP[@]}"; then
         app=true
+    elif matches_any "$file" "${SERVER[@]}"; then
+        server=true
     fi
 done < "$changed_file_list"
 

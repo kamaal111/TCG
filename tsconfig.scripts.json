@@ -13,6 +13,8 @@
   },
   "include": [
     "scripts/build-server-image.ts",
+    "scripts/check-localizations.ts",
+    "scripts/check-localizations.test.ts",
     "scripts/create-herdr-worktree.ts",
     "scripts/create-herdr-worktree.test.ts",
     "scripts/check-versions-in-sync.ts",

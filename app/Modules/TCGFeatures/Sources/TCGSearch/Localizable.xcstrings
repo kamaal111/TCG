@@ -1,0 +1,112 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "%@ • %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ • %2$@"
+          }
+        }
+      }
+    },
+    "30d %@" : {
+
+    },
+    "7d %@" : {
+
+    },
+    "A full set ID targets that expansion. The _ja suffix identifies a Japanese set." : {
+
+    },
+    "Add a card number to narrow your search." : {
+
+    },
+    "Card name" : {
+
+    },
+    "Card name or number" : {
+
+    },
+    "Card name or set + number" : {
+
+    },
+    "Card number" : {
+
+    },
+    "Card search" : {
+
+    },
+    "Clear search" : {
+
+    },
+    "Combine a name and card number to narrow your search." : {
+
+    },
+    "Done" : {
+
+    },
+    "English and Japanese cards are searched together. English names can also match translated names when available." : {
+
+    },
+    "Enter a card name or full card number to see current market pricing." : {
+
+    },
+    "Enter a card name, number, or set + number to see current market pricing." : {
+
+    },
+    "Enter at least two characters to search." : {
+
+    },
+    "Exact set ID + card number" : {
+
+    },
+    "How to search" : {
+
+    },
+    "Market %@" : {
+
+    },
+    "Name + card number" : {
+
+    },
+    "No match" : {
+
+    },
+    "No price" : {
+
+    },
+    "Search by a name in any supported language." : {
+
+    },
+    "Search cards" : {
+
+    },
+    "Search error" : {
+
+    },
+    "Searching…" : {
+
+    },
+    "Set + printed number" : {
+
+    },
+    "The server is unavailable. Please try again." : {
+
+    },
+    "Try a card number, like OP14-069, or a name and card number, like Nami OP01-016." : {
+
+    },
+    "Try a name and card number, like Charizard ex 199, or a set and printed number, like sv5m 072/071." : {
+
+    },
+    "Use the full card number printed on the card." : {
+
+    },
+    "Use the set code and the full number printed on the card, including leading zeros and the total." : {
+
+    }
+  },
+  "version" : "1.0"
+}

@@ -102,6 +102,21 @@ jobs:
       - name: Check out code
         uses: actions/checkout@v7
 
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 12.5.1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
       - name: Set up just
         uses: extractions/setup-just@v4
 
@@ -113,11 +128,19 @@ jobs:
       - name: Show Xcode version
         run: xcodebuild -version
 
+      - name: Run localization tooling quality checks
+        run: just quality-tools
+
       - name: Run app quality checks
         run: just quality-app
 
       - name: Run macOS app tests
         run: just test-app-macos
+
+      - name: Verify macOS localization coverage
+        run: |
+          just test-localization-check
+          just check-localizations macos
 
       - name: Collect failed snapshots
         if: failure()
@@ -145,6 +168,11 @@ jobs:
       - name: Check out code
         uses: actions/checkout@v7
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: .node-version
+
       - name: Set up just
         uses: extractions/setup-just@v4
 
@@ -160,6 +188,9 @@ jobs:
 
       - name: Run iOS snapshots
         run: just test-snapshots-ios -resultBundlePath "$RUNNER_TEMP/ios-snapshots.xcresult"
+
+      - name: Verify iOS localization coverage
+        run: just check-localizations ios
 
       - name: Collect failed snapshots
         if: failure()

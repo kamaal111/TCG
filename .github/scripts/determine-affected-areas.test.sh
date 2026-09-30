@@ -48,6 +48,9 @@ run_pull_request_case .dockerignore true false
 run_pull_request_case app/Modules/TCGClient/ci-test.swift false true
 run_pull_request_case .github/workflows/ci.yml true true
 run_pull_request_case mise.toml true true
+run_pull_request_case scripts/check-localizations.ts false true
+run_pull_request_case scripts/check-localizations.test.ts false true
+run_pull_request_case scripts/check-versions-in-sync.ts true false
 run_pull_request_case docs/ci.md false false
 
 git switch -q main

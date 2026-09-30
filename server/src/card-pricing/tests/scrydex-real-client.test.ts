@@ -54,7 +54,7 @@ describe('RealScrydexClient', () => {
     });
   });
 
-  it('uses the English Pokémon endpoint and encoded query', async () => {
+  it('uses the multilingual Pokémon endpoint and encoded query', async () => {
     const requestedURLs: string[] = [];
 
     const client = makeClient(async input => {
@@ -67,8 +67,24 @@ describe('RealScrydexClient', () => {
     assert(result.isOk());
 
     const requestURL = new URL(requestedURLs[0] ?? 'invalid:');
-    expect(requestURL.pathname).toBe('/pokemon/v1/en/cards');
+    expect(requestURL.pathname).toBe('/pokemon/v1/cards');
     expect(requestURL.searchParams.get('q')).toBe('name:"Charizard ex" AND !number:199');
+  });
+
+  it('looks up Japanese provider identities through the multilingual endpoint', async () => {
+    const requestedURLs: string[] = [];
+
+    const client = makeClient(async input => {
+      requestedURLs.push(stringifyRequestURL(input));
+
+      return jsonResponse({ id: 'sv5m_ja-72', name: 'ダーテング', number: '72', printed_number: '072/071' });
+    });
+
+    const result = await client.getCardById('pokemon', 'sv5m_ja-72');
+    assert(result.isOk());
+
+    expect(new URL(requestedURLs[0] ?? 'invalid:').pathname).toBe('/pokemon/v1/cards/sv5m_ja-72');
+    expect(result.value?.card).toEqual({ id: 'sv5m_ja-72', name: 'ダーテング', cardNumber: '072/071', pricing: {} });
   });
 
   it('returns null for a missing provider card', async () => {

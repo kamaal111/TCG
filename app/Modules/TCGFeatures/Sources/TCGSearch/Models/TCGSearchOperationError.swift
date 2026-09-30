@@ -11,8 +11,8 @@ enum TCGSearchOperationError: LocalizedError, Equatable {
 
     var errorDescription: String {
         switch self {
-        case .invalidQuery: String(localized: "Enter at least two characters to search.")
-        case .serverUnavailable: String(localized: "The server is unavailable. Please try again.")
+        case .invalidQuery: String(localized: "Enter at least two characters to search.", bundle: .module)
+        case .serverUnavailable: String(localized: "The server is unavailable. Please try again.", bundle: .module)
         }
     }
 }

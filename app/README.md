@@ -116,3 +116,29 @@ Snapshots live under each suite's `__Snapshots__` directory. Review both actual
 and reference images before recording new baselines. See
 [snapshot failure handling](../docs/development.md#snapshot-failures) and the
 [repository snapshot skill](../.agents/skills/swift-snapshot-testing/SKILL.md).
+
+## Localization coverage
+
+CI runs `just check-localizations macos` after the macOS tests and
+`just check-localizations ios` after the iOS snapshots. `just ready-app` runs both
+checks too. The checks compare the Swift compiler's `.stringsdata` output with
+the committed catalogs in each source module. A missing catalog, missing key, or
+missing compiler extraction fails the check with the affected path. When a
+non-source language appears in an app catalog, every extracted translatable key
+must have a completed translation in that language, including plural variants.
+English source keys can use their normal catalog fallback values.
+
+Use localized SwiftUI APIs or `String(localized:)` for user-facing text. Select
+the package's `.module` bundle when looking up its catalog. Keep game-dependent
+text as explicit `LocalizedStringKey` values so the compiler extracts both
+branches; use `Text(verbatim:)` for literal search examples. The check covers
+compiler-extracted localization keys: it cannot infer whether an arbitrary
+runtime `String` should have been localized or verify the selected bundle.
+
+Manage catalogs through Xcode's String Catalog editor or `xcrun xcstringstool
+sync`, using the target's compiler-generated `.stringsdata` files from both
+macOS and iOS. Create a catalog in a new module before syncing its strings.
+Run the matching platform tests before a standalone coverage check so extraction
+reflects the current source. CI checks both platforms to cover conditional text
+such as iOS sheet buttons. Checker regression tests run with
+`just test-localization-check` and need only Node.js (using the repository's `.node-version`); they also run in the Linux devcontainer without Xcode.
