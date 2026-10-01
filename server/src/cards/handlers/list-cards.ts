@@ -1,4 +1,4 @@
-import { arrays } from '@kamaalio/kamaal';
+import { zip } from '@kamaalio/kamaal/arrays';
 import type { z } from 'zod';
 
 import { APP_API_ROUTE_NAME } from '../../constants/common.ts';
@@ -28,7 +28,7 @@ async function listCardsHandler(c: ListCardsContext): Promise<ListCardsRouteResp
     : [];
 
   const response = CardsListResponseSchema.parse({
-    cards: arrays.zip(cards, [...prices], true).flatMap(([card, price]) => [serializeCardWithPrice(card, price)]),
+    cards: zip(cards, [...prices], true).flatMap(([card, price]) => [serializeCardWithPrice(card, price)]),
   });
 
   cardsLogger(c).info(

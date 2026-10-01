@@ -185,8 +185,8 @@ importers:
         specifier: ^0.0.20
         version: 0.0.20(@standard-schema/spec@1.1.0)(hono@4.13.7)
       '@kamaalio/kamaal':
-        specifier: ~0.9.11
-        version: 0.9.11
+        specifier: ~0.13.0
+        version: 0.13.0
       '@kamaalio/kamaal-auth-hono':
         specifier: ~0.0.13
         version: 0.0.13(@kamaalio/hono-standard-openapi@0.0.20(@standard-schema/spec@1.1.0)(hono@4.13.7))(hono@4.13.7)(jose@6.2.12)
@@ -929,8 +929,8 @@ packages:
       '@kamaalio/hono-standard-openapi': '>=0.0.12'
       hono: ^4.12.31
 
-  '@kamaalio/kamaal@0.9.11':
-    resolution: {integrity: sha512-zTzGxaPEpaR+vh3D6ck7jHtmg+KAxJ+IjYWDmzcEbavAa28PUR5c/UvOh16WWWWHbBtWoj0XFRdDAtwW05SV7Q==}
+  '@kamaalio/kamaal@0.13.0':
+    resolution: {integrity: sha512-RHhWL07aJ6jm/gsGE/22UqsK/dd3Hf1YNLe9HGuqVsWxkwKPtNGzS89Hf/IJwCGIcPk1RGnfp5xATF7H0ylxCQ==}
     engines: {node: '>=21'}
 
   '@kwsites/file-exists@1.1.1':
@@ -4469,7 +4469,7 @@ snapshots:
     transitivePeerDependencies:
       - jose
 
-  '@kamaalio/kamaal@0.9.11': {}
+  '@kamaalio/kamaal@0.13.0': {}
 
   '@kwsites/file-exists@1.1.1(supports-color@7.2.0)':
     dependencies:
