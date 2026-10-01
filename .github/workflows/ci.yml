@@ -86,9 +86,7 @@ jobs:
         run: just test-server-image
 
       - name: Run repository tooling tests
-        run: |
-          just test-herdr-worktree
-          just test-check-versions-in-sync
+        run: just test-scripts
 
   app-macos:
     name: macOS app checks

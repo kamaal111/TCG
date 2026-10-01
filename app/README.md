@@ -141,4 +141,5 @@ macOS and iOS. Create a catalog in a new module before syncing its strings.
 Run the matching platform tests before a standalone coverage check so extraction
 reflects the current source. CI checks both platforms to cover conditional text
 such as iOS sheet buttons. Checker regression tests run with
-`just test-localization-check` and need only Node.js (using the repository's `.node-version`); they also run in the Linux devcontainer without Xcode.
+`just test-localization-check` and need Node.js (using the repository's `.node-version`) and installed
+pnpm dependencies. They use Vitest and also run in the Linux devcontainer without Xcode.

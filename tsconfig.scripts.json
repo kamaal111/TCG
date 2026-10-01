@@ -12,6 +12,7 @@
     "noUnusedParameters": true
   },
   "include": [
+    "vitest.config.ts",
     "scripts/build-server-image.ts",
     "scripts/check-localizations.ts",
     "scripts/check-localizations.test.ts",

@@ -161,18 +161,33 @@ aggregate last: `just ready-server` for server-only changes, `just ready-app` fo
 app-only changes, or `just ready` for both. Documentation-only changes may skip
 these aggregates.
 
-| Recipe                                                 | Coverage                                                                                                      |
-| ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------- |
-| `just quality`                                         | OpenAPI freshness, version synchronization, formatting, lint, and TypeScript checks                           |
-| `just quality-server`                                  | Server OpenAPI, JS formatting/lint, and server typecheck                                                      |
-| `just quality-app`                                     | Strict Swift formatting                                                                                       |
-| `just lint`, `just format-check`, `just typecheck`     | Narrower checks during iteration                                                                              |
-| `just test-server`                                     | Vitest; real PostgreSQL and Garage started by Testcontainers                                                  |
-| `just test-server-image`                               | Production Docker build and isolated liveness/runtime smoke test                                              |
-| `just test-app-macos`, `just test-app-ios`             | Xcode scheme tests on each platform                                                                           |
-| `just test-snapshots-macos`, `just test-snapshots-ios` | Screen and image-view snapshot suites                                                                         |
-| `just test`                                            | Server and image smoke test, both app platforms, custom lint plugins, worktree setup, and version-check tests |
-| `just format`                                          | Apply JS and Swift formatting                                                                                 |
+| Recipe                                                 | Coverage                                                                            |
+| ------------------------------------------------------ | ----------------------------------------------------------------------------------- |
+| `just quality`                                         | OpenAPI freshness, version synchronization, formatting, lint, and TypeScript checks |
+| `just quality-server`                                  | Server OpenAPI, JS formatting/lint, and server typecheck                            |
+| `just quality-app`                                     | Strict Swift formatting                                                             |
+| `just lint`, `just format-check`, `just typecheck`     | Narrower checks during iteration                                                    |
+| `just test-server`                                     | Vitest; real PostgreSQL and Garage started by Testcontainers                        |
+| `just test-server-image`                               | Production Docker build and isolated liveness/runtime smoke test                    |
+| `just test-app-macos`, `just test-app-ios`             | Xcode scheme tests on each platform                                                 |
+| `just test-snapshots-macos`, `just test-snapshots-ios` | Screen and image-view snapshot suites                                               |
+| `just test`                                            | Server and image smoke test, both app platforms, and repository script tests        |
+| `just format`                                          | Apply JS and Swift formatting                                                       |
+
+Repository script tests use Vitest without Docker or Xcode after installing
+workspace dependencies:
+
+```sh
+just test-scripts                  # all script suites (also pnpm test)
+just test-herdr-worktree           # worktree environment tests
+just test-check-versions-in-sync   # version synchronization tests
+just test-localization-check      # localization checker and CLI tests
+pnpm test scripts/check-localizations.test.ts  # filter by file
+pnpm test:watch                   # watch script tests
+```
+
+Root Vitest commands discover only `scripts/**/*.test.ts`; server tests keep
+their separate configuration and setup.
 
 Server tests create isolated databases and buckets via shared test fixtures and
 unset live Scrydex credentials. They need a working Docker daemon, but do not need

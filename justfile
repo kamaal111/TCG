@@ -147,7 +147,7 @@ ready-server: quality-server test-server test-server-image
 
 # Run tests
 [parallel]
-test: test-server test-server-image test-app test-herdr-worktree test-check-versions-in-sync test-localization-check
+test: test-server test-server-image test-app test-scripts
 
 # Run heavy tests
 test-heavy: test
@@ -163,7 +163,7 @@ check-localizations platform:
 
 # Test localization coverage checks with isolated compiler-output fixtures
 test-localization-check:
-    node --test scripts/check-localizations.test.ts
+    {{ PNR }} test scripts/check-localizations.test.ts
 
 # Run app tests on macOS
 [working-directory("app")]
@@ -269,13 +269,17 @@ test-server-image: build-server-image
     docker logs "$container"
     exit 1
 
+# Run repository script tests with Vitest
+test-scripts:
+    {{ PNR }} test
+
 # Test Herdr worktree environment setup
 test-herdr-worktree:
-    node --test scripts/create-herdr-worktree.test.ts
+    {{ PNR }} test scripts/create-herdr-worktree.test.ts
 
 # Run tests for the version-sync check script
 test-check-versions-in-sync:
-    node --test scripts/check-versions-in-sync.test.ts
+    {{ PNR }} test scripts/check-versions-in-sync.test.ts
 
 # Log available app destinations
 [working-directory("app")]
