@@ -13,6 +13,7 @@ let package = Package(
         .library(name: "TCGSettings", targets: ["TCGSettings"]),
     ],
     dependencies: [
+        .package(url: "https://github.com/gonzalezreal/textual", .upToNextMinor(from: "0.5.0")),
         .package(url: "https://github.com/Kamaalio/KamaalSwift", .upToNextMajor(from: "3.5.0")),
         .package(url: "https://github.com/apple/swift-http-types", .upToNextMajor(from: "1.7.0")),
         .package(url: "https://github.com/apple/swift-openapi-runtime", .upToNextMajor(from: "1.12.1")),
@@ -42,11 +43,13 @@ let package = Package(
         .target(
             name: "TCGSearch",
             dependencies: [
+                .product(name: "Textual", package: "textual"),
                 .product(name: "KamaalLogger", package: "KamaalSwift"),
                 .product(name: "TCGDesignSystem", package: "TCGDesignSystem"),
                 "TCGClient",
                 "TCGModels",
             ],
+            resources: [.process("Resources")],
             swiftSettings: [
                 .enableUpcomingFeature("ApproachableConcurrency"),
                 .treatAllWarnings(as: .error),

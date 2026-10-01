@@ -1,10 +1,15 @@
 import SwiftUI
 import TCGClient
+import Textual
 
 struct TCGSearchHelpView: View {
     @Environment(\.dismiss) private var dismiss
 
-    let game: ClientCardGame
+    private let document: Result<String, TCGSearchHelpDocument.LoadError>
+
+    init(game: ClientCardGame) {
+        document = TCGSearchHelpDocument.load(game: game)
+    }
 
     @ViewBuilder
     var body: some View {
@@ -41,14 +46,24 @@ struct TCGSearchHelpView: View {
                         .accessibilityAddTraits(.isHeader)
                 #endif
 
-                if game == .pokemon {
-                    TCGPokemonSearchHelpView()
-                } else {
-                    TCGOnePieceSearchHelpView()
+                switch document {
+                case .success(let markdown):
+                    StructuredText(markdown: markdown)
+                        .textual.headingStyle(SearchHelpHeadingStyle())
+                        .textual.textSelection(.enabled)
+                case .failure:
+                    Text("Search help could not be loaded.", bundle: .module)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(24)
         }
+    }
+}
+
+private struct SearchHelpHeadingStyle: StructuredText.HeadingStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        StructuredText.DefaultHeadingStyle.default.makeBody(configuration: configuration)
+            .accessibilityAddTraits(.isHeader)
     }
 }

@@ -119,6 +119,22 @@ and reference images before recording new baselines. See
 
 ## Localization coverage
 
+### Search help Markdown
+
+Edit the search help documents in
+`Modules/TCGFeatures/Sources/TCGSearch/Resources/en.lproj/`. The Pokémon and
+One Piece documents are the source of the help layout: use Markdown headings,
+paragraphs, lists, and fenced code blocks for selectable search examples.
+They render locally on both macOS and iOS without fetching content.
+
+To translate a document, add a file with the same name under
+`Resources/<language>.lproj/`. Bundle localization selects the translated
+document and falls back to English when it is unavailable. Markdown document
+content is localized through these resources rather than the string catalog;
+the help title, dismissal button, and error message remain in the catalog.
+
+### String catalogs
+
 CI runs `just check-localizations macos` after the macOS tests and
 `just check-localizations ios` after the iOS snapshots. `just ready-app` runs both
 checks too. The checks compare the Swift compiler's `.stringsdata` output with
