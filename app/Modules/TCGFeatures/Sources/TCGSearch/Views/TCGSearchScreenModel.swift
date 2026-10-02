@@ -23,8 +23,9 @@ final class TCGSearchScreenModel {
 
     @ObservationIgnored private let preferences: UserDefaults?
 
-    init(preferences: UserDefaults? = .standard) {
+    init(preferences: UserDefaults? = .standard, debounce: Duration = ModuleConfig.searchDebounce) {
         self.preferences = preferences
+        self.debounce = debounce
         languages = loadLanguages(for: game)
     }
 
@@ -58,31 +59,119 @@ final class TCGSearchScreenModel {
     @ObservationIgnored private var searchTask: Task<Void, Never>?
     @ObservationIgnored private var toastTask: Task<Void, Never>?
 
-    func scheduleSearch(using search: TCGSearch) {
-        searchTask?.cancel()
-        let normalizedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard normalizedQuery.count >= 2 else {
-            search.clear()
+    var isSearchFocused = false
+
+    @ObservationIgnored private var candidate: (query: String, game: ClientCardGame)?
+    @ObservationIgnored private var revision = UUID()
+    @ObservationIgnored private let debounce: Duration
+
+    func updateQuery(_ value: String, using search: TCGSearch) {
+        let previousQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        let normalizedQuery = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        if previousQuery == normalizedQuery {
+            query = value
             return
         }
+        if value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            finishEditing(using: search)
+        }
+        query = value
+        scheduleSearch(using: search)
+    }
 
-        let request = SearchRequest(game: game, query: normalizedQuery, languages: languages)
+    func updateGame(_ value: ClientCardGame, using search: TCGSearch) {
+        guard value != game else { return }
+        finishEditing(using: search)
+        game = value
+        scheduleSearch(using: search)
+    }
+
+    func updateLanguages(_ value: Set<ClientCardLanguage>, using search: TCGSearch) {
+        if ClientCardLanguage.normalized(value, for: game) == ClientCardLanguage.normalized(languages, for: game) {
+            if value != languages { languages = value }
+            return
+        }
+        finishEditing(using: search)
+        languages = value
+        scheduleSearch(using: search)
+    }
+
+    func resumeSearchIfNeeded(using search: TCGSearch) {
+        guard !search.hasSearched else { return }
+        guard !search.isSearching else { return }
+        scheduleSearch(using: search)
+    }
+
+    func scheduleSearch(using search: TCGSearch) {
+        invalidateSearch(using: search)
+        let normalizedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard normalizedQuery.count >= 2 else { return }
+
+        let request = SearchRequest(
+            game: game, query: normalizedQuery, languages: languages, revision: revision, recordImmediately: false
+        )
         searchTask = Task {
-            try? await Task.sleep(for: ModuleConfig.searchDebounce)
+            try? await Task.sleep(for: debounce)
             guard !Task.isCancelled else { return }
             await performSearch(request, using: search)
         }
     }
 
     func performSearch(using search: TCGSearch) async {
+        invalidateSearch(using: search)
+        let normalizedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard normalizedQuery.count >= 2 else { return }
+        let request = SearchRequest(
+            game: game, query: normalizedQuery, languages: languages, revision: revision, recordImmediately: true
+        )
+        await performSearch(request, using: search)
+    }
+
+    func selectHistory(_ entry: TCGSearchHistoryEntry, using search: TCGSearch) async {
+        finishEditing(using: search)
+        query = entry.query
+        if game != entry.game { game = entry.game }
+        isSearchFocused = false
+        await performSearch(using: search)
+    }
+
+    func finishEditing(using search: TCGSearch) {
+        if let candidate {
+            search.history.record(query: candidate.query, game: candidate.game)
+        }
+        candidate = nil
+        revision = UUID()
         searchTask?.cancel()
         searchTask = nil
-        let normalizedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard normalizedQuery.count >= 2 else {
-            search.clear()
-            return
+        // Invalidate responses still in flight without discarding the displayed cards.
+        search.cancel()
+    }
+
+    func removeHistory(_ entry: TCGSearchHistoryEntry, using search: TCGSearch) {
+        if let candidate {
+            if candidate.game == entry.game && candidate.query.caseInsensitiveCompare(entry.query) == .orderedSame {
+                self.candidate = nil
+            }
         }
-        await performSearch(SearchRequest(game: game, query: normalizedQuery, languages: languages), using: search)
+        search.history.remove(entry)
+    }
+
+    func clearHistory(using search: TCGSearch) {
+        candidate = nil
+        search.history.clear(game: game)
+    }
+
+    private func invalidateSearch(using search: TCGSearch) {
+        revision = UUID()
+        candidate = nil
+        searchTask?.cancel()
+        searchTask = nil
+        let identity = TCGSearch.SearchIdentity(game: game, query: query, languages: languages)
+        if identity.query.count < 2 || identity != search.completedSearch {
+            search.clear()
+        } else {
+            search.cancel()
+        }
     }
 
     func dismissToast() {
@@ -95,12 +184,27 @@ final class TCGSearchScreenModel {
         let game: ClientCardGame
         let query: String
         let languages: Set<ClientCardLanguage>
+        let revision: UUID
+        let recordImmediately: Bool
     }
 
     private func performSearch(_ request: SearchRequest, using search: TCGSearch) async {
-        switch await search.search(game: request.game, query: request.query, languages: request.languages) {
+        let result = await search.searchWithOutcome(
+            game: request.game, query: request.query, languages: request.languages
+        )
+        guard request.revision == revision else { return }
+        guard !Task.isCancelled else { return }
+        switch result {
         case .failure(let failure): show(failure)
-        case .success: dismissToast()
+        case .success(let applied):
+            guard applied else { return }
+            dismissToast()
+            guard !search.results.isEmpty else { return }
+            candidate = (request.query, request.game)
+            if request.recordImmediately {
+                search.history.record(query: request.query, game: request.game)
+                candidate = nil
+            }
         }
     }
 

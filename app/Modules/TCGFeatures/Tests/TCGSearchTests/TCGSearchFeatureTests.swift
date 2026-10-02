@@ -16,8 +16,23 @@ import Testing
 @MainActor
 struct TCGSearchFeatureTests {
     @Test
+    func `Completed search identity is normalized retained on cancellation and reset on clearing`() async throws {
+        let feature = TCGSearch(client: .preview(pricingOutcome: .success), history: TCGSearchHistoryStore())
+        try await feature.search(game: .pokemon, query: "  Giratina  ", languages: [.english, .japanese]).get()
+        let identity = TCGSearch.SearchIdentity(game: .pokemon, query: "Giratina", languages: [])
+        #expect(feature.completedSearch == identity)
+        feature.cancel()
+        #expect(feature.completedSearch == identity)
+        #expect(feature.hasSearched)
+        feature.clear()
+        #expect(feature.completedSearch == nil)
+        #expect(!feature.hasSearched)
+        #expect(feature.results.isEmpty)
+    }
+
+    @Test
     func `Search populates matching priced cards`() async throws {
-        let feature = TCGSearch(client: .preview(pricingOutcome: .success))
+        let feature = TCGSearch(client: .preview(pricingOutcome: .success), history: TCGSearchHistoryStore())
 
         try await feature.search(game: .pokemon, query: "Giratina").get()
 
@@ -27,7 +42,7 @@ struct TCGSearchFeatureTests {
 
     @Test
     func `No results clears matches and records that a search happened`() async throws {
-        let feature = TCGSearch(client: .preview(pricingOutcome: .noResults))
+        let feature = TCGSearch(client: .preview(pricingOutcome: .noResults), history: TCGSearchHistoryStore())
 
         try await feature.search(game: .onePiece, query: "Missing").get()
 
@@ -37,7 +52,7 @@ struct TCGSearchFeatureTests {
 
     @Test
     func `Server unavailable maps to a feature error`() async {
-        let feature = TCGSearch(client: .preview(pricingOutcome: .serverUnavailable))
+        let feature = TCGSearch(client: .preview(pricingOutcome: .serverUnavailable), history: TCGSearchHistoryStore())
 
         await #expect(throws: TCGSearchOperationError.serverUnavailable) {
             try await feature.search(game: .pokemon, query: "Giratina").get()
@@ -52,7 +67,7 @@ struct TCGSearchFeatureTests {
             credentialsKeychainKey: "language-pricing-test-credentials",
             credentialsStore: InMemoryCredentialsStore()
         )
-        let feature = TCGSearch(client: client)
+        let feature = TCGSearch(client: client, history: TCGSearchHistoryStore())
         let first = Task { await feature.search(game: .pokemon, query: "Shiftry", languages: [.japanese]) }
         await transport.waitUntilStarted()
         try await feature.search(game: .pokemon, query: "Shiftry", languages: [.english]).get()
@@ -62,6 +77,9 @@ struct TCGSearchFeatureTests {
         #expect(feature.hasSearched)
         #expect(!feature.isSearching)
         #expect(feature.results.isEmpty)
+        #expect(
+            feature.completedSearch == TCGSearch.SearchIdentity(game: .pokemon, query: "Shiftry", languages: [.english])
+        )
         #expect(
             await transport.paths == [
                 "/app-api/pricing/search?languages=ja&game=pokemon&query=Shiftry",
@@ -77,7 +95,7 @@ struct TCGSearchFeatureTests {
             credentialsKeychainKey: "cancelled-pricing-test-credentials",
             credentialsStore: InMemoryCredentialsStore()
         )
-        let feature = TCGSearch(client: client)
+        let feature = TCGSearch(client: client, history: TCGSearchHistoryStore())
         let task = Task { await feature.search(game: .pokemon, query: "Pikachu") }
         await transport.waitUntilStarted()
 
