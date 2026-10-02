@@ -11,7 +11,13 @@
         }
       }
     },
+    "30-day change" : {
+
+    },
     "30d %@" : {
+
+    },
+    "7-day change" : {
 
     },
     "7d %@" : {
@@ -23,16 +29,28 @@
     "Add %@ to collection" : {
 
     },
+    "Card details" : {
+
+    },
     "Card name or number" : {
 
     },
     "Card name or set + number" : {
 
     },
+    "Card number" : {
+
+    },
     "Card search" : {
 
     },
     "Clear search" : {
+
+    },
+    "Condition" : {
+
+    },
+    "Details for %@" : {
 
     },
     "Done" : {
@@ -47,7 +65,25 @@
     "Enter at least two characters to search." : {
 
     },
+    "Explore image of %@" : {
+
+    },
+    "Game" : {
+
+    },
     "How to search" : {
+
+    },
+    "Last fetched" : {
+
+    },
+    "Low" : {
+
+    },
+    "Lowest Near Mint" : {
+
+    },
+    "Market" : {
 
     },
     "Market %@" : {
@@ -57,6 +93,15 @@
 
     },
     "No price" : {
+
+    },
+    "Pricing" : {
+
+    },
+    "Pricing date" : {
+
+    },
+    "Rarity" : {
 
     },
     "Search cards" : {

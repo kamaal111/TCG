@@ -9,33 +9,31 @@ import TCGDesignSystem
 
 struct PricedCardRow: View {
     let card: PricedCard
-    let onAdd: () -> Void
+    let actions: Actions
+
+    struct Actions {
+        let add: () -> Void
+        let showDetails: () -> Void
+        let exploreImage: () -> Void
+    }
 
     var body: some View {
         HStack(alignment: .top, spacing: 16) {
-            CardImageView(url: card.imageURL)
-            VStack(alignment: .leading, spacing: 5) {
-                Text(card.name).font(.headline)
-                Text("\(card.rarity ?? card.game.title) • \(card.cardNumber)", bundle: .module)
-                    .foregroundStyle(.secondary)
-                marketDetails
+            Button(action: actions.exploreImage) {
+                CardImageView(url: card.imageURL)
             }
-            Spacer(minLength: 12)
+            .buttonStyle(.plain)
+            .disabled(card.imageURL == nil)
+            .accessibilityLabel(Text("Explore image of \(card.name)", bundle: .module))
             VStack(alignment: .trailing, spacing: 8) {
-                if let headline = card.headline {
-                    Text(headline.amount, format: .currency(code: headline.currency.rawValue))
-                        .font(.title3.weight(.semibold).monospacedDigit())
-                } else {
-                    Text("No price", bundle: .module).foregroundStyle(.secondary)
+                Button(action: actions.showDetails) {
+                    details
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .contentShape(Rectangle())
                 }
-                if let trend = card.market?.trend7d?.trend {
-                    Label(trend.title, systemImage: trend.systemImage)
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(TrendColor.color(for: trend))
-                        .labelStyle(.iconOnly)
-                        .accessibilityLabel(trend.title)
-                }
-                Button(action: onAdd) {
+                .buttonStyle(.plain)
+                .accessibilityLabel(Text("Details for \(card.name)", bundle: .module))
+                Button(action: actions.add) {
                     Label {
                         Text("Add", bundle: .module)
                     } icon: {
@@ -49,6 +47,34 @@ struct PricedCardRow: View {
             }
         }
         .padding(.vertical, 6)
+    }
+
+    private var details: some View {
+        HStack(alignment: .top, spacing: 16) {
+            VStack(alignment: .leading, spacing: 5) {
+                Text(card.name).font(.headline)
+                Text("\(card.rarity ?? card.game.title) • \(card.cardNumber)", bundle: .module)
+                    .foregroundStyle(.secondary)
+                marketDetails
+            }
+            Spacer(minLength: 12)
+            VStack(alignment: .trailing, spacing: 8) {
+                if let headline = card.headline {
+                    Text(headline.amount, format: .currency(code: headline.currency.rawValue))
+                        .font(.title3.weight(.semibold).monospacedDigit())
+                        .fixedSize(horizontal: true, vertical: false)
+                } else {
+                    Text("No price", bundle: .module).foregroundStyle(.secondary)
+                }
+                if let trend = card.market?.trend7d?.trend {
+                    Label(trend.title, systemImage: trend.systemImage)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(TrendColor.color(for: trend))
+                        .labelStyle(.iconOnly)
+                        .accessibilityLabel(trend.title)
+                }
+            }
+        }
         .contentShape(Rectangle())
     }
 

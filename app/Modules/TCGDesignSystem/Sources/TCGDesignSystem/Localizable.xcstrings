@@ -4,10 +4,40 @@
     "All games" : {
 
     },
+    "Card image" : {
+
+    },
+    "Close" : {
+
+    },
     "Error: %@" : {
 
     },
+    "Explore image" : {
+
+    },
     "Game" : {
+
+    },
+    "Image could not be loaded." : {
+
+    },
+    "Loading image…" : {
+
+    },
+    "No image available" : {
+
+    },
+    "Reset" : {
+
+    },
+    "Retry" : {
+
+    },
+    "Zoom in" : {
+
+    },
+    "Zoom out" : {
 
     }
   },

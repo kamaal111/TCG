@@ -24,6 +24,7 @@ let package = Package(
                 .product(name: "KamaalUI", package: "KamaalSwift"),
                 "TCGModels",
             ],
+            resources: [.process("Localizable.xcstrings")],
             swiftSettings: [
                 .enableUpcomingFeature("ApproachableConcurrency"),
                 .treatAllWarnings(as: .error),
