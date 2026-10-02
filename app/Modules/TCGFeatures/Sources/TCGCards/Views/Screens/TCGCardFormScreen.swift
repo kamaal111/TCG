@@ -10,17 +10,21 @@ import TCGClient
 import TCGDesignSystem
 import TCGModels
 
-struct TCGCardFormScreen: View {
+public struct TCGCardFormScreen: View {
     @Environment(TCGCards.self) private var cards
     @Environment(\.dismiss) private var dismiss
 
     @State private var model: TCGCardFormScreenModel
 
+    public init(pricedCard: PricedCard) {
+        _model = State(initialValue: TCGCardFormScreenModel(mode: .add, initialValues: .init(pricedCard: pricedCard)))
+    }
+
     init(model: TCGCardFormScreenModel) {
         _model = State(initialValue: model)
     }
 
-    var body: some View {
+    public var body: some View {
         ScrollView {
             VStack(spacing: 18) {
                 TCGGamePicker(selection: gameSelection)

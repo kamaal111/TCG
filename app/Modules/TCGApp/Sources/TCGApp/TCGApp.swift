@@ -31,7 +31,7 @@ public struct TCGScene: Scene {
                 NavigationStack { TCGCardsListScreen() }
                     .tabItem { Label("Collection", systemImage: "square.stack") }
 
-                NavigationStack { TCGSearchScreen() }
+                TCGSearchTab()
                     .tabItem { Label("Search", systemImage: "magnifyingglass") }
 
                 #if !os(macOS)
@@ -60,5 +60,29 @@ public struct TCGScene: Scene {
                 }
             }
         #endif
+    }
+}
+
+private struct TCGSearchTab: View {
+    @State private var selectedCard: PricedCard?
+
+    var body: some View {
+        NavigationStack {
+            TCGSearchScreen { selectedCard = $0 }
+        }
+        .sheet(item: $selectedCard) { card in
+            NavigationStack {
+                TCGCardFormScreen(pricedCard: card)
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button {
+                                selectedCard = nil
+                            } label: {
+                                Text("Cancel", bundle: .module)
+                            }
+                        }
+                    }
+            }
+        }
     }
 }

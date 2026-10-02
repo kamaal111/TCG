@@ -45,6 +45,10 @@ export function normalizeScrydexCard(game: CardGame, raw: ScrydexRawCard): Scryd
   const rarity = stringValue(raw.rarity);
   const pricing: NormalizedPricingCard['pricing'] = {};
 
+  if (raw.expansion?.name != null) {
+    pricing.setName = raw.expansion.name;
+  }
+
   if (market != null) {
     pricing.market = market;
   }

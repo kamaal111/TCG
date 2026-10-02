@@ -17,7 +17,7 @@ const SHIFTRY = {
   number: '72',
   printed_number: '072/071',
   language_code: 'JA',
-  expansion: { id: 'sv5m_ja', code: 'SV5M' },
+  expansion: { id: 'sv5m_ja', code: 'SV5M', name: '  Wild Force  ' },
   translation: { en: { name: 'Shiftry' } },
   variants: [{ name: 'holofoil', prices: [{ condition: 'NM', type: 'raw', currency: 'JPY', low: 800 }] }],
 } satisfies ScrydexRawCard;
@@ -39,7 +39,13 @@ describe('Scrydex search through the authenticated pricing API', () => {
 
       expect(response.status).toBe(200);
       expect(PricingSearchResponseSchema.parse(await response.json()).matches).toMatchObject([
-        { game: 'pokemon', name: 'ダーテング', card_number: '072/071', headline: { amount: 800, currency: 'JPY' } },
+        {
+          game: 'pokemon',
+          name: 'ダーテング',
+          set_name: 'Wild Force',
+          card_number: '072/071',
+          headline: { amount: 800, currency: 'JPY' },
+        },
       ]);
       expect(search.transport.queries).toEqual([SET_AND_PRINTED_NUMBER]);
       expect(search.transport.paths).toEqual(['/pokemon/v1/cards']);
@@ -47,7 +53,8 @@ describe('Scrydex search through the authenticated pricing API', () => {
         pricingSource: 'scrydex_real',
         name: 'ダーテング',
         cardNumber: '072/071',
-        raw: SHIFTRY,
+        prices: { setName: 'Wild Force' },
+        raw: { ...SHIFTRY, expansion: { ...SHIFTRY.expansion, name: 'Wild Force' } },
       });
       expect(
         await db.query.cardPriceSearch.findFirst({ where: { queryKey: queryKey('pokemon', 'sv5m 072/071') } }),
@@ -181,6 +188,7 @@ describe('Scrydex search through the authenticated pricing API', () => {
     const first = await search.request('sv5m 072/071');
     expect(first.status).toBe(200);
     const firstBody = PricingSearchResponseSchema.parse(await first.json());
+    expect(firstBody.matches[0]).toHaveProperty('set_name', 'Wild Force');
 
     const second = await search.request(' SV5M   072/071 ');
 

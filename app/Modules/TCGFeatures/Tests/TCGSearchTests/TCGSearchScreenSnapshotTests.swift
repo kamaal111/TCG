@@ -101,7 +101,7 @@ struct TCGSearchScreenSnapshotTests {
             #expect(!UIView.areAnimationsEnabled)
         #endif
 
-        return NavigationStack { TCGSearchScreen(model: model) }
+        return NavigationStack { TCGSearchScreen(model: model, onAdd: { _ in }) }
             .environment(feature)
             .cardImageLoader(PreviewCardImageLoader(outcome: .success))
     }

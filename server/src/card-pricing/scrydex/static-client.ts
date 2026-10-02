@@ -9,6 +9,7 @@ const CANNED_CARDS: Record<CardGame, ScrydexRawCard[]> = {
   [CARD_GAME_MAP.POKEMON]: [
     {
       id: 'crown-zenith-GG69',
+      expansion: { name: 'Crown Zenith' },
       name: 'Giratina VSTAR',
       number: 'GG69',
       rarity: 'Secret Rare',
@@ -34,6 +35,7 @@ const CANNED_CARDS: Record<CardGame, ScrydexRawCard[]> = {
     },
     {
       id: 'sv3pt5-199',
+      expansion: { name: '151' },
       name: 'Charizard ex',
       number: '199',
       rarity: 'Special Illustration Rare',
@@ -60,6 +62,7 @@ const CANNED_CARDS: Record<CardGame, ScrydexRawCard[]> = {
   [CARD_GAME_MAP.ONE_PIECE]: [
     {
       id: 'OP14-069',
+      expansion: { name: 'The Azure Sea’s Seven' },
       name: 'One Piece Card',
       number: '069',
       printed_number: 'OP14-069',
@@ -87,6 +90,7 @@ const CANNED_CARDS: Record<CardGame, ScrydexRawCard[]> = {
     },
     {
       id: 'OP09-093',
+      expansion: { name: 'Emperors in the New World' },
       name: 'Marshall.D.Teach',
       number: '093',
       printed_number: 'OP09-093',

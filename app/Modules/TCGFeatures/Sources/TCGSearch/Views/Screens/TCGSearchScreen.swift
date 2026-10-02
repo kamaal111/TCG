@@ -13,12 +13,16 @@ public struct TCGSearchScreen: View {
 
     @State private var model: TCGSearchScreenModel
 
-    public init() {
+    private let onAdd: (PricedCard) -> Void
+
+    public init(onAdd: @escaping (PricedCard) -> Void) {
         _model = State(initialValue: TCGSearchScreenModel())
+        self.onAdd = onAdd
     }
 
-    init(model: TCGSearchScreenModel) {
+    init(model: TCGSearchScreenModel, onAdd: @escaping (PricedCard) -> Void) {
         _model = State(initialValue: model)
+        self.onAdd = onAdd
     }
 
     public var body: some View {
@@ -78,7 +82,7 @@ public struct TCGSearchScreen: View {
             noResults
         } else {
             ForEach(search.results) { card in
-                PricedCardRow(card: card)
+                PricedCardRow(card: card) { onAdd(card) }
                     #if os(macOS)
                         .padding(12)
                         .background(.background.secondary, in: RoundedRectangle(cornerRadius: 12))

@@ -38,6 +38,19 @@ struct TCGPricingClientTests {
     }
 
     @Test
+    func `Search decodes responses without set metadata`() async throws {
+        let body = Data(
+            String(decoding: searchJSON, as: UTF8.self).replacingOccurrences(
+                of: "\"set_name\": \"Crown Zenith\",", with: ""
+            ).utf8)
+        let transport = PricingRequestTransport(status: .ok, body: body)
+        let result = try await makeClient(transport: transport).pricing.search(game: .pokemon, query: "Giratina").get()
+        let card = try #require(result.matches.first)
+        #expect(card.setName == nil)
+        #expect(card.name == "Giratina VSTAR")
+    }
+
+    @Test
     func `Maps pricing validation errors`() async {
         let searchTransport = PricingRequestTransport(status: .badRequest, body: validationJSON)
 
@@ -121,6 +134,7 @@ private let expectedPricedCard = PricedCard(
     game: .pokemon,
     name: "Giratina VSTAR",
     cardNumber: "GG69",
+    setName: "Crown Zenith",
     rarity: "Secret Rare",
     headline: .init(amount: 146.69, currency: .usd),
     market: .init(
@@ -141,6 +155,7 @@ private let pricedCardJSON =
       "game": "pokemon",
       "name": "Giratina VSTAR",
       "card_number": "GG69",
+      "set_name": "Crown Zenith",
       "rarity": "Secret Rare",
       "headline": {"amount": 146.69, "currency": "USD", "metric": "lowest_near_mint"},
       "market": {

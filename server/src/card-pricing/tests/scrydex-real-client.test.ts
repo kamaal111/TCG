@@ -40,6 +40,35 @@ describe('RealScrydexClient', () => {
     expect(requests[0]?.headers.get('X-Team-ID')).toBe('test-team-id');
   });
 
+  it.each<{ expansion: z.input<typeof JsonValueSchema> | undefined; expectedSetName: string | undefined }>([
+    { expansion: { name: '  Wild Force  ' }, expectedSetName: 'Wild Force' },
+    { expansion: undefined, expectedSetName: undefined },
+    { expansion: null, expectedSetName: undefined },
+    { expansion: {}, expectedSetName: undefined },
+    { expansion: { name: 123 }, expectedSetName: undefined },
+    { expansion: { name: '   ' }, expectedSetName: undefined },
+  ])(
+    'normalizes optional expansion metadata for search and lookup: $expansion',
+    async ({ expansion, expectedSetName }) => {
+      const card = expansion === undefined ? onePieceCard() : { ...onePieceCard(), expansion };
+
+      const client = makeClient(async input =>
+        jsonResponse(new URL(stringifyRequestURL(input)).pathname.endsWith('/cards') ? { data: [card] } : card),
+      );
+
+      const search = await client.searchCards('one_piece', 'OP14-069');
+      assert(search.isOk());
+      expect(search.value.rejectedCount).toBe(0);
+      expect(search.value.records).toHaveLength(1);
+      expect(search.value.records[0]?.card.pricing.setName).toBe(expectedSetName);
+
+      const lookup = await client.getCardById('one_piece', 'OP14-069');
+      assert(lookup.isOk());
+      expect(lookup.value).not.toBeNull();
+      expect(lookup.value?.card.pricing.setName).toBe(expectedSetName);
+    },
+  );
+
   it('treats an empty Scrydex envelope as a successful search', async () => {
     const client = makeClient(async () => jsonResponse({ status: 'success', data: [], totalCount: 0 }));
 

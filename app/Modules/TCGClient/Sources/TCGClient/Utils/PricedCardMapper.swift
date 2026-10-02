@@ -20,6 +20,7 @@ enum PricedCardMapper {
             game: makeGame(card.game),
             name: card.name,
             cardNumber: card.cardNumber,
+            setName: card.setName,
             rarity: card.rarity,
             imageURL: card.imageUrl.flatMap(URL.init(string:)),
             headline: card.headline.map {

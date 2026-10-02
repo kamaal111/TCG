@@ -9,6 +9,7 @@ import TCGDesignSystem
 
 struct PricedCardRow: View {
     let card: PricedCard
+    let onAdd: () -> Void
 
     var body: some View {
         HStack(alignment: .top, spacing: 16) {
@@ -20,7 +21,7 @@ struct PricedCardRow: View {
                 marketDetails
             }
             Spacer(minLength: 12)
-            VStack(alignment: .trailing, spacing: 4) {
+            VStack(alignment: .trailing, spacing: 8) {
                 if let headline = card.headline {
                     Text(headline.amount, format: .currency(code: headline.currency.rawValue))
                         .font(.title3.weight(.semibold).monospacedDigit())
@@ -34,6 +35,17 @@ struct PricedCardRow: View {
                         .labelStyle(.iconOnly)
                         .accessibilityLabel(trend.title)
                 }
+                Button(action: onAdd) {
+                    Label {
+                        Text("Add", bundle: .module)
+                    } icon: {
+                        Image(systemName: "plus")
+                    }
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                .font(.caption)
+                .accessibilityLabel(Text("Add \(card.name) to collection", bundle: .module))
             }
         }
         .padding(.vertical, 6)
