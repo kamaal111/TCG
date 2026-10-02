@@ -11,6 +11,10 @@ import TCGModels
 public struct TCGSearchScreen: View {
     @Environment(TCGSearch.self) private var search
 
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.scenePhase) private var scenePhase
+    @State private var isShowingHistory = false
+    @State private var isConfirmingClear = false
     @State private var model: TCGSearchScreenModel
 
     private let onAdd: (PricedCard) -> Void
@@ -28,9 +32,41 @@ public struct TCGSearchScreen: View {
     public var body: some View {
         content
             .navigationTitle(Text("Card search", bundle: .module))
-            .onChange(of: model.query) { _, _ in model.scheduleSearch(using: search) }
-            .onChange(of: model.game) { _, _ in model.scheduleSearch(using: search) }
-            .onChange(of: model.languages) { _, _ in model.scheduleSearch(using: search) }
+            .onAppear { model.resumeSearchIfNeeded(using: search) }
+            .onDisappear { model.finishEditing(using: search) }
+            .onChange(of: scenePhase) { _, phase in
+                if phase == .background { model.finishEditing(using: search) }
+                if phase == .active { model.resumeSearchIfNeeded(using: search) }
+            }
+            .navigationDestination(isPresented: $isShowingHistory) {
+                TCGSearchHistoryScreen(
+                    history: search.history,
+                    game: model.game,
+                    onSelect: { entry in
+                        isShowingHistory = false
+                        selectHistory(entry)
+                    },
+                    onRemove: { model.removeHistory($0, using: search) },
+                    onClear: { model.clearHistory(using: search) }
+                )
+            }
+            .confirmationDialog(
+                Text("Clear search history?", bundle: .module),
+                isPresented: $isConfirmingClear,
+                titleVisibility: .visible
+            ) {
+                Button(role: .destructive) {
+                    model.clearHistory(using: search)
+                } label: {
+                    Text("Clear history", bundle: .module)
+                }
+                Button(role: .cancel) {
+                } label: {
+                    Text("Cancel", bundle: .module)
+                }
+            } message: {
+                Text("This removes searches for the selected game from this device.", bundle: .module)
+            }
             .toast(model.toast, dismiss: model.dismissToast)
             .sheet(item: $model.presentedDetail) { card in
                 TCGSearchDetailView(card: card)
@@ -44,10 +80,12 @@ public struct TCGSearchScreen: View {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 16) {
                     TCGSearchInput(
-                        query: $model.query, game: model.game, languages: $model.languages, gameSelection: gameBinding
+                        query: queryBinding, game: model.game, languages: languagesBinding,
+                        gameSelection: gameBinding, isFocused: $model.isSearchFocused
                     ) {
                         Task { await model.performSearch(using: search) }
                     }
+                    historySuggestions
                     searchResults
                 }
                 .padding(24)
@@ -55,11 +93,13 @@ public struct TCGSearchScreen: View {
         #else
             List {
                 TCGSearchInput(
-                    query: $model.query, game: model.game, languages: $model.languages, gameSelection: gameBinding
+                    query: queryBinding, game: model.game, languages: languagesBinding,
+                    gameSelection: gameBinding, isFocused: $model.isSearchFocused
                 ) {
                     Task { await model.performSearch(using: search) }
                 }
                 .listRowSeparator(.hidden)
+                historySuggestions
                 searchResults
             }
         #endif
@@ -68,8 +108,78 @@ public struct TCGSearchScreen: View {
     private var gameBinding: Binding<CardGame> {
         Binding(
             get: { CardGame(client: model.game) },
-            set: { newValue in model.game = newValue.clientGame }
+            set: { newValue in model.updateGame(newValue.clientGame, using: search) }
         )
+    }
+
+    private var languagesBinding: Binding<Set<ClientCardLanguage>> {
+        Binding(get: { model.languages }, set: { model.updateLanguages($0, using: search) })
+    }
+
+    private var queryBinding: Binding<String> {
+        Binding(get: { model.query }, set: { model.updateQuery($0, using: search) })
+    }
+
+    private func selectHistory(_ entry: TCGSearchHistoryEntry) {
+        Task { await model.selectHistory(entry, using: search) }
+    }
+
+    @ViewBuilder
+    private var recentSearches: some View {
+        if dynamicTypeSize.isAccessibilitySize {
+            VStack(alignment: .leading, spacing: 8) {
+                recentSearchesTitle
+                clearHistoryButton
+            }
+        } else {
+            HStack {
+                recentSearchesTitle
+                Spacer()
+                clearHistoryButton
+            }
+        }
+        TCGSearchHistoryRows(
+            entries: Array(search.history.entries(for: model.game).prefix(5)),
+            onSelect: selectHistory,
+            onRemove: { model.removeHistory($0, using: search) }
+        )
+        if search.history.entries(for: model.game).count > 5 {
+            Button {
+                model.finishEditing(using: search)
+                isShowingHistory = true
+            } label: {
+                Text("See all", bundle: .module)
+            }
+            .buttonStyle(.borderless)
+        }
+    }
+
+    private var recentSearchesTitle: some View {
+        Text("Recent searches", bundle: .module)
+            .font(.headline)
+    }
+
+    private var clearHistoryButton: some View {
+        Button {
+            isConfirmingClear = true
+        } label: {
+            Text("Clear history", bundle: .module)
+        }
+        .buttonStyle(.borderless)
+    }
+
+    @ViewBuilder
+    private var historySuggestions: some View {
+        let suggestions = search.history.suggestions(for: model.query, game: model.game)
+        if model.isSearchFocused && !suggestions.isEmpty {
+            Text("Recent searches", bundle: .module)
+                .font(.headline)
+            TCGSearchHistoryRows(
+                entries: suggestions,
+                onSelect: selectHistory,
+                onRemove: { model.removeHistory($0, using: search) }
+            )
+        }
     }
 
     @ViewBuilder
@@ -83,18 +193,32 @@ public struct TCGSearchScreen: View {
             #if !os(macOS)
                 .listRowSeparator(.hidden)
             #endif
-        } else if model.query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            emptySearch
-        } else if search.hasSearched && search.results.isEmpty {
+        }
+        if model.query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            if search.history.entries(for: model.game).isEmpty {
+                emptySearch
+            } else {
+                recentSearches
+            }
+        } else if !search.isSearching && search.hasSearched && search.results.isEmpty {
             noResults
         } else {
             ForEach(search.results) { card in
                 PricedCardRow(
                     card: card,
                     actions: .init(
-                        add: { onAdd(card) },
-                        showDetails: { model.showDetails(of: card) },
-                        exploreImage: { model.exploreImage(of: card) }
+                        add: {
+                            model.finishEditing(using: search)
+                            onAdd(card)
+                        },
+                        showDetails: {
+                            model.finishEditing(using: search)
+                            model.showDetails(of: card)
+                        },
+                        exploreImage: {
+                            model.finishEditing(using: search)
+                            model.exploreImage(of: card)
+                        }
                     )
                 )
                 #if os(macOS)

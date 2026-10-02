@@ -22,6 +22,12 @@ when prompted. Run the app and create an account or sign in.
 The app provides Collection and Search tabs. Collection supports a game filter,
 add/edit forms, condition quantities, notes, deletion, and pricing rows. Search
 debounces name/number queries of at least two characters within a selected game.
+Search history is saved on the device separately for each game. The empty search
+shows five recent queries and a full-history link; typing offers matching previous
+queries. Reusing a query fetches current prices. Only completed searches that found
+cards are saved, with automatic searches recorded at the end of editing. Users can
+remove individual entries or clear the selected game's history.
+
 Settings contains sign-out confirmation and app version information; it is an
 iOS tab and a separate macOS Settings scene. The macOS Settings command appears
 only while signed in.

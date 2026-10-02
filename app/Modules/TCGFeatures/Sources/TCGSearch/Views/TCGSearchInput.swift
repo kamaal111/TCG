@@ -7,6 +7,7 @@ struct TCGSearchInput: View {
     let game: ClientCardGame
     @Binding var languages: Set<ClientCardLanguage>
     @Binding var gameSelection: CardGame
+    @Binding var isFocused: Bool
     let onSubmit: () -> Void
 
     @State private var isShowingSearchHelp = false
@@ -86,5 +87,7 @@ struct TCGSearchInput: View {
                 }
             #endif
         }
+        .onChange(of: isSearchFocused) { _, focused in isFocused = focused }
+        .onChange(of: isFocused) { _, focused in isSearchFocused = focused }
     }
 }

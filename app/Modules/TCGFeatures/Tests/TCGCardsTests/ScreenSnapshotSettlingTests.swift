@@ -59,6 +59,23 @@ struct ScreenSnapshotSettlingTests {
     #if os(iOS)
         @Test
         @MainActor
+        func `Pausing a parent layer also pauses descendant animations`() {
+            let root = CALayer()
+            let child = CALayer()
+            root.addSublayer(child)
+            let animation = CABasicAnimation(keyPath: "opacity")
+            animation.duration = 1
+            child.add(animation, forKey: "entrance")
+            #expect(ScreenSnapshotSettling.hasActiveAnimations(in: root))
+
+            root.speed = 0
+
+            #expect(child.animationKeys() == ["entrance"])
+            #expect(!ScreenSnapshotSettling.hasActiveAnimations(in: root))
+        }
+
+        @Test
+        @MainActor
         func `Finite transitions on descendant layers block capture`() {
             let root = CALayer()
             let child = CALayer()
