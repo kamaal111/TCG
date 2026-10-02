@@ -96,6 +96,7 @@ struct ScreenSnapshotSettling {
 
     #if os(iOS)
         static func hasActiveAnimations(in layer: CALayer) -> Bool {
+            guard layer.speed != 0 else { return false }
             for key in layer.animationKeys() ?? [] {
                 guard let animation = layer.animation(forKey: key) else { continue }
                 // Liquid Glass uses infinite animations to track control geometry.
@@ -184,6 +185,10 @@ private enum ScreenSnapshotQueue {
             controller.view.layoutIfNeeded()
             hosting.view.setNeedsLayout()
             hosting.view.layoutIfNeeded()
+            // UIKit activity indicators keep animating even when UIView animations
+            // are disabled. Capture a fixed layer time while retaining pixel settling.
+            hosting.view.layer.speed = 0
+            hosting.view.layer.timeOffset = 0
         }
 
         func image() async -> UIImage? {

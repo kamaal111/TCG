@@ -32,6 +32,9 @@
     "All languages" : {
 
     },
+    "Cancel" : {
+
+    },
     "Card details" : {
 
     },
@@ -47,7 +50,13 @@
     "Card search" : {
 
     },
+    "Clear history" : {
+
+    },
     "Clear search" : {
+
+    },
+    "Clear search history?" : {
 
     },
     "Condition" : {
@@ -110,6 +119,9 @@
     "No price" : {
 
     },
+    "No search history" : {
+
+    },
     "Pricing" : {
 
     },
@@ -117,6 +129,18 @@
 
     },
     "Rarity" : {
+
+    },
+    "Recent searches" : {
+
+    },
+    "Remove" : {
+
+    },
+    "Remove from history" : {
+
+    },
+    "Search again for current prices" : {
 
     },
     "Search cards" : {
@@ -128,10 +152,22 @@
     "Search help could not be loaded." : {
 
     },
+    "Search history" : {
+
+    },
+    "Searches that find cards will appear here." : {
+
+    },
     "Searching…" : {
 
     },
+    "See all" : {
+
+    },
     "The server is unavailable. Please try again." : {
+
+    },
+    "This removes searches for the selected game from this device." : {
 
     },
     "Try a card number, like OP14-069, or a name and card number, like Nami OP01-016." : {

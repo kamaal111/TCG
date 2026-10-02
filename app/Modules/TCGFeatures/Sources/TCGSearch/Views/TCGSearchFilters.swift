@@ -3,6 +3,8 @@ import TCGClient
 import TCGModels
 
 struct TCGSearchFilters: View {
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
     let game: ClientCardGame
     @Binding var languages: Set<ClientCardLanguage>
     @Binding var gameSelection: CardGame
@@ -29,17 +31,38 @@ struct TCGSearchFilters: View {
                 Text("Languages", bundle: .module)
             }
         } label: {
-            HStack(spacing: 6) {
-                Image(systemName: "line.3.horizontal.decrease")
-                Text(verbatim: gameSelection.title)
-                Text(verbatim: "·")
-                languageSummary
+            Group {
+                if usesStackedLabel {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Label {
+                            Text(verbatim: gameSelection.title)
+                        } icon: {
+                            Image(systemName: "line.3.horizontal.decrease")
+                        }
+                        languageSummary
+                    }
+                } else {
+                    HStack(spacing: 6) {
+                        Image(systemName: "line.3.horizontal.decrease")
+                        Text(verbatim: gameSelection.title)
+                        Text(verbatim: "·")
+                        languageSummary
+                    }
+                }
             }
             .font(.subheadline)
             .frame(minHeight: 44)
         }
         .accessibilityLabel(Text("Filters", bundle: .module))
         .accessibilityValue(Text(verbatim: gameSelection.title) + Text(verbatim: ", ") + languageSummary)
+    }
+
+    private var usesStackedLabel: Bool {
+        #if os(iOS)
+            dynamicTypeSize.isAccessibilitySize
+        #else
+            false
+        #endif
     }
 
     private func languageBinding(_ language: ClientCardLanguage) -> Binding<Bool> {

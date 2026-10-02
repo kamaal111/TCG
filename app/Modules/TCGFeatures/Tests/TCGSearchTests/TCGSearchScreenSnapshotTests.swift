@@ -3,6 +3,8 @@
 //  TCGFeatures
 //
 
+import Foundation
+import KamaalAuth
 import SwiftUI
 import TCGDesignSystem
 import TCGSnapshotTesting
@@ -19,8 +21,51 @@ import Testing
 @MainActor
 struct TCGSearchScreenSnapshotTests {
     @Test
+    func `Keeps pricing rows visible while refreshing`() async {
+        let lightTransport = HistoryPricingTransport(suspended: true)
+        let darkTransport = HistoryPricingTransport(suspended: true)
+        let light = await makeRefreshingState(transport: lightTransport)
+        let dark = await makeRefreshingState(transport: darkTransport)
+        var states = [light, dark]
+
+        await assertScreenSnapshot(testName: #function) {
+            let state = states.removeFirst()
+            #expect(state.feature.isSearching)
+            #expect(state.feature.results.count == 1)
+            return makeScreen(feature: state.feature, model: state.model)
+        }
+
+        await lightTransport.resume(count: 2)
+        await darkTransport.resume(count: 2)
+        await light.refresh.value
+        await dark.refresh.value
+    }
+
+    private func makeRefreshingState(transport: HistoryPricingTransport) async -> (
+        feature: TCGSearch, model: TCGSearchScreenModel, refresh: Task<Void, Never>
+    ) {
+        let feature = TCGSearch(
+            client: .default(
+                transport: transport,
+                credentialsKeychainKey: "refresh-snapshot-credentials",
+                credentialsStore: InMemoryCredentialsStore()
+            ),
+            history: TCGSearchHistoryStore()
+        )
+        let model = TCGSearchScreenModel(preferences: nil)
+        model.query = "Giratina"
+        let initial = Task { await model.performSearch(using: feature) }
+        await transport.waitUntilStarted()
+        await transport.resume()
+        await initial.value
+        let refresh = Task { await model.performSearch(using: feature) }
+        await transport.waitUntilStarted(count: 2)
+        return (feature, model, refresh)
+    }
+
+    @Test
     func `Renders pricing results`() async throws {
-        let feature = TCGSearch(client: .preview(pricingOutcome: .success))
+        let feature = TCGSearch(client: .preview(pricingOutcome: .success), history: TCGSearchHistoryStore())
         let model = TCGSearchScreenModel(preferences: nil)
         model.query = "Giratina"
         model.game = .pokemon
@@ -39,7 +84,7 @@ struct TCGSearchScreenSnapshotTests {
 
     @Test
     func `Renders an empty search`() async {
-        let feature = TCGSearch(client: .preview(pricingOutcome: .empty))
+        let feature = TCGSearch(client: .preview(pricingOutcome: .empty), history: TCGSearchHistoryStore())
 
         await assertScreenSnapshot(testName: #function) {
             makeScreen(feature: feature, model: TCGSearchScreenModel(preferences: nil))
@@ -48,7 +93,7 @@ struct TCGSearchScreenSnapshotTests {
 
     @Test
     func `Renders an empty One Piece search`() async {
-        let feature = TCGSearch(client: .preview(pricingOutcome: .empty))
+        let feature = TCGSearch(client: .preview(pricingOutcome: .empty), history: TCGSearchHistoryStore())
         let model = TCGSearchScreenModel(preferences: nil)
         model.game = .onePiece
 
@@ -57,7 +102,7 @@ struct TCGSearchScreenSnapshotTests {
 
     @Test
     func `Renders no results guidance`() async throws {
-        let feature = TCGSearch(client: .preview(pricingOutcome: .noResults))
+        let feature = TCGSearch(client: .preview(pricingOutcome: .noResults), history: TCGSearchHistoryStore())
         let model = TCGSearchScreenModel(preferences: nil)
         model.query = "Missing card"
         try await feature.search(game: model.game, query: model.query).get()
@@ -67,7 +112,7 @@ struct TCGSearchScreenSnapshotTests {
 
     @Test
     func `Renders One Piece no results guidance`() async throws {
-        let feature = TCGSearch(client: .preview(pricingOutcome: .noResults))
+        let feature = TCGSearch(client: .preview(pricingOutcome: .noResults), history: TCGSearchHistoryStore())
         let model = TCGSearchScreenModel(preferences: nil)
         model.game = .onePiece
         model.query = "OP99-999"
@@ -78,7 +123,7 @@ struct TCGSearchScreenSnapshotTests {
 
     @Test
     func `Renders a Japanese language filter`() async {
-        let feature = TCGSearch(client: .preview(pricingOutcome: .empty))
+        let feature = TCGSearch(client: .preview(pricingOutcome: .empty), history: TCGSearchHistoryStore())
         let model = TCGSearchScreenModel(preferences: nil)
         model.languages = [.japanese]
 
@@ -169,6 +214,69 @@ struct TCGSearchScreenSnapshotTests {
         #else
             TCGSearchHelpView(game: game)
         #endif
+    }
+
+    @Test
+    func `Renders recent searches`() async {
+        let feature = makeHistoryFeature()
+        #expect(feature.history.entries(for: .pokemon).count == 6)
+        await assertScreenSnapshot(testName: #function) {
+            makeScreen(feature: feature, model: TCGSearchScreenModel(preferences: nil))
+        }
+    }
+
+    @Test
+    func `Renders matching history suggestions`() async throws {
+        let feature = makeHistoryFeature()
+        let model = TCGSearchScreenModel(preferences: nil)
+        model.query = "Gira"
+        model.isSearchFocused = true
+        try await feature.search(game: .pokemon, query: model.query).get()
+        #expect(feature.history.suggestions(for: model.query, game: model.game).count == 2)
+        await assertScreenSnapshot(testName: #function) { makeScreen(feature: feature, model: model) }
+    }
+
+    @Test
+    func `Renders full search history`() async {
+        let feature = makeHistoryFeature()
+        #expect(feature.history.entries(for: .pokemon).count == 6)
+        await assertScreenSnapshot(testName: #function) { makeHistoryScreen(feature: feature) }
+    }
+
+    @Test
+    func `Renders empty search history`() async {
+        let feature = TCGSearch(client: .preview(pricingOutcome: .empty), history: TCGSearchHistoryStore())
+        #expect(feature.history.entries.isEmpty)
+        await assertScreenSnapshot(testName: #function) { makeHistoryScreen(feature: feature) }
+    }
+
+    @Test
+    func `Renders recent searches with large text`() async {
+        let feature = makeHistoryFeature()
+        #expect(feature.history.entries(for: .pokemon).count == 6)
+        await assertScreenSnapshot(testName: #function) {
+            makeScreen(feature: feature, model: TCGSearchScreenModel(preferences: nil))
+                .environment(\.dynamicTypeSize, .accessibility3)
+        }
+    }
+
+    private func makeHistoryFeature() -> TCGSearch {
+        let history = TCGSearchHistoryStore(now: { Date(timeIntervalSince1970: 1_753_267_800) })
+        for query in ["sv5m 072/071", "Charizard ex 199", "Pikachu", "Giratina VSTAR GG69", "Giratina", "Eevee"] {
+            history.record(query: query, game: .pokemon)
+        }
+        history.record(query: "Nami OP01-016", game: .onePiece)
+        return TCGSearch(client: .preview(pricingOutcome: .success), history: history)
+    }
+
+    private func makeHistoryScreen(feature: TCGSearch) -> some View {
+        NavigationStack {
+            TCGSearchHistoryScreen(
+                history: feature.history, game: .pokemon,
+                onSelect: { _ in }, onRemove: feature.history.remove,
+                onClear: { feature.history.clear(game: .pokemon) }
+            )
+        }
     }
 
     private func makeScreen(feature: TCGSearch, model: TCGSearchScreenModel) -> some View {
