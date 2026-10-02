@@ -21,17 +21,43 @@ final class TCGCardFormScreenModel {
     private(set) var fieldErrors: [TCGCardsValidationField: String] = [:]
     private(set) var isSubmitting = false
     private(set) var toast: String?
+    var isShowingDiscardConfirmation = false
+    private let initialValues: CardFormValues
     private var hasSubmitted = false
 
     init(mode: Mode, initialValues: CardFormValues?) {
         self.mode = mode
+        let initial: CardFormValues
         switch mode {
         case .add:
-            values =
+            initial =
                 initialValues
                 ?? CardFormValues(game: .onePiece, name: "", setName: "", cardNumber: "", notes: "", quantities: [:])
-        case .edit(let card): values = CardFormValues(card: card)
+        case .edit(let card): initial = CardFormValues(card: card)
         }
+        values = initial
+        self.initialValues = initial
+    }
+
+    var hasUnsavedChanges: Bool {
+        var current = values
+        var initial = initialValues
+        current.quantities = current.quantities.filter { $0.value != 0 }
+        initial.quantities = initial.quantities.filter { $0.value != 0 }
+        return current != initial
+    }
+
+    func requestDismissal() -> Bool {
+        guard !isSubmitting else { return false }
+        guard !hasUnsavedChanges else {
+            isShowingDiscardConfirmation = true
+            return false
+        }
+        return true
+    }
+
+    func keepEditing() {
+        isShowingDiscardConfirmation = false
     }
 
     func submit(using cards: TCGCards) async -> Bool {

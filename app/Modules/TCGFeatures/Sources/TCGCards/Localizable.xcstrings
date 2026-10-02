@@ -1,9 +1,6 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
-    "—" : {
-
-    },
     "%@ • %@" : {
       "localizations" : {
         "en" : {
@@ -24,9 +21,6 @@
         }
       }
     },
-    "×%lld" : {
-
-    },
     "Add at least one card quantity." : {
 
     },
@@ -39,16 +33,28 @@
     "Card number" : {
 
     },
+    "Close" : {
+
+    },
     "Collection error" : {
 
     },
     "Delete" : {
 
     },
+    "Discard Changes" : {
+
+    },
+    "Discard changes?" : {
+
+    },
     "Each quantity must be between 0 and 999." : {
 
     },
     "Edit card" : {
+
+    },
+    "Keep Editing" : {
 
     },
     "Monkey D. Luffy" : {
@@ -94,6 +100,12 @@
 
     },
     "This card is no longer in your collection." : {
+
+    },
+    "×%lld" : {
+
+    },
+    "—" : {
 
     }
   },
