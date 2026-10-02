@@ -31,6 +31,10 @@ public struct TCGSearchScreen: View {
             .onChange(of: model.query) { _, _ in model.scheduleSearch(using: search) }
             .onChange(of: model.game) { _, _ in model.scheduleSearch(using: search) }
             .toast(model.toast, dismiss: model.dismissToast)
+            .sheet(item: $model.presentedDetail) { card in
+                TCGSearchDetailView(card: card)
+            }
+            .modifier(SearchImagePresentation(card: $model.presentedImage))
     }
 
     @ViewBuilder
@@ -82,11 +86,18 @@ public struct TCGSearchScreen: View {
             noResults
         } else {
             ForEach(search.results) { card in
-                PricedCardRow(card: card) { onAdd(card) }
-                    #if os(macOS)
-                        .padding(12)
-                        .background(.background.secondary, in: RoundedRectangle(cornerRadius: 12))
-                    #endif
+                PricedCardRow(
+                    card: card,
+                    actions: .init(
+                        add: { onAdd(card) },
+                        showDetails: { model.showDetails(of: card) },
+                        exploreImage: { model.exploreImage(of: card) }
+                    )
+                )
+                #if os(macOS)
+                    .padding(12)
+                    .background(.background.secondary, in: RoundedRectangle(cornerRadius: 12))
+                #endif
             }
         }
     }

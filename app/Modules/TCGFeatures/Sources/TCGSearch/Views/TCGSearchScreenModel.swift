@@ -13,7 +13,19 @@ final class TCGSearchScreenModel {
     var query = ""
     var game: ClientCardGame = .pokemon
 
+    var presentedDetail: PricedCard?
+    var presentedImage: PricedCard?
+
     private(set) var toast: Toast?
+
+    func showDetails(of card: PricedCard) {
+        presentedDetail = card
+    }
+
+    func exploreImage(of card: PricedCard) {
+        guard card.imageURL != nil else { return }
+        presentedImage = card
+    }
 
     @ObservationIgnored private var searchTask: Task<Void, Never>?
     @ObservationIgnored private var toastTask: Task<Void, Never>?
