@@ -79,6 +79,8 @@ let package = Package(
             name: "TCGCardsTests",
             dependencies: [
                 .product(name: "KamaalAuth", package: "kamaal-auth"),
+                .product(name: "HTTPTypes", package: "swift-http-types"),
+                .product(name: "OpenAPIRuntime", package: "swift-openapi-runtime"),
                 "TCGCards",
                 "TCGClient",
                 "TCGDesignSystem",

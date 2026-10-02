@@ -5,6 +5,10 @@
 //  Created by Kamaal M Farah on 7/20/26.
 //
 
+import Foundation
+import HTTPTypes
+import KamaalAuth
+import OpenAPIRuntime
 import Testing
 
 @testable import TCGCards
@@ -22,6 +26,20 @@ struct TCGCardFormScreenModelTests {
         #expect(model.values.cardNumber == card.cardNumber)
         #expect(model.values.quantities.isEmpty)
         #expect(model.values.notes.isEmpty)
+    }
+
+    @Test(arguments: PreviewTCGPricingClient.samplePricedCards)
+    func `Searched card details are the dismissal baseline`(card: PricedCard) {
+        let model = TCGCardFormScreenModel(mode: .add, initialValues: .init(pricedCard: card))
+        #expect(!model.hasUnsavedChanges)
+        #expect(model.requestDismissal())
+        model.values.name = "Edited name"
+        #expect(!model.requestDismissal())
+        #expect(model.isShowingDiscardConfirmation)
+        model.keepEditing()
+        model.values.name = card.name
+        #expect(!model.hasUnsavedChanges)
+        #expect(model.requestDismissal())
     }
 
     @Test(arguments: PreviewTCGPricingClient.samplePricedCards)
@@ -86,6 +104,109 @@ struct TCGCardFormScreenModelTests {
     }
 
     @Test
+    func `Unchanged add and edit forms dismiss without confirmation`() {
+        let add = TCGCardFormScreenModel(mode: .add, initialValues: nil)
+        let edit = TCGCardFormScreenModel(mode: .edit(PreviewTCGCardsClient.sampleCards[0]), initialValues: nil)
+        #expect(add.requestDismissal())
+        #expect(edit.requestDismissal())
+        #expect(!add.isShowingDiscardConfirmation)
+        #expect(!edit.isShowingDiscardConfirmation)
+    }
+
+    @Test(arguments: ChangedTextField.allCases)
+    func `Changed text fields require discard confirmation`(field: ChangedTextField) {
+        let model = TCGCardFormScreenModel(mode: .add, initialValues: nil)
+        model.values[keyPath: field.keyPath] = "Draft"
+        #expect(model.hasUnsavedChanges)
+        #expect(!model.requestDismissal())
+        #expect(model.isShowingDiscardConfirmation)
+    }
+
+    @Test
+    func `Changed game requires discard confirmation`() {
+        let model = TCGCardFormScreenModel(mode: .add, initialValues: nil)
+        model.values.game = .pokemon
+        #expect(model.hasUnsavedChanges)
+        #expect(!model.requestDismissal())
+        #expect(model.isShowingDiscardConfirmation)
+    }
+
+    @Test
+    func `Changed edit quantity requires discard confirmation`() {
+        let model = TCGCardFormScreenModel(mode: .edit(PreviewTCGCardsClient.sampleCards[0]), initialValues: nil)
+        model.values.quantities[.nearMint] = 3
+        #expect(model.hasUnsavedChanges)
+        #expect(!model.requestDismissal())
+        #expect(model.isShowingDiscardConfirmation)
+    }
+
+    @Test
+    func `Restoring every field permits immediate dismissal`() {
+        let model = TCGCardFormScreenModel(mode: .edit(PreviewTCGCardsClient.sampleCards[0]), initialValues: nil)
+        let original = model.values
+        model.values = validValues
+        #expect(model.hasUnsavedChanges)
+        model.values = original
+        #expect(!model.hasUnsavedChanges)
+        #expect(model.requestDismissal())
+    }
+
+    @Test
+    func `Zero quantities match missing quantities`() {
+        let model = TCGCardFormScreenModel(mode: .add, initialValues: nil)
+        model.values.quantities[.nearMint] = 1
+        #expect(model.hasUnsavedChanges)
+        model.values.quantities[.nearMint] = 0
+        #expect(!model.hasUnsavedChanges)
+        #expect(model.requestDismissal())
+    }
+
+    @Test
+    func `Keeping edits preserves the draft and validation errors`() async {
+        let model = TCGCardFormScreenModel(mode: .add, initialValues: nil)
+        model.values.name = "Draft"
+        let submitted = await model.submit(using: TCGCards(client: .preview(cardsOutcome: .empty)))
+        #expect(!submitted)
+        let draft = model.values
+        let errors = model.fieldErrors
+        let toast = model.toast
+        #expect(!model.requestDismissal())
+        model.keepEditing()
+        #expect(!model.isShowingDiscardConfirmation)
+        #expect(model.values == draft)
+        #expect(model.fieldErrors == errors)
+        #expect(model.toast == toast)
+    }
+
+    @Test
+    func `Dismissal is blocked during submission and a failed save preserves edits`() async throws {
+        let transport = PendingCardSubmissionTransport()
+        let credentials = Credentials(
+            authToken: "auth-token", authTokenExpiryDate: .distantFuture,
+            sessionToken: "session-token", sessionUpdateAge: 1800, lastSessionUpdate: .now
+        )
+        let client = TCGClient.default(
+            transport: transport, credentialsKeychainKey: "card-form-dismissal-test",
+            credentialsStore: InMemoryCredentialsStore(seed: try JSONEncoder().encode(credentials))
+        )
+        let model = TCGCardFormScreenModel(mode: .add, initialValues: nil)
+        model.values = validValues
+        let submission = Task { await model.submit(using: TCGCards(client: client)) }
+        await transport.waitForRequest()
+        #expect(model.isSubmitting)
+        #expect(!model.requestDismissal())
+        #expect(!model.isShowingDiscardConfirmation)
+        await transport.failRequest()
+        let submitted = await submission.value
+        #expect(!submitted)
+        #expect(!model.isSubmitting)
+        #expect(model.values == validValues)
+        #expect(model.hasUnsavedChanges)
+        #expect(!model.requestDismissal())
+        #expect(model.isShowingDiscardConfirmation)
+    }
+
+    @Test
     func `Empty fields and quantities are validated`() async {
         let model = TCGCardFormScreenModel(mode: .add, initialValues: nil)
         let submitted = await model.submit(using: TCGCards(client: .preview(cardsOutcome: .empty)))
@@ -128,5 +249,46 @@ struct TCGCardFormScreenModelTests {
         _ = await unavailableModel.submit(using: TCGCards(client: .preview(cardsOutcome: .serverUnavailable)))
         #expect(unavailableModel.toast != nil)
         #expect(!unavailableModel.isSubmitting)
+    }
+
+    enum ChangedTextField: CaseIterable, Sendable {
+        case name, setName, cardNumber, notes
+
+        var keyPath: WritableKeyPath<CardFormValues, String> {
+            switch self {
+            case .name: \CardFormValues.name
+            case .setName: \CardFormValues.setName
+            case .cardNumber: \CardFormValues.cardNumber
+            case .notes: \CardFormValues.notes
+            }
+        }
+    }
+}
+
+private actor PendingCardSubmissionTransport: ClientTransport {
+    private var hasStarted = false
+    private var waitingForRequest: CheckedContinuation<Void, Never>?
+    private var response: CheckedContinuation<(HTTPResponse, HTTPBody?), Never>?
+
+    func send(
+        _ request: HTTPRequest, body: HTTPBody?, baseURL: URL, operationID: String
+    ) async throws -> (HTTPResponse, HTTPBody?) {
+        await withCheckedContinuation { continuation in
+            response = continuation
+            hasStarted = true
+            waitingForRequest?.resume()
+            waitingForRequest = nil
+        }
+    }
+
+    func waitForRequest() async {
+        guard !hasStarted else { return }
+        await withCheckedContinuation { waitingForRequest = $0 }
+    }
+
+    func failRequest() {
+        guard let response else { preconditionFailure("A submission must be pending.") }
+        self.response = nil
+        response.resume(returning: (HTTPResponse(status: .serviceUnavailable), nil))
     }
 }
