@@ -8,6 +8,7 @@ import {
   PRICING_CLIENT_ERROR_REASONS,
   type PricingSearchResult,
 } from '../client.ts';
+import type { CardLanguage } from '../languages.ts';
 import { CARD_GAME_MAP, type CardGame, type PricingCardRecord, PRICING_SOURCES } from '../types.ts';
 import { normalizeScrydexCard } from './normalize.ts';
 import { buildScrydexQuery } from './query.ts';
@@ -40,7 +41,11 @@ export class RealScrydexClient implements PricingClient {
     this.teamId = options.teamId ?? env.SCRYDEX_TEAM_ID;
   }
 
-  async searchCards(game: CardGame, query: string): Promise<PricingClientResult<PricingSearchResult>> {
+  async searchCards(
+    game: CardGame,
+    query: string,
+    languages: readonly CardLanguage[] = [],
+  ): Promise<PricingClientResult<PricingSearchResult>> {
     const headers = this.headers();
 
     if (headers.isErr()) {
@@ -48,7 +53,7 @@ export class RealScrydexClient implements PricingClient {
     }
 
     const url = this.makeURL(game, '/cards');
-    url.searchParams.set('q', buildScrydexQuery(game, query));
+    url.searchParams.set('q', buildScrydexQuery(game, query, languages));
     url.searchParams.set('include', 'prices');
     url.searchParams.set('page', '1');
     url.searchParams.set('page_size', '20');

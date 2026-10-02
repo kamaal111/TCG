@@ -460,6 +460,18 @@ paths:
       parameters:
         - schema:
             type: string
+            description: >-
+              Comma-separated language codes: en, ja for Pokémon; en for One
+              Piece. Empty or all supported languages means unrestricted.
+            example: ja
+          required: false
+          description: >-
+            Comma-separated language codes: en, ja for Pokémon; en for One
+            Piece. Empty or all supported languages means unrestricted.
+          name: languages
+          in: query
+        - schema:
+            type: string
             enum:
               - one_piece
               - pokemon

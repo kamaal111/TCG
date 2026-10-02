@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 
+import { normalizeCardLanguages, type CardLanguage } from './languages.ts';
 import { imageKeyForOriginURL, storageKeyForImageKey } from '../card-images/keys.ts';
 import { imagesLogger } from '../card-images/logging.ts';
 import type { CardWithQuantities } from '../cards/repository.ts';
@@ -49,9 +50,11 @@ export class CardPricingService {
   async searchAndPrice(
     game: CardGame,
     query: string,
+    languages: readonly CardLanguage[] = [],
   ): Promise<{ normalizedQuery: string; matches: PricedCardResponse[] }> {
     const normalizedQuery = normalizeName(query);
-    const normalizedQueryKey = queryKey(game, normalizedQuery);
+    const selectedLanguages = normalizeCardLanguages(game, languages);
+    const normalizedQueryKey = queryKey(game, normalizedQuery, selectedLanguages);
     const pricedOn = todayUTC();
     const cached = await this.cachedSearch(game, normalizedQuery, normalizedQueryKey, pricedOn);
 
@@ -76,7 +79,7 @@ export class CardPricingService {
         }
 
         const providerStartedAt = performance.now();
-        const searchResult = await this.client.searchCards(game, normalizedQuery);
+        const searchResult = await this.client.searchCards(game, normalizedQuery, selectedLanguages);
 
         if (searchResult.isErr()) {
           this.throwProviderUnavailable('search', game, searchResult.error, providerStartedAt);

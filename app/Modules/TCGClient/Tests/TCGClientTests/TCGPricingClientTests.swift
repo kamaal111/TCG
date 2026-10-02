@@ -37,6 +37,39 @@ struct TCGPricingClientTests {
         #expect(result.matches == [expectedPricedCard])
     }
 
+    @Test(arguments: [ClientCardLanguage.english, .japanese])
+    func `Serializes a partial language selection`(language: ClientCardLanguage) async throws {
+        let transport = PricingRequestTransport(status: .ok, body: searchJSON)
+        let result = try await makeClient(transport: transport).pricing
+            .search(game: .pokemon, query: "Giratina", languages: [language]).get()
+        let request = try #require(await transport.request)
+
+        #expect(request.path == "/app-api/pricing/search?languages=\(language.rawValue)&game=pokemon&query=Giratina")
+        #expect(result.matches == [expectedPricedCard])
+    }
+
+    @Test(arguments: [Set<ClientCardLanguage>(), [.english, .japanese]])
+    func `Omits unrestricted language selections`(languages: Set<ClientCardLanguage>) async throws {
+        let transport = PricingRequestTransport(status: .ok, body: searchJSON)
+        let result = try await makeClient(transport: transport).pricing
+            .search(game: .pokemon, query: "Giratina", languages: languages).get()
+        let request = try #require(await transport.request)
+
+        #expect(request.path == "/app-api/pricing/search?game=pokemon&query=Giratina")
+        #expect(result.matches == [expectedPricedCard])
+    }
+
+    @Test
+    func `Selecting the only One Piece language is unrestricted`() async throws {
+        let transport = PricingRequestTransport(status: .ok, body: searchJSON)
+        let result = try await makeClient(transport: transport).pricing
+            .search(game: .onePiece, query: "Nami", languages: [.english]).get()
+        let request = try #require(await transport.request)
+
+        #expect(request.path == "/app-api/pricing/search?game=one_piece&query=Nami")
+        #expect(result.matches == [expectedPricedCard])
+    }
+
     @Test
     func `Search decodes responses without set metadata`() async throws {
         let body = Data(

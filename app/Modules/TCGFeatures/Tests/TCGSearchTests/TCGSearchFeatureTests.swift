@@ -45,6 +45,31 @@ struct TCGSearchFeatureTests {
     }
 
     @Test
+    func `A changed language supersedes a delayed search failure`() async throws {
+        let transport = LanguagePricingTransport()
+        let client = TCGClient.default(
+            transport: transport,
+            credentialsKeychainKey: "language-pricing-test-credentials",
+            credentialsStore: InMemoryCredentialsStore()
+        )
+        let feature = TCGSearch(client: client)
+        let first = Task { await feature.search(game: .pokemon, query: "Shiftry", languages: [.japanese]) }
+        await transport.waitUntilStarted()
+        try await feature.search(game: .pokemon, query: "Shiftry", languages: [.english]).get()
+        await transport.releaseFirstSearch()
+        try await first.value.get()
+
+        #expect(feature.hasSearched)
+        #expect(!feature.isSearching)
+        #expect(feature.results.isEmpty)
+        #expect(
+            await transport.paths == [
+                "/app-api/pricing/search?languages=ja&game=pokemon&query=Shiftry",
+                "/app-api/pricing/search?languages=en&game=pokemon&query=Shiftry",
+            ])
+    }
+
+    @Test
     func `Cancelling a superseded search does not report a failure`() async throws {
         let transport = SuspendedPricingTransport()
         let client = TCGClient.default(
@@ -85,5 +110,46 @@ private actor SuspendedPricingTransport: ClientTransport {
         startedContinuation = nil
         try await Task.sleep(for: .seconds(60))
         throw CancellationError()
+    }
+}
+
+private actor LanguagePricingTransport: ClientTransport {
+    private(set) var paths: [String] = []
+    private var startedContinuation: CheckedContinuation<Void, Never>?
+    private var firstSearchContinuation: CheckedContinuation<Void, Never>?
+
+    func waitUntilStarted() async {
+        if !paths.isEmpty { return }
+        await withCheckedContinuation { startedContinuation = $0 }
+    }
+
+    func releaseFirstSearch() {
+        firstSearchContinuation?.resume()
+        firstSearchContinuation = nil
+    }
+
+    func send(
+        _ request: HTTPRequest,
+        body _: HTTPBody?,
+        baseURL _: URL,
+        operationID _: String
+    ) async throws -> (HTTPResponse, HTTPBody?) {
+        paths.append(request.path ?? "")
+        if paths.count == 1 {
+            await withCheckedContinuation { continuation in
+                firstSearchContinuation = continuation
+                startedContinuation?.resume()
+                startedContinuation = nil
+            }
+            return (HTTPResponse(status: .serviceUnavailable), nil)
+        }
+        return (
+            HTTPResponse(status: .ok),
+            HTTPBody(
+                Data(
+                    """
+                    {"matches": []}
+                    """.utf8))
+        )
     }
 }

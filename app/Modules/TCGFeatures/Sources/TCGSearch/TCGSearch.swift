@@ -26,7 +26,9 @@ public final class TCGSearch {
 
     public static func `default`() -> TCGSearch { TCGSearch(client: .default()) }
 
-    func search(game: ClientCardGame, query: String) async -> Result<Void, TCGSearchOperationError> {
+    func search(game: ClientCardGame, query: String, languages: Set<ClientCardLanguage> = []) async -> Result<
+        Void, TCGSearchOperationError
+    > {
         let searchID = UUID()
         activeSearchID = searchID
         isSearching = true
@@ -37,7 +39,7 @@ public final class TCGSearch {
             }
         }
 
-        let result = await client.pricing.search(game: game, query: query)
+        let result = await client.pricing.search(game: game, query: query, languages: languages)
         guard !Task.isCancelled, activeSearchID == searchID else {
             logger.info(
                 "Cancelled a superseded card pricing search; game=\(game.rawValue); queryLength=\(query.count)"

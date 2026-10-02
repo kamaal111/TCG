@@ -10,6 +10,22 @@ import Testing
 @Suite("Preview TCGPricing Client Tests")
 struct PreviewTCGPricingClientTests {
     @Test
+    func `Japanese selection excludes English preview cards`() async throws {
+        let result = try await PreviewTCGPricingClient(outcome: .success)
+            .search(game: .pokemon, query: "Giratina", languages: [.japanese]).get()
+
+        #expect(result.matches.isEmpty)
+    }
+
+    @Test
+    func `Complete selection includes English preview cards`() async throws {
+        let result = try await PreviewTCGPricingClient(outcome: .success)
+            .search(game: .pokemon, query: "Giratina", languages: [.english, .japanese]).get()
+
+        #expect(result.matches == [PreviewTCGPricingClient.samplePricedCards[1]])
+    }
+
+    @Test
     func `Success returns sample search pricing`() async throws {
         let pricing = TCGClient.preview(pricingOutcome: .success).pricing
 

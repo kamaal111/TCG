@@ -1,6 +1,7 @@
 import { ok } from 'neverthrow';
 
 import type { PricingClient, PricingClientResult, PricingSearchResult } from '../client.ts';
+import { normalizeCardLanguages, type CardLanguage } from '../languages.ts';
 import { CARD_GAME_MAP, type CardGame, type PricingCardRecord, PRICING_SOURCES } from '../types.ts';
 import { normalizeScrydexCard } from './normalize.ts';
 import { type ScrydexRawCard, ScrydexRawCardSchema } from './types.ts';
@@ -11,6 +12,7 @@ const CANNED_CARDS: Record<CardGame, ScrydexRawCard[]> = {
       id: 'crown-zenith-GG69',
       expansion: { name: 'Crown Zenith' },
       name: 'Giratina VSTAR',
+      language_code: 'EN',
       number: 'GG69',
       rarity: 'Secret Rare',
       images: [{ type: 'front', large: 'https://images.example.com/giratina-vstar-gg69.png' }],
@@ -37,6 +39,7 @@ const CANNED_CARDS: Record<CardGame, ScrydexRawCard[]> = {
       id: 'sv3pt5-199',
       expansion: { name: '151' },
       name: 'Charizard ex',
+      language_code: 'EN',
       number: '199',
       rarity: 'Special Illustration Rare',
       variants: [
@@ -125,7 +128,11 @@ const CANNED_CARDS: Record<CardGame, ScrydexRawCard[]> = {
 export class StaticScrydexClient implements PricingClient {
   readonly source = PRICING_SOURCES.SCRYDEX_STATIC;
 
-  async searchCards(game: CardGame, query: string): Promise<PricingClientResult<PricingSearchResult>> {
+  async searchCards(
+    game: CardGame,
+    query: string,
+    languages: readonly CardLanguage[] = [],
+  ): Promise<PricingClientResult<PricingSearchResult>> {
     const normalized = query.trim().toLowerCase();
 
     if (normalized.includes('no results')) {
@@ -140,7 +147,13 @@ export class StaticScrydexClient implements PricingClient {
 
     const rawCards = matches.length > 0 ? matches : [makeSyntheticCard(game, query)];
 
-    return ok(makeSearchResult(game, rawCards));
+    const selected = normalizeCardLanguages(game, languages);
+
+    const filtered = rawCards.filter(
+      card => selected.length === 0 || selected.some(code => card.language_code === code.toUpperCase()),
+    );
+
+    return ok(makeSearchResult(game, filtered));
   }
 
   async getCardById(game: CardGame, id: string): Promise<PricingClientResult<PricingCardRecord | null>> {
@@ -199,6 +212,7 @@ function makeSyntheticCard(game: CardGame, query: string): ScrydexRawCard {
   const card: ScrydexRawCard = {
     id,
     name,
+    language_code: 'EN',
     number: cardNumber,
     rarity: hash % 2 === 0 ? 'Rare' : undefined,
     variants: [

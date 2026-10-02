@@ -1,7 +1,53 @@
+import { parseCardLanguages, normalizeCardLanguages } from '../languages.ts';
+import { PricingSearchQuerySchema } from '../schemas/params.ts';
 import { buildScrydexQuery } from '../scrydex/query.ts';
 import { buildSearchQuery, normalizeCardNumber, normalizeName, queryKey } from '../utils/query.ts';
 
 describe('card pricing query utilities', () => {
+  it.each([
+    ['en', ['en']],
+    ['ja', ['ja']],
+    ['', []],
+    [' ja, en,ja ', []],
+    ['en,en', ['en']],
+  ])('normalizes language selection %s', (value, expected) => {
+    expect(normalizeCardLanguages('pokemon', parseCardLanguages(value))).toEqual(expected);
+    expect(PricingSearchQuerySchema.safeParse({ game: 'pokemon', query: 'Shiftry', languages: value }).success).toBe(
+      true,
+    );
+  });
+
+  it.each(['fr', 'EN', 'en,', 'en,unknown'])('rejects invalid language selection %s', languages => {
+    expect(PricingSearchQuerySchema.safeParse({ game: 'pokemon', query: 'Shiftry', languages }).success).toBe(false);
+  });
+
+  it('rejects Japanese for One Piece', () => {
+    expect(PricingSearchQuerySchema.safeParse({ game: 'one_piece', query: 'Nami', languages: 'ja' }).success).toBe(
+      false,
+    );
+  });
+
+  it('shares unrestricted cache keys and isolates partial language selections', () => {
+    expect(queryKey('pokemon', 'Shiftry', [])).toBe(queryKey('pokemon', 'Shiftry'));
+    expect(queryKey('pokemon', 'Shiftry', ['ja', 'en', 'ja'])).toBe(queryKey('pokemon', 'Shiftry'));
+    expect(queryKey('pokemon', 'Shiftry', ['en'])).not.toBe(queryKey('pokemon', 'Shiftry', ['ja']));
+    expect(queryKey('pokemon', 'Shiftry', ['en', 'en'])).toBe(queryKey('pokemon', 'Shiftry', ['en']));
+    expect(queryKey('one_piece', 'Nami', ['en'])).toBe(queryKey('one_piece', 'Nami'));
+  });
+
+  it.each([
+    ['Shiftry', ['ja'], '(name:"Shiftry") AND (!language_code:JA)'],
+    [
+      'sv5m 072/071',
+      ['en'],
+      '((!expansion.id:sv5m OR !expansion.id:sv5m_ja) AND !printed_number:"072/071") AND (!language_code:EN)',
+    ],
+    ['sv5m_ja 072', ['ja'], '(!expansion.id:sv5m_ja AND !number:72) AND (!language_code:JA)'],
+    ['Shiftry', ['ja', 'en'], 'name:"Shiftry"'],
+  ])('constrains the complete provider search for %s', (query, languages, expected) => {
+    expect(buildScrydexQuery('pokemon', query, parseCardLanguages(languages.join(',')))).toBe(expected);
+  });
+
   it('normalizes card names and numbers without removing hyphens', () => {
     expect(normalizeName('  Marshall.D.Teach   Alt  ')).toBe('Marshall.D.Teach Alt');
     expect(normalizeCardNumber(' op09-093 ')).toBe('OP09-093');

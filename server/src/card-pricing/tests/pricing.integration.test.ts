@@ -28,6 +28,57 @@ describe('Card pricing integration', () => {
     });
   });
 
+  integrationTest('separates filtered caches and reuses equivalent unrestricted selections', async ({ db }) => {
+    const pricingClient = new CountingPricingClient();
+    const { app } = new App({ db, pricingClient });
+    const user = await createTestUser(app, db);
+    const path = `${SEARCH_PRICING_ROUTE_PATH}?game=pokemon&query=Giratina`;
+    const headers = sessionHeaders(user.sessionToken);
+    const unrestricted = await app.request(path, { headers });
+    const empty = await app.request(`${path}&languages=`, { headers });
+    const complete = await app.request(`${path}&languages=ja,en,ja`, { headers });
+    const english = await app.request(`${path}&languages=en,en`, { headers });
+    const englishAgain = await app.request(`${path}&languages=en`, { headers });
+    const japanese = await app.request(`${path}&languages=ja`, { headers });
+
+    expect(unrestricted.status).toBe(200);
+    expect(empty.status).toBe(200);
+    expect(complete.status).toBe(200);
+    expect(english.status).toBe(200);
+    expect(englishAgain.status).toBe(200);
+    expect(japanese.status).toBe(200);
+
+    const unfilteredBody = PricingSearchResponseSchema.parse(await unrestricted.json());
+    expect(PricingSearchResponseSchema.parse(await empty.json())).toEqual(unfilteredBody);
+    expect(PricingSearchResponseSchema.parse(await complete.json())).toEqual(unfilteredBody);
+
+    const englishBody = PricingSearchResponseSchema.parse(await english.json());
+
+    expect(englishBody.matches).toMatchObject([{ name: 'Giratina VSTAR', card_number: 'GG69' }]);
+    expect(PricingSearchResponseSchema.parse(await englishAgain.json())).toEqual(englishBody);
+    expect(PricingSearchResponseSchema.parse(await japanese.json())).toEqual({ matches: [] });
+    expect(pricingClient.searchCallCount).toBe(3);
+    expect(await db.query.cardPriceSearch.findMany()).toHaveLength(3);
+  });
+
+  integrationTest('returns language validation errors for unknown codes and unsupported games', async ({ app, db }) => {
+    const user = await createTestUser(app, db);
+    const headers = sessionHeaders(user.sessionToken);
+
+    const unknown = await app.request(`${SEARCH_PRICING_ROUTE_PATH}?game=pokemon&query=Shiftry&languages=fr`, {
+      headers,
+    });
+
+    const unsupported = await app.request(`${SEARCH_PRICING_ROUTE_PATH}?game=one_piece&query=Nami&languages=ja`, {
+      headers,
+    });
+
+    await expectValidationIssueForField(unknown, 'languages');
+    await expectValidationIssueForField(unsupported, 'languages');
+
+    expect(await db.query.cardPriceSearch.findMany()).toEqual([]);
+  });
+
   integrationTest('searches and returns normalized market pricing', async ({ app, db }) => {
     const user = await createTestUser(app, db);
 
@@ -327,10 +378,14 @@ class CountingPricingClient implements PricingClient {
     this.source = source;
   }
 
-  searchCards(game: Parameters<PricingClient['searchCards']>[0], query: string) {
+  searchCards(
+    game: Parameters<PricingClient['searchCards']>[0],
+    query: string,
+    languages: Parameters<PricingClient['searchCards']>[2] = [],
+  ) {
     this.searchCallCount += 1;
 
-    return this.client.searchCards(game, query);
+    return this.client.searchCards(game, query, languages);
   }
 
   getCardById(game: Parameters<PricingClient['getCardById']>[0], id: string) {

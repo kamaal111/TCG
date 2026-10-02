@@ -1,4 +1,5 @@
 import { toISO8601String } from '../../utils/strings.ts';
+import { normalizeCardLanguages, type CardLanguage } from '../languages.ts';
 import type { CardGame } from '../types.ts';
 
 export function normalizeCardNumber(raw: string): string {
@@ -13,10 +14,15 @@ export function buildSearchQuery(name: string, cardNumber: string): string {
   return normalizeName(`${normalizeName(name)} ${normalizeCardNumber(cardNumber)}`);
 }
 
-export function queryKey(game: CardGame, query: string): string {
+export function queryKey(game: CardGame, query: string, languages: readonly CardLanguage[] = []): string {
   const version = game === 'pokemon' ? 'v2|' : '';
 
-  return `${game}|${version}${normalizeName(query).toLowerCase()}`;
+  const selected = normalizeCardLanguages(game, languages);
+  const normalized = normalizeName(query).toLowerCase();
+
+  return selected.length === 0
+    ? `${game}|${version}${normalized}`
+    : `${game}|languages-v1|${selected.join(',')}|${normalized}`;
 }
 
 export function todayUTC(): string {

@@ -8,12 +8,17 @@ import Foundation
 struct PreviewTCGPricingClient: TCGPricingClient {
     let outcome: PreviewTCGPricingOutcome
 
-    func search(game: ClientCardGame, query: String) async -> Result<CardSearchResult, SearchPricingErrors> {
-        switch outcome {
+    func search(game: ClientCardGame, query: String, languages: Set<ClientCardLanguage>) async -> Result<
+        CardSearchResult, SearchPricingErrors
+    > {
+        let selected = ClientCardLanguage.normalized(languages, for: game)
+        return switch outcome {
         case .success:
             .success(
                 CardSearchResult(
-                    matches: Self.samplePricedCards.filter { $0.game == game }
+                    matches: Self.samplePricedCards.filter {
+                        $0.game == game && (selected.isEmpty || selected.contains(.english))
+                    }
                 )
             )
         case .empty, .noResults:

@@ -29,6 +29,9 @@
     "Add %@ to collection" : {
 
     },
+    "All languages" : {
+
+    },
     "Card details" : {
 
     },
@@ -56,6 +59,9 @@
     "Done" : {
 
     },
+    "English" : {
+
+    },
     "Enter a card name or full card number to see current market pricing." : {
 
     },
@@ -68,10 +74,19 @@
     "Explore image of %@" : {
 
     },
+    "Filters" : {
+
+    },
     "Game" : {
 
     },
     "How to search" : {
+
+    },
+    "Japanese" : {
+
+    },
+    "Languages" : {
 
     },
     "Last fetched" : {

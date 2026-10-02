@@ -25,6 +25,34 @@ const SHIFTRY = {
 const SET_AND_PRINTED_NUMBER = '(!expansion.id:sv5m OR !expansion.id:sv5m_ja) AND !printed_number:"072/071"';
 
 describe('Scrydex search through the authenticated pricing API', () => {
+  integrationTest('applies the English filter before requesting provider results', async ({ db, storageClient }) => {
+    const card = { id: 'sv5-163', name: 'Shiftry', number: '163', language_code: 'EN' };
+    const expectedQuery = '(name:"Shiftry") AND (!language_code:EN)';
+    const search = await createSearchApp({ db, storageClient, expectedQuery, cards: [card] });
+    const response = await search.request('Shiftry', 'en');
+
+    expect(response.status).toBe(200);
+    expect(PricingSearchResponseSchema.parse(await response.json()).matches).toHaveLength(1);
+    expect(search.transport.queries).toEqual([expectedQuery]);
+    expect(
+      await db.query.cardPriceSearch.findFirst({ where: { queryKey: queryKey('pokemon', 'Shiftry', ['en']) } }),
+    ).toMatchObject({ pricingCardIds: [card.id] });
+  });
+
+  integrationTest('applies the Japanese filter before requesting provider results', async ({ db, storageClient }) => {
+    const card = SHIFTRY;
+    const expectedQuery = '(name:"Shiftry") AND (!language_code:JA)';
+    const search = await createSearchApp({ db, storageClient, expectedQuery, cards: [card] });
+    const response = await search.request('Shiftry', 'ja');
+
+    expect(response.status).toBe(200);
+    expect(PricingSearchResponseSchema.parse(await response.json()).matches).toHaveLength(1);
+    expect(search.transport.queries).toEqual([expectedQuery]);
+    expect(
+      await db.query.cardPriceSearch.findFirst({ where: { queryKey: queryKey('pokemon', 'Shiftry', ['ja']) } }),
+    ).toMatchObject({ pricingCardIds: [card.id] });
+  });
+
   integrationTest(
     'finds Japanese Shiftry by set code and printed number and persists its identity',
     async ({ db, storageClient }) => {
@@ -248,8 +276,8 @@ async function createSearchApp({ db, storageClient, expectedQuery, cards }: Sear
 
   return {
     transport,
-    request: (query: string) =>
-      app.request(`${SEARCH_PRICING_ROUTE_PATH}?${new URLSearchParams({ game: 'pokemon', query })}`, {
+    request: (query: string, languages = '') =>
+      app.request(`${SEARCH_PRICING_ROUTE_PATH}?${new URLSearchParams({ game: 'pokemon', query, languages })}`, {
         headers: sessionHeaders(user.sessionToken),
       }),
   };

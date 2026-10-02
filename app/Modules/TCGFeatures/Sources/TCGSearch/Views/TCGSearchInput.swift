@@ -1,15 +1,29 @@
 import SwiftUI
 import TCGClient
+import TCGModels
 
 struct TCGSearchInput: View {
     @Binding var query: String
     let game: ClientCardGame
+    @Binding var languages: Set<ClientCardLanguage>
+    @Binding var gameSelection: CardGame
     let onSubmit: () -> Void
 
     @State private var isShowingSearchHelp = false
     @FocusState private var isSearchFocused: Bool
 
     var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            TCGSearchFilters(
+                game: game,
+                languages: $languages,
+                gameSelection: $gameSelection
+            )
+            searchField
+        }
+    }
+
+    private var searchField: some View {
         HStack(spacing: 8) {
             HStack(spacing: 8) {
                 Image(systemName: "magnifyingglass")
