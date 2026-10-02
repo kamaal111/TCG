@@ -1,3 +1,4 @@
+import { normalizeCardLanguages, type CardLanguage } from '../languages.ts';
 import type { CardGame } from '../types.ts';
 import { CARD_GAME_MAP } from '../types.ts';
 
@@ -11,7 +12,20 @@ const PRINTED_CARD_NUMBER = /^\d+\/\d+$/;
 
 const RESERVED_CHARACTERS = /([+\-!(){}[\]^"~*?:\\/]|&&|\|\|)/g;
 
-export function buildScrydexQuery(game: CardGame, query: string): string {
+export function buildScrydexQuery(game: CardGame, query: string, languages: readonly CardLanguage[] = []): string {
+  const search = buildCardQuery(game, query);
+  const selected = normalizeCardLanguages(game, languages);
+
+  if (selected.length === 0) {
+    return search;
+  }
+
+  const languageQuery = selected.map(code => `!language_code:${code.toUpperCase()}`).join(' OR ');
+
+  return `(${search}) AND (${languageQuery})`;
+}
+
+function buildCardQuery(game: CardGame, query: string): string {
   const normalized = query.trim().replace(/\s+/g, ' ');
 
   if (game === CARD_GAME_MAP.ONE_PIECE && ONE_PIECE_CARD_NUMBER.test(normalized)) {

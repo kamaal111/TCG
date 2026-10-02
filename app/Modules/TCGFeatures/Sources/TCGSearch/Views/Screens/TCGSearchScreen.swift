@@ -30,6 +30,7 @@ public struct TCGSearchScreen: View {
             .navigationTitle(Text("Card search", bundle: .module))
             .onChange(of: model.query) { _, _ in model.scheduleSearch(using: search) }
             .onChange(of: model.game) { _, _ in model.scheduleSearch(using: search) }
+            .onChange(of: model.languages) { _, _ in model.scheduleSearch(using: search) }
             .toast(model.toast, dismiss: model.dismissToast)
             .sheet(item: $model.presentedDetail) { card in
                 TCGSearchDetailView(card: card)
@@ -42,8 +43,9 @@ public struct TCGSearchScreen: View {
         #if os(macOS)
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 16) {
-                    TCGGamePicker(selection: gameBinding)
-                    TCGSearchInput(query: $model.query, game: model.game) {
+                    TCGSearchInput(
+                        query: $model.query, game: model.game, languages: $model.languages, gameSelection: gameBinding
+                    ) {
                         Task { await model.performSearch(using: search) }
                     }
                     searchResults
@@ -52,8 +54,9 @@ public struct TCGSearchScreen: View {
             }
         #else
             List {
-                TCGGamePicker(selection: gameBinding)
-                TCGSearchInput(query: $model.query, game: model.game) {
+                TCGSearchInput(
+                    query: $model.query, game: model.game, languages: $model.languages, gameSelection: gameBinding
+                ) {
                     Task { await model.performSearch(using: search) }
                 }
                 .listRowSeparator(.hidden)

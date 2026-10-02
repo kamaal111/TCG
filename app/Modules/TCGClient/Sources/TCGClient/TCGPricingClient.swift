@@ -6,7 +6,17 @@
 import OpenAPIRuntime
 
 public protocol TCGPricingClient: Sendable {
-    func search(game: ClientCardGame, query: String) async -> Result<CardSearchResult, SearchPricingErrors>
+    /// Searches card prices with a language selection; for example, `search(game: .pokemon, query: "Shiftry", languages: [.japanese])`.
+    func search(game: ClientCardGame, query: String, languages: Set<ClientCardLanguage>) async -> Result<
+        CardSearchResult, SearchPricingErrors
+    >
+}
+
+extension TCGPricingClient {
+    /// Searches across all card languages, for example `await search(game: .pokemon, query: "Pikachu")`.
+    public func search(game: ClientCardGame, query: String) async -> Result<CardSearchResult, SearchPricingErrors> {
+        await search(game: game, query: query, languages: [])
+    }
 }
 
 struct TCGPricingClientImpl: TCGPricingClient {
@@ -16,11 +26,15 @@ struct TCGPricingClientImpl: TCGPricingClient {
         self.client = client
     }
 
-    func search(game: ClientCardGame, query: String) async -> Result<CardSearchResult, SearchPricingErrors> {
+    func search(game: ClientCardGame, query: String, languages: Set<ClientCardLanguage>) async -> Result<
+        CardSearchResult, SearchPricingErrors
+    > {
+        let selected = ClientCardLanguage.normalized(languages, for: game)
+        let languageQuery = selected.isEmpty ? nil : selected.map(\.rawValue).joined(separator: ",")
         let response: Operations.GetAppApiPricingSearch.Output
         do {
             response = try await client.getAppApiPricingSearch(
-                query: .init(game: Self.makeSearchGame(game), query: query)
+                query: .init(languages: languageQuery, game: Self.makeSearchGame(game), query: query)
             )
         } catch {
             return .failure(.unknown(status: 503, payload: nil, cause: error))

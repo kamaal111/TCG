@@ -3,6 +3,7 @@
 //  TCGFeatures
 //
 
+import Foundation
 import Observation
 import TCGClient
 import TCGDesignSystem
@@ -11,7 +12,34 @@ import TCGDesignSystem
 @Observable
 final class TCGSearchScreenModel {
     var query = ""
-    var game: ClientCardGame = .pokemon
+    var game: ClientCardGame = .pokemon {
+        didSet { languages = loadLanguages(for: game) }
+    }
+    var languages: Set<ClientCardLanguage> = [] {
+        didSet {
+            preferences?.set(languages.map(\.rawValue).sorted(), forKey: Self.preferenceKey(for: game))
+        }
+    }
+
+    @ObservationIgnored private let preferences: UserDefaults?
+
+    init(preferences: UserDefaults? = .standard) {
+        self.preferences = preferences
+        languages = loadLanguages(for: game)
+    }
+
+    private static func preferenceKey(for game: ClientCardGame) -> String {
+        "TCGSearch.languages.\(game.rawValue)"
+    }
+
+    private func loadLanguages(for game: ClientCardGame) -> Set<ClientCardLanguage> {
+        guard let codes = preferences?.stringArray(forKey: Self.preferenceKey(for: game)) else { return [] }
+        let parsed = codes.compactMap(ClientCardLanguage.init(rawValue:))
+        guard parsed.count == codes.count else { return [] }
+        let selection = Set(parsed)
+        guard selection.isSubset(of: Set(ClientCardLanguage.supported(for: game))) else { return [] }
+        return selection
+    }
 
     var presentedDetail: PricedCard?
     var presentedImage: PricedCard?
@@ -38,11 +66,11 @@ final class TCGSearchScreenModel {
             return
         }
 
-        let game = game
+        let request = SearchRequest(game: game, query: normalizedQuery, languages: languages)
         searchTask = Task {
             try? await Task.sleep(for: ModuleConfig.searchDebounce)
             guard !Task.isCancelled else { return }
-            await performSearch(game: game, query: normalizedQuery, using: search)
+            await performSearch(request, using: search)
         }
     }
 
@@ -54,7 +82,7 @@ final class TCGSearchScreenModel {
             search.clear()
             return
         }
-        await performSearch(game: game, query: normalizedQuery, using: search)
+        await performSearch(SearchRequest(game: game, query: normalizedQuery, languages: languages), using: search)
     }
 
     func dismissToast() {
@@ -63,8 +91,14 @@ final class TCGSearchScreenModel {
         toast = nil
     }
 
-    private func performSearch(game: ClientCardGame, query: String, using search: TCGSearch) async {
-        switch await search.search(game: game, query: query) {
+    private struct SearchRequest {
+        let game: ClientCardGame
+        let query: String
+        let languages: Set<ClientCardLanguage>
+    }
+
+    private func performSearch(_ request: SearchRequest, using search: TCGSearch) async {
+        switch await search.search(game: request.game, query: request.query, languages: request.languages) {
         case .failure(let failure): show(failure)
         case .success: dismissToast()
         }

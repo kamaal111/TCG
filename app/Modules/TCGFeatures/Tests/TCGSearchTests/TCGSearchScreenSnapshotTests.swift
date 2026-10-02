@@ -21,7 +21,7 @@ struct TCGSearchScreenSnapshotTests {
     @Test
     func `Renders pricing results`() async throws {
         let feature = TCGSearch(client: .preview(pricingOutcome: .success))
-        let model = TCGSearchScreenModel()
+        let model = TCGSearchScreenModel(preferences: nil)
         model.query = "Giratina"
         model.game = .pokemon
         try await feature.search(game: model.game, query: model.query).get()
@@ -42,14 +42,14 @@ struct TCGSearchScreenSnapshotTests {
         let feature = TCGSearch(client: .preview(pricingOutcome: .empty))
 
         await assertScreenSnapshot(testName: #function) {
-            makeScreen(feature: feature, model: TCGSearchScreenModel())
+            makeScreen(feature: feature, model: TCGSearchScreenModel(preferences: nil))
         }
     }
 
     @Test
     func `Renders an empty One Piece search`() async {
         let feature = TCGSearch(client: .preview(pricingOutcome: .empty))
-        let model = TCGSearchScreenModel()
+        let model = TCGSearchScreenModel(preferences: nil)
         model.game = .onePiece
 
         await assertScreenSnapshot(testName: #function) { makeScreen(feature: feature, model: model) }
@@ -58,7 +58,7 @@ struct TCGSearchScreenSnapshotTests {
     @Test
     func `Renders no results guidance`() async throws {
         let feature = TCGSearch(client: .preview(pricingOutcome: .noResults))
-        let model = TCGSearchScreenModel()
+        let model = TCGSearchScreenModel(preferences: nil)
         model.query = "Missing card"
         try await feature.search(game: model.game, query: model.query).get()
 
@@ -68,11 +68,21 @@ struct TCGSearchScreenSnapshotTests {
     @Test
     func `Renders One Piece no results guidance`() async throws {
         let feature = TCGSearch(client: .preview(pricingOutcome: .noResults))
-        let model = TCGSearchScreenModel()
+        let model = TCGSearchScreenModel(preferences: nil)
         model.game = .onePiece
         model.query = "OP99-999"
         try await feature.search(game: model.game, query: model.query).get()
 
+        await assertScreenSnapshot(testName: #function) { makeScreen(feature: feature, model: model) }
+    }
+
+    @Test
+    func `Renders a Japanese language filter`() async {
+        let feature = TCGSearch(client: .preview(pricingOutcome: .empty))
+        let model = TCGSearchScreenModel(preferences: nil)
+        model.languages = [.japanese]
+
+        #expect(model.languages == [.japanese])
         await assertScreenSnapshot(testName: #function) { makeScreen(feature: feature, model: model) }
     }
 
