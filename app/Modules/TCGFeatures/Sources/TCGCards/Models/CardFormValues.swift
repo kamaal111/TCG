@@ -37,6 +37,15 @@ struct CardFormValues: Equatable {
         quantities = Dictionary(uniqueKeysWithValues: card.quantities.map { ($0.condition, $0.quantity) })
     }
 
+    init(pricedCard: PricedCard) {
+        game = pricedCard.game
+        name = pricedCard.name
+        setName = pricedCard.setName ?? ""
+        cardNumber = pricedCard.cardNumber
+        notes = ""
+        quantities = [:]
+    }
+
     var payload: UpsertCardPayload {
         UpsertCardPayload(
             game: game,

@@ -83,6 +83,7 @@ export const PricedCardSchema = z
     }),
     game: z.enum(CARD_GAMES).meta({ description: 'Trading card game', example: 'pokemon' }),
     name: z.string().meta({ description: 'Card name', example: 'Giratina VSTAR' }),
+    set_name: z.string().optional().meta({ description: 'Set name when provided', example: 'Crown Zenith' }),
     card_number: z.string().meta({ description: 'Card number', example: 'GG69' }),
     rarity: z.string().optional().meta({ description: 'Card rarity when provided', example: 'Secret Rare' }),
     image_url: z.url().optional().meta({

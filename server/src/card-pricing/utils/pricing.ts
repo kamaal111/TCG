@@ -44,6 +44,7 @@ export function serializePricedCard(game: CardGame, row: CardPriceRow): PricedCa
     id: row.id,
     game,
     name: row.name,
+    set_name: row.prices.setName,
     card_number: row.cardNumber,
     rarity: row.prices.rarity,
     image_url: imageUrl,

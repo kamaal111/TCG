@@ -1008,6 +1008,10 @@ components:
           type: string
           description: Card name
           example: Giratina VSTAR
+        set_name:
+          type: string
+          description: Set name when provided
+          example: Crown Zenith
         card_number:
           type: string
           description: Card number

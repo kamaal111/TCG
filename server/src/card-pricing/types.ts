@@ -31,6 +31,7 @@ export interface PriceMovement {
 }
 
 export interface NormalizedPricing {
+  setName?: string;
   market?: {
     condition: 'near_mint';
     currency: Currency;

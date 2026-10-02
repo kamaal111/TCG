@@ -23,11 +23,13 @@ final class TCGCardFormScreenModel {
     private(set) var toast: String?
     private var hasSubmitted = false
 
-    init(mode: Mode) {
+    init(mode: Mode, initialValues: CardFormValues?) {
         self.mode = mode
         switch mode {
         case .add:
-            values = CardFormValues(game: .onePiece, name: "", setName: "", cardNumber: "", notes: "", quantities: [:])
+            values =
+                initialValues
+                ?? CardFormValues(game: .onePiece, name: "", setName: "", cardNumber: "", notes: "", quantities: [:])
         case .edit(let card): values = CardFormValues(card: card)
         }
     }
@@ -76,8 +78,8 @@ final class TCGCardFormScreenModel {
 
         var title: String {
             switch self {
-            case .add: String(localized: "Add card")
-            case .edit: String(localized: "Edit card")
+            case .add: String(localized: "Add card", bundle: .module)
+            case .edit: String(localized: "Edit card", bundle: .module)
             }
         }
     }

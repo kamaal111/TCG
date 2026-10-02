@@ -39,6 +39,7 @@ describe('Card pricing integration', () => {
     const body = PricingSearchResponseSchema.parse(await response.json());
     expect(body.matches[0]).toMatchObject({
       id: expect.any(String),
+      set_name: 'Crown Zenith',
       headline: { amount: 146.69, currency: 'USD', metric: 'lowest_near_mint' },
       market: {
         condition: 'near_mint',
@@ -47,6 +48,37 @@ describe('Card pricing integration', () => {
       },
     });
     expect(body.matches[0]).not.toHaveProperty('pricing_card_id');
+  });
+
+  integrationTest('returns One Piece set metadata from fresh and cached pricing', async ({ app, db }) => {
+    const user = await createTestUser(app, db);
+    const path = `${SEARCH_PRICING_ROUTE_PATH}?game=one_piece&query=OP09-093`;
+    const first = await app.request(path, { headers: sessionHeaders(user.sessionToken) });
+    expect(first.status).toBe(200);
+    const firstBody = PricingSearchResponseSchema.parse(await first.json());
+    expect(firstBody.matches[0]).toMatchObject({ game: 'one_piece', set_name: 'Emperors in the New World' });
+
+    const second = await app.request(path, { headers: sessionHeaders(user.sessionToken) });
+    expect(second.status).toBe(200);
+    expect(PricingSearchResponseSchema.parse(await second.json())).toEqual(firstBody);
+  });
+
+  integrationTest('omits set name from legacy cached pricing without normalized metadata', async ({ app, db }) => {
+    const user = await createTestUser(app, db);
+    const path = `${SEARCH_PRICING_ROUTE_PATH}?game=pokemon&query=Giratina`;
+    const first = await app.request(path, { headers: sessionHeaders(user.sessionToken) });
+    expect(first.status).toBe(200);
+    const cachedRow = await db.query.cardPrice.findFirst();
+    assert(cachedRow != null);
+    const { setName, ...legacyPrices } = cachedRow.prices;
+    expect(setName).toBe('Crown Zenith');
+    await db.update(cardPrice).set({ prices: legacyPrices });
+
+    const cached = await app.request(path, { headers: sessionHeaders(user.sessionToken) });
+    expect(cached.status).toBe(200);
+    const body = PricingSearchResponseSchema.parse(await cached.json());
+    expect(body.matches).toHaveLength(1);
+    expect(body.matches[0]).not.toHaveProperty('set_name');
   });
 
   integrationTest('registers images when serving legacy cached pricing results', async ({ app, db }) => {
