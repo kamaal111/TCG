@@ -16,18 +16,44 @@ public final class TCGSearch {
     private(set) var results: [PricedCard] = []
     private(set) var isSearching = false
     private(set) var hasSearched = false
+    private(set) var completedSearch: SearchIdentity?
+    let history: TCGSearchHistoryStore
+
+    struct SearchIdentity: Equatable {
+        let game: ClientCardGame
+        let query: String
+        let languages: [ClientCardLanguage]
+
+        init(game: ClientCardGame, query: String, languages: Set<ClientCardLanguage>) {
+            self.game = game
+            self.query = query.trimmingCharacters(in: .whitespacesAndNewlines)
+            self.languages = ClientCardLanguage.normalized(languages, for: game)
+        }
+    }
 
     private let client: TCGClient
     private var activeSearchID: UUID?
 
-    init(client: TCGClient) {
+    init(client: TCGClient, history: TCGSearchHistoryStore) {
         self.client = client
+        self.history = history
     }
 
-    public static func `default`() -> TCGSearch { TCGSearch(client: .default()) }
+    /// Creates search state with the production client and device-local history.
+    ///
+    /// - Returns: A feature whose history persists across app launches.
+    public static func `default`() -> TCGSearch {
+        TCGSearch(client: .default(), history: TCGSearchHistoryStore(defaults: .standard))
+    }
 
     func search(game: ClientCardGame, query: String, languages: Set<ClientCardLanguage> = []) async -> Result<
         Void, TCGSearchOperationError
+    > {
+        await searchWithOutcome(game: game, query: query, languages: languages).map { _ in () }
+    }
+
+    func searchWithOutcome(game: ClientCardGame, query: String, languages: Set<ClientCardLanguage>) async -> Result<
+        Bool, TCGSearchOperationError
     > {
         let searchID = UUID()
         activeSearchID = searchID
@@ -44,7 +70,7 @@ public final class TCGSearch {
             logger.info(
                 "Cancelled a superseded card pricing search; game=\(game.rawValue); queryLength=\(query.count)"
             )
-            return .success(())
+            return .success(false)
         }
 
         return
@@ -52,6 +78,8 @@ public final class TCGSearch {
             .map { result in
                 results = result.matches
                 hasSearched = true
+                completedSearch = SearchIdentity(game: game, query: query, languages: languages)
+                return true
             }
             .mapError { error -> TCGSearchOperationError in
                 switch error {
@@ -87,10 +115,15 @@ public final class TCGSearch {
             }
     }
 
-    func clear() {
+    func cancel() {
         activeSearchID = nil
         isSearching = false
+    }
+
+    func clear() {
+        cancel()
         results = []
         hasSearched = false
+        completedSearch = nil
     }
 }

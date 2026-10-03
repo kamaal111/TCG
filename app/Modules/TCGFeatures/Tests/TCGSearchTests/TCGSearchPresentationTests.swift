@@ -9,10 +9,10 @@ import Testing
 struct TCGSearchPresentationTests {
     @Test
     func `Opening details retains the selected card after clearing search`() async throws {
-        let feature = TCGSearch(client: .preview(pricingOutcome: .success))
+        let feature = TCGSearch(client: .preview(pricingOutcome: .success), history: TCGSearchHistoryStore())
         try await feature.search(game: .pokemon, query: "Giratina").get()
         let card = try #require(feature.results.first)
-        let model = TCGSearchScreenModel()
+        let model = TCGSearchScreenModel(preferences: nil)
         model.showDetails(of: card)
         feature.clear()
         #expect(model.presentedDetail == card)
@@ -21,7 +21,7 @@ struct TCGSearchPresentationTests {
 
     @Test
     func `Opening and closing the image preserves the selected detail`() {
-        let model = TCGSearchScreenModel()
+        let model = TCGSearchScreenModel(preferences: nil)
         model.showDetails(of: card)
         model.exploreImage(of: card)
         #expect(model.presentedImage == card)
@@ -31,7 +31,7 @@ struct TCGSearchPresentationTests {
 
     @Test
     func `Opening the image directly does not open details`() {
-        let model = TCGSearchScreenModel()
+        let model = TCGSearchScreenModel(preferences: nil)
         model.exploreImage(of: card)
         #expect(model.presentedImage == card)
         #expect(model.presentedDetail == nil)
@@ -39,7 +39,7 @@ struct TCGSearchPresentationTests {
 
     @Test
     func `Missing artwork does not open exploration`() {
-        let model = TCGSearchScreenModel()
+        let model = TCGSearchScreenModel(preferences: nil)
         let card = PricedCard(
             id: "no-image", game: .onePiece, name: "Nami", cardNumber: "OP01-016",
             pricedOn: .distantPast, fetchedAt: .distantPast
