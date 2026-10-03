@@ -6,12 +6,11 @@
 import KamaalAuth
 import SwiftUI
 
-#if os(macOS)
-    import AppKit
-#endif
-
 public struct TCGSettingsScreen: View {
     @Environment(KamaalAuth.self) private var auth
+    #if os(macOS)
+        @Environment(\.dismiss) private var dismiss
+    #endif
 
     @State private var isConfirmingSignOut = false
     @State private var isSigningOut = false
@@ -69,16 +68,12 @@ public struct TCGSettingsScreen: View {
     }
 
     private func signOut() {
-        #if os(macOS)
-            // The Settings window is only reachable while signed in, so close it rather than leave it open.
-            let settingsWindow = NSApplication.shared.keyWindow
-        #endif
         Task {
             isSigningOut = true
             await auth.signOut()
             isSigningOut = false
             #if os(macOS)
-                settingsWindow?.performClose(nil)
+                dismiss()
             #endif
         }
     }
