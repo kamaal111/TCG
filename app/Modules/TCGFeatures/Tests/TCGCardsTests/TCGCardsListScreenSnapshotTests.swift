@@ -19,7 +19,8 @@ struct TCGCardsListScreenSnapshotTests {
     @Test
     func `Renders a populated collection`() async throws {
         let feature = TCGCards(client: .preview(cardsOutcome: .success(cards: PreviewTCGCardsClient.sampleCards)))
-        try await feature.load(game: .onePiece).get()
+        try await feature.load(game: nil).get()
+        #expect(feature.cards.count == 2)
         await assertScreenSnapshot(testName: #function) { makeScreen(feature: feature) }
     }
 
@@ -31,12 +32,34 @@ struct TCGCardsListScreenSnapshotTests {
     }
 
     @Test
-    func `Renders a One Piece filter`() async throws {
+    func `Renders a One Piece filter`() async {
         let feature = TCGCards(client: .preview(cardsOutcome: .success(cards: PreviewTCGCardsClient.sampleCards)))
-        try await feature.load(game: nil).get()
         let model = TCGCardsListScreenModel()
         model.gameFilter = .onePiece
+        await model.load(using: feature)
+        #expect(feature.cards.map(\.card.game) == [.onePiece])
         await assertScreenSnapshot(testName: #function) { makeScreen(feature: feature, model: model) }
+    }
+
+    @Test
+    func `Renders a Pokemon filter`() async {
+        let feature = TCGCards(client: .preview(cardsOutcome: .success(cards: PreviewTCGCardsClient.sampleCards)))
+        let model = TCGCardsListScreenModel()
+        model.gameFilter = .pokemon
+        await model.load(using: feature)
+        #expect(feature.cards.map(\.card.game) == [.pokemon])
+        await assertScreenSnapshot(testName: #function) { makeScreen(feature: feature, model: model) }
+    }
+
+    @Test
+    func `Renders the game filter with large text`() async throws {
+        let feature = TCGCards(client: .preview(cardsOutcome: .success(cards: PreviewTCGCardsClient.sampleCards)))
+        try await feature.load(game: nil).get()
+        #expect(feature.cards.count == 2)
+        await assertScreenSnapshot(testName: #function) {
+            makeScreen(feature: feature)
+                .environment(\.dynamicTypeSize, .accessibility3)
+        }
     }
 
     @Test

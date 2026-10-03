@@ -54,14 +54,15 @@ public struct TCGCardsListScreen: View {
         #if os(macOS)
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 16) {
-                    TCGGamePicker(allGames: gameFilterBinding)
+                    gameFilterMenu
                     collectionRows
                 }
                 .padding(24)
             }
         #else
             List {
-                TCGGamePicker(allGames: gameFilterBinding)
+                gameFilterMenu
+                    .listRowSeparator(.hidden)
 
                 if cardCollection.cards.isEmpty, !cardCollection.isLoading {
                     emptyCollection
@@ -82,6 +83,24 @@ public struct TCGCardsListScreen: View {
             get: { model.gameFilter.map(CardGame.init(client:)) },
             set: { model.gameFilter = $0?.clientGame }
         )
+    }
+
+    private var gameFilterMenu: some View {
+        TCGFilterMenu(gameTitle: gameFilterTitle) {
+            Picker(selection: gameFilterBinding) {
+                Text("All games", bundle: .module).tag(CardGame?.none)
+                ForEach(CardGame.allCases, id: \.self) { game in
+                    Text(verbatim: game.title).tag(Optional(game))
+                }
+            } label: {
+                Text("Game", bundle: .module)
+            }
+        }
+    }
+
+    private var gameFilterTitle: Text {
+        guard let game = model.gameFilter else { return Text("All games", bundle: .module) }
+        return Text(verbatim: CardGame(client: game).title)
     }
 
     @ViewBuilder
