@@ -12,6 +12,16 @@ import Testing
 @Suite("Preview TCGCards Client Tests")
 struct PreviewTCGCardsClientTests {
     @Test
+    func `Preserves explicit unavailable pricing and filters by game`() async throws {
+        let cards = PreviewTCGCardsClient.sampleCards.map {
+            CardWithPrice(card: $0, price: OwnedCardPrice(cardId: $0.id, status: .unavailable))
+        }
+        let client = TCGClient.preview(cardsOutcome: .successWithPrices(cards))
+        #expect(try await client.cards.list(game: nil).get() == cards)
+        #expect(try await client.cards.list(game: .pokemon).get() == cards.filter { $0.card.game == .pokemon })
+    }
+
+    @Test
     func `Success seeds the configured cards`() async throws {
         let client = TCGClient.preview(cardsOutcome: .success(cards: PreviewTCGCardsClient.sampleCards))
         #expect(try await client.cards.list(game: nil).get().map(\.card) == PreviewTCGCardsClient.sampleCards)

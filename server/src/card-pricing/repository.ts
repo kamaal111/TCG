@@ -1,9 +1,17 @@
 import assert from 'node:assert/strict';
 
 import { and, eq, sql } from 'drizzle-orm';
+import type { ResultAsync } from 'neverthrow';
 
 import type { HonoContext } from '../context.ts';
-import { PricingLockTimeout } from './exceptions.ts';
+import {
+  CARD_PRICING_EXCEPTION_CODES,
+  PricingLockTimeout,
+  PricingLockUnavailable,
+  PricingProviderUnavailable,
+  PricingOperationFailed,
+  type PricingLockError,
+} from './exceptions.ts';
 import { pricingLogger } from './logging.ts';
 import env from '../env.ts';
 import type { CardGame, NormalizedPricingCard, PricingSource } from './types.ts';
@@ -11,7 +19,7 @@ import { getSession } from '../auth/module.ts';
 import { classifyPostgresError } from '../db/errors.ts';
 import { cardPrice, cardPriceSearch } from '../db/schema/card-pricing.ts';
 import { card } from '../db/schema/cards.ts';
-import { toError } from '../utils/results.ts';
+import { toError, tryCatch } from '../utils/results.ts';
 import { isNonEmpty, type NonEmptyArray } from '../utils/type-utils.ts';
 
 export type CardPriceRow = typeof cardPrice.$inferSelect;
@@ -53,15 +61,15 @@ export class CardPricingRepository {
    *
    * @param lock Lock identity and metadata used for logging.
    * @param operation Work to run once the lock is held.
-   * @returns The operation's result.
+   * @returns Ok with the operation's value, or Err containing an APIException subclass for the classified lock or operation failure.
    */
-  async withPricingLock<T>(lock: PricingLock, operation: () => Promise<T>): Promise<T> {
+  withPricingLock<T>(lock: PricingLock, operation: () => Promise<T>): ResultAsync<T, PricingLockError> {
     let lockStartedAt: number | undefined = undefined;
     let lockWaitMs = 0;
     let acquired = false;
 
-    try {
-      const result = await this.db.transaction(async transaction => {
+    return tryCatch(async () =>
+      this.db.transaction(async transaction => {
         await transaction.execute(sql`select set_config('lock_timeout', ${`${env.PRICING_LOCK_TIMEOUT_MS}ms`}, true)`);
         lockStartedAt = performance.now();
         await transaction.execute(sql`select pg_advisory_xact_lock(hashtextextended(${lock.key}, 0))`);
@@ -70,25 +78,54 @@ export class CardPricingRepository {
         await transaction.execute(sql`select set_config('lock_timeout', '0', true)`);
 
         return operation();
+      }),
+    )
+      .map(value => {
+        this.logLock({ lock, lockStatus: 'acquired', lockWaitMs, outcome: 'success' });
+
+        return value;
+      })
+      .mapErr((error): PricingLockError => {
+        if (!acquired) {
+          lockWaitMs = lockStartedAt == null ? 0 : Math.round(performance.now() - lockStartedAt);
+        }
+
+        const cause = toError(error);
+        const timedOut = !acquired && classifyPostgresError(cause) === 'lock_not_available';
+
+        let failure: PricingLockError;
+        let errorCode: string;
+        let lockStatus: 'acquired' | 'failed' | 'timeout';
+
+        if (timedOut) {
+          failure = new PricingLockTimeout(this.c, cause);
+          errorCode = CARD_PRICING_EXCEPTION_CODES.PRICING_LOCK_TIMEOUT;
+          lockStatus = 'timeout';
+        } else if (!acquired) {
+          failure = new PricingLockUnavailable(this.c, cause);
+          errorCode = CARD_PRICING_EXCEPTION_CODES.PRICING_PROVIDER_UNAVAILABLE;
+          lockStatus = 'failed';
+        } else if (cause instanceof PricingProviderUnavailable) {
+          failure = cause;
+          errorCode = CARD_PRICING_EXCEPTION_CODES.PRICING_PROVIDER_UNAVAILABLE;
+          lockStatus = 'acquired';
+        } else {
+          failure = new PricingOperationFailed(this.c, cause);
+          errorCode = 'PRICING_OPERATION_FAILED';
+          lockStatus = 'acquired';
+        }
+
+        this.logLock({
+          lock,
+          lockStatus,
+          lockWaitMs,
+          outcome: 'failure',
+          errorCode,
+          failure,
+        });
+
+        return failure;
       });
-
-      this.logLock(lock, 'acquired', lockWaitMs, 'success');
-
-      return result;
-    } catch (error) {
-      if (!acquired) {
-        lockWaitMs = lockStartedAt == null ? 0 : Math.round(performance.now() - lockStartedAt);
-      }
-
-      const timedOut = classifyPostgresError(toError(error)) === 'lock_not_available';
-      this.logLock(lock, timedOut ? 'timeout' : acquired ? 'acquired' : 'failed', lockWaitMs, 'failure');
-
-      if (timedOut) {
-        throw new PricingLockTimeout(this.c);
-      }
-
-      throw error;
-    }
   }
 
   /**
@@ -266,12 +303,21 @@ export class CardPricingRepository {
       .where(and(eq(card.id, ownedCardId), eq(card.userId, this.userId)));
   }
 
-  private logLock(
-    lock: PricingLock,
-    lockStatus: 'acquired' | 'failed' | 'timeout',
-    lockWaitMs: number,
-    outcome: 'failure' | 'success',
-  ) {
+  private logLock({
+    lock,
+    lockStatus,
+    lockWaitMs,
+    outcome,
+    errorCode,
+    failure,
+  }: {
+    lock: PricingLock;
+    lockStatus: 'acquired' | 'failed' | 'timeout';
+    lockWaitMs: number;
+  } & (
+    | { outcome: 'success'; errorCode?: never; failure?: never }
+    | { outcome: 'failure'; errorCode: string; failure: PricingLockError }
+  )) {
     const fields = {
       event: 'pricing.lock.completed',
       game: lock.game,
@@ -289,9 +335,15 @@ export class CardPricingRepository {
       return;
     }
 
-    logger.warn(
-      { ...fields, outcome, error_code: 'PRICING_LOCK_UNAVAILABLE' },
-      'Completed a card pricing lock operation.',
-    );
+    if (failure instanceof PricingOperationFailed || failure instanceof PricingLockUnavailable) {
+      logger.error(
+        { ...fields, outcome, error_code: errorCode, err: failure },
+        'Failed a card pricing lock operation unexpectedly.',
+      );
+
+      return;
+    }
+
+    logger.warn({ ...fields, outcome, error_code: errorCode }, 'Completed a card pricing lock operation.');
   }
 }

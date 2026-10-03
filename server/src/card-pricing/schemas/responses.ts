@@ -146,7 +146,8 @@ export const OwnedCardPriceSchema = z
       example: '550e8400-e29b-41d4-a716-446655440000',
     }),
     status: z.enum(Object.values(OWNED_CARD_PRICE_STATUSES)).meta({
-      description: 'Pricing result for the owned card; unavailable means pricing is temporarily busy.',
+      description:
+        'Pricing result for the owned card; unavailable means pricing could not be fetched because of a lock timeout or provider failure.',
       example: OWNED_CARD_PRICE_STATUSES.PRICED,
     }),
     priced_card: PricedCardSchema.optional(),

@@ -39,6 +39,34 @@ struct TCGCardsListScreenSnapshotTests {
         await assertScreenSnapshot(testName: #function) { makeScreen(feature: feature, model: model) }
     }
 
+    @Test
+    func `Renders a collection with some unavailable prices`() async throws {
+        let feature = makeUnavailableFeature(allUnavailable: false)
+        try await feature.load(game: nil).get()
+        #expect(feature.cards.map(\.price.status) == [.unavailable, .priced])
+        await assertScreenSnapshot(testName: #function) { makeScreen(feature: feature) }
+    }
+
+    @Test
+    func `Renders a collection with all prices unavailable`() async throws {
+        let feature = makeUnavailableFeature(allUnavailable: true)
+        try await feature.load(game: nil).get()
+        #expect(feature.cards.allSatisfy { $0.price.status == .unavailable })
+        await assertScreenSnapshot(testName: #function) { makeScreen(feature: feature) }
+    }
+
+    private func makeUnavailableFeature(allUnavailable: Bool) -> TCGCards {
+        let cards = PreviewTCGCardsClient.sampleCards.enumerated().map { index, card in
+            CardWithPrice(
+                card: card,
+                price: allUnavailable || index == 0
+                    ? OwnedCardPrice(cardId: card.id, status: .unavailable)
+                    : PreviewTCGCardsClient.price(for: card)
+            )
+        }
+        return TCGCards(client: .preview(cardsOutcome: .successWithPrices(cards)))
+    }
+
     private func makeScreen(feature: TCGCards, model: TCGCardsListScreenModel = .init()) -> some View {
         NavigationStack { TCGCardsListScreen(model: model) }
             .environment(feature)

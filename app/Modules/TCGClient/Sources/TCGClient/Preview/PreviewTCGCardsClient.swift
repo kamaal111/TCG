@@ -18,6 +18,7 @@ struct PreviewTCGCardsClient: TCGCardsClient {
         let cards: [Card]
         switch outcome {
         case .success(let success): cards = success
+        case .successWithPrices(let success): cards = success.map(\.card)
         case .empty, .serverUnavailable: cards = []
         case .validationErrors, .notFound: cards = Self.sampleCards
         }
@@ -27,6 +28,9 @@ struct PreviewTCGCardsClient: TCGCardsClient {
     func list(game: ClientCardGame?) async -> Result<[CardWithPrice], ListCardsErrors> {
         if case .serverUnavailable = outcome {
             return .failure(.unavailable)
+        }
+        if case .successWithPrices(let cards) = outcome {
+            return .success(game == nil ? cards : cards.filter { $0.card.game == game })
         }
         return .success(
             state.cards.withLock { cards in

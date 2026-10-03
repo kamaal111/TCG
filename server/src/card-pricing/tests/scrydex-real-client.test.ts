@@ -53,7 +53,9 @@ describe('RealScrydexClient', () => {
       const card = expansion === undefined ? onePieceCard() : { ...onePieceCard(), expansion };
 
       const client = makeClient(async input =>
-        jsonResponse(new URL(stringifyRequestURL(input)).pathname.endsWith('/cards') ? { data: [card] } : card),
+        jsonResponse(
+          new URL(stringifyRequestURL(input)).pathname.endsWith('/cards') ? { data: [card] } : { data: card },
+        ),
       );
 
       const search = await client.searchCards('one_piece', 'OP14-069');
@@ -106,7 +108,7 @@ describe('RealScrydexClient', () => {
     const client = makeClient(async input => {
       requestedURLs.push(stringifyRequestURL(input));
 
-      return jsonResponse({ id: 'sv5m_ja-72', name: 'ダーテング', number: '72', printed_number: '072/071' });
+      return jsonResponse({ data: { id: 'sv5m_ja-72', name: 'ダーテング', number: '72', printed_number: '072/071' } });
     });
 
     const result = await client.getCardById('pokemon', 'sv5m_ja-72');
@@ -114,6 +116,28 @@ describe('RealScrydexClient', () => {
 
     expect(new URL(requestedURLs[0] ?? 'invalid:').pathname).toBe('/pokemon/v1/cards/sv5m_ja-72');
     expect(result.value?.card).toEqual({ id: 'sv5m_ja-72', name: 'ダーテング', cardNumber: '072/071', pricing: {} });
+  });
+
+  it.each(['pokemon', 'one_piece'] as const)('decodes wrapped lookup pricing for %s', async game => {
+    const client = makeClient(async () => jsonResponse({ status: 'success', data: onePieceCard() }));
+    const result = await client.getCardById(game, 'OP14-069');
+    assert(result.isOk());
+    expect(result.value?.card.pricing.market).toMatchObject({ currency: 'USD', low: 12.45, market: 14.2 });
+  });
+
+  it.each<z.input<typeof JsonValueSchema>>([
+    {},
+    { data: null },
+    { data: [] },
+    { data: 'invalid' },
+    { data: {} },
+    { data: { id: 'card', name: 'Card' } },
+    onePieceCard(),
+  ])('rejects unusable lookup envelopes: %j', async body => {
+    const client = makeClient(async () => jsonResponse(body));
+    const result = await client.getCardById('pokemon', 'card');
+    assert(result.isErr());
+    expect(result.error).toMatchObject({ reason: 'invalid_response', statusCode: 200, isRetryable: false });
   });
 
   it('returns null for a missing provider card', async () => {
