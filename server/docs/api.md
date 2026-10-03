@@ -154,15 +154,16 @@ Owned-card pricing reports one of these statuses:
 | `priced`      | A matching priced card has normalized market data       |
 | `no_match`    | No provider card could be matched                       |
 | `no_price`    | A card matched but has no usable normalized market data |
-| `unavailable` | A collection-list item's pricing lock timed out         |
+| `unavailable` | A collection-list item could not fetch pricing          |
 
 The service reuses a saved provider identity when available; otherwise it searches
 using name and card number, preferring number matches before name matches. This
 matching is heuristic. `priced_card` is optional, and `priced` does not guarantee
 every amount or trend field is present.
 
-Collection listing tolerates individual lock timeouts as `unavailable`, but a
-pricing-provider failure can still fail the request. Create/update persist the
+Collection listing tolerates individual lock timeouts and pricing-provider failures
+as `unavailable`. Affected cards remain visible without prices, and provider
+failures remain logged. Unexpected server failures still fail the request. Create/update persist the
 card before pricing the response: a subsequent pricing error can return 503 even
 though the card was saved. Re-list the collection before blindly retrying a failed
 create, to avoid adding a duplicate entry.

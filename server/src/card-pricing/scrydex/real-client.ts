@@ -12,7 +12,7 @@ import type { CardLanguage } from '../languages.ts';
 import { CARD_GAME_MAP, type CardGame, type PricingCardRecord, PRICING_SOURCES } from '../types.ts';
 import { normalizeScrydexCard } from './normalize.ts';
 import { buildScrydexQuery } from './query.ts';
-import { ScrydexRawCardSchema, ScrydexSearchResponseSchema } from './types.ts';
+import { ScrydexCardResponseSchema, ScrydexRawCardSchema, ScrydexSearchResponseSchema } from './types.ts';
 
 type Fetch = (input: string | URL | Request, init?: RequestInit) => Promise<Response>;
 
@@ -146,19 +146,19 @@ export class RealScrydexClient implements PricingClient {
       return err(bodyResult.error);
     }
 
-    const raw = ScrydexRawCardSchema.safeParse(bodyResult.value);
+    const envelope = ScrydexCardResponseSchema.safeParse(bodyResult.value);
 
-    if (!raw.success) {
+    if (!envelope.success) {
       return err(this.invalidResponse('Scrydex card lookup returned an invalid response', response.status));
     }
 
-    const normalized = normalizeScrydexCard(game, raw.data);
+    const normalized = normalizeScrydexCard(game, envelope.data.data);
 
     if (normalized == null) {
       return err(this.invalidResponse('Scrydex card lookup returned an unusable card', response.status));
     }
 
-    return ok({ card: normalized.card, raw: raw.data });
+    return ok({ card: normalized.card, raw: envelope.data.data });
   }
 
   private headers(): PricingClientResult<HeadersInit> {

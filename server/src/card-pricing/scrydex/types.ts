@@ -59,6 +59,8 @@ export const ScrydexRawCardSchema = z
   })
   .catchall(z.unknown());
 
+export const ScrydexCardResponseSchema = z.object({ data: ScrydexRawCardSchema }).catchall(z.unknown());
+
 export const ScrydexSearchResponseSchema = z
   .object({
     data: z.array(z.unknown()),

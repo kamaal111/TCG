@@ -1099,8 +1099,8 @@ components:
             - no_price
             - unavailable
           description: >-
-            Pricing result for the owned card; unavailable means pricing is
-            temporarily busy.
+            Pricing result for the owned card; unavailable means pricing could
+            not be fetched because of a lock timeout or provider failure.
           example: priced
         priced_card:
           $ref: '#/components/schemas/PricedCard'

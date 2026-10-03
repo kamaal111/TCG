@@ -7,6 +7,7 @@
 
 enum PreviewTCGCardsOutcome: Sendable {
     case success(cards: [Card])
+    case successWithPrices([CardWithPrice])
     case empty
     case validationErrors([TCGClientValidationIssue])
     case notFound

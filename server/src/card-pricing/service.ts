@@ -64,7 +64,7 @@ export class CardPricingService {
 
     this.logCache('pricing.search.cache', 'miss', 0);
 
-    return this.repository.withPricingLock(
+    const result = await this.repository.withPricingLock(
       {
         game,
         key: `pricing:search:${this.client.source}:${pricedOn}:${game}:${normalizedQueryKey}`,
@@ -128,13 +128,19 @@ export class CardPricingService {
         return { normalizedQuery, matches: rows.map(row => serializePricedCard(game, row)) };
       },
     );
+
+    if (result.isErr()) {
+      throw result.error;
+    }
+
+    return result.value;
   }
 
   /**
    * Prices owned cards, resolving provider identities when missing or owned by another source.
    *
    * @param cards Owned cards to price.
-   * @param options.allowUnavailable When true, a per-card pricing lock timeout is reported as
+   * @param options.allowUnavailable When true, a per-card pricing lock timeout or provider failure is reported as
    * `UNAVAILABLE` for that card instead of failing the whole batch.
    * @returns Price responses for each card, in the same order as `cards`.
    */
@@ -147,7 +153,10 @@ export class CardPricingService {
         try {
           return await this.priceOwnedCard(card);
         } catch (error) {
-          if (options.allowUnavailable && error instanceof PricingLockTimeout) {
+          if (
+            options.allowUnavailable &&
+            (error instanceof PricingLockTimeout || error instanceof PricingProviderUnavailable)
+          ) {
             return { card_id: card.id, status: OWNED_CARD_PRICE_STATUSES.UNAVAILABLE };
           }
 
@@ -219,7 +228,7 @@ export class CardPricingService {
 
     this.logCache('pricing.owned.cache', 'miss', 0, card.id);
 
-    return this.repository.withPricingLock(
+    const result = await this.repository.withPricingLock(
       {
         game: card.game,
         key: `pricing:card:${this.client.source}:${pricedOn}:${card.game}:${pricingCardId}`,
@@ -276,6 +285,12 @@ export class CardPricingService {
         return this.makeOwnedResponse(card.id, serializePricedCard(card.game, row));
       },
     );
+
+    if (result.isErr()) {
+      throw result.error;
+    }
+
+    return result.value;
   }
 
   private async cachedSearch(

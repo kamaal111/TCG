@@ -167,3 +167,16 @@ integrationTest('logs the deletion', async ({ app, getLogsForRequestId, withRequ
 - Calling `c.get('logger')` directly in application code. Its generic `RequestLogger` methods
   accept fields extending `DomainLogFields<string>`; they do not restrict event names to a closed
   domain union. Use a domain accessor to enforce the domain's event and field vocabulary.
+
+## Pricing lock failures
+
+`pricing.lock.completed` distinguishes acquisition failures from failures of the
+protected operation. Acquisition timeouts use `PRICING_LOCK_TIMEOUT`; other
+acquisition failures use `PRICING_PROVIDER_UNAVAILABLE`. Once acquired, provider
+failures retain `lock_status: acquired` and use `PRICING_PROVIDER_UNAVAILABLE`;
+unexpected operation failures use `PRICING_OPERATION_FAILED`. Provider warnings
+remain visible when collection listing returns affected prices as `unavailable`.
+
+Unexpected acquisition and operation failures log at error level, retaining the
+original diagnostic cause in `err`. Their returned API exceptions expose the safe
+`INTERNAL_SERVER_ERROR` response. Timeouts and provider failures remain warnings.
