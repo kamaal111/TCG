@@ -6,7 +6,7 @@ import { cardConditionQuantity } from '../../db/schema/cards.ts';
 import { expectErrorResponse, expectValidationIssueForField } from '../../tests/auth.ts';
 import { integrationTest } from '../../tests/fixtures.ts';
 import { createTestUser } from '../../tests/utils.ts';
-import { CREATE_CARD_ROUTE_PATH } from '../handlers/create-card.ts';
+import { CREATE_CARD_ROUTE_PATH } from '../routes/create-card.ts';
 import { CardSchema } from '../schemas/responses.ts';
 
 describe('Create card integration', () => {
