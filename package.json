@@ -34,7 +34,7 @@
   },
   "devDependencies": {
     "@devcontainers/cli": "0.89.0",
-    "@kamaal111/kamaal-quality-config": "^0.2.1",
+    "@kamaal111/kamaal-quality-config": "^0.3.0",
     "@standard-schema/spec": "^1.1.0",
     "@types/node": "^26.4.1",
     "@types/pg": "^8.23.1",
