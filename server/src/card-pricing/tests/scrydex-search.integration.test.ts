@@ -5,7 +5,7 @@ import { cardPriceSearch } from '../../db/schema/card-pricing.ts';
 import type { ObjectStorageClient } from '../../storage/client.ts';
 import { integrationTest } from '../../tests/fixtures.ts';
 import { createTestUser } from '../../tests/utils.ts';
-import { SEARCH_PRICING_ROUTE_PATH } from '../handlers/search-pricing.ts';
+import { SEARCH_PRICING_ROUTE_PATH } from '../routes/search-pricing.ts';
 import { PricingSearchResponseSchema } from '../schemas/responses.ts';
 import { RealScrydexClient } from '../scrydex/real-client.ts';
 import type { ScrydexRawCard } from '../scrydex/types.ts';

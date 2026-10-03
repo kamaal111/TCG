@@ -2,7 +2,7 @@ import type { Hono } from 'hono';
 
 import { MIME_TYPES } from '../../constants/request.ts';
 import type { HonoEnvironment } from '../../context.ts';
-import { CREATE_CARD_ROUTE_PATH } from '../handlers/create-card.ts';
+import { CREATE_CARD_ROUTE_PATH } from '../routes/create-card.ts';
 import type { UpsertCard } from '../schemas/payloads.ts';
 
 export const validCardPayload: UpsertCard = {

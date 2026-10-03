@@ -8,7 +8,7 @@ import { card } from '../../db/schema/cards.ts';
 import { expectErrorResponse } from '../../tests/auth.ts';
 import { integrationTest } from '../../tests/fixtures.ts';
 import { createTestUser } from '../../tests/utils.ts';
-import { LIST_CARDS_ROUTE_PATH } from '../handlers/list-cards.ts';
+import { LIST_CARDS_ROUTE_PATH } from '../routes/list-cards.ts';
 import { CardSchema } from '../schemas/responses.ts';
 import { CardsListResponseSchema } from '../schemas/responses.ts';
 

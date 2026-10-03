@@ -1,18 +1,20 @@
-import { createRoute, type RouteConfigToTypedResponse } from '@kamaalio/hono-standard-openapi';
+import { createRoute, defineOpenAPIRoute } from '@kamaalio/hono-standard-openapi';
 
 import { requireSessionMiddleware } from '../../auth/module.ts';
+import { APP_API_ROUTE_NAME } from '../../constants/common.ts';
 import { CONTENTFUL_STATUS_CODES } from '../../constants/http.ts';
 import { MIME_TYPES } from '../../constants/request.ts';
+import type { HonoEnvironment } from '../../context.ts';
 import { ErrorResponseSchema, ValidationErrorResponseSchema } from '../../schemas/errors.ts';
-import { CARDS_OPENAPI_TAG } from '../constants.ts';
+import { CARDS_OPENAPI_TAG, CARDS_ROUTE_NAME } from '../constants.ts';
+import { cardsLogger } from '../logging.ts';
 import { UpsertCardSchema } from '../schemas/payloads.ts';
 import { CardWithPriceSchema } from '../schemas/responses.ts';
+import { serializeCardWithPrice } from '../utils/cards.ts';
 
 const CREATE_CARD_PATH = '/';
 
-export type CreateCardRouteResponse = RouteConfigToTypedResponse<typeof createCardRoute>;
-
-const createCardRoute = createRoute({
+const routeConfig = createRoute({
   method: 'post',
   path: CREATE_CARD_PATH,
   tags: [CARDS_OPENAPI_TAG],
@@ -38,6 +40,24 @@ const createCardRoute = createRoute({
       description: 'Pricing is temporarily unavailable: the lock could not be acquired or the upstream failed',
       content: { [MIME_TYPES.JSON]: { schema: ErrorResponseSchema } },
     },
+  },
+});
+
+export const CREATE_CARD_ROUTE_PATH = `${APP_API_ROUTE_NAME}${CARDS_ROUTE_NAME}` as const;
+
+const createCardRoute = defineOpenAPIRoute<HonoEnvironment, typeof routeConfig>({
+  route: routeConfig,
+  handler: async c => {
+    const createdCard = await c.get('cardRepository').create(c.req.valid('json'));
+    const [price] = await c.get('cardPricingService').priceOwnedCards([createdCard]);
+
+    const response = serializeCardWithPrice(createdCard, price);
+    cardsLogger(c).info(
+      { event: 'cards.create', outcome: 'success', card_id: response.id },
+      'Added an owned card to the collection.',
+    );
+
+    return c.json(response, { status: CONTENTFUL_STATUS_CODES.CREATED });
   },
 });
 

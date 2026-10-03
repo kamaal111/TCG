@@ -1,12 +1,13 @@
-import { createRoute } from '@kamaalio/hono-standard-openapi';
+import { createRoute, defineOpenAPIRoute } from '@kamaalio/hono-standard-openapi';
 
 import { CONTENTFUL_STATUS_CODES, CONTENTLESS_STATUS_CODES } from '../../constants/http.ts';
 import { MIME_TYPES } from '../../constants/request.ts';
+import type { HonoEnvironment } from '../../context.ts';
 import { ErrorResponseSchema, ValidationErrorResponseSchema } from '../../schemas/errors.ts';
 import { IMAGES_OPENAPI_TAG } from '../constants.ts';
 import { GetImageParamsSchema } from '../schemas/params.ts';
 
-const getImageRoute = createRoute({
+const routeConfig = createRoute({
   method: 'get',
   path: '/{imageKey}',
   tags: [IMAGES_OPENAPI_TAG],
@@ -28,6 +29,13 @@ const getImageRoute = createRoute({
       description: 'Card image temporarily unavailable',
       content: { [MIME_TYPES.JSON]: { schema: ErrorResponseSchema } },
     },
+  },
+});
+
+const getImageRoute = defineOpenAPIRoute<HonoEnvironment, typeof routeConfig>({
+  route: routeConfig,
+  handler: c => {
+    return c.get('cardImageService').get(c.req.valid('param').imageKey);
   },
 });
 
