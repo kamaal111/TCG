@@ -5,7 +5,6 @@ export default defineConfig({
   extends: [kamaalOxlintConfig],
   ignorePatterns: ['**/dist/**', '**/node_modules/**', '**/*.swift'],
   rules: {
-    'no-nested-ternary': 'error',
     'vitest/no-standalone-expect': ['error', { additionalTestBlockFunctions: ['integrationTest'] }],
   },
   overrides: [
