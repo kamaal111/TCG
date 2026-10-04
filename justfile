@@ -228,7 +228,7 @@ test-snapshots: test-snapshots-macos test-snapshots-ios
 
 # Run server tests
 [working-directory("server")]
-test-server:
+test-server: test-packages
     {{ PNR }} test
 
 # Build the production server image
@@ -313,7 +313,7 @@ typecheck: typecheck-server typecheck-scripts
 
 # Typecheck server code
 [working-directory("server")]
-typecheck-server:
+typecheck-server: typecheck-packages
     {{ PNR }} typecheck
 
 # Typecheck repository scripts
@@ -404,3 +404,11 @@ code:
 [working-directory("app")]
 xcode:
     open "{{ APP_PROJECT }}"
+
+# Run workspace package tests with coverage
+test-packages:
+    {{ PN }} --filter '@tcg/*' run test
+
+# Typecheck workspace packages
+typecheck-packages:
+    {{ PN }} --filter '@tcg/*' run typecheck

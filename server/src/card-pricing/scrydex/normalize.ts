@@ -1,8 +1,8 @@
+import type { ScrydexRawCard, ScrydexRawPrice } from '@tcg/scrydex';
 import z from 'zod';
 
 import type { CardGame, Currency, NormalizedPricing, NormalizedPricingCard, PriceMovement } from '../types.ts';
 import { CARD_GAME_MAP, CURRENCIES } from '../types.ts';
-import type { ScrydexRawCard, ScrydexRawPrice } from './types.ts';
 
 const RequiredCardSchema = z.object({
   id: z.coerce.string().min(1),

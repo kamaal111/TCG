@@ -173,6 +173,39 @@ describe('RealScrydexClient', () => {
     expect(result.error).toMatchObject({ reason: 'invalid_response', isRetryable: false });
   });
 
+  it('combines schema and normalization rejections while counting accepted cards without base variants', async () => {
+    const withoutBaseVariant = { id: 'alt', name: 'Alternate', number: '2', variants: [{ name: 'mangaAltArt' }] };
+    const client = makeClient(async () => jsonResponse({ data: [onePieceCard(), null, {}, withoutBaseVariant] }));
+    const result = await client.searchCards('one_piece', 'query');
+    assert(result.isOk());
+    expect(result.value).toMatchObject({ providerResultCount: 4, rejectedCount: 2, missingBaseVariantCount: 1 });
+    expect(result.value.records.map(record => record.card.id)).toEqual(['OP14-069', 'alt']);
+    expect(result.value.records[1]?.raw).toEqual(withoutBaseVariant);
+  });
+
+  it('retains the successful provider HTTP status when a lookup cannot be normalized', async () => {
+    const client = makeClient(async () => jsonResponse({ data: {} }, 201));
+    const result = await client.getCardById('pokemon', 'card');
+    assert(result.isErr());
+    expect(result.error).toEqual({
+      reason: 'invalid_response',
+      message: 'Scrydex card lookup returned an unusable card',
+      statusCode: 201,
+      isRetryable: false,
+    });
+  });
+
+  it('propagates retryable lookup transport errors from the package', async () => {
+    const client = makeClient(async () => Promise.reject(new Error('private transport details')));
+    const result = await client.getCardById('pokemon', 'card');
+    assert(result.isErr());
+    expect(result.error).toEqual({
+      reason: 'network_error',
+      message: 'Scrydex request failed before a response was received',
+      isRetryable: true,
+    });
+  });
+
   it('requires both Scrydex credentials', async () => {
     const client = new RealScrydexClient({
       apiKey: 'test-api-key',
