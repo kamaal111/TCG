@@ -11,13 +11,7 @@
         }
       }
     },
-    "30-day change" : {
-
-    },
     "30d %@" : {
-
-    },
-    "7-day change" : {
 
     },
     "7d %@" : {
@@ -44,9 +38,6 @@
     "Card name or set + number" : {
 
     },
-    "Card number" : {
-
-    },
     "Card search" : {
 
     },
@@ -57,9 +48,6 @@
 
     },
     "Clear search history?" : {
-
-    },
-    "Condition" : {
 
     },
     "Details for %@" : {
@@ -95,18 +83,6 @@
     "Languages" : {
 
     },
-    "Last fetched" : {
-
-    },
-    "Low" : {
-
-    },
-    "Lowest Near Mint" : {
-
-    },
-    "Market" : {
-
-    },
     "Market %@" : {
 
     },
@@ -117,15 +93,6 @@
 
     },
     "No search history" : {
-
-    },
-    "Pricing" : {
-
-    },
-    "Pricing date" : {
-
-    },
-    "Rarity" : {
 
     },
     "Recent searches" : {
