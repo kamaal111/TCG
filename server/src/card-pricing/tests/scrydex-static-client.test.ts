@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
 
+import { ScrydexRawCardSchema } from '@tcg/scrydex';
+
 import { normalizeScrydexCard } from '../scrydex/normalize.ts';
 import { StaticScrydexClient } from '../scrydex/static-client.ts';
-import { ScrydexRawCardSchema } from '../scrydex/types.ts';
 
 describe('StaticScrydexClient', () => {
   it('returns normalized Pokémon Near Mint pricing', async () => {

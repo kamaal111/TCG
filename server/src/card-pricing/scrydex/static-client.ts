@@ -1,10 +1,10 @@
+import { type ScrydexRawCard, ScrydexRawCardSchema } from '@tcg/scrydex';
 import { ok } from 'neverthrow';
 
 import type { PricingClient, PricingClientResult, PricingSearchResult } from '../client.ts';
 import { normalizeCardLanguages, type CardLanguage } from '../languages.ts';
 import { CARD_GAME_MAP, type CardGame, type PricingCardRecord, PRICING_SOURCES } from '../types.ts';
 import { normalizeScrydexCard } from './normalize.ts';
-import { type ScrydexRawCard, ScrydexRawCardSchema } from './types.ts';
 
 const CANNED_CARDS: Record<CardGame, ScrydexRawCard[]> = {
   [CARD_GAME_MAP.POKEMON]: [

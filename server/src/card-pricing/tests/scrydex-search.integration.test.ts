@@ -1,3 +1,5 @@
+import type { ScrydexRawCard } from '@tcg/scrydex';
+
 import App from '../../app.ts';
 import { sessionHeaders } from '../../cards/tests/utils.ts';
 import type { Database } from '../../db/index.ts';
@@ -8,7 +10,6 @@ import { createTestUser } from '../../tests/utils.ts';
 import { SEARCH_PRICING_ROUTE_PATH } from '../routes/search-pricing.ts';
 import { PricingSearchResponseSchema } from '../schemas/responses.ts';
 import { RealScrydexClient } from '../scrydex/real-client.ts';
-import type { ScrydexRawCard } from '../scrydex/types.ts';
 import { queryKey, todayUTC } from '../utils/query.ts';
 
 const SHIFTRY = {
