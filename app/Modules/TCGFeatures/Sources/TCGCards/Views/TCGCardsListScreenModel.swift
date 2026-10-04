@@ -5,6 +5,7 @@
 //  Created by Kamaal M Farah on 7/20/26.
 //
 
+import Foundation
 import Observation
 import TCGClient
 import TCGDesignSystem
@@ -16,8 +17,17 @@ final class TCGCardsListScreenModel {
 
     var gameFilter: ClientCardGame?
     var presentedForm: CardFormRoute?
+    var presentedImageURL: URL?
 
     @ObservationIgnored private var toastTask: Task<Void, Never>?
+
+    func showDetails(of card: CardWithPrice) {
+        presentedForm = .detail(card)
+    }
+
+    func exploreImage(of card: CardWithPrice) {
+        presentedImageURL = card.price.price?.imageURL
+    }
 
     func load(using cards: TCGCards) async {
         switch await cards.load(game: gameFilter) {
@@ -55,12 +65,12 @@ final class TCGCardsListScreenModel {
 
     enum CardFormRoute: Identifiable {
         case add
-        case edit(Card)
+        case detail(CardWithPrice)
 
         var id: String {
             switch self {
             case .add: "add"
-            case .edit(let card): card.id
+            case .detail(let card): card.card.id
             }
         }
     }

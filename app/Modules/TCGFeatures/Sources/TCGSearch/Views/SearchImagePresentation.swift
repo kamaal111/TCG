@@ -6,14 +6,16 @@ struct SearchImagePresentation: ViewModifier {
     @Binding var card: PricedCard?
 
     func body(content: Content) -> some View {
-        #if os(macOS)
-            content.sheet(item: $card) { card in
-                CardImageExplorer(url: card.imageURL)
-            }
-        #else
-            content.fullScreenCover(item: $card) { card in
-                CardImageExplorer(url: card.imageURL)
-            }
-        #endif
+        content.cardImage(url: Binding(get: { imageURL }, set: setImage(_:)))
+    }
+
+    private var imageURL: URL? {
+        card?.imageURL
+    }
+
+    private func setImage(_ url: URL?) {
+        if url == nil {
+            card = nil
+        }
     }
 }

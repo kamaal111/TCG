@@ -12,10 +12,28 @@ import TCGDesignSystem
 
 struct CardRow: View {
     let cardWithPrice: CardWithPrice
+    let showDetails: () -> Void
+    let exploreImage: () -> Void
 
     var body: some View {
         HStack(alignment: .top) {
-            CardImageView(url: cardWithPrice.price.price?.imageURL)
+            Button(action: exploreImage) {
+                CardImageView(url: cardWithPrice.price.price?.imageURL)
+            }
+            .buttonStyle(.plain)
+            .disabled(cardWithPrice.price.price?.imageURL == nil)
+            .accessibilityLabel(Text("Explore image of \(cardWithPrice.card.name)", bundle: .module))
+            Button(action: showDetails) {
+                details
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(Text("Details for \(cardWithPrice.card.name)", bundle: .module))
+        }
+        .padding(.vertical, 4)
+    }
+
+    private var details: some View {
+        HStack(alignment: .top) {
             VStack(alignment: .leading, spacing: 4) {
                 Text(cardWithPrice.card.name).font(.headline)
                 Text("\(cardWithPrice.card.setName) • \(cardWithPrice.card.cardNumber)").foregroundStyle(.secondary)
@@ -32,7 +50,7 @@ struct CardRow: View {
                 CardPriceView(price: cardWithPrice.price)
             }
         }
-        .padding(.vertical, 4)
+        .frame(maxWidth: .infinity)
         .contentShape(Rectangle())
     }
 

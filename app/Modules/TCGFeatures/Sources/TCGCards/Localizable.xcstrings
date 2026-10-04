@@ -33,6 +33,9 @@
     "All games" : {
 
     },
+    "Card details" : {
+
+    },
     "Card number" : {
 
     },
@@ -48,6 +51,9 @@
     "Delete" : {
 
     },
+    "Details for %@" : {
+
+    },
     "Discard Changes" : {
 
     },
@@ -57,7 +63,13 @@
     "Each quantity must be between 0 and 999." : {
 
     },
+    "Edit" : {
+
+    },
     "Edit card" : {
+
+    },
+    "Explore image of %@" : {
 
     },
     "Game" : {
@@ -96,10 +108,16 @@
     "Please correct the highlighted fields." : {
 
     },
+    "Pricing" : {
+
+    },
     "Quantities" : {
 
     },
     "Romance Dawn" : {
+
+    },
+    "Save" : {
 
     },
     "Set name" : {

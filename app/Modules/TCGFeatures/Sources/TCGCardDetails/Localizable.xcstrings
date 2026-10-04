@@ -1,0 +1,45 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "30-day change" : {
+
+    },
+    "7-day change" : {
+
+    },
+    "Card number" : {
+
+    },
+    "Condition" : {
+
+    },
+    "Game" : {
+
+    },
+    "Last fetched" : {
+
+    },
+    "Low" : {
+
+    },
+    "Lowest Near Mint" : {
+
+    },
+    "Market" : {
+
+    },
+    "No price" : {
+
+    },
+    "Pricing" : {
+
+    },
+    "Pricing date" : {
+
+    },
+    "Rarity" : {
+
+    }
+  },
+  "version" : "1.0"
+}

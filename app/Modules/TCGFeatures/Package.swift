@@ -25,6 +25,15 @@ let package = Package(
     ],
     targets: [
         .target(
+            name: "TCGCardDetails",
+            dependencies: ["TCGClient", "TCGDesignSystem"],
+            resources: [.process("Localizable.xcstrings")],
+            swiftSettings: [
+                .enableUpcomingFeature("ApproachableConcurrency"),
+                .treatAllWarnings(as: .error),
+            ]
+        ),
+        .target(
             name: "TCGCards",
             dependencies: [
                 .product(name: "KamaalUI", package: "KamaalSwift"),
@@ -34,6 +43,7 @@ let package = Package(
                 "TCGDesignSystem",
                 "TCGClient",
                 "TCGModels",
+                "TCGCardDetails",
             ],
             swiftSettings: [
                 .enableUpcomingFeature("ApproachableConcurrency"),
@@ -46,6 +56,7 @@ let package = Package(
                 .product(name: "Textual", package: "textual"),
                 .product(name: "KamaalLogger", package: "KamaalSwift"),
                 .product(name: "TCGDesignSystem", package: "TCGDesignSystem"),
+                "TCGCardDetails",
                 "TCGClient",
                 "TCGModels",
             ],

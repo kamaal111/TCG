@@ -38,10 +38,11 @@ public struct TCGCardsListScreen: View {
                 NavigationStack {
                     switch route {
                     case .add: TCGCardFormScreen(model: .init(mode: .add, initialValues: nil))
-                    case .edit(let card): TCGCardFormScreen(model: .init(mode: .edit(card), initialValues: nil))
+                    case .detail(let card): TCGCardDetailScreen(model: .init(card: card))
                     }
                 }
             }
+            .cardImage(url: $model.presentedImageURL)
             .task { await model.load(using: cardCollection) }
             .onChange(of: model.gameFilter) { _, _ in
                 Task { await model.load(using: cardCollection) }
@@ -139,9 +140,10 @@ public struct TCGCardsListScreen: View {
     }
 
     private func cardButton(for cardWithPrice: CardWithPrice) -> some View {
-        Button(action: { model.presentedForm = .edit(cardWithPrice.card) }) {
-            CardRow(cardWithPrice: cardWithPrice)
-        }
-        .buttonStyle(.plain)
+        CardRow(
+            cardWithPrice: cardWithPrice,
+            showDetails: { model.showDetails(of: cardWithPrice) },
+            exploreImage: { model.exploreImage(of: cardWithPrice) }
+        )
     }
 }
