@@ -24,16 +24,6 @@ RUN mise install \
     && node_major="$(node --version | sed -E 's/^v([0-9]+).*/\1/')" \
     && test "$node_major" = "$(cat .node-version)"
 
-RUN curl -fsSL https://claude.ai/install.sh -o /tmp/install-claude.sh \
-    && bash /tmp/install-claude.sh latest \
-    && rm /tmp/install-claude.sh \
-    && curl -fsSL https://chatgpt.com/codex/install.sh -o /tmp/install-codex.sh \
-    && CODEX_NON_INTERACTIVE=1 CODEX_HOME=/opt/tcg-codex \
-       sh /tmp/install-codex.sh \
-    && rm /tmp/install-codex.sh \
-    && claude --version \
-    && codex --version
-
 RUN mkdir -p /root/.config/mise \
     && cp mise.toml /root/.config/mise/config.toml
 
