@@ -40,9 +40,6 @@
         "swiftlang.swift-vscode",
         "nefrob.vscode-just-syntax",
         "yoavbls.pretty-ts-errors",
-        "anthropic.claude-code",
-        "openai.chatgpt",
-        "github.copilot-chat",
         "eamodio.gitlens",
         "streetsidesoftware.code-spell-checker"
       ],

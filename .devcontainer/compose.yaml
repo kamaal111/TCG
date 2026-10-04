@@ -22,30 +22,11 @@ services:
       DATABASE_URL: postgresql://${TCG_DB_USER:-tcg_user}:${TCG_DB_PASSWORD:-tcg_password}@db:5432/${TCG_DB_NAME:-tcg}
       OBJECT_STORAGE_ENDPOINT: http://garage:3900
       TESTCONTAINERS_HOST_OVERRIDE: host.docker.internal
-      CLAUDE_CONFIG_DIR: /root/.claude
     volumes:
       - ${LOCAL_WORKSPACE_FOLDER}:${LOCAL_WORKSPACE_FOLDER}:cached
       - ${GIT_COMMON_DIR}:${GIT_COMMON_DIR}:cached
       - node_modules:${LOCAL_WORKSPACE_FOLDER}/node_modules
       - server_node_modules:${LOCAL_WORKSPACE_FOLDER}/server/node_modules
-      - claude_config:/root/.claude
-      - type: bind
-        source: ~/.claude/skills
-        target: /root/.claude/skills
-        read_only: true
-        bind:
-          create_host_path: false
-      - type: bind
-        source: ~/.claude/plugins
-        target: /root/.claude/plugins
-        read_only: true
-        bind:
-          create_host_path: false
-      - type: bind
-        source: ~/.codex
-        target: /root/.codex
-        bind:
-          create_host_path: false
       - type: bind
         source: ~/.gitconfig
         target: /root/.gitconfig
@@ -56,6 +37,3 @@ services:
 volumes:
   node_modules:
   server_node_modules:
-  claude_config:
-    name: tcg-devcontainer-claude
-    external: true
