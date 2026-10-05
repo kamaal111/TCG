@@ -16,9 +16,13 @@ private let logger = KamaalLogger(from: TCGCards.self)
 @Observable
 public final class TCGCards {
     private(set) var cards: [CardWithPrice] = []
-    private(set) var isLoading = false
+    private(set) var availableSetNames: Set<String> = []
 
     private let client: TCGClient
+    private var collectionState = CollectionState()
+
+    var isLoading: Bool { collectionState.status == .loading }
+    var hasLoadedCurrentCollection: Bool { collectionState.status == .loaded }
 
     init(client: TCGClient) {
         self.client = client
@@ -26,43 +30,89 @@ public final class TCGCards {
 
     public static func `default`() -> TCGCards { TCGCards(client: .default()) }
 
-    func load(game: ClientCardGame?) async -> Result<Void, TCGCardsOperationError> {
-        isLoading = true
-        defer { isLoading = false }
-
-        return await client.cards.list(game: game)
-            .map(setCards)
-            .mapError { _ in
-                logger.error("Couldn't load the card collection.")
-                return .serverUnavailable
-            }
+    func load(game: ClientCardGame?, setNames: Set<String> = []) async -> Result<Void, TCGCardsOperationError> {
+        if game != collectionState.game { availableSetNames = [] }
+        collectionState = CollectionState(
+            game: game, setNames: setNames, generation: collectionState.generation + 1, status: .loading
+        )
+        let generation = collectionState.generation
+        setCards(cards)
+        let result = await client.cards.list(game: game, setNames: setNames)
+        guard generation == collectionState.generation else { return .success(()) }
+        collectionState.status = .idle
+        guard !Task.isCancelled else { return .success(()) }
+        return result.map { collection in
+            setCards(collection.cards)
+            availableSetNames = collection.availableSetNames
+            collectionState.status = .loaded
+        }.mapError { _ in
+            logger.error("Couldn't load the card collection.")
+            return .serverUnavailable
+        }
     }
 
     func addCard(_ values: CardFormValues) async -> Result<Void, TCGCardsOperationError> {
-        await client.cards.create(with: values.payload)
+        let result = await client.cards.create(with: values.payload)
             .map(insertCard)
             .mapError(mapCreateError)
+        if case .success = result { await refresh() }
+        return result
     }
 
-    func updateCard(id: String, values: CardFormValues) async -> Result<Void, TCGCardsOperationError> {
-        await client.cards.update(id: id, with: values.payload)
-            .map { replaceCard($0, id: id) }
+    func updateCard(id: String, values: CardFormValues) async -> Result<CardWithPrice, TCGCardsOperationError> {
+        let result = await client.cards.update(id: id, with: values.payload)
+            .map { card in
+                replaceCard(card, id: id)
+                return card
+            }
             .mapError(mapUpdateError)
+        if case .success = result { await refresh() }
+        return result
     }
 
     func deleteCard(id: String) async -> Result<Void, TCGCardsOperationError> {
-        await client.cards.delete(id: id)
-            .map { removeCard(id: id) }
+        let result = await deleteCardWithoutRefresh(id: id)
+        if case .success = result { await refresh() }
+        return result
+    }
+
+    func deleteCards(ids: [String]) async -> [TCGCardsOperationError] {
+        var errors: [TCGCardsOperationError] = []
+        var deletedAny = false
+        for id in ids {
+            switch await deleteCardWithoutRefresh(id: id) {
+            case .success: deletedAny = true
+            case .failure(let error): errors.append(error)
+            }
+        }
+        if deletedAny { await refresh() }
+        return errors
+    }
+
+    private func deleteCardWithoutRefresh(id: String) async -> Result<Void, TCGCardsOperationError> {
+        let result: Result<Void, TCGCardsOperationError> = await client.cards.delete(id: id)
+            .map {
+                removeCard(id: id)
+                if collectionState.status == .loaded { collectionState.status = .idle }
+            }
             .mapError {
                 switch $0 {
                 case .notFound: .notFound
                 case .unauthorized, .unknown: .serverUnavailable
                 }
             }
+        return result
+    }
+
+    private func refresh() async {
+        _ = await load(game: collectionState.game, setNames: collectionState.setNames)
     }
 
     private func setCards(_ cards: [CardWithPrice]) {
-        self.cards = cards
+        self.cards = cards.filter {
+            (collectionState.game == nil || $0.card.game == collectionState.game)
+                && (collectionState.setNames.isEmpty || collectionState.setNames.contains($0.card.setName))
+        }
     }
 
     private func insertCard(_ card: CardWithPrice) {
@@ -74,12 +124,20 @@ public final class TCGCards {
     }
 
     private func removeCard(id: String) {
-        guard let index = cards.findIndex(by: \.card.id, is: id) else {
-            assertionFailure("Expected to find by id")
-            return
-        }
+        setCards(cards.filter { $0.card.id != id })
+    }
 
-        setCards(cards.removed(at: index))
+    private struct CollectionState {
+        var game: ClientCardGame?
+        var setNames: Set<String> = []
+        var generation = 0
+        var status: Status = .idle
+
+        enum Status {
+            case idle
+            case loading
+            case loaded
+        }
     }
 
     private func mapCreateError(_ error: CreateCardErrors) -> TCGCardsOperationError {

@@ -1,5 +1,4 @@
 import Foundation
-import KamaalExtensions
 import Observation
 import TCGClient
 
@@ -22,8 +21,8 @@ final class TCGCardDetailScreenModel {
     func save(using cards: TCGCards) async {
         guard let editor else { return }
         guard await editor.submit(using: cards) else { return }
-        guard let saved = cards.cards.find(by: \.card.id, is: card.card.id) else {
-            preconditionFailure("A saved collection card must remain in the collection.")
+        guard let saved = editor.savedCard else {
+            preconditionFailure("A successful edit must return the saved card.")
         }
 
         card = saved

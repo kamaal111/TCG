@@ -1,7 +1,13 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "%lld sets" : {
+
+    },
     "All games" : {
+
+    },
+    "All sets" : {
 
     },
     "Card image" : {
@@ -35,6 +41,9 @@
 
     },
     "Retry" : {
+
+    },
+    "Set name" : {
 
     },
     "Zoom in" : {

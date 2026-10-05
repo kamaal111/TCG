@@ -43,9 +43,8 @@ public struct TCGCardsListScreen: View {
                 }
             }
             .cardImage(url: $model.presentedImageURL)
-            .task { await model.load(using: cardCollection) }
-            .onChange(of: model.gameFilter) { _, _ in
-                Task { await model.load(using: cardCollection) }
+            .task(id: model.filters) {
+                await model.resumeLoadIfNeeded(using: cardCollection)
             }
             .toast(model.toast, dismiss: model.dismissToast)
     }
@@ -70,9 +69,7 @@ public struct TCGCardsListScreen: View {
                 } else {
                     cardRows
                         .onDelete { offsets in
-                            for offset in offsets {
-                                Task { await model.delete(cardCollection.cards[offset].card, using: cardCollection) }
-                            }
+                            Task { await model.delete(at: offsets, using: cardCollection) }
                         }
                 }
             }
@@ -87,7 +84,7 @@ public struct TCGCardsListScreen: View {
     }
 
     private var gameFilterMenu: some View {
-        TCGFilterMenu(gameTitle: gameFilterTitle) {
+        TCGFilterMenu(gameTitle: gameFilterTitle, summary: TCGSetFilterSection.summary(for: model.setNames)) {
             Picker(selection: gameFilterBinding) {
                 Text("All games", bundle: .module).tag(CardGame?.none)
                 ForEach(CardGame.allCases, id: \.self) { game in
@@ -96,6 +93,9 @@ public struct TCGCardsListScreen: View {
             } label: {
                 Text("Game", bundle: .module)
             }
+            TCGSetFilterSection(
+                availableSetNames: model.availableSetNames(using: cardCollection), selection: $model.setNames
+            )
         }
     }
 
@@ -131,12 +131,25 @@ public struct TCGCardsListScreen: View {
         }
     }
 
+    @ViewBuilder
     private var emptyCollection: some View {
-        ContentUnavailableView(
-            "No cards",
-            systemImage: "rectangle.stack.badge.plus",
-            description: Text("Add your first card to start your collection.")
-        )
+        if model.gameFilter != nil || !model.setNames.isEmpty {
+            ContentUnavailableView {
+                Label {
+                    Text("No matching cards", bundle: .module)
+                } icon: {
+                    Image(systemName: "line.3.horizontal.decrease")
+                }
+            } description: {
+                Text("Change your filters to see more cards.", bundle: .module)
+            }
+        } else {
+            ContentUnavailableView(
+                "No cards",
+                systemImage: "rectangle.stack.badge.plus",
+                description: Text("Add your first card to start your collection.")
+            )
+        }
     }
 
     private func cardButton(for cardWithPrice: CardWithPrice) -> some View {
@@ -146,4 +159,5 @@ public struct TCGCardsListScreen: View {
             exploreImage: { model.exploreImage(of: cardWithPrice) }
         )
     }
+
 }

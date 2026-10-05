@@ -1,6 +1,16 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "%@ · %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ · %2$@"
+          }
+        }
+      }
+    },
     "%@ • %@" : {
       "localizations" : {
         "en" : {
@@ -39,6 +49,9 @@
 
     },
     "Card search" : {
+
+    },
+    "Change your set filter to see more cards." : {
 
     },
     "Clear history" : {
@@ -87,6 +100,9 @@
 
     },
     "No match" : {
+
+    },
+    "No matching cards" : {
 
     },
     "No price" : {

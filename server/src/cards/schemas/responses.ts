@@ -63,12 +63,15 @@ export const CardWithPriceSchema = z.intersection(CardSchema, z.object({ price: 
 export const CardsListResponseSchema = z
   .object({
     cards: z.array(CardWithPriceSchema).meta({ description: 'Owned card entries with daily pricing, newest first' }),
+    available_set_names: z.array(CardCoreFieldsSchema.shape.set_name).meta({
+      description: 'Distinct owned set names in alphabetical order, scoped by game but independent of the set filter',
+    }),
   })
   .meta({
     $id: 'CardsListResponse',
     title: 'Cards List Response',
     description: "The authenticated user's card collection",
-    example: { cards: [] },
+    example: { cards: [], available_set_names: [] },
   });
 
 export const DeleteCardResponseSchema = z.object({}).meta({

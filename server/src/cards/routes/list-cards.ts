@@ -6,7 +6,7 @@ import { APP_API_ROUTE_NAME } from '../../constants/common.ts';
 import { CONTENTFUL_STATUS_CODES } from '../../constants/http.ts';
 import { MIME_TYPES } from '../../constants/request.ts';
 import type { HonoEnvironment } from '../../context.ts';
-import { ErrorResponseSchema } from '../../schemas/errors.ts';
+import { ErrorResponseSchema, ValidationErrorResponseSchema } from '../../schemas/errors.ts';
 import { isNonEmpty } from '../../utils/type-utils.ts';
 import { CARDS_OPENAPI_TAG, CARDS_ROUTE_NAME } from '../constants.ts';
 import { cardsLogger } from '../logging.ts';
@@ -34,6 +34,10 @@ const routeConfig = createRoute({
       description: 'Authenticated session not found',
       content: { [MIME_TYPES.JSON]: { schema: ErrorResponseSchema } },
     },
+    [CONTENTFUL_STATUS_CODES.BAD_REQUEST]: {
+      description: 'Invalid collection filters',
+      content: { [MIME_TYPES.JSON]: { schema: ValidationErrorResponseSchema } },
+    },
     [CONTENTFUL_STATUS_CODES.SERVICE_UNAVAILABLE]: {
       description: 'Pricing is temporarily unavailable because the upstream provider failed',
       content: { [MIME_TYPES.JSON]: { schema: ErrorResponseSchema } },
@@ -46,8 +50,11 @@ export const LIST_CARDS_ROUTE_PATH = `${APP_API_ROUTE_NAME}${CARDS_ROUTE_NAME}` 
 const listCardsRoute = defineOpenAPIRoute<HonoEnvironment, typeof routeConfig>({
   route: routeConfig,
   handler: async c => {
-    const { game } = c.req.valid('query');
-    const cards = await c.get('cardRepository').list(game);
+    const { game, set_name } = c.req.valid('query');
+
+    const repository = c.get('cardRepository');
+
+    const { cards, availableSetNames } = await repository.listCollection(game, set_name ?? []);
 
     const prices = isNonEmpty(cards)
       ? await c.get('cardPricingService').priceOwnedCards(cards, { allowUnavailable: true })
@@ -57,6 +64,7 @@ const listCardsRoute = defineOpenAPIRoute<HonoEnvironment, typeof routeConfig>({
 
     const response = CardsListResponseSchema.parse({
       cards: cardsWithPrices.flatMap(([card, price]) => [serializeCardWithPrice(card, price)]),
+      available_set_names: availableSetNames,
     });
 
     cardsLogger(c).info(

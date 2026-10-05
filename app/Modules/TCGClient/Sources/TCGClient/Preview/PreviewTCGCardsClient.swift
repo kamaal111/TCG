@@ -26,18 +26,32 @@ struct PreviewTCGCardsClient: TCGCardsClient {
     }
 
     func list(game: ClientCardGame?) async -> Result<[CardWithPrice], ListCardsErrors> {
+        await list(game: game, setNames: []).map(\.cards)
+    }
+
+    func list(game: ClientCardGame?, setNames: Set<String>) async -> Result<CardCollection, ListCardsErrors> {
         if case .serverUnavailable = outcome {
             return .failure(.unavailable)
         }
-        if case .successWithPrices(let cards) = outcome {
-            return .success(game == nil ? cards : cards.filter { $0.card.game == game })
+        let cards = state.cards.withLock { cards in
+            cards.compactMap { card -> CardWithPrice? in
+                guard game == nil || card.game == game else { return nil }
+
+                if case .successWithPrices(let pricedCards) = outcome,
+                    let existing = pricedCards.find(by: \.card, is: card)
+                {
+                    return existing
+                }
+
+                return CardWithPrice(card: card, price: Self.price(for: card))
+            }
         }
         return .success(
-            state.cards.withLock { cards in
-                (game == nil ? cards : cards.filter { $0.game == game }).map {
-                    CardWithPrice(card: $0, price: Self.price(for: $0))
-                }
-            })
+            CardCollection(
+                cards: cards.filter { setNames.isEmpty || setNames.contains($0.card.setName) },
+                availableSetNames: Set(cards.map(\.card.setName))
+            )
+        )
     }
 
     func create(with payload: UpsertCardPayload) async -> Result<CardWithPrice, CreateCardErrors> {

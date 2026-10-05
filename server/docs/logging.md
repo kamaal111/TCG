@@ -121,9 +121,10 @@ field is safe to index. The one object ever logged is `err`, which pino's standa
 whole entities, lock keys, or raw user search terms. Log the _shape_, not the value — `lock_key_type`, not
 `lock_key`. Redaction in `createLoggerOptions` is a backstop for dependencies that log a vocabulary we do not
 control, not a licence to pass secrets.
-The current request logger binds the full incoming `url`, including its query string.
-Top-level redaction does not sanitize values embedded in that URL; do not assume
-search terms or credentials in query parameters will be redacted.
+The request logger removes the query string from the incoming `url` before binding it.
+This keeps raw set filters, search terms, and credentials in query parameters out
+of every request and domain log. Top-level redaction does not sanitize values
+embedded in URLs; never bind the original request URL elsewhere.
 
 **`console` is banned** in `server/src` (oxlint `no-console`). The CLI scripts under `server/scripts` are exempt.
 

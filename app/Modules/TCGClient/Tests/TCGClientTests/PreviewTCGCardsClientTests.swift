@@ -12,6 +12,31 @@ import Testing
 @Suite("Preview TCGCards Client Tests")
 struct PreviewTCGCardsClientTests {
     @Test
+    func `Set choices remain complete when filtering multiple sets across games`() async throws {
+        let client = TCGClient.preview(cardsOutcome: .success(cards: PreviewTCGCardsClient.sampleCards))
+        let selected = try await client.cards.list(game: nil, setNames: ["Base Set", "Romance Dawn"]).get()
+        let pokemon = try await client.cards.list(game: .pokemon, setNames: ["Romance Dawn"]).get()
+
+        #expect(selected.cards.map(\.card) == PreviewTCGCardsClient.sampleCards)
+        #expect(selected.availableSetNames == ["Base Set", "Romance Dawn"])
+        #expect(pokemon.cards.isEmpty)
+        #expect(pokemon.availableSetNames == ["Base Set"])
+    }
+
+    @Test
+    func `Set selections match exactly and preserve supplied prices`() async throws {
+        let cards = PreviewTCGCardsClient.sampleCards.map {
+            CardWithPrice(card: $0, price: OwnedCardPrice(cardId: $0.id, status: .unavailable))
+        }
+        let client = TCGClient.preview(cardsOutcome: .successWithPrices(cards))
+        let selected = try await client.cards.list(game: nil, setNames: ["Base Set"]).get()
+        let differentlyCased = try await client.cards.list(game: nil, setNames: ["base set"]).get()
+
+        #expect(selected.cards == [cards[1]])
+        #expect(differentlyCased.cards.isEmpty)
+    }
+
+    @Test
     func `Preserves explicit unavailable pricing and filters by game`() async throws {
         let cards = PreviewTCGCardsClient.sampleCards.map {
             CardWithPrice(card: $0, price: OwnedCardPrice(cardId: $0.id, status: .unavailable))

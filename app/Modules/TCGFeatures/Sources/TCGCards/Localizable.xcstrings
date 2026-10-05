@@ -39,6 +39,9 @@
     "Card number" : {
 
     },
+    "Change your filters to see more cards." : {
+
+    },
     "Close" : {
 
     },
@@ -88,6 +91,9 @@
 
     },
     "No cards" : {
+
+    },
+    "No matching cards" : {
 
     },
     "No price" : {

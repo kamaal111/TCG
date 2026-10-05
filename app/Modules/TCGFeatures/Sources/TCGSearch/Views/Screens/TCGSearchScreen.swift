@@ -81,7 +81,9 @@ public struct TCGSearchScreen: View {
                 LazyVStack(alignment: .leading, spacing: 16) {
                     TCGSearchInput(
                         query: queryBinding, game: model.game, languages: languagesBinding,
-                        gameSelection: gameBinding, isFocused: $model.isSearchFocused
+                        gameSelection: gameBinding,
+                        availableSetNames: model.availableSetNames(using: search), setNames: $model.setNames,
+                        isFocused: $model.isSearchFocused
                     ) {
                         Task { await model.performSearch(using: search) }
                     }
@@ -94,7 +96,9 @@ public struct TCGSearchScreen: View {
             List {
                 TCGSearchInput(
                     query: queryBinding, game: model.game, languages: languagesBinding,
-                    gameSelection: gameBinding, isFocused: $model.isSearchFocused
+                    gameSelection: gameBinding,
+                    availableSetNames: model.availableSetNames(using: search), setNames: $model.setNames,
+                    isFocused: $model.isSearchFocused
                 ) {
                     Task { await model.performSearch(using: search) }
                 }
@@ -202,8 +206,10 @@ public struct TCGSearchScreen: View {
             }
         } else if !search.isSearching && search.hasSearched && search.results.isEmpty {
             noResults
+        } else if search.hasSearched && !search.results.isEmpty && model.filteredResults(using: search).isEmpty {
+            noMatchingSets
         } else {
-            ForEach(search.results) { card in
+            ForEach(model.filteredResults(using: search)) { card in
                 PricedCardRow(
                     card: card,
                     actions: .init(
@@ -248,6 +254,23 @@ public struct TCGSearchScreen: View {
                 )
             }
         )
+        #if os(macOS)
+            .frame(maxWidth: .infinity, minHeight: 480)
+        #else
+            .listRowSeparator(.hidden)
+        #endif
+    }
+
+    private var noMatchingSets: some View {
+        ContentUnavailableView {
+            Label {
+                Text("No matching cards", bundle: .module)
+            } icon: {
+                Image(systemName: "line.3.horizontal.decrease")
+            }
+        } description: {
+            Text("Change your set filter to see more cards.", bundle: .module)
+        }
         #if os(macOS)
             .frame(maxWidth: .infinity, minHeight: 480)
         #else
