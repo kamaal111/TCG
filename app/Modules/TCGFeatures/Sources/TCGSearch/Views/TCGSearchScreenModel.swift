@@ -12,6 +12,7 @@ import TCGDesignSystem
 @Observable
 final class TCGSearchScreenModel {
     var query = ""
+    var setNames: Set<String> = []
     var game: ClientCardGame = .pokemon {
         didSet { languages = loadLanguages(for: game) }
     }
@@ -75,6 +76,7 @@ final class TCGSearchScreenModel {
         if value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             finishEditing(using: search)
         }
+        setNames = []
         query = value
         scheduleSearch(using: search)
     }
@@ -82,6 +84,7 @@ final class TCGSearchScreenModel {
     func updateGame(_ value: ClientCardGame, using search: TCGSearch) {
         guard value != game else { return }
         finishEditing(using: search)
+        setNames = []
         game = value
         scheduleSearch(using: search)
     }
@@ -92,8 +95,31 @@ final class TCGSearchScreenModel {
             return
         }
         finishEditing(using: search)
+        setNames = []
         languages = value
         scheduleSearch(using: search)
+    }
+
+    func availableSetNames(using search: TCGSearch) -> [String] {
+        search.results
+            .reduce(Set<String>()) { partialResult, card in
+                guard let setName = card.setName else { return partialResult }
+
+                var result = partialResult
+                result.insert(setName)
+
+                return result
+            }
+            .union(setNames)
+            .sorted()
+    }
+
+    func filteredResults(using search: TCGSearch) -> [PricedCard] {
+        guard !setNames.isEmpty else { return search.results }
+        return search.results.filter { card in
+            guard let name = card.setName else { return false }
+            return setNames.contains(name)
+        }
     }
 
     func resumeSearchIfNeeded(using search: TCGSearch) {
@@ -129,6 +155,9 @@ final class TCGSearchScreenModel {
 
     func selectHistory(_ entry: TCGSearchHistoryEntry, using search: TCGSearch) async {
         finishEditing(using: search)
+        if game != entry.game || query.trimmingCharacters(in: .whitespacesAndNewlines) != entry.query {
+            setNames = []
+        }
         query = entry.query
         if game != entry.game { game = entry.game }
         isSearchFocused = false

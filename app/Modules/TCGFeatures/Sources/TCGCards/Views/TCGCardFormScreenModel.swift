@@ -21,6 +21,7 @@ final class TCGCardFormScreenModel {
     private(set) var fieldErrors: [TCGCardsValidationField: String] = [:]
     private(set) var isSubmitting = false
     private(set) var toast: String?
+    private(set) var savedCard: CardWithPrice?
     var isShowingDiscardConfirmation = false
     private let initialValues: CardFormValues
     private var hasSubmitted = false
@@ -76,7 +77,8 @@ final class TCGCardFormScreenModel {
         let result: Result<Void, TCGCardsOperationError>
         switch mode {
         case .add: result = await cards.addCard(values)
-        case .edit(let card): result = await cards.updateCard(id: card.id, values: values)
+        case .edit(let card):
+            result = await cards.updateCard(id: card.id, values: values).map { savedCard = $0 }
         }
         switch result {
         case .success:

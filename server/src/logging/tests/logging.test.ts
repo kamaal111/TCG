@@ -12,6 +12,30 @@ import { createTestRequestId, getLogsForRequestId } from '../../tests/logs.ts';
 import loggingMiddleware from '../middleware.ts';
 
 describe('Request logging middleware', () => {
+  for (const path of ['/handler-log', '/api-exception']) {
+    test(`omits repeated and encoded query values from all logs for ${path}`, async () => {
+      const { app, requestId: testRequestId } = createLoggingTestApp();
+      const query = new URLSearchParams({ game: 'pokemon', token: 'private-token' });
+      query.append('set_name', 'Private, Set & 日本語');
+      query.append('set_name', 'Another private set');
+
+      await app.request(`${path}?${query}`, { headers: requestHeaders(testRequestId) });
+
+      const logs = getLogsForRequestId(testRequestId);
+      expect(logs.length).toBeGreaterThan(0);
+
+      for (const logged of logs) {
+        expect(logged).toMatchObject({ url: `http://localhost${path}`, path });
+      }
+
+      const serializedLogs = JSON.stringify(logs);
+      expect(serializedLogs).not.toContain('set_name');
+      expect(serializedLogs).not.toContain('private-token');
+      expect(serializedLogs).not.toContain('Private');
+      expect(serializedLogs).not.toContain('Another');
+    });
+  }
+
   test('logs a single completion line for a successful request', async () => {
     const { app, requestId: testRequestId } = createLoggingTestApp();
 

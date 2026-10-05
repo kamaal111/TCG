@@ -9,6 +9,8 @@ import OpenAPIRuntime
 
 public protocol TCGCardsClient: Sendable {
     func list(game: ClientCardGame?) async -> Result<[CardWithPrice], ListCardsErrors>
+    /// Matches any selected set name exactly; an empty selection includes all sets.
+    func list(game: ClientCardGame?, setNames: Set<String>) async -> Result<CardCollection, ListCardsErrors>
     func create(with payload: UpsertCardPayload) async -> Result<CardWithPrice, CreateCardErrors>
     func update(id: String, with payload: UpsertCardPayload) async -> Result<CardWithPrice, UpdateCardErrors>
     func delete(id: String) async -> Result<Void, DeleteCardErrors>
@@ -22,10 +24,14 @@ struct TCGCardsClientImpl: TCGCardsClient {
     }
 
     func list(game: ClientCardGame?) async -> Result<[CardWithPrice], ListCardsErrors> {
+        await list(game: game, setNames: []).map(\.cards)
+    }
+
+    func list(game: ClientCardGame?, setNames: Set<String>) async -> Result<CardCollection, ListCardsErrors> {
         let response: Operations.GetAppApiCards.Output
         do {
             response = try await client.getAppApiCards(
-                query: .init(game: game.map(Self.makeListGame))
+                query: .init(game: game.map(Self.makeListGame), setName: setNames.isEmpty ? nil : setNames.sorted())
             )
         } catch {
             return .failure(.unknown(status: 503, payload: nil, cause: error))
@@ -34,12 +40,20 @@ struct TCGCardsClientImpl: TCGCardsClient {
         switch response {
         case .ok(let response):
             do {
-                return .success(try response.body.json.cards.map(Self.makeCardWithPrice))
+                let collection = try response.body.json
+                return .success(
+                    CardCollection(
+                        cards: collection.cards.map(Self.makeCardWithPrice),
+                        availableSetNames: Set(collection.availableSetNames)
+                    )
+                )
             } catch {
                 return .failure(.unknown(status: 503, payload: nil, cause: error))
             }
         case .unauthorized:
             return .failure(.unauthorized)
+        case .badRequest:
+            return .failure(.unknown(status: 400, payload: nil, cause: nil))
         case .serviceUnavailable:
             return .failure(.unavailable)
         case .undocumented(let status, let payload):

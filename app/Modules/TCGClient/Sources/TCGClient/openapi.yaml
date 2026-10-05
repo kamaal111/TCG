@@ -334,6 +334,27 @@ paths:
           description: Optional game filter
           name: game
           in: query
+        - schema:
+            type: array
+            items:
+              type: string
+              minLength: 1
+              maxLength: 200
+              description: Set name
+              example: Romance Dawn
+              $schema: https://json-schema.org/draft/2020-12/schema
+            description: >-
+              Optional exact set names. Repeat set_name for multiple sets;
+              omitted means all sets.
+            example:
+              - Base Set
+              - Crown Zenith
+          required: false
+          description: >-
+            Optional exact set names. Repeat set_name for multiple sets; omitted
+            means all sets.
+          name: set_name
+          in: query
       responses:
         '200':
           description: Collection retrieved successfully
@@ -341,6 +362,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/CardsListResponse'
+        '400':
+          description: Invalid collection filters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
         '401':
           description: Authenticated session not found
           content:
@@ -1177,12 +1204,25 @@ components:
           items:
             $ref: '#/components/schemas/CardWithPrice'
           description: Owned card entries with daily pricing, newest first
+        available_set_names:
+          type: array
+          items:
+            type: string
+            minLength: 1
+            maxLength: 200
+            description: Set name
+            example: Romance Dawn
+          description: >-
+            Distinct owned set names in alphabetical order, scoped by game but
+            independent of the set filter
       required:
         - cards
+        - available_set_names
       title: Cards List Response
       description: The authenticated user's card collection
       example:
         cards: []
+        available_set_names: []
     CardNotFoundErrorResponse:
       type: object
       properties:

@@ -83,6 +83,59 @@ struct TCGSearchScreenSnapshotTests {
     }
 
     @Test
+    func `Renders one selected search set`() async {
+        let state = await makeSetFilteredState(setNames: ["Crown Zenith"])
+        #expect(state.model.filteredResults(using: state.feature).count == 2)
+        await assertScreenSnapshot(testName: #function) { makeScreen(feature: state.feature, model: state.model) }
+    }
+
+    @Test
+    func `Renders multiple selected search sets`() async {
+        let state = await makeSetFilteredState(setNames: ["Crown Zenith", "Lost Origin"])
+        #expect(state.model.filteredResults(using: state.feature).count == 3)
+        await assertScreenSnapshot(testName: #function) { makeScreen(feature: state.feature, model: state.model) }
+    }
+
+    @Test
+    func `Renders no matching search sets after refresh`() async {
+        let state = await makeSetFilteredState(setNames: ["Crown Zenith"])
+        await state.model.performSearch(using: state.feature)
+        #expect(state.model.filteredResults(using: state.feature).isEmpty)
+        #expect(state.feature.results.count == 1)
+        await assertScreenSnapshot(testName: #function) { makeScreen(feature: state.feature, model: state.model) }
+    }
+
+    @Test
+    func `Renders selected search sets with large text`() async {
+        let state = await makeSetFilteredState(setNames: ["Crown Zenith", "Lost Origin"])
+        #expect(state.model.setNames.count == 2)
+        await assertScreenSnapshot(testName: #function) {
+            makeScreen(feature: state.feature, model: state.model)
+                .environment(\.dynamicTypeSize, .accessibility3)
+        }
+    }
+
+    private func makeSetFilteredState(setNames: Set<String>) async -> (
+        feature: TCGSearch, model: TCGSearchScreenModel
+    ) {
+        let transport = HistoryPricingTransport()
+        await transport.setOutcome(.sets, for: 1)
+        let feature = TCGSearch(
+            client: .default(
+                transport: transport,
+                credentialsKeychainKey: "set-filter-snapshot-credentials",
+                credentialsStore: InMemoryCredentialsStore()
+            ),
+            history: TCGSearchHistoryStore()
+        )
+        let model = TCGSearchScreenModel(preferences: nil)
+        model.query = "Giratina"
+        await model.performSearch(using: feature)
+        model.setNames = setNames
+        return (feature, model)
+    }
+
+    @Test
     func `Renders an empty search`() async {
         let feature = TCGSearch(client: .preview(pricingOutcome: .empty), history: TCGSearchHistoryStore())
 

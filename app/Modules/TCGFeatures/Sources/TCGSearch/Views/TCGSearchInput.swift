@@ -7,6 +7,8 @@ struct TCGSearchInput: View {
     let game: ClientCardGame
     @Binding var languages: Set<ClientCardLanguage>
     @Binding var gameSelection: CardGame
+    let availableSetNames: [String]
+    @Binding var setNames: Set<String>
     @Binding var isFocused: Bool
     let onSubmit: () -> Void
 
@@ -18,7 +20,9 @@ struct TCGSearchInput: View {
             TCGSearchFilters(
                 game: game,
                 languages: $languages,
-                gameSelection: $gameSelection
+                gameSelection: $gameSelection,
+                availableSetNames: availableSetNames,
+                setNames: $setNames
             )
             searchField
         }

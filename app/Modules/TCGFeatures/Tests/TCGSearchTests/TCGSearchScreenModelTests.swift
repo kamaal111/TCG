@@ -11,6 +11,113 @@ import Testing
 @MainActor
 struct TCGSearchScreenModelTests {
     @Test
+    func `Multiple sets filter returned cards locally and all sets restores unknown sets`() async {
+        let transport = HistoryPricingTransport()
+        await transport.setOutcome(.sets, for: 1)
+        let feature = makeFeature(transport: transport)
+        let model = TCGSearchScreenModel(preferences: nil)
+        model.query = "Giratina"
+        await model.performSearch(using: feature)
+        let results = feature.results
+        let history = feature.history.entries
+
+        #expect(model.availableSetNames(using: feature) == ["Crown Zenith", "Lost Origin"])
+        #expect(model.filteredResults(using: feature).count == 4)
+        model.setNames = ["Crown Zenith"]
+        #expect(model.filteredResults(using: feature).map(\.id) == ["zenith", "zenith-2"])
+        #expect(model.availableSetNames(using: feature) == ["Crown Zenith", "Lost Origin"])
+        model.setNames.insert("Lost Origin")
+        #expect(model.filteredResults(using: feature).map(\.id) == ["zenith", "origin", "zenith-2"])
+        model.setNames = []
+        #expect(model.filteredResults(using: feature) == results)
+        #expect(feature.results == results)
+        #expect(feature.history.entries == history)
+        #expect(await transport.requestCount == 1)
+    }
+
+    @Test
+    func `Effective query game and language changes immediately reset selected sets`() async {
+        let feature = TCGSearch(client: .preview(pricingOutcome: .success), history: TCGSearchHistoryStore())
+        let model = TCGSearchScreenModel(preferences: nil, debounce: .seconds(60))
+        model.query = "Giratina"
+        await model.performSearch(using: feature)
+        model.setNames = ["Crown Zenith"]
+        model.updateQuery("Pikachu", using: feature)
+        #expect(model.setNames.isEmpty)
+        model.setNames = ["Base Set"]
+        model.updateQuery("", using: feature)
+        #expect(model.setNames.isEmpty)
+        model.query = "Giratina"
+        model.setNames = ["Crown Zenith"]
+        model.updateLanguages([.japanese], using: feature)
+        #expect(model.setNames.isEmpty)
+        model.setNames = ["Crown Zenith"]
+        model.updateGame(.onePiece, using: feature)
+        #expect(model.setNames.isEmpty)
+        model.finishEditing(using: feature)
+    }
+
+    @Test
+    func `Unchanged inputs refreshing and returning preserve selected sets`() async {
+        let feature = TCGSearch(client: .preview(pricingOutcome: .success), history: TCGSearchHistoryStore())
+        let model = TCGSearchScreenModel(preferences: nil)
+        model.query = "Giratina"
+        await model.performSearch(using: feature)
+        model.setNames = ["Crown Zenith"]
+        model.updateQuery(" Giratina ", using: feature)
+        model.updateGame(.pokemon, using: feature)
+        model.updateLanguages([.english, .japanese], using: feature)
+        #expect(model.setNames == ["Crown Zenith"])
+        await model.performSearch(using: feature)
+        #expect(model.setNames == ["Crown Zenith"])
+        model.finishEditing(using: feature)
+        model.resumeSearchIfNeeded(using: feature)
+        #expect(model.setNames == ["Crown Zenith"])
+        #expect(model.filteredResults(using: feature) == feature.results)
+    }
+
+    @Test
+    func `History selection resets sets only when effective query or game changes`() async throws {
+        let history = TCGSearchHistoryStore()
+        history.record(query: "Giratina", game: .pokemon)
+        let same = try #require(history.entries.first)
+        history.record(query: "Pikachu", game: .pokemon)
+        let different = try #require(history.entries.first)
+        history.record(query: "Pikachu", game: .onePiece)
+        let otherGame = try #require(history.entries.first)
+        let feature = TCGSearch(client: .preview(pricingOutcome: .success), history: history)
+        let model = TCGSearchScreenModel(preferences: nil)
+        model.query = " Giratina "
+        model.setNames = ["Crown Zenith"]
+        await model.selectHistory(same, using: feature)
+        #expect(model.setNames == ["Crown Zenith"])
+        await model.selectHistory(different, using: feature)
+        #expect(model.setNames.isEmpty)
+        model.setNames = ["Base Set"]
+        await model.selectHistory(otherGame, using: feature)
+        #expect(model.setNames.isEmpty)
+        #expect(model.game == .onePiece)
+    }
+
+    @Test
+    func `A selected set missing after refresh remains available and can be cleared`() async {
+        let transport = HistoryPricingTransport()
+        await transport.setOutcome(.sets, for: 1)
+        let feature = makeFeature(transport: transport)
+        let model = TCGSearchScreenModel(preferences: nil)
+        model.query = "Giratina"
+        await model.performSearch(using: feature)
+        model.setNames = ["Crown Zenith"]
+        await model.performSearch(using: feature)
+
+        #expect(model.filteredResults(using: feature).isEmpty)
+        #expect(model.availableSetNames(using: feature) == ["Crown Zenith"])
+        #expect(feature.results.count == 1)
+        model.setNames = []
+        #expect(model.filteredResults(using: feature) == feature.results)
+    }
+
+    @Test
     func `Unchanged effective inputs retain cards and the pending history candidate`() async {
         let transport = HistoryPricingTransport(suspended: true)
         let feature = makeFeature(transport: transport)
@@ -437,7 +544,7 @@ struct TCGSearchScreenModelTests {
 }
 
 actor HistoryPricingTransport: ClientTransport {
-    enum Outcome { case matches, updated, empty, unavailable }
+    enum Outcome { case matches, updated, empty, unavailable, sets }
 
     private var outcomes: [Int: Outcome] = [:]
 
@@ -476,6 +583,23 @@ actor HistoryPricingTransport: ClientTransport {
         let outcome = outcomes[request] ?? .matches
         if outcome == .unavailable { return (HTTPResponse(status: .serviceUnavailable), HTTPBody("{}")) }
         if outcome == .empty { return (HTTPResponse(status: .ok), HTTPBody("{\"matches\": []}")) }
+        if outcome == .sets {
+            let cards: [(String, String?)] = [
+                ("zenith", "Crown Zenith"), ("origin", "Lost Origin"), ("zenith-2", "Crown Zenith"), ("unknown", nil),
+            ]
+            let matches = cards.map { id, setName in
+                var card: [String: Any] = [
+                    "id": id, "game": "pokemon", "name": "Giratina", "card_number": "GG69",
+                    "headline": ["amount": 10, "currency": "USD", "metric": "lowest_near_mint"],
+                    "market": ["condition": "near_mint", "currency": "USD", "low": 10, "market": 10],
+                    "priced_on": "2026-10-02T00:00:00.000Z", "fetched_at": "2026-10-02T12:00:00.000Z",
+                ]
+                card["set_name"] = setName
+                return card
+            }
+            let data = try JSONSerialization.data(withJSONObject: ["matches": matches])
+            return (HTTPResponse(status: .ok), HTTPBody(data))
+        }
         let amount = outcome == .updated ? 20 : 10
         let body = """
             {

@@ -17,7 +17,7 @@ function loggingMiddleware() {
         requestId: c.get('requestId'),
         method: c.req.method,
         path: c.req.path,
-        url: c.req.url,
+        url: getUrlForLog(c),
         mode: env.MODE,
         userAgent: c.req.header('User-Agent'),
       }),
@@ -117,6 +117,14 @@ function getRouteForLog(c: HonoContext) {
 
 function roundDurationMs(durationMs: number) {
   return Math.round(durationMs * 100) / 100;
+}
+
+function getUrlForLog(c: HonoContext) {
+  const url = new URL(c.req.url);
+  url.search = '';
+  url.hash = '';
+
+  return url.href;
 }
 
 export default loggingMiddleware;

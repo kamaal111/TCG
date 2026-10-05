@@ -8,8 +8,11 @@ struct TCGSearchFilters: View {
     @Binding var languages: Set<ClientCardLanguage>
     @Binding var gameSelection: CardGame
 
+    let availableSetNames: [String]
+    @Binding var setNames: Set<String>
+
     var body: some View {
-        TCGFilterMenu(gameTitle: Text(verbatim: gameSelection.title), summary: languageSummary) {
+        TCGFilterMenu(gameTitle: Text(verbatim: gameSelection.title), summary: filterSummary) {
             Picker(selection: $gameSelection) {
                 ForEach(CardGame.allCases, id: \.self) { game in
                     Text(verbatim: game.title).tag(game)
@@ -29,7 +32,16 @@ struct TCGSearchFilters: View {
             } header: {
                 Text("Languages", bundle: .module)
             }
+            if !availableSetNames.isEmpty {
+                TCGSetFilterSection(availableSetNames: availableSetNames, selection: $setNames)
+            }
         }
+    }
+
+    private var filterSummary: Text {
+        guard !setNames.isEmpty else { return languageSummary }
+        let sets = TCGSetFilterSection.summary(for: setNames)
+        return Text("\(languageSummary) · \(sets)", bundle: .module)
     }
 
     private func languageBinding(_ language: ClientCardLanguage) -> Binding<Bool> {

@@ -11,6 +11,23 @@ import Testing
 @MainActor
 struct TCGCardDetailScreenModelTests {
     @Test
+    func `Editing a card out of the selected set keeps updated details and refreshes the filtered list`() async throws {
+        let feature = TCGCards(client: .preview(cardsOutcome: .success(cards: PreviewTCGCardsClient.sampleCards)))
+        try await feature.load(game: .pokemon, setNames: ["Base Set"]).get()
+        let model = TCGCardDetailScreenModel(card: try #require(feature.cards.first))
+        model.edit()
+        let editor = try #require(model.editor)
+        editor.values.setName = "Crown Zenith"
+
+        await model.save(using: feature)
+
+        #expect(model.editor == nil)
+        #expect(model.card.card.setName == "Crown Zenith")
+        #expect(feature.cards.isEmpty)
+        #expect(feature.availableSetNames == ["Crown Zenith"])
+    }
+
+    @Test
     func `Details start read only and edit prefills every value`() throws {
         let model = makeModel()
         #expect(model.editor == nil)

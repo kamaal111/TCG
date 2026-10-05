@@ -28,6 +28,48 @@ struct TCGCardsClientTests {
     }
 
     @Test
+    func `Lists repeated sets with encoded names and complete set choices`() async throws {
+        let transport = CardsRequestTransport(status: .ok, body: cardsListJSON)
+        let collection = try await makeClient(transport: transport).cards.list(
+            game: .pokemon, setNames: ["Base Set", "Special, Set & + 日本語"]
+        ).get()
+        let request = try #require(await transport.request)
+        let path = try #require(request.path)
+        let url = try #require(URLComponents(string: "https://example.com\(path)"))
+        let query = try #require(url.queryItems)
+
+        #expect(query.filter { $0.name == "game" }.map(\.value) == ["pokemon"])
+        #expect(query.filter { $0.name == "set_name" }.map(\.value) == ["Base Set", "Special, Set & + 日本語"])
+        #expect(collection.cards == [CardWithPrice(card: expectedCard, price: expectedPrice)])
+        #expect(collection.availableSetNames == ["Base Set", "Crown Zenith"])
+    }
+
+    @Test
+    func `Empty set selection omits the query parameter`() async throws {
+        let transport = CardsRequestTransport(status: .ok, body: cardsListJSON)
+        let collection = try await makeClient(transport: transport).cards.list(game: nil, setNames: []).get()
+
+        #expect(await transport.request?.path == "/app-api/cards")
+        #expect(collection.availableSetNames == ["Base Set", "Crown Zenith"])
+    }
+
+    @Test
+    func `Preserves list validation failures as status 400`() async {
+        let transport = CardsRequestTransport(status: .badRequest, body: validationJSON)
+        await #expect(throws: ListCardsErrors.unknown(status: 400, payload: nil, cause: nil)) {
+            try await makeClient(transport: transport).cards.list(game: nil, setNames: [""]).get()
+        }
+    }
+
+    @Test
+    func `Maps unavailable list pricing`() async {
+        let transport = CardsRequestTransport(status: .serviceUnavailable, body: errorJSON(code: "UNAVAILABLE"))
+        await #expect(throws: ListCardsErrors.unavailable) {
+            try await makeClient(transport: transport).cards.list(game: nil, setNames: ["Base Set"]).get()
+        }
+    }
+
+    @Test
     func `Maps a missing list session to unauthorized`() async {
         let transport = CardsRequestTransport(status: .unauthorized, body: errorJSON(code: "SESSION_NOT_FOUND"))
         let result = await makeClient(transport: transport).cards.list(game: nil)
@@ -218,7 +260,14 @@ private let cardJSON = Data(
     }
     """.utf8
 )
-private let cardsListJSON = Data("{\"cards\":[\(String(decoding: cardJSON, as: UTF8.self))]}".utf8)
+private let cardsListJSON = Data(
+    """
+    {
+      "cards": [\(String(decoding: cardJSON, as: UTF8.self))],
+      "available_set_names": ["Base Set", "Crown Zenith"]
+    }
+    """.utf8
+)
 private let validationIssue = TCGClientValidationIssue(code: "too_small", path: ["name"], message: "Required")
 private let validationJSON = Data(
     """

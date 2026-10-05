@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 
-import { and, eq, sql } from 'drizzle-orm';
+import { and, desc, eq, getColumns, inArray, sql } from 'drizzle-orm';
 
 import type { HonoContext } from '../context.ts';
 import type { CardGame } from './schemas/params.ts';
@@ -11,6 +11,11 @@ import { card, cardConditionQuantity } from '../db/schema/cards.ts';
 export type CardWithQuantities = typeof card.$inferSelect & {
   quantities: (typeof cardConditionQuantity.$inferSelect)[];
 };
+
+interface CardCollection {
+  cards: CardWithQuantities[];
+  availableSetNames: string[];
+}
 
 export class CardRepository {
   private readonly c: HonoContext;
@@ -28,15 +33,79 @@ export class CardRepository {
   }
 
   /**
-   * Lists every card owned by the current session user, newest first.
-   *
-   * @param game Optional game to filter by.
-   * @returns The user's cards with their condition quantities.
+   * Returns matching owned cards, newest first, and all game-scoped set choices
+   * from one database snapshot. Set choices do not depend on the set filter.
    */
-  list(game?: CardGame): Promise<CardWithQuantities[]> {
-    const where = game != null ? { userId: this.userId, game } : { userId: this.userId };
+  async listCollection(game: CardGame | undefined, setNames: string[]): Promise<CardCollection> {
+    const ownedCards = this.db.$with('collection_cards').as(
+      this.db
+        .select()
+        .from(card)
+        .where(and(eq(card.userId, this.userId), game != null ? eq(card.game, game) : undefined)),
+    );
 
-    return this.db.query.card.findMany({ where, with: { quantities: true }, orderBy: { createdAt: 'desc' } });
+    const sets = this.db.$with('collection_sets').as(
+      this.db
+        .selectDistinct({
+          name: ownedCards.setName,
+          position: sql`dense_rank() over (order by ${ownedCards.setName})`.mapWith(Number).as('position'),
+        })
+        .from(ownedCards),
+    );
+
+    const uniqueSetNames = new Set(setNames);
+
+    const setNamesInArray =
+      uniqueSetNames.size > 0 ? inArray(ownedCards.setName, uniqueSetNames.values().toArray()) : undefined;
+
+    const rows = await this.db
+      .with(ownedCards, sets)
+      .select({
+        setName: sets.name,
+        setPosition: sets.position,
+        card: getColumns(ownedCards),
+        quantity: getColumns(cardConditionQuantity),
+      })
+      .from(sets)
+      .leftJoin(ownedCards, and(eq(ownedCards.setName, sets.name), setNamesInArray))
+      .leftJoin(cardConditionQuantity, eq(cardConditionQuantity.cardId, ownedCards.id))
+      .orderBy(desc(ownedCards.createdAt));
+
+    const reducedResult = rows.reduce(
+      (acc, row) => {
+        acc.namesByPosition.set(row.setPosition, row.setName);
+
+        if (row.card == null) {
+          return acc;
+        }
+
+        let ownedCard = acc.cardsById.get(row.card.id);
+
+        if (ownedCard == null) {
+          ownedCard = { ...row.card, quantities: [] };
+          acc.cardsById.set(ownedCard.id, ownedCard);
+        }
+
+        if (row.quantity != null) {
+          ownedCard.quantities.push(row.quantity);
+        }
+
+        return acc;
+      },
+      {
+        cardsById: new Map<string, CardWithQuantities>(),
+        namesByPosition: new Map<number, string>(),
+      },
+    );
+
+    return {
+      cards: reducedResult.cardsById.values().toArray(),
+      availableSetNames: reducedResult.namesByPosition
+        .entries()
+        .toArray()
+        .toSorted(([a], [b]) => a - b)
+        .map(([, name]) => name),
+    };
   }
 
   /**
