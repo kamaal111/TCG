@@ -256,7 +256,6 @@ test-server-image: build-server-image
     set -euo pipefail
 
     container="$(docker run --detach \
-        --publish 127.0.0.1::8080 \
         --env PORT=8080 \
         --env DATABASE_URL=postgresql://unused:unused@127.0.0.1:5432/unused \
         --env BETTER_AUTH_URL=http://127.0.0.1:8080 \
@@ -266,12 +265,10 @@ test-server-image: build-server-image
         --env CARD_IMAGE_WORKER_ENABLED=false \
         tcg-server:local)"
     trap 'docker rm --force "$container" >/dev/null 2>&1 || true' EXIT
-
-    port="$(docker port "$container" 8080/tcp | sed -n 's/.*://p')"
-    test -n "$port"
+    docker cp scripts/check-server-image-health.ts "$container:/tmp/check-server-image-health.ts"
 
     for attempt in {1..30}; do
-        if response="$(curl --fail --silent --max-time 2 "http://127.0.0.1:$port/health/ping")"; then
+        if response="$(docker exec "$container" node /tmp/check-server-image-health.ts 2>/dev/null)"; then
             test "$response" = '{"message":"PONG"}'
             test "$(docker exec "$container" id -u)" = 1000
             docker exec "$container" test ! -e /app/node_modules/vitest
