@@ -10,6 +10,7 @@ allowBuilds:
   ssh2: false
 minimumReleaseAgeExclude:
   - '@kamaal111/kamaal-quality-config@0.3.0'
+  - '@kamaalio/hono-standard-openapi@0.0.22'
 
 catalog:
   '@aws-sdk/client-s3': '^3.888.0'
@@ -19,7 +20,7 @@ catalog:
   '@hono/structured-logger': '^1.0.0'
   '@hono/swagger-ui': '~0.6.1'
   '@kamaal111/kamaal-quality-config': '^0.3.0'
-  '@kamaalio/hono-standard-openapi': '^0.0.20'
+  '@kamaalio/hono-standard-openapi': '^0.0.22'
   '@kamaalio/kamaal': '~0.13.0'
   '@kamaalio/kamaal-auth-core': '~0.0.13'
   '@kamaalio/kamaal-auth-hono': '~0.0.13'
