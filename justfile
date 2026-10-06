@@ -39,6 +39,7 @@ alias prep := prepare
 alias i := install-modules
 alias dc-up := devcontainer-up
 alias dc-sh := devcontainer-shell
+alias dc-exec := devcontainer-exec
 
 # List available commands
 default:
@@ -81,10 +82,22 @@ devcontainer-rebuild: _outside-devcontainer
 devcontainer-shell: _outside-devcontainer
     {{ PNX }} devcontainer exec --workspace-folder . zsh
 
-# Run a command in this checkout's dev container
+# Run a quoted shell command in this checkout's dev container, starting it if needed
 [group("devcontainer")]
-devcontainer-exec +command: _outside-devcontainer
-    {{ PNX }} devcontainer exec --workspace-folder . {{ command }}
+[positional-arguments]
+devcontainer-exec command:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [[ -n "${TCG_DEVCONTAINER:-}" ]]; then
+        exec zsh -c "$1"
+    fi
+    container="$(docker ps --quiet \
+        --filter "label=devcontainer.local_folder=$(pwd -P)" \
+        --filter "label=com.docker.compose.service=devcontainer")"
+    if [[ -z "$container" ]]; then
+        just devcontainer-up
+    fi
+    exec {{ PNX }} devcontainer exec --workspace-folder . zsh -c "$1"
 
 # Stop this checkout's dev container and its services, keeping their data
 [group("devcontainer")]
