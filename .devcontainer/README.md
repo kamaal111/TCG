@@ -7,16 +7,34 @@ tests still run on the Mac.
 
 From the repository root on the host (after `just prepare`):
 
-| Recipe                              | What it does                                                             |
-| ----------------------------------- | ------------------------------------------------------------------------ |
-| `just devcontainer-up` (`dc-up`)    | Create or start this checkout's dev container                            |
-| `just devcontainer-shell` (`dc-sh`) | Open zsh inside it                                                       |
-| `just devcontainer-exec <cmd>`      | Run a command inside it, e.g. `just devcontainer-exec just ready-server` |
-| `just devcontainer-stop`            | Stop the container and its services, keeping data                        |
-| `just devcontainer-rebuild`         | Recreate the container, keeping volumes                                  |
-| `just devcontainer-delete`          | Remove the container, services and their volumes                         |
+| Recipe                                         | What it does                                                                                   |
+| ---------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| `just devcontainer-up` (`dc-up`)               | Create or start this checkout's dev container                                                  |
+| `just devcontainer-shell` (`dc-sh`)            | Open zsh inside it                                                                             |
+| `just devcontainer-exec "command"` (`dc-exec`) | Start it and run a quoted command inside it, e.g. `just devcontainer-exec "just ready-server"` |
+| `just devcontainer-stop`                       | Stop the container and its services, keeping data                                              |
+| `just devcontainer-rebuild`                    | Recreate the container, keeping volumes                                                        |
+| `just devcontainer-delete`                     | Remove the container, services and their volumes                                               |
 
 VS Code (**Dev Containers: Reopen in Container**) and Zed open the same configuration.
+
+Run commands from the host with `just dc-exec "just format"`. The recipe checks for this checkout's
+running container and skips startup when it is already running. Otherwise, it starts the container
+and services before executing the command with zsh in the container workspace. Pass the
+whole command as one quoted argument; separate command arguments are not supported. Command output
+and exit status are forwarded to the host, and a startup failure prevents command execution.
+
+The same recipe works inside the devcontainer. When `TCG_DEVCONTAINER` is set, it executes the
+command directly with zsh in the workspace, skipping Docker detection and startup.
+
+Use single outer quotes when variables or shell expressions should be evaluated inside the container:
+
+```sh
+just dc-exec 'printf "%s\n" "$TCG_DEVCONTAINER"'
+just dc-exec 'printf "%s\n" "hello world" && pwd'
+```
+
+`just dc-sh` opens an interactive shell and takes no command arguments.
 
 ## What's inside
 
