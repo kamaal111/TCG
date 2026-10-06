@@ -186,8 +186,8 @@ catalogs:
       specifier: ^0.3.0
       version: 0.3.0
     '@kamaalio/hono-standard-openapi':
-      specifier: ^0.0.20
-      version: 0.0.20
+      specifier: ^0.0.22
+      version: 0.0.22
     '@kamaalio/kamaal':
       specifier: ~0.13.0
       version: 0.13.0
@@ -294,7 +294,7 @@ importers:
         version: 0.6.1(hono@4.13.7)
       '@kamaalio/hono-standard-openapi':
         specifier: 'catalog:'
-        version: 0.0.20(@standard-schema/spec@1.1.0)(hono@4.13.7)
+        version: 0.0.22(@standard-schema/spec@1.1.0)(hono@4.13.7)
       '@kamaalio/kamaal':
         specifier: 'catalog:'
         version: 0.13.0
@@ -303,7 +303,7 @@ importers:
         version: 0.0.13(jose@6.2.12)
       '@kamaalio/kamaal-auth-hono':
         specifier: 'catalog:'
-        version: 0.0.13(@kamaalio/hono-standard-openapi@0.0.20(@standard-schema/spec@1.1.0)(hono@4.13.7))(hono@4.13.7)(jose@6.2.12)
+        version: 0.0.13(@kamaalio/hono-standard-openapi@0.0.22(@standard-schema/spec@1.1.0)(hono@4.13.7))(hono@4.13.7)(jose@6.2.12)
       better-auth:
         specifier: 'catalog:'
         version: 1.7.2(drizzle-kit@1.0.0-rc.4)(drizzle-orm@1.0.0-rc.4(@types/pg@8.23.1)(pg@8.23.0)(zod@4.6.5))(pg@8.23.0)(vitest@5.0.0)
@@ -428,7 +428,7 @@ importers:
         version: 0.6.1(hono@4.13.7)
       '@kamaalio/hono-standard-openapi':
         specifier: 'catalog:'
-        version: 0.0.20(@standard-schema/spec@1.1.0)(hono@4.13.7)
+        version: 0.0.22(@standard-schema/spec@1.1.0)(hono@4.13.7)
       '@kamaalio/kamaal':
         specifier: 'catalog:'
         version: 0.13.0
@@ -437,7 +437,7 @@ importers:
         version: 0.0.13(jose@6.2.12)
       '@kamaalio/kamaal-auth-hono':
         specifier: 'catalog:'
-        version: 0.0.13(@kamaalio/hono-standard-openapi@0.0.20(@standard-schema/spec@1.1.0)(hono@4.13.7))(hono@4.13.7)(jose@6.2.12)
+        version: 0.0.13(@kamaalio/hono-standard-openapi@0.0.22(@standard-schema/spec@1.1.0)(hono@4.13.7))(hono@4.13.7)(jose@6.2.12)
       '@tcg/scrydex':
         specifier: workspace:*
         version: link:../packages/scrydex
@@ -1132,8 +1132,8 @@ packages:
   '@kamaal111/oxlint-plugin-anti-slop@0.0.4':
     resolution: {integrity: sha512-YfHzW4k4t+W6rHUWFfbAN9bJoe5k/stX2KWQ5R/+yL/fh8OflnKj59C1K/qBxU4BAx3+2Bjc/u9w1/DrLsNP3Q==}
 
-  '@kamaalio/hono-standard-openapi@0.0.20':
-    resolution: {integrity: sha512-E6JJBzQfRDny81p+obEdRnoS9QVQRDMHhkB2HUixc62ZFylTqWoyNikPPoDZejIAZ63fftSKW6hhOloBv8GE4Q==}
+  '@kamaalio/hono-standard-openapi@0.0.22':
+    resolution: {integrity: sha512-cwpEJ7xDgFdZ8d07tJAiUc8T8afJAh8Z3qfKca2o1rVTE46Am8A4vgVnL9rKJGD/YHQkHaZZAbFZoktHMuURlw==}
     peerDependencies:
       hono: '>=4.10.0'
 
@@ -4669,7 +4669,7 @@ snapshots:
     dependencies:
       '@oxlint/plugins': 1.78.0
 
-  '@kamaalio/hono-standard-openapi@0.0.20(@standard-schema/spec@1.1.0)(hono@4.13.7)':
+  '@kamaalio/hono-standard-openapi@0.0.22(@standard-schema/spec@1.1.0)(hono@4.13.7)':
     dependencies:
       '@hono/standard-validator': 0.4.0(@standard-schema/spec@1.1.0)(hono@4.13.7)
       hono: 4.13.7
@@ -4682,9 +4682,9 @@ snapshots:
       jose: 6.2.12
       zod: 4.6.5
 
-  '@kamaalio/kamaal-auth-hono@0.0.13(@kamaalio/hono-standard-openapi@0.0.20(@standard-schema/spec@1.1.0)(hono@4.13.7))(hono@4.13.7)(jose@6.2.12)':
+  '@kamaalio/kamaal-auth-hono@0.0.13(@kamaalio/hono-standard-openapi@0.0.22(@standard-schema/spec@1.1.0)(hono@4.13.7))(hono@4.13.7)(jose@6.2.12)':
     dependencies:
-      '@kamaalio/hono-standard-openapi': 0.0.20(@standard-schema/spec@1.1.0)(hono@4.13.7)
+      '@kamaalio/hono-standard-openapi': 0.0.22(@standard-schema/spec@1.1.0)(hono@4.13.7)
       '@kamaalio/kamaal-auth-core': 0.0.13(jose@6.2.12)
       hono: 4.13.7
     transitivePeerDependencies:
