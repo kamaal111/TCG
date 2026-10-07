@@ -55,6 +55,15 @@ just dc-exec 'printf "%s\n" "hello world" && pwd'
 `just quality`, `just format`, `just ready-server` and `just dev-server` work inside. App tests,
 `just ready-app` and `just ready` need Xcode, so run them on the Mac.
 
+VS Code can install Docker credential helpers that depend on its editor session. The production
+server-image build uses a private temporary Docker configuration inside the devcontainer when those
+helpers are present, omitting only `dev-containers-*` helper references. This lets
+`just dc-exec "just ready-server"` build its public base images independently of VS Code. Other
+credentials, helpers, Docker settings and supporting files remain available. The temporary
+configuration is removed after the build; the original configuration and credential forwarding for
+other commands remain unchanged. Authentication available only through the editor helper is not
+used for this build.
+
 ## Worktrees
 
 Every checkout gets its own compose project: its own container, database, object storage and
