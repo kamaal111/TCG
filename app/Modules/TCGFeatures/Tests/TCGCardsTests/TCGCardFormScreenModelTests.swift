@@ -54,8 +54,13 @@ struct TCGCardFormScreenModelTests {
     @Test
     func `Missing searched set remains required and can be supplied`() async {
         let card = PricedCard(
-            id: "missing-set", game: .pokemon, name: "Pikachu", cardNumber: "58/102",
-            pricedOn: .distantPast, fetchedAt: .distantPast)
+            id: "missing-set",
+            game: .pokemon,
+            name: "Pikachu",
+            cardNumber: "58/102",
+            pricedOn: .distantPast,
+            fetchedAt: .distantPast
+        )
         let model = TCGCardFormScreenModel(mode: .add, initialValues: .init(pricedCard: card))
         let collection = TCGCards(client: .preview(cardsOutcome: .empty))
         model.values.quantities = [.nearMint: 1]
@@ -86,14 +91,16 @@ struct TCGCardFormScreenModelTests {
                 == Set([
                     CardConditionQuantity(condition: .nearMint, quantity: 2),
                     CardConditionQuantity(condition: .played, quantity: 1),
-                ]))
+                ])
+        )
     }
 
     @Test
     func `Prefilled add retains values after server failure`() async {
         let model = TCGCardFormScreenModel(
             mode: .add,
-            initialValues: .init(pricedCard: PreviewTCGPricingClient.samplePricedCards[0]))
+            initialValues: .init(pricedCard: PreviewTCGPricingClient.samplePricedCards[0])
+        )
         model.values.quantities = [.nearMint: 1]
         model.values.notes = "Keep this draft"
         let values = model.values
@@ -182,11 +189,15 @@ struct TCGCardFormScreenModelTests {
     func `Dismissal is blocked during submission and a failed save preserves edits`() async throws {
         let transport = PendingCardSubmissionTransport()
         let credentials = Credentials(
-            authToken: "auth-token", authTokenExpiryDate: .distantFuture,
-            sessionToken: "session-token", sessionUpdateAge: 1800, lastSessionUpdate: .now
+            authToken: "auth-token",
+            authTokenExpiryDate: .distantFuture,
+            sessionToken: "session-token",
+            sessionUpdateAge: 1800,
+            lastSessionUpdate: .now
         )
         let client = TCGClient.default(
-            transport: transport, credentialsKeychainKey: "card-form-dismissal-test",
+            transport: transport,
+            credentialsKeychainKey: "card-form-dismissal-test",
             credentialsStore: InMemoryCredentialsStore(seed: try JSONEncoder().encode(credentials))
         )
         let model = TCGCardFormScreenModel(mode: .add, initialValues: nil)
@@ -271,7 +282,10 @@ private actor PendingCardSubmissionTransport: ClientTransport {
     private var response: CheckedContinuation<(HTTPResponse, HTTPBody?), Never>?
 
     func send(
-        _ request: HTTPRequest, body: HTTPBody?, baseURL: URL, operationID: String
+        _ request: HTTPRequest,
+        body: HTTPBody?,
+        baseURL: URL,
+        operationID: String
     ) async throws -> (HTTPResponse, HTTPBody?) {
         await withCheckedContinuation { continuation in
             response = continuation

@@ -57,7 +57,8 @@ struct TCGSearchHistoryStoreTests {
         #expect(
             store.suggestions(for: " pik ", game: .pokemon).map(\.query) == [
                 "Pikachu 6", "Pikachu 5", "Pikachu 4", "Pikachu 3", "Pikachu 2",
-            ])
+            ]
+        )
         #expect(store.suggestions(for: "  ", game: .pokemon).isEmpty)
     }
 

@@ -17,7 +17,11 @@ struct CardFormValues: Equatable {
     var quantities: [CardCondition: Int]
 
     init(
-        game: ClientCardGame, name: String, setName: String, cardNumber: String, notes: String,
+        game: ClientCardGame,
+        name: String,
+        setName: String,
+        cardNumber: String,
+        notes: String,
         quantities: [CardCondition: Int]
     ) {
         self.game = game

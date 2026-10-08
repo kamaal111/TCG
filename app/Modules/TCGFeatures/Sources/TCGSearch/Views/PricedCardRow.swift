@@ -90,12 +90,14 @@ struct PricedCardRow: View {
                 if let movement = market.trend7d {
                     Text(
                         "7d \(movement.percentChange / 100, format: .percent.precision(.fractionLength(1)))",
-                        bundle: .module)
+                        bundle: .module
+                    )
                 }
                 if let movement = market.trend30d {
                     Text(
                         "30d \(movement.percentChange / 100, format: .percent.precision(.fractionLength(1)))",
-                        bundle: .module)
+                        bundle: .module
+                    )
                 }
             }
             .font(.caption.monospacedDigit())

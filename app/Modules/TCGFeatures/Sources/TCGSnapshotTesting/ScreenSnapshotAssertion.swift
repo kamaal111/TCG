@@ -59,7 +59,10 @@ public func assertScreenSnapshot<Screen: View>(
                 Issue.record(
                     "The mounted screen did not settle within twelve seconds.",
                     sourceLocation: SourceLocation(
-                        fileID: "\(fileID)", filePath: "\(filePath)", line: Int(line), column: Int(column)
+                        fileID: "\(fileID)",
+                        filePath: "\(filePath)",
+                        line: Int(line),
+                        column: Int(column)
                     )
                 )
                 return

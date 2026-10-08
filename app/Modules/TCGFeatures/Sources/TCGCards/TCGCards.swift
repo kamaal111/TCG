@@ -33,7 +33,10 @@ public final class TCGCards {
     func load(game: ClientCardGame?, setNames: Set<String> = []) async -> Result<Void, TCGCardsOperationError> {
         if game != collectionState.game { availableSetNames = [] }
         collectionState = CollectionState(
-            game: game, setNames: setNames, generation: collectionState.generation + 1, status: .loading
+            game: game,
+            setNames: setNames,
+            generation: collectionState.generation + 1,
+            status: .loading
         )
         let generation = collectionState.generation
         setCards(cards)

@@ -40,7 +40,8 @@ public struct TCGSettingsScreen: View {
                 .disabled(isSigningOut)
                 .confirmationDialog(
                     Text("Sign out of TCG?", bundle: .module),
-                    isPresented: $isConfirmingSignOut, titleVisibility: .visible
+                    isPresented: $isConfirmingSignOut,
+                    titleVisibility: .visible
                 ) {
                     Button(role: .destructive) {
                         signOut()

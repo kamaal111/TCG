@@ -41,8 +41,12 @@ struct TCGSearchPresentationTests {
     func `Missing artwork does not open exploration`() {
         let model = TCGSearchScreenModel(preferences: nil)
         let card = PricedCard(
-            id: "no-image", game: .onePiece, name: "Nami", cardNumber: "OP01-016",
-            pricedOn: .distantPast, fetchedAt: .distantPast
+            id: "no-image",
+            game: .onePiece,
+            name: "Nami",
+            cardNumber: "OP01-016",
+            pricedOn: .distantPast,
+            fetchedAt: .distantPast
         )
         model.exploreImage(of: card)
         #expect(model.presentedImage == nil)
@@ -50,9 +54,13 @@ struct TCGSearchPresentationTests {
 
     private var card: PricedCard {
         PricedCard(
-            id: "artwork", game: .pokemon, name: "Giratina", cardNumber: "186/196",
+            id: "artwork",
+            game: .pokemon,
+            name: "Giratina",
+            cardNumber: "186/196",
             imageURL: URL(string: "https://images.example.com/card.png")!,
-            pricedOn: .distantPast, fetchedAt: .distantPast
+            pricedOn: .distantPast,
+            fetchedAt: .distantPast
         )
     }
 }

@@ -134,7 +134,11 @@ final class TCGSearchScreenModel {
         guard normalizedQuery.count >= 2 else { return }
 
         let request = SearchRequest(
-            game: game, query: normalizedQuery, languages: languages, revision: revision, recordImmediately: false
+            game: game,
+            query: normalizedQuery,
+            languages: languages,
+            revision: revision,
+            recordImmediately: false
         )
         searchTask = Task {
             try? await Task.sleep(for: debounce)
@@ -148,7 +152,11 @@ final class TCGSearchScreenModel {
         let normalizedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard normalizedQuery.count >= 2 else { return }
         let request = SearchRequest(
-            game: game, query: normalizedQuery, languages: languages, revision: revision, recordImmediately: true
+            game: game,
+            query: normalizedQuery,
+            languages: languages,
+            revision: revision,
+            recordImmediately: true
         )
         await performSearch(request, using: search)
     }
@@ -219,7 +227,9 @@ final class TCGSearchScreenModel {
 
     private func performSearch(_ request: SearchRequest, using search: TCGSearch) async {
         let result = await search.searchWithOutcome(
-            game: request.game, query: request.query, languages: request.languages
+            game: request.game,
+            query: request.query,
+            languages: request.languages
         )
         guard request.revision == revision else { return }
         guard !Task.isCancelled else { return }

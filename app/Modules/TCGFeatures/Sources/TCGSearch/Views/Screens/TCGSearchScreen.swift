@@ -80,9 +80,12 @@ public struct TCGSearchScreen: View {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 16) {
                     TCGSearchInput(
-                        query: queryBinding, game: model.game, languages: languagesBinding,
+                        query: queryBinding,
+                        game: model.game,
+                        languages: languagesBinding,
                         gameSelection: gameBinding,
-                        availableSetNames: model.availableSetNames(using: search), setNames: $model.setNames,
+                        availableSetNames: model.availableSetNames(using: search),
+                        setNames: $model.setNames,
                         isFocused: $model.isSearchFocused
                     ) {
                         Task { await model.performSearch(using: search) }
@@ -95,9 +98,12 @@ public struct TCGSearchScreen: View {
         #else
             List {
                 TCGSearchInput(
-                    query: queryBinding, game: model.game, languages: languagesBinding,
+                    query: queryBinding,
+                    game: model.game,
+                    languages: languagesBinding,
                     gameSelection: gameBinding,
-                    availableSetNames: model.availableSetNames(using: search), setNames: $model.setNames,
+                    availableSetNames: model.availableSetNames(using: search),
+                    setNames: $model.setNames,
                     isFocused: $model.isSearchFocused
                 ) {
                     Task { await model.performSearch(using: search) }
@@ -248,7 +254,8 @@ public struct TCGSearchScreen: View {
                 Text(
                     model.game == .pokemon
                         ? LocalizedStringKey(
-                            "Enter a card name, number, or set + number to see current market pricing.")
+                            "Enter a card name, number, or set + number to see current market pricing."
+                        )
                         : LocalizedStringKey("Enter a card name or full card number to see current market pricing."),
                     bundle: .module
                 )
@@ -294,7 +301,8 @@ public struct TCGSearchScreen: View {
                             "Try a name and card number, like Charizard ex 199, or a set and printed number, like sv5m 072/071."
                         )
                         : LocalizedStringKey(
-                            "Try a card number, like OP14-069, or a name and card number, like Nami OP01-016."),
+                            "Try a card number, like OP14-069, or a name and card number, like Nami OP01-016."
+                        ),
                     bundle: .module
                 )
             }

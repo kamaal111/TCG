@@ -58,7 +58,8 @@ struct TCGCardsFeatureTests {
         await transport.waitForRequest("/app-api/cards/second-card")
         #expect(await transport.requestCount == 3)
         await transport.complete(
-            "/app-api/cards/second-card", status: secondDeleteFails ? .internalServerError : .ok
+            "/app-api/cards/second-card",
+            status: secondDeleteFails ? .internalServerError : .ok
         )
         await transport.waitForRequest(listPath)
         await transport.complete(listPath, setName: "Remaining Set")
@@ -278,12 +279,16 @@ struct TCGCardsFeatureTests {
 
     private func makePendingFeature(_ transport: PendingCollectionTransport) -> TCGCards {
         let credentials = Credentials(
-            authToken: "auth-token", authTokenExpiryDate: .distantFuture,
-            sessionToken: "session-token", sessionUpdateAge: 1800, lastSessionUpdate: .now
+            authToken: "auth-token",
+            authTokenExpiryDate: .distantFuture,
+            sessionToken: "session-token",
+            sessionUpdateAge: 1800,
+            lastSessionUpdate: .now
         )
         return TCGCards(
             client: .default(
-                transport: transport, credentialsKeychainKey: "collection-load-tests",
+                transport: transport,
+                credentialsKeychainKey: "collection-load-tests",
                 credentialsStore: InMemoryCredentialsStore(seed: try? JSONEncoder().encode(credentials))
             )
         )
@@ -296,7 +301,10 @@ private actor PendingCollectionTransport: ClientTransport {
     private var waiters: [String: CheckedContinuation<Void, Never>] = [:]
 
     func send(
-        _ request: HTTPRequest, body _: HTTPBody?, baseURL _: URL, operationID _: String
+        _ request: HTTPRequest,
+        body _: HTTPBody?,
+        baseURL _: URL,
+        operationID _: String
     ) async throws -> (HTTPResponse, HTTPBody?) {
         guard let path = request.path else { preconditionFailure("Collection requests require a path.") }
         requestCount += 1
