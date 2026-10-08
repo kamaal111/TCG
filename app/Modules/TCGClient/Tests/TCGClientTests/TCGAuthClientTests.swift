@@ -174,7 +174,8 @@ struct TCGAuthClientTests {
             with: .init(
                 email: "jane@example.com",
                 password: "Password123!"
-            ))
+            )
+        )
 
         try result.get()
         try await assertSignInRequest(in: transport)
@@ -199,7 +200,8 @@ struct TCGAuthClientTests {
             with: .init(
                 email: "jane@example.com",
                 password: "Password123!"
-            ))
+            )
+        )
 
         #expect(throws: SignInErrors.credentialsUnavailable(cause: CredentialsStoreError.failed)) {
             try result.get()
@@ -219,7 +221,8 @@ struct TCGAuthClientTests {
             with: .init(
                 email: "jane@example.com",
                 password: "Password123!"
-            ))
+            )
+        )
 
         try #require(
             throws: SignInErrors.badRequest(validations: [
@@ -246,7 +249,8 @@ struct TCGAuthClientTests {
             with: .init(
                 email: "jane@example.com",
                 password: "Password123!"
-            ))
+            )
+        )
 
         #expect(throws: SignInErrors.badRequest(validations: [])) {
             try result.get()
@@ -273,7 +277,8 @@ struct TCGAuthClientTests {
             with: .init(
                 email: "jane@example.com",
                 password: "Password123!"
-            ))
+            )
+        )
 
         #expect(throws: SignInErrors.sessionUnavailable) {
             try result.get()
@@ -294,7 +299,8 @@ struct TCGAuthClientTests {
         )
 
         let result = await client.auth.signUp(
-            with: .init(email: "jane@example.com", password: "Password123!", name: "Jane Doe"))
+            with: .init(email: "jane@example.com", password: "Password123!", name: "Jane Doe")
+        )
 
         try result.get()
         try await assertSignUpRequest(in: transport)
@@ -315,7 +321,8 @@ struct TCGAuthClientTests {
         )
 
         let result = await client.auth.signUp(
-            with: .init(email: "jane@example.com", password: "Password123!", name: "Jane Doe"))
+            with: .init(email: "jane@example.com", password: "Password123!", name: "Jane Doe")
+        )
 
         #expect(throws: SignUpErrors.credentialsUnavailable(cause: CredentialsStoreError.failed)) {
             try result.get()
@@ -332,7 +339,8 @@ struct TCGAuthClientTests {
         )
 
         let result = await client.auth.signUp(
-            with: .init(email: "jane@example.com", password: "Password123!", name: "Jane Doe"))
+            with: .init(email: "jane@example.com", password: "Password123!", name: "Jane Doe")
+        )
 
         try #require(
             throws: SignUpErrors.badRequest(validations: [
@@ -355,7 +363,8 @@ struct TCGAuthClientTests {
         )
 
         let result = await client.auth.signUp(
-            with: .init(email: "jane@example.com", password: "Password123!", name: "Jane Doe"))
+            with: .init(email: "jane@example.com", password: "Password123!", name: "Jane Doe")
+        )
 
         #expect(throws: SignUpErrors.sessionUnavailable) {
             try result.get()
@@ -542,7 +551,8 @@ struct TCGAuthClientTests {
         )
 
         let result = await client.auth.signUp(
-            with: .init(email: "jane@example.com", password: "Password123!", name: "Jane Doe"))
+            with: .init(email: "jane@example.com", password: "Password123!", name: "Jane Doe")
+        )
 
         try result.get()
         let request = try #require(await transport.request)
@@ -611,7 +621,8 @@ struct TCGAuthClientTests {
                     expiryDate: .now.addingTimeInterval(6 * 24 * 60 * 60),
                     sessionUpdateAge: 24 * 60 * 60,
                     lastSessionUpdate: .now.addingTimeInterval(-25 * 60 * 60)
-                ))
+                )
+            )
         )
         let transport = try RequestTransport.serverLike()
         let client = TCGClient.default(
@@ -807,7 +818,8 @@ private actor RequestTransport: ClientTransport {
                     authTokenExpiryHeader: "3600",
                     sessionTokenHeader: "session-token",
                     sessionUpdateAgeHeader: "1800",
-                ]),
+                ]
+            ),
             body: Data(
                 """
                 {
@@ -820,7 +832,8 @@ private actor RequestTransport: ClientTransport {
                     "name": "Jane Doe"
                   }
                 }
-                """.utf8)
+                """.utf8
+            )
         )
     }
 
@@ -841,7 +854,8 @@ private actor RequestTransport: ClientTransport {
                     ]
                   }
                 }
-                """.utf8)
+                """.utf8
+            )
         )
     }
 
@@ -853,7 +867,8 @@ private actor RequestTransport: ClientTransport {
                 {
                   "message": "Authentication failed"
                 }
-                """.utf8)
+                """.utf8
+            )
         )
     }
 
@@ -866,7 +881,8 @@ private actor RequestTransport: ClientTransport {
                   "message": "Invalid email or password",
                   "code": "INVALID_EMAIL_OR_PASSWORD"
                 }
-                """.utf8)
+                """.utf8
+            )
         )
     }
 
@@ -930,7 +946,8 @@ private actor RequestTransport: ClientTransport {
                     "name": "Jane Doe"
                   }
                 }
-                """.utf8)
+                """.utf8
+            )
         )
     }
 
@@ -943,7 +960,8 @@ private actor RequestTransport: ClientTransport {
                   "message": "Unauthorized",
                   "code": "SESSION_NOT_FOUND"
                 }
-                """.utf8)
+                """.utf8
+            )
         )
     }
 
@@ -957,7 +975,9 @@ private actor RequestTransport: ClientTransport {
                       "message": "Unauthorized",
                       "code": "SESSION_NOT_FOUND"
                     }
-                    """.utf8))
+                    """.utf8
+                )
+            )
         )
     }
 

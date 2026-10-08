@@ -74,8 +74,10 @@ struct TCGPricingClientTests {
     func `Search decodes responses without set metadata`() async throws {
         let body = Data(
             String(decoding: searchJSON, as: UTF8.self).replacingOccurrences(
-                of: "\"set_name\": \"Crown Zenith\",", with: ""
-            ).utf8)
+                of: "\"set_name\": \"Crown Zenith\",",
+                with: ""
+            ).utf8
+        )
         let transport = PricingRequestTransport(status: .ok, body: body)
         let result = try await makeClient(transport: transport).pricing.search(game: .pokemon, query: "Giratina").get()
         let card = try #require(result.matches.first)

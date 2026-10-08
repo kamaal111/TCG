@@ -94,7 +94,8 @@ public struct TCGCardsListScreen: View {
                 Text("Game", bundle: .module)
             }
             TCGSetFilterSection(
-                availableSetNames: model.availableSetNames(using: cardCollection), selection: $model.setNames
+                availableSetNames: model.availableSetNames(using: cardCollection),
+                selection: $model.setNames
             )
         }
     }

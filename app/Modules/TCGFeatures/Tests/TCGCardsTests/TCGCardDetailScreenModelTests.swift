@@ -102,11 +102,15 @@ struct TCGCardDetailScreenModelTests {
     func `Repeated save and dismissal are blocked while submission is pending`() async throws {
         let transport = PendingDetailSaveTransport()
         let credentials = Credentials(
-            authToken: "auth-token", authTokenExpiryDate: .distantFuture,
-            sessionToken: "session-token", sessionUpdateAge: 1800, lastSessionUpdate: .distantPast
+            authToken: "auth-token",
+            authTokenExpiryDate: .distantFuture,
+            sessionToken: "session-token",
+            sessionUpdateAge: 1800,
+            lastSessionUpdate: .distantPast
         )
         let client = TCGClient.default(
-            transport: transport, credentialsKeychainKey: "detail-save-test",
+            transport: transport,
+            credentialsKeychainKey: "detail-save-test",
             credentialsStore: InMemoryCredentialsStore(seed: try JSONEncoder().encode(credentials))
         )
         let feature = TCGCards(client: client)

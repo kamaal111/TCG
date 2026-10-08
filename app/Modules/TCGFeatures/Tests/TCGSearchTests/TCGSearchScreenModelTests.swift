@@ -231,7 +231,9 @@ struct TCGSearchScreenModelTests {
     }
 
     private func completeSearch(
-        model: TCGSearchScreenModel, feature: TCGSearch, transport: HistoryPricingTransport
+        model: TCGSearchScreenModel,
+        feature: TCGSearch,
+        transport: HistoryPricingTransport
     ) async {
         let task = Task { await model.performSearch(using: feature) }
         await transport.waitUntilStarted()

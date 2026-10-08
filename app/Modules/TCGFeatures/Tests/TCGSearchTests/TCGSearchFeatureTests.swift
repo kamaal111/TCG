@@ -84,7 +84,8 @@ struct TCGSearchFeatureTests {
             await transport.paths == [
                 "/app-api/pricing/search?languages=ja&game=pokemon&query=Shiftry",
                 "/app-api/pricing/search?languages=en&game=pokemon&query=Shiftry",
-            ])
+            ]
+        )
     }
 
     @Test
@@ -167,7 +168,9 @@ private actor LanguagePricingTransport: ClientTransport {
                 Data(
                     """
                     {"matches": []}
-                    """.utf8))
+                    """.utf8
+                )
+            )
         )
     }
 }

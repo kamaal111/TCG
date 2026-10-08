@@ -208,7 +208,10 @@ struct TCGSearchScreenSnapshotTests {
     @Test
     func `Renders card details without pricing or artwork`() async {
         let card = PricedCard(
-            id: "missing-price", game: .onePiece, name: "Nami", cardNumber: "OP01-016",
+            id: "missing-price",
+            game: .onePiece,
+            name: "Nami",
+            cardNumber: "OP01-016",
             pricedOn: Date(timeIntervalSince1970: 1_750_000_000),
             fetchedAt: Date(timeIntervalSince1970: 1_750_000_000)
         )
@@ -246,11 +249,17 @@ struct TCGSearchScreenSnapshotTests {
 
     private var detailCard: PricedCard {
         PricedCard(
-            id: "details", game: .pokemon, name: "Giratina V", cardNumber: "186/196", rarity: "Special Art Rare",
+            id: "details",
+            game: .pokemon,
+            name: "Giratina V",
+            cardNumber: "186/196",
+            rarity: "Special Art Rare",
             imageURL: URL(string: "https://images.example.com/giratina.png")!,
             headline: PriceHeadline(amount: 420, currency: .usd),
             market: MarketPrice(
-                currency: .usd, low: 420, market: 450,
+                currency: .usd,
+                low: 420,
+                market: 450,
                 trend7d: PriceMovement(priceChange: 12, percentChange: 2.7),
                 trend30d: PriceMovement(priceChange: -20, percentChange: -4.3)
             ),
@@ -325,8 +334,10 @@ struct TCGSearchScreenSnapshotTests {
     private func makeHistoryScreen(feature: TCGSearch) -> some View {
         NavigationStack {
             TCGSearchHistoryScreen(
-                history: feature.history, game: .pokemon,
-                onSelect: { _ in }, onRemove: feature.history.remove,
+                history: feature.history,
+                game: .pokemon,
+                onSelect: { _ in },
+                onRemove: feature.history.remove,
                 onClear: { feature.history.clear(game: .pokemon) }
             )
         }

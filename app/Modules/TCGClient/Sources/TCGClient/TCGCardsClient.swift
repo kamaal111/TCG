@@ -78,7 +78,8 @@ struct TCGCardsClientImpl: TCGCardsClient {
             }
         case .badRequest(let response):
             return .failure(
-                .badRequest(validations: TCGClientValidationErrorParser.parseIssues(from: try? response.body.json)))
+                .badRequest(validations: TCGClientValidationErrorParser.parseIssues(from: try? response.body.json))
+            )
         case .unauthorized:
             return .failure(.unauthorized)
         case .serviceUnavailable:
@@ -108,7 +109,8 @@ struct TCGCardsClientImpl: TCGCardsClient {
             }
         case .badRequest(let response):
             return .failure(
-                .badRequest(validations: TCGClientValidationErrorParser.parseIssues(from: try? response.body.json)))
+                .badRequest(validations: TCGClientValidationErrorParser.parseIssues(from: try? response.body.json))
+            )
         case .unauthorized:
             return .failure(.unauthorized)
         case .notFound:

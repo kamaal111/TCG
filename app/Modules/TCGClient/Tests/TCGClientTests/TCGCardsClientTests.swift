@@ -31,7 +31,8 @@ struct TCGCardsClientTests {
     func `Lists repeated sets with encoded names and complete set choices`() async throws {
         let transport = CardsRequestTransport(status: .ok, body: cardsListJSON)
         let collection = try await makeClient(transport: transport).cards.list(
-            game: .pokemon, setNames: ["Base Set", "Special, Set & + 日本語"]
+            game: .pokemon,
+            setNames: ["Base Set", "Special, Set & + 日本語"]
         ).get()
         let request = try #require(await transport.request)
         let path = try #require(request.path)

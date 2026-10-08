@@ -48,7 +48,8 @@ public struct CardImageExplorer: View {
                 .clipped()
                 .gesture(magnify(viewport: geometry.size, artwork: artworkSize), including: isLoaded ? .all : .none)
                 .simultaneousGesture(
-                    drag(viewport: geometry.size, artwork: artworkSize), including: isLoaded ? .all : .none
+                    drag(viewport: geometry.size, artwork: artworkSize),
+                    including: isLoaded ? .all : .none
                 )
                 .onTapGesture(count: 2) {
                     guard isLoaded else { return }

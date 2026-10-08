@@ -25,7 +25,10 @@ enum PricedCardMapper {
             imageURL: card.imageUrl.flatMap(URL.init(string:)),
             headline: card.headline.map {
                 PriceHeadline(
-                    amount: $0.amount, currency: makeCurrency($0.currency), metric: makeMetric($0.metric))
+                    amount: $0.amount,
+                    currency: makeCurrency($0.currency),
+                    metric: makeMetric($0.metric)
+                )
             },
             market: card.market.map {
                 MarketPrice(
