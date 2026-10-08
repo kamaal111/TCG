@@ -11,7 +11,7 @@ public struct UpsertCardPayload: Codable, Equatable, Sendable {
     public let setName: String
     public let cardNumber: String
     public let notes: String?
-    public let quantities: [CardConditionQuantity]
+    public let purchases: [CardPurchase]
 
     public init(
         game: ClientCardGame,
@@ -19,21 +19,21 @@ public struct UpsertCardPayload: Codable, Equatable, Sendable {
         setName: String,
         cardNumber: String,
         notes: String?,
-        quantities: [CardConditionQuantity]
+        purchases: [CardPurchase]
     ) {
         self.game = game
         self.name = name
         self.setName = setName
         self.cardNumber = cardNumber
         self.notes = notes
-        self.quantities = quantities
+        self.purchases = purchases
     }
 
     private enum CodingKeys: String, CodingKey {
         case game
         case name
         case notes
-        case quantities
+        case purchases
         case setName = "set_name"
         case cardNumber = "card_number"
     }

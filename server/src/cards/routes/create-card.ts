@@ -51,6 +51,8 @@ const createCardRoute = defineOpenAPIRoute<HonoEnvironment, typeof routeConfig>(
     const createdCard = await c.get('cardRepository').create(c.req.valid('json'));
     const [price] = await c.get('cardPricingService').priceOwnedCards([createdCard]);
 
+    await c.get('cardRepository').backfillPurchasePrices([createdCard], [price]);
+
     const response = serializeCardWithPrice(createdCard, price);
     cardsLogger(c).info(
       { event: 'cards.create', outcome: 'success', card_id: response.id },

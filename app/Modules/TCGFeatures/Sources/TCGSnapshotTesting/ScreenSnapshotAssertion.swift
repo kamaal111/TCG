@@ -5,6 +5,7 @@
 
 import SnapshotTesting
 import SwiftUI
+import TCGUtils
 import Testing
 
 /// Waits for exclusive screen capture, then compares light and dark images with their recorded baselines.
@@ -47,7 +48,7 @@ public func assertScreenSnapshot<Screen: View>(
         #elseif os(iOS)
             let capture = MountedScreenSnapshot(
                 screen: screen()
-                    .environment(\.locale, Locale(identifier: "en_US"))
+                    .environment(\.locale, TCGLocales.snapshot)
                     .transaction {
                         $0.animation = nil
                         $0.disablesAnimations = true
@@ -148,7 +149,7 @@ private enum ScreenSnapshotQueue {
         private let traits: UITraitCollection
         private var settling = ScreenSnapshotSettling()
         private var completion: CheckedContinuation<UIImage?, Never>?
-        private var deadline: CFTimeInterval = 0
+        private var deadline: CFTimeInterval?
 
         init<Screen: View>(screen: Screen, scheme: ColorScheme) {
             let config = ViewImageConfig.iPhone13
@@ -195,9 +196,6 @@ private enum ScreenSnapshotQueue {
         }
 
         func image() async -> UIImage? {
-            // CI can take several seconds to render a populated form under simulator load.
-            // Keep the pixel and quiet-interval checks; only bound how long they may take.
-            deadline = CACurrentMediaTime() + 12
             return await withCheckedContinuation { completion in
                 self.completion = completion
                 let displayLink = CADisplayLink(target: self, selector: #selector(captureFrame))
@@ -208,10 +206,6 @@ private enum ScreenSnapshotQueue {
         // Observe one mounted hierarchy instead of restarting SwiftUI and UIKit
         // initialization on each frame. The reference never participates in settling.
         @objc private func captureFrame(_ displayLink: CADisplayLink) {
-            guard CACurrentMediaTime() < deadline else {
-                finish(displayLink, image: nil)
-                return
-            }
             let view = hosting.view!
             view.layoutIfNeeded()
             let renderer = UIGraphicsImageRenderer(bounds: view.bounds, format: .init(for: traits))
@@ -220,12 +214,20 @@ private enum ScreenSnapshotQueue {
                 finish(displayLink, image: nil)
                 return
             }
+            // Simulator startup can delay the first frame. Bound settling from the
+            // first completed render so startup cannot consume its quiet interval.
+            let timestamp = CACurrentMediaTime()
+            if deadline == nil { deadline = timestamp + 12 }
+            guard let deadline, timestamp < deadline else {
+                finish(displayLink, image: nil)
+                return
+            }
             // layer.render captures model values, which can remain unchanged during
             // an animation. Its pixels alone cannot prove the hierarchy has settled.
             guard
                 settling.observe(
                     frame: data,
-                    at: CACurrentMediaTime(),
+                    at: timestamp,
                     hasActiveAnimations: ScreenSnapshotSettling.hasActiveAnimations(in: view.layer)
                 )
             else { return }
@@ -289,7 +291,7 @@ private enum ScreenSnapshotQueue {
                 screen
                 .frame(width: 1_280, height: 960, alignment: .topLeading)
                 .preferredColorScheme(scheme)
-                .environment(\.locale, Locale(identifier: "en_US"))
+                .environment(\.locale, TCGLocales.snapshot)
                 .tint(.blue)
         )
         hostingView.appearance = NSAppearance(named: scheme == .dark ? .darkAqua : .aqua)

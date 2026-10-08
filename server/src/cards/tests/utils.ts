@@ -10,9 +10,9 @@ export const validCardPayload: UpsertCard = {
   name: 'Monkey D. Luffy',
   set_name: 'Romance Dawn',
   card_number: 'OP01-003',
-  quantities: [
-    { condition: 'near_mint', quantity: 2 },
-    { condition: 'played', quantity: 1 },
+  purchases: [
+    { condition: 'near_mint', quantity: 2, purchase_price: null, currency: null },
+    { condition: 'played', quantity: 1, purchase_price: null, currency: null },
   ],
 };
 

@@ -169,6 +169,72 @@ struct TCGCardsClientTests {
         }
     }
 
+    @Test
+    func `Creates purchases and decodes exact prices`() async throws {
+        let input = try purchasePayload(id: nil)
+        let transport = CardsRequestTransport(status: .created, body: purchaseCardJSON)
+        let saved = try await makeClient(transport: transport).cards.create(with: input).get()
+        let request = try #require(await transport.request)
+        #expect(request.operationID == "post/app-api/cards")
+        try assertPurchasePayload(request, expectedID: nil)
+        try assertPurchaseResponse(saved)
+    }
+
+    @Test
+    func `Updates purchases and decodes exact prices`() async throws {
+        let input = try purchasePayload(id: "batch-id")
+        let transport = CardsRequestTransport(status: .ok, body: purchaseCardJSON)
+        let saved = try await makeClient(transport: transport).cards.update(id: "card-id", with: input).get()
+        let request = try #require(await transport.request)
+        #expect(request.operationID == "put/app-api/cards/{cardId}")
+        try assertPurchasePayload(request, expectedID: "batch-id")
+        try assertPurchaseResponse(saved)
+    }
+
+    private func purchasePayload(id: String?) throws -> UpsertCardPayload {
+        let amount = try #require(Decimal(string: "3.123456"))
+        return UpsertCardPayload(
+            game: .onePiece,
+            name: payload.name,
+            setName: payload.setName,
+            cardNumber: payload.cardNumber,
+            notes: nil,
+            purchases: [CardPurchase(id: id, condition: .nearMint, quantity: 2, purchasePrice: amount, currency: .usd)]
+        )
+    }
+
+    private func assertPurchasePayload(_ request: CardsRecordedRequest, expectedID: String?) throws {
+        let body = try #require(request.body)
+        let wire = try #require(JSONSerialization.jsonObject(with: body) as? [String: Any])
+        #expect(wire["quantities"] == nil)
+        #expect(wire["purchase_batches"] == nil)
+        let sent = try JSONDecoder().decode(Components.Schemas.UpsertCard.self, from: body)
+        #expect(sent.purchases.count == 1)
+        let purchase = try #require(sent.purchases.first)
+        #expect(purchase.id == expectedID)
+        #expect(purchase.condition.rawValue == "near_mint")
+        #expect(purchase.quantity == 2)
+        #expect(purchase.purchasePrice == "3.123456")
+        #expect(purchase.currency?.rawValue == "USD")
+    }
+
+    private func assertPurchaseResponse(_ saved: CardWithPrice) throws {
+        let amount = try #require(Decimal(string: "3.123456"))
+        #expect(
+            saved.card.purchases == [
+                CardPurchase(
+                    id: "batch-id",
+                    condition: .nearMint,
+                    quantity: 2,
+                    purchasePrice: amount,
+                    currency: .usd,
+                    automaticPriceDate: "2026-10-08"
+                )
+            ]
+        )
+        #expect(saved.card.purchasePriceChangePercent == 25)
+    }
+
     private func makeClient(transport: CardsRequestTransport) -> TCGClient {
         let credentials = Credentials(
             authToken: "auth-token",
@@ -233,7 +299,7 @@ private let payload = UpsertCardPayload(
     setName: "Romance Dawn",
     cardNumber: "OP01-003",
     notes: nil,
-    quantities: [.init(condition: .nearMint, quantity: 2)]
+    purchases: [.init(condition: .nearMint, quantity: 2)]
 )
 
 private let expectedCard = Card(
@@ -243,9 +309,9 @@ private let expectedCard = Card(
     setName: "Romance Dawn",
     cardNumber: "OP01-003",
     notes: nil,
-    quantities: [.init(condition: .nearMint, quantity: 2)],
     createdAt: Date(timeIntervalSince1970: 1_784_543_400),
-    updatedAt: Date(timeIntervalSince1970: 1_784_543_400)
+    updatedAt: Date(timeIntervalSince1970: 1_784_543_400),
+    purchases: [.init(id: "purchase-id", condition: .nearMint, quantity: 2)]
 )
 
 private let expectedPrice = OwnedCardPrice(cardId: "card-id", status: .noPrice)
@@ -255,7 +321,7 @@ private let cardJSON = Data(
     {
       "id": "card-id", "game": "one_piece", "name": "Monkey D. Luffy",
       "set_name": "Romance Dawn", "card_number": "OP01-003", "notes": null,
-      "quantities": [{"condition": "near_mint", "quantity": 2}],
+      "purchases": [{"id":"purchase-id","condition":"near_mint","quantity":2,"purchase_price":null,"currency":null,"automatic_price_date":null}], "purchase_price_change_percent": null,
       "created_at": "2026-07-20T10:30:00.000Z", "updated_at": "2026-07-20T10:30:00.000Z",
       "price": {"card_id": "card-id", "status": "no_price"}
     }
@@ -284,3 +350,17 @@ private func errorJSON(code: String) -> Data {
         """.utf8
     )
 }
+
+private let purchaseCardJSON = Data(
+    """
+    {
+      "id": "card-id", "game": "one_piece", "name": "Monkey D. Luffy",
+      "set_name": "Romance Dawn", "card_number": "OP01-003", "notes": null,
+      "purchases": [{"id": "batch-id", "condition": "near_mint", "quantity": 2,
+        "purchase_price": "3.123456", "currency": "USD", "automatic_price_date": "2026-10-08"}],
+      "purchase_price_change_percent": 25,
+      "created_at": "2026-07-20T10:30:00.000Z", "updated_at": "2026-07-20T10:30:00.000Z",
+      "price": {"card_id": "card-id", "status": "no_price"}
+    }
+    """.utf8
+)

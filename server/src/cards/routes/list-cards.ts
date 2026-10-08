@@ -60,6 +60,8 @@ const listCardsRoute = defineOpenAPIRoute<HonoEnvironment, typeof routeConfig>({
       ? await c.get('cardPricingService').priceOwnedCards(cards, { allowUnavailable: true })
       : [];
 
+    await repository.backfillPurchasePrices(cards, prices);
+
     const cardsWithPrices = zip([...cards], [...prices], true);
 
     const response = CardsListResponseSchema.parse({

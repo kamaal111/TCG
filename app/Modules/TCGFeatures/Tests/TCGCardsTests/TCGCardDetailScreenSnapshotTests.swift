@@ -10,6 +10,28 @@ import Testing
 @MainActor
 struct TCGCardDetailScreenSnapshotTests {
     @Test
+    func `Renders purchase batch costs`() async {
+        let source = PreviewTCGCardsClient.sampleCards[0]
+        let card = Card(
+            id: source.id,
+            game: source.game,
+            name: source.name,
+            setName: source.setName,
+            cardNumber: source.cardNumber,
+            notes: nil,
+            createdAt: source.createdAt,
+            updatedAt: source.updatedAt,
+            purchases: [
+                .init(id: "batch-1", condition: .nearMint, quantity: 2, purchasePrice: 2, currency: .usd),
+                .init(id: "batch-2", condition: .played, quantity: 1),
+            ]
+        )
+        let model = TCGCardDetailScreenModel(card: .init(card: card, price: PreviewTCGCardsClient.price(for: card)))
+        #expect(model.card.card.purchases.count == 2)
+        await assertScreenSnapshot(testName: #function) { makeScreen(model) }
+    }
+
+    @Test
     func `Renders priced collection details`() async {
         let model = makeModel()
         #expect(model.editor == nil)

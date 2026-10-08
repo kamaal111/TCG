@@ -343,11 +343,11 @@ private actor PendingCollectionTransport: ClientTransport {
         let body = """
             {"cards": [
               {"id": "pokemon-card", "game": "pokemon", "name": "Pikachu",
-               "set_name": "Base Set", "card_number": "58/102", "notes": null, "quantities": [],
+               "set_name": "Base Set", "card_number": "58/102", "notes": null, "purchases": [], "purchase_price_change_percent": null,
                "created_at": "2026-07-20T10:30:00.000Z", "updated_at": "2026-07-20T10:30:00.000Z",
                "price": {"card_id": "pokemon-card", "status": "no_price"}},
               {"id": "one-piece-card", "game": "one_piece", "name": "Luffy",
-               "set_name": "Romance Dawn", "card_number": "OP01-003", "notes": null, "quantities": [],
+               "set_name": "Romance Dawn", "card_number": "OP01-003", "notes": null, "purchases": [], "purchase_price_change_percent": null,
                "created_at": "2026-07-20T10:30:00.000Z", "updated_at": "2026-07-20T10:30:00.000Z",
                "price": {"card_id": "one-piece-card", "status": "no_price"}}
             ], "available_set_names": ["Base Set", "Romance Dawn"]}

@@ -16,6 +16,7 @@ enum TCGCardsValidator {
             textIssue(values.cardNumber, field: .cardNumber, label: String(localized: "Card number"), maximum: 50),
             notesIssue(values.notes),
             quantitiesIssue(values.quantities),
+            batchesIssue(values.batches),
         ].compactMap(\.self)
     }
 
@@ -36,6 +37,29 @@ enum TCGCardsValidator {
     private static func notesIssue(_ notes: String) -> TCGCardsValidationIssue? {
         guard notes.count <= 2_000 else {
             return .init(field: .notes, message: String(localized: "Notes must contain at most 2000 characters."))
+        }
+        return nil
+    }
+
+    private static func batchesIssue(_ batches: [PurchaseBatchFormValue]) -> TCGCardsValidationIssue? {
+        guard batches.allSatisfy({ (1...999).contains($0.quantity) }) else {
+            return .init(
+                field: .purchases,
+                message: String(localized: "Each batch must contain between 1 and 999 cards.", bundle: .module)
+            )
+        }
+        guard
+            batches.allSatisfy({
+                $0.priceText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || $0.price != nil
+            })
+        else {
+            return .init(
+                field: .purchases,
+                message: String(
+                    localized: "Enter a nonnegative purchase price with at most six decimal places.",
+                    bundle: .module
+                )
+            )
         }
         return nil
     }

@@ -1,6 +1,16 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "%@ ×%lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ ×%2$lld"
+          }
+        }
+      }
+    },
     "%@ • %@" : {
       "localizations" : {
         "en" : {
@@ -11,17 +21,10 @@
         }
       }
     },
-    "%@: %lld" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "%1$@: %2$lld"
-          }
-        }
-      }
-    },
     "Add at least one card quantity." : {
+
+    },
+    "Add batch" : {
 
     },
     "Add card" : {
@@ -31,6 +34,12 @@
 
     },
     "All games" : {
+
+    },
+    "Average near-mint market price changed %@ since purchase" : {
+
+    },
+    "Batch total" : {
 
     },
     "Card details" : {
@@ -51,6 +60,9 @@
     "Couldn’t load price" : {
 
     },
+    "Currency" : {
+
+    },
     "Delete" : {
 
     },
@@ -63,6 +75,9 @@
     "Discard changes?" : {
 
     },
+    "Each batch must contain between 1 and 999 cards." : {
+
+    },
     "Each quantity must be between 0 and 999." : {
 
     },
@@ -70,6 +85,9 @@
 
     },
     "Edit card" : {
+
+    },
+    "Enter a nonnegative purchase price with at most six decimal places." : {
 
     },
     "Explore image of %@" : {
@@ -111,13 +129,31 @@
     "Optional notes" : {
 
     },
+    "Optional price" : {
+
+    },
     "Please correct the highlighted fields." : {
 
     },
     "Pricing" : {
 
     },
+    "Purchase defaults use today's average near-mint market price." : {
+
+    },
+    "Purchase price per card" : {
+
+    },
+    "Purchase price unknown" : {
+
+    },
     "Quantities" : {
+
+    },
+    "Quantity: %lld" : {
+
+    },
+    "Remove purchase batch" : {
 
     },
     "Romance Dawn" : {
@@ -133,6 +169,9 @@
 
     },
     "This card is no longer in your collection." : {
+
+    },
+    "vs. purchase · NM market" : {
 
     },
     "×%lld" : {

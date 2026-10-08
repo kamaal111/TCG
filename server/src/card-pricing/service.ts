@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { normalizeCardLanguages, type CardLanguage } from './languages.ts';
 import { imageKeyForOriginURL, storageKeyForImageKey } from '../card-images/keys.ts';
 import { imagesLogger } from '../card-images/logging.ts';
-import type { CardWithQuantities } from '../cards/repository.ts';
+import type { CardWithPurchases } from '../cards/repository.ts';
 import type { HonoContext } from '../context.ts';
 import env from '../env.ts';
 import type { PricingClient, PricingClientError, PricingSearchResult } from './client.ts';
@@ -145,7 +145,7 @@ export class CardPricingService {
    * @returns Price responses for each card, in the same order as `cards`.
    */
   async priceOwnedCards(
-    cards: NonEmptyArray<CardWithQuantities>,
+    cards: NonEmptyArray<CardWithPurchases>,
     options: { allowUnavailable?: boolean } = {},
   ): Promise<NonEmptyArray<OwnedCardPriceResponse>> {
     const [priced, ...rest] = await Promise.all(
@@ -170,7 +170,7 @@ export class CardPricingService {
     return [priced, ...rest];
   }
 
-  private async priceOwnedCard(card: CardWithQuantities): Promise<OwnedCardPriceResponse> {
+  private async priceOwnedCard(card: CardWithPurchases): Promise<OwnedCardPriceResponse> {
     const pricingCardId = card.pricingCardId;
 
     if (pricingCardId != null && card.pricingSource === this.client.source) {
@@ -211,8 +211,8 @@ export class CardPricingService {
   }
 
   private async priceOwnedCardById(
-    card: Omit<CardWithQuantities, 'pricingCardId'> & {
-      pricingCardId: NonNullable<CardWithQuantities['pricingCardId']>;
+    card: Omit<CardWithPurchases, 'pricingCardId'> & {
+      pricingCardId: NonNullable<CardWithPurchases['pricingCardId']>;
     },
   ): Promise<OwnedCardPriceResponse> {
     const pricingCardId = card.pricingCardId;

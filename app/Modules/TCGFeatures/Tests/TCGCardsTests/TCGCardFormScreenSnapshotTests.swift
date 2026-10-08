@@ -16,6 +16,23 @@ import Testing
 @MainActor
 struct TCGCardFormScreenSnapshotTests {
     @Test
+    func `Renders multiple purchase batches`() async {
+        let model = TCGCardFormScreenModel(
+            mode: .add,
+            initialValues: .init(pricedCard: PreviewTCGPricingClient.samplePricedCards[0])
+        )
+        model.values.batches = [
+            .init(condition: .nearMint, quantity: 2, priceText: "2"),
+            .init(condition: .nearMint, quantity: 3, priceText: "4"),
+        ]
+        for index in model.values.batches.indices {
+            model.values.batches[index].priceWasEdited = true
+        }
+        #expect(model.values.quantities == [.nearMint: 5])
+        await assertScreenSnapshot(testName: #function) { makeScreen(model: model) }
+    }
+
+    @Test
     func `Renders an empty add form`() async {
         await assertScreenSnapshot(testName: #function) { makeScreen(model: .init(mode: .add, initialValues: nil)) }
     }

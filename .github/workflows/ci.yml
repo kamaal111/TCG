@@ -79,7 +79,15 @@ jobs:
           just check-versions
           just typecheck-scripts
 
+      - name: Configure Docker Hub mirror
+        # Prefer cached images so shared runner IPs do not exhaust Docker Hub's pull limit.
+        run: |
+          sudo python3 scripts/configure-docker-hub-mirror.py
+          sudo systemctl restart docker
+
       - name: Run server tests
+        env:
+          TESTCONTAINERS_HUB_IMAGE_NAME_PREFIX: mirror.gcr.io
         run: just test-server
 
       - name: Smoke test server image

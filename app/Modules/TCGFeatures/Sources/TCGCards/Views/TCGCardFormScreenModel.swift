@@ -5,6 +5,7 @@
 //  Created by Kamaal M Farah on 7/20/26.
 //
 
+import Foundation
 import Observation
 import TCGClient
 
@@ -15,7 +16,19 @@ final class TCGCardFormScreenModel {
     let mode: Mode
 
     var values: CardFormValues {
-        didSet { revalidateIfNeeded() }
+        didSet {
+            if values.game != oldValue.game || values.name != oldValue.name || values.cardNumber != oldValue.cardNumber
+            {
+                values.defaultMarketPrice = nil
+                values.defaultMarketCurrency = nil
+                values.marketPricedOn = nil
+                values.pricingCardID = nil
+                for index in values.batches.indices {
+                    values.batches[index].applyDefaultPrice(nil, currency: nil)
+                }
+            }
+            revalidateIfNeeded()
+        }
     }
 
     private(set) var fieldErrors: [TCGCardsValidationField: String] = [:]
@@ -43,10 +56,61 @@ final class TCGCardFormScreenModel {
     var hasUnsavedChanges: Bool {
         var current = values
         var initial = initialValues
-        current.quantities = current.quantities.filter { $0.value != 0 }
-        initial.quantities = initial.quantities.filter { $0.value != 0 }
+        current.batches = current.batches.filter { $0.quantity != 0 }
+        initial.batches = initial.batches.filter { $0.quantity != 0 }
         return current != initial
     }
+
+    private struct PricingIdentity: Equatable {
+        let game: ClientCardGame
+        let name: String
+        let cardNumber: String
+    }
+
+    private var pricingIdentity: PricingIdentity {
+        PricingIdentity(game: values.game, name: values.name, cardNumber: values.cardNumber)
+    }
+
+    func refreshPurchaseDefault(using cards: TCGCards) async {
+        guard !values.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        guard !values.cardNumber.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = .gmt
+        if let date = values.marketPricedOn, calendar.isDateInToday(date) { return }
+        let identity = pricingIdentity
+        guard !Task.isCancelled else { return }
+        let result = await cards.purchaseDefault(
+            game: identity.game,
+            name: identity.name,
+            cardNumber: identity.cardNumber
+        )
+        guard !Task.isCancelled else { return }
+        guard identity == pricingIdentity else { return }
+        guard case .success(let matches) = result else { return }
+        let match =
+            values.pricingCardID.flatMap { id in matches.matches.first { $0.id == id } }
+            ?? matches.matches.first {
+                $0.cardNumber.caseInsensitiveCompare(identity.cardNumber) == .orderedSame
+                    && $0.name.caseInsensitiveCompare(identity.name) == .orderedSame
+            }
+        guard let match else { return }
+        applyMarketDefault(match)
+    }
+
+    func applyMarketDefault(_ card: PricedCard) {
+        values.updateMarketDefault(card)
+        let existingBatchIDs = Set(initialValues.batches.map(\.id))
+        for index in values.batches.indices {
+            if case .edit = mode, existingBatchIDs.contains(values.batches[index].id) { continue }
+            values.batches[index].applyDefaultPrice(values.defaultMarketPrice, currency: values.defaultMarketCurrency)
+        }
+    }
+
+    func addBatch(condition: CardCondition) {
+        values.batches.append(values.newBatch(condition: condition))
+    }
+
+    func removeBatch(id: UUID) { values.batches.removeAll { $0.id == id } }
 
     func requestDismissal() -> Bool {
         guard !isSubmitting else { return false }
