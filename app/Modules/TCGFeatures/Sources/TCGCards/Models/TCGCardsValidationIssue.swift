@@ -15,5 +15,6 @@ enum TCGCardsValidationField: String, Hashable, Sendable {
     case setName = "set_name"
     case cardNumber = "card_number"
     case quantities
+    case purchases
     case notes
 }

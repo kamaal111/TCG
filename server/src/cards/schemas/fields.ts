@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
-import { CARD_CONDITIONS, CARD_GAMES } from '../../db/schema/cards.ts';
+import { CurrencySchema } from '../../card-pricing/schemas/responses.ts';
+import { CARD_CONDITIONS, CARD_GAMES, MAX_COPIES_PER_CONDITION } from '../../db/schema/cards.ts';
 
 export const CardIdSchema = z.uuid();
 
@@ -18,7 +19,7 @@ export const CardConditionQuantitySchema = z
       .number()
       .int()
       .min(1)
-      .max(999)
+      .max(MAX_COPIES_PER_CONDITION)
       .meta({ description: 'Number of copies owned in this condition', example: 2 }),
   })
   .meta({
@@ -27,3 +28,35 @@ export const CardConditionQuantitySchema = z
     description: 'Quantity owned for one card condition',
     example: { condition: 'near_mint', quantity: 2 },
   });
+
+export const PurchaseAmountSchema = z
+  .string()
+  .regex(/^(?:0|[1-9]\d{0,13})(?:\.\d{1,6})?$/)
+  .meta({
+    description: 'Nonnegative price per card, as an exact decimal with at most six fractional digits',
+    example: '2.50',
+  });
+
+const CardPurchaseFieldsSchema = z.object({
+  id: CardIdSchema.optional(),
+  condition: CardConditionQuantitySchema.shape.condition,
+  quantity: CardConditionQuantitySchema.shape.quantity,
+  purchase_price: PurchaseAmountSchema.nullable(),
+  // Swift OpenAPI Generator needs nullable enums inline rather than a reference/null union.
+  currency: CurrencySchema.meta({ $id: undefined }).nullable(),
+});
+
+export const CardPurchaseInputSchema = CardPurchaseFieldsSchema.refine(
+  batch => (batch.purchase_price == null) === (batch.currency == null),
+  {
+    message: 'Purchase price and currency must be provided together',
+    path: ['purchase_price'],
+  },
+).meta({ $id: 'CardPurchaseInput', title: 'Card Purchase Input' });
+
+export const CardPurchaseSchema = CardPurchaseFieldsSchema.extend({
+  id: CardIdSchema,
+  automatic_price_date: z.string().nullable().meta({
+    description: 'Market pricing day used to automatically fill the purchase price',
+  }),
+}).meta({ $id: 'CardPurchase', title: 'Card Purchase' });

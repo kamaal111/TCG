@@ -103,12 +103,12 @@ struct PreviewTCGCardsClient: TCGCardsClient {
             setName: "Romance Dawn",
             cardNumber: "OP01-003",
             notes: nil,
-            quantities: [
+            createdAt: fixedDate,
+            updatedAt: fixedDate,
+            purchases: [
                 .init(condition: .nearMint, quantity: 2),
                 .init(condition: .played, quantity: 1),
-            ],
-            createdAt: fixedDate,
-            updatedAt: fixedDate
+            ]
         ),
         Card(
             id: "preview-card-2",
@@ -117,9 +117,9 @@ struct PreviewTCGCardsClient: TCGCardsClient {
             setName: "Base Set",
             cardNumber: "58/102",
             notes: "First edition",
-            quantities: [.init(condition: .mint, quantity: 1)],
             createdAt: fixedDate,
-            updatedAt: fixedDate
+            updatedAt: fixedDate,
+            purchases: [.init(condition: .mint, quantity: 1)]
         ),
     ]
 
@@ -137,9 +137,9 @@ struct PreviewTCGCardsClient: TCGCardsClient {
             setName: payload.setName,
             cardNumber: payload.cardNumber,
             notes: payload.notes,
-            quantities: payload.quantities,
             createdAt: createdAt,
-            updatedAt: fixedDate
+            updatedAt: fixedDate,
+            purchases: payload.purchases
         )
     }
 }

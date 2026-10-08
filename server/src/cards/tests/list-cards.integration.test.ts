@@ -1,11 +1,14 @@
 import { eq } from 'drizzle-orm';
+import { drizzle } from 'drizzle-orm/node-postgres';
 import { Client } from 'pg';
-import { z } from 'zod';
 
 import { createCardRequest, sessionHeaders, validCardPayload } from './utils.ts';
+import App from '../../app.ts';
+import { StaticScrydexClient } from '../../card-pricing/scrydex/static-client.ts';
 import { todayUTC } from '../../card-pricing/utils/query.ts';
 import { CONTENTFUL_STATUS_CODES } from '../../constants/http.ts';
 import { card } from '../../db/schema/cards.ts';
+import { appRelations } from '../../db/schema/index.ts';
 import { expectErrorResponse } from '../../tests/auth.ts';
 import { integrationTest } from '../../tests/fixtures.ts';
 import { createTestUser } from '../../tests/utils.ts';
@@ -43,7 +46,7 @@ describe('List cards integration', () => {
             name: 'Pikachu',
             set_name: 'Base Set',
             card_number: '58/102',
-            quantities: [{ condition: 'mint', quantity: 1 }],
+            purchases: [{ condition: 'mint', quantity: 1, purchase_price: null, currency: null }],
           })
         ).json(),
       );
@@ -55,7 +58,14 @@ describe('List cards integration', () => {
       const body = CardsListResponseSchema.parse(await response.json());
 
       expect(body.cards.map(card => card.id)).toEqual([second.id, first.id]);
-      expect(body.cards[0]?.quantities).toEqual([{ condition: 'mint', quantity: 1 }]);
+      expect(
+        body.cards[0]?.purchases.map(({ condition, quantity }) => ({
+          condition,
+          quantity,
+          purchase_price: null,
+          currency: null,
+        })),
+      ).toEqual([{ condition: 'mint', quantity: 1, purchase_price: null, currency: null }]);
       expect(body.cards.map(card => card.price.card_id)).toEqual([second.id, first.id]);
       expect(getLogsForRequestId(requestId)).toEqual(
         expect.arrayContaining([expect.objectContaining({ event: 'cards.list', result_count: 2 })]),
@@ -112,9 +122,18 @@ describe('List cards integration', () => {
       const body = CardsListResponseSchema.parse(await response.json());
       expect(body.cards.map(card => card.id)).toEqual([second.id, first.id]);
       expect(body.cards.map(card => card.price.card_id)).toEqual([second.id, first.id]);
-      expect(body.cards.map(card => card.quantities)).toEqual([
-        validCardPayload.quantities,
-        validCardPayload.quantities,
+      expect(
+        body.cards.map(card =>
+          card.purchases.map(({ condition, quantity }) => ({
+            condition,
+            quantity,
+            purchase_price: null,
+            currency: null,
+          })),
+        ),
+      ).toEqual([
+        expect.arrayContaining(validCardPayload.purchases),
+        expect.arrayContaining(validCardPayload.purchases),
       ]);
       expect(body.available_set_names).toEqual(['Romance Dawn', specialSet, 'Unselected set']);
     },
@@ -141,27 +160,37 @@ describe('List cards integration', () => {
     expect(body.available_set_names).toEqual(['Other set', 'Romance Dawn']);
   });
 
-  integrationTest('reads cards and set choices once even when no selected sets match', async ({ app, db }) => {
-    const owner = await createTestUser(app, db);
-    await createCardRequest(app, owner.sessionToken);
-    const query = new URLSearchParams();
-    query.append('set_name', 'romance dawn');
-    query.append('set_name', 'Unknown');
-    const queries = vi.spyOn(db.$client, 'query');
+  integrationTest(
+    'reads cards and set choices once even when no selected sets match',
+    async ({ app, db, storageClient }) => {
+      const owner = await createTestUser(app, db);
+      await createCardRequest(app, owner.sessionToken);
+      const query = new URLSearchParams();
+      query.append('set_name', 'romance dawn');
+      query.append('set_name', 'Unknown');
 
-    const response = await app.request(`${LIST_CARDS_ROUTE_PATH}?${query}`, {
-      headers: sessionHeaders(owner.sessionToken),
-    });
+      const statements: string[] = [];
 
-    expect(response.status).toBe(CONTENTFUL_STATUS_CODES.OK);
-    expect(CardsListResponseSchema.parse(await response.json())).toEqual({
-      cards: [],
-      available_set_names: ['Romance Dawn'],
-    });
-    const statements = queries.mock.calls.map(([statement]) => z.object({ text: z.string() }).parse(statement).text);
-    expect(statements.filter(statement => statement.includes('from "card"'))).toHaveLength(1);
-    queries.mockRestore();
-  });
+      const observedDB = drizzle({
+        client: db.$client,
+        relations: appRelations,
+        logger: { logQuery: query => statements.push(query) },
+      });
+
+      const observedApp = new App({ db: observedDB, storageClient, pricingClient: new StaticScrydexClient() }).app;
+
+      const response = await observedApp.request(`${LIST_CARDS_ROUTE_PATH}?${query}`, {
+        headers: sessionHeaders(owner.sessionToken),
+      });
+
+      expect(response.status).toBe(CONTENTFUL_STATUS_CODES.OK);
+      expect(CardsListResponseSchema.parse(await response.json())).toEqual({
+        cards: [],
+        available_set_names: ['Romance Dawn'],
+      });
+      expect(statements.filter(statement => statement.includes('from "card"'))).toHaveLength(1);
+    },
+  );
 
   integrationTest('returns no cards or sets when only other games and users own cards', async ({ app, db }) => {
     const owner = await createTestUser(app, db);

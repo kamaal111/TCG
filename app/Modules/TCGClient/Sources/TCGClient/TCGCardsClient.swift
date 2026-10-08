@@ -5,7 +5,9 @@
 //  Created by Kamaal M Farah on 7/20/26.
 //
 
+import Foundation
 import OpenAPIRuntime
+import TCGUtils
 
 public protocol TCGCardsClient: Sendable {
     func list(game: ClientCardGame?) async -> Result<[CardWithPrice], ListCardsErrors>
@@ -149,9 +151,7 @@ struct TCGCardsClientImpl: TCGCardsClient {
             setName: payload.setName,
             cardNumber: payload.cardNumber,
             notes: payload.notes,
-            quantities: payload.quantities.map {
-                .init(condition: makeGeneratedCondition($0.condition), quantity: $0.quantity)
-            }
+            purchases: payload.purchases.map(Self.makeGeneratedBatch)
         )
     }
 
@@ -177,12 +177,58 @@ struct TCGCardsClientImpl: TCGCardsClient {
             setName: card.setName,
             cardNumber: card.cardNumber,
             notes: card.notes,
-            quantities: card.quantities.map {
-                CardConditionQuantity(condition: makeCondition($0.condition), quantity: $0.quantity)
-            },
             createdAt: card.createdAt,
-            updatedAt: card.updatedAt
+            updatedAt: card.updatedAt,
+            purchases: card.purchases.map(Self.makeBatch),
+            purchasePriceChangePercent: card.purchasePriceChangePercent
         )
+    }
+
+    private static func makeGeneratedBatch(_ batch: CardPurchase) -> Components.Schemas.CardPurchaseInput {
+        .init(
+            id: batch.id,
+            condition: makeGeneratedCondition(batch.condition),
+            quantity: batch.quantity,
+            purchasePrice: batch.purchasePrice.map { NSDecimalNumber(decimal: $0).stringValue },
+            currency: batch.currency.flatMap { .init(rawValue: $0.rawValue) }
+        )
+    }
+
+    private static func makeBatch(_ batch: Components.Schemas.CardPurchase) -> CardPurchase {
+        CardPurchase(
+            id: batch.id,
+            condition: makeCondition(batch.condition),
+            quantity: batch.quantity,
+            purchasePrice: batch.purchasePrice.flatMap {
+                Decimal(string: $0, locale: TCGLocales.decimal)
+            },
+            currency: batch.currency.flatMap { Currency(rawValue: $0.rawValue) },
+            automaticPriceDate: batch.automaticPriceDate
+        )
+    }
+
+    private static func makeGeneratedCondition(
+        _ condition: CardCondition
+    ) -> Components.Schemas.CardPurchaseInput.ConditionPayload {
+        switch condition {
+        case .mint: .mint
+        case .nearMint: .nearMint
+        case .excellent: .excellent
+        case .good: .good
+        case .played: .played
+        case .damaged: .damaged
+        }
+    }
+
+    private static func makeCondition(_ condition: Components.Schemas.CardPurchase.ConditionPayload) -> CardCondition {
+        switch condition {
+        case .mint: .mint
+        case .nearMint: .nearMint
+        case .excellent: .excellent
+        case .good: .good
+        case .played: .played
+        case .damaged: .damaged
+        }
     }
 
     private static func makeGeneratedGame(_ game: ClientCardGame) -> Components.Schemas.UpsertCard.GamePayload {
@@ -192,36 +238,10 @@ struct TCGCardsClientImpl: TCGCardsClient {
         }
     }
 
-    private static func makeGeneratedCondition(
-        _ condition: CardCondition
-    ) -> Components.Schemas.CardConditionQuantity.ConditionPayload {
-        switch condition {
-        case .mint: .mint
-        case .nearMint: .nearMint
-        case .excellent: .excellent
-        case .good: .good
-        case .played: .played
-        case .damaged: .damaged
-        }
-    }
-
     private static func makeGame(_ game: Components.Schemas.Card.GamePayload) -> ClientCardGame {
         switch game {
         case .onePiece: .onePiece
         case .pokemon: .pokemon
-        }
-    }
-
-    private static func makeCondition(
-        _ condition: Components.Schemas.CardConditionQuantity.ConditionPayload
-    ) -> CardCondition {
-        switch condition {
-        case .mint: .mint
-        case .nearMint: .nearMint
-        case .excellent: .excellent
-        case .good: .good
-        case .played: .played
-        case .damaged: .damaged
         }
     }
 }

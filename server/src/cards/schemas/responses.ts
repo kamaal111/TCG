@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { CardConditionQuantitySchema, CardCoreFieldsSchema, CardIdSchema } from './fields.ts';
+import { CardPurchaseSchema, CardCoreFieldsSchema, CardIdSchema } from './fields.ts';
 import { OwnedCardPriceSchema } from '../../card-pricing/schemas/responses.ts';
 import { ApiCommonDatetime } from '../../schemas/common.ts';
 
@@ -10,7 +10,8 @@ export const CardSchema = CardCoreFieldsSchema.extend({
     example: '550e8400-e29b-41d4-a716-446655440000',
   }),
   notes: z.string().max(2000).nullable().meta({ description: 'Optional notes', example: 'Alternate art' }),
-  quantities: z.array(CardConditionQuantitySchema).meta({ description: 'Owned quantities by condition' }),
+  purchases: z.array(CardPurchaseSchema),
+  purchase_price_change_percent: z.number().nullable(),
   created_at: ApiCommonDatetime.meta({
     description: 'Creation timestamp',
     example: '2026-07-20T10:30:00.000Z',
@@ -30,7 +31,17 @@ export const CardSchema = CardCoreFieldsSchema.extend({
     set_name: 'Romance Dawn',
     card_number: 'OP01-003',
     notes: null,
-    quantities: [{ condition: 'near_mint', quantity: 2 }],
+    purchases: [
+      {
+        id: '550e8400-e29b-41d4-a716-446655440001',
+        condition: 'near_mint',
+        quantity: 2,
+        purchase_price: null,
+        currency: null,
+        automatic_price_date: null,
+      },
+    ],
+    purchase_price_change_percent: null,
     created_at: '2026-07-20T10:30:00.000Z',
     updated_at: '2026-07-20T10:30:00.000Z',
   },
@@ -53,7 +64,17 @@ export const CardWithPriceSchema = z.intersection(CardSchema, z.object({ price: 
     set_name: 'Romance Dawn',
     card_number: 'OP01-003',
     notes: null,
-    quantities: [{ condition: 'near_mint', quantity: 2 }],
+    purchases: [
+      {
+        id: '550e8400-e29b-41d4-a716-446655440001',
+        condition: 'near_mint',
+        quantity: 2,
+        purchase_price: null,
+        currency: null,
+        automatic_price_date: null,
+      },
+    ],
+    purchase_price_change_percent: null,
     created_at: '2026-07-20T10:30:00.000Z',
     updated_at: '2026-07-20T10:30:00.000Z',
     price: { card_id: '550e8400-e29b-41d4-a716-446655440000', status: 'priced' },

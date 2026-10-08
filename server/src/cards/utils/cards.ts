@@ -1,7 +1,7 @@
+import { purchasePriceChangePercent } from './purchase-price.ts';
 import type { OwnedCardPriceResponse } from '../../card-pricing/schemas/responses.ts';
-import { CARD_CONDITIONS } from '../../db/schema/cards.ts';
 import { toISO8601String } from '../../utils/strings.ts';
-import type { CardWithQuantities } from '../repository.ts';
+import type { CardWithPurchases } from '../repository.ts';
 import {
   type CardResponse,
   CardSchema,
@@ -9,21 +9,19 @@ import {
   CardWithPriceSchema,
 } from '../schemas/responses.ts';
 
-const conditionOrder = new Map(CARD_CONDITIONS.map((condition, index) => [condition, index]));
-
-export function serializeCard(card: CardWithQuantities): CardResponse {
+export function serializeCard(card: CardWithPurchases): CardResponse {
   return CardSchema.parse(serializeCardFields(card));
 }
 
-export function serializeCardWithPrice(card: CardWithQuantities, price: OwnedCardPriceResponse): CardWithPriceResponse {
-  return CardWithPriceSchema.parse({ ...serializeCardFields(card), price });
+export function serializeCardWithPrice(card: CardWithPurchases, price: OwnedCardPriceResponse): CardWithPriceResponse {
+  return CardWithPriceSchema.parse({
+    ...serializeCardFields(card),
+    purchase_price_change_percent: purchasePriceChangePercent(card.purchaseBatches, price.priced_card?.market),
+    price,
+  });
 }
 
-function serializeCardFields(card: CardWithQuantities) {
-  const quantities = card.quantities
-    .map(({ condition, quantity }) => ({ condition, quantity }))
-    .toSorted((lhs, rhs) => (conditionOrder.get(lhs.condition) ?? 0) - (conditionOrder.get(rhs.condition) ?? 0));
-
+function serializeCardFields(card: CardWithPurchases) {
   return {
     id: card.id,
     game: card.game,
@@ -31,7 +29,15 @@ function serializeCardFields(card: CardWithQuantities) {
     set_name: card.setName,
     card_number: card.cardNumber,
     notes: card.notes,
-    quantities,
+    purchases: card.purchaseBatches.map(batch => ({
+      id: batch.id,
+      condition: batch.condition,
+      quantity: batch.quantity,
+      purchase_price: batch.purchasePrice,
+      currency: batch.currency,
+      automatic_price_date: batch.automaticPriceDate,
+    })),
+    purchase_price_change_percent: null,
     created_at: toISO8601String(card.createdAt),
     updated_at: toISO8601String(card.updatedAt),
   };

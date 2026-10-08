@@ -22,6 +22,7 @@ let package = Package(
         .package(path: "../TCGClient"),
         .package(path: "../TCGDesignSystem"),
         .package(path: "../TCGModels"),
+        .package(path: "../TCGUtils"),
     ],
     targets: [
         .target(
@@ -44,6 +45,7 @@ let package = Package(
                 "TCGClient",
                 "TCGModels",
                 "TCGCardDetails",
+                "TCGUtils",
             ],
             swiftSettings: [
                 .enableUpcomingFeature("ApproachableConcurrency"),
@@ -79,7 +81,8 @@ let package = Package(
         .target(
             name: "TCGSnapshotTesting",
             dependencies: [
-                .product(name: "SnapshotTesting", package: "swift-snapshot-testing")
+                .product(name: "SnapshotTesting", package: "swift-snapshot-testing"),
+                "TCGUtils",
             ],
             swiftSettings: [
                 .enableUpcomingFeature("ApproachableConcurrency"),

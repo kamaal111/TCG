@@ -97,6 +97,17 @@ struct TCGCardDetailScreen: View {
                     LabeledContent(condition.title, value: quantity.quantity.formatted())
                 }
             }
+            ForEach(Array(model.card.card.purchases.enumerated()), id: \.offset) { _, batch in
+                HStack {
+                    Text("\(batch.condition.title) ×\(batch.quantity)", bundle: .module)
+                    Spacer()
+                    if let amount = batch.purchasePrice, let currency = batch.currency {
+                        Text(amount, format: .currency(code: currency.rawValue))
+                    } else {
+                        Text("Purchase price unknown", bundle: .module).foregroundStyle(.secondary)
+                    }
+                }
+            }
             if let notes = model.card.card.notes, !notes.isEmpty {
                 Text("Notes", bundle: .module).font(.headline)
                 Text(notes)

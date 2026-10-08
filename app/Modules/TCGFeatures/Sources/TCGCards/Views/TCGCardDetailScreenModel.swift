@@ -15,7 +15,9 @@ final class TCGCardDetailScreenModel {
     func edit() {
         guard editor == nil else { return }
 
-        editor = TCGCardFormScreenModel(mode: .edit(card.card), initialValues: nil)
+        let model = TCGCardFormScreenModel(mode: .edit(card.card), initialValues: nil)
+        if let price = card.price.price { model.applyMarketDefault(price) }
+        editor = model
     }
 
     func save(using cards: TCGCards) async {

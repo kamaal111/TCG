@@ -119,7 +119,7 @@ describe('Scrydex owned-card pricing', () => {
           name: 'Updated card',
           set_name: saved.setName,
           card_number: saved.cardNumber,
-          quantities: [{ condition: 'near_mint', quantity: 1 }],
+          purchases: [{ condition: 'near_mint', quantity: 1, purchase_price: null, currency: null }],
         }),
       });
 

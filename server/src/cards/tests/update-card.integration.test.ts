@@ -115,7 +115,7 @@ describe('Update card integration', () => {
         set_name: 'Base Set',
         card_number: '58/102',
         notes: 'First edition',
-        quantities: [{ condition: 'mint' as const, quantity: 1 }],
+        purchases: [{ condition: 'mint' as const, quantity: 1, purchase_price: '1.00', currency: 'USD' as const }],
       };
 
       const response = await app.request(`/app-api/cards/${original.id}`, {
@@ -131,7 +131,12 @@ describe('Update card integration', () => {
         .from(cardConditionQuantity)
         .where(eq(cardConditionQuantity.cardId, original.id));
 
-      expect(body).toMatchObject(replacement);
+      expect(body).toMatchObject({
+        ...replacement,
+        purchases: [
+          expect.objectContaining({ condition: 'mint', quantity: 1, purchase_price: '1.000000', currency: 'USD' }),
+        ],
+      });
       expect(quantities).toHaveLength(1);
       expect(quantities[0]).toMatchObject({ condition: 'mint', quantity: 1 });
       expect(new Date(body.updated_at).getTime()).toBeGreaterThanOrEqual(new Date(original.updated_at).getTime());

@@ -198,7 +198,7 @@ describe('Card pricing integration', () => {
       name: 'Giratina VSTAR',
       set_name: 'Crown Zenith',
       card_number: 'GG69',
-      quantities: [{ condition: 'near_mint', quantity: 1 }],
+      purchases: [{ condition: 'near_mint', quantity: 1, purchase_price: null, currency: null }],
     });
 
     expect(created.status).toBe(CONTENTFUL_STATUS_CODES.CREATED);

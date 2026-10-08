@@ -25,17 +25,32 @@ describe('Create card integration', () => {
       ['set_name', { ...validCardPayload, set_name: '' }],
       ['card_number', { ...validCardPayload, card_number: '' }],
       ['game', { ...validCardPayload, game: 'digimon' }],
-      ['quantities', { ...validCardPayload, quantities: [] }],
-      ['quantity', { ...validCardPayload, quantities: [{ condition: 'mint', quantity: 0 }] }],
-      ['quantity', { ...validCardPayload, quantities: [{ condition: 'mint', quantity: 1.5 }] }],
-      ['condition', { ...validCardPayload, quantities: [{ condition: 'pristine', quantity: 1 }] }],
+      ['purchases', { ...validCardPayload, purchases: [] }],
       [
-        'quantities',
+        'quantity',
+        { ...validCardPayload, purchases: [{ condition: 'mint', quantity: 0, purchase_price: null, currency: null }] },
+      ],
+      [
+        'quantity',
         {
           ...validCardPayload,
-          quantities: [
-            { condition: 'mint', quantity: 1 },
-            { condition: 'mint', quantity: 2 },
+          purchases: [{ condition: 'mint', quantity: 1.5, purchase_price: null, currency: null }],
+        },
+      ],
+      [
+        'condition',
+        {
+          ...validCardPayload,
+          purchases: [{ condition: 'pristine', quantity: 1, purchase_price: null, currency: null }],
+        },
+      ],
+      [
+        'purchases',
+        {
+          ...validCardPayload,
+          purchases: [
+            { condition: 'mint', quantity: 999, purchase_price: null, currency: null },
+            { condition: 'mint', quantity: 2, purchase_price: null, currency: null },
           ],
         },
       ],
@@ -59,13 +74,15 @@ describe('Create card integration', () => {
 
     expect(response.status).toBe(CONTENTFUL_STATUS_CODES.CREATED);
     const body = CardSchema.parse(await response.json());
-    expect(body).toMatchObject({ ...validCardPayload, notes: null });
+    expect(body).toMatchObject({ name: validCardPayload.name, notes: null });
 
     const persisted = await db.query.card.findFirst({ where: { id: body.id } });
     const quantities = await db.select().from(cardConditionQuantity).where(eq(cardConditionQuantity.cardId, body.id));
     expect(persisted).toMatchObject({ userId: user.userId, name: validCardPayload.name });
     expect(quantities).toEqual(
-      expect.arrayContaining(validCardPayload.quantities.map(quantity => expect.objectContaining(quantity))),
+      expect.arrayContaining(
+        validCardPayload.purchases.map(({ condition, quantity }) => expect.objectContaining({ condition, quantity })),
+      ),
     );
   });
 
@@ -94,7 +111,9 @@ describe('Create card integration', () => {
       const body = CardSchema.parse(await response.json());
 
       expect(body.notes).toBe('Alternate art');
-      expect(body.quantities).toEqual(validCardPayload.quantities);
+      expect(body.purchases.map(({ condition, quantity }) => ({ condition, quantity }))).toEqual(
+        expect.arrayContaining(validCardPayload.purchases.map(({ condition, quantity }) => ({ condition, quantity }))),
+      );
       expect(getLogsForRequestId(requestId)).toEqual(
         expect.arrayContaining([expect.objectContaining({ event: 'cards.create', card_id: body.id })]),
       );

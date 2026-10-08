@@ -47,6 +47,12 @@ public struct CardConditionQuantity: Codable, Hashable, Sendable {
         self.condition = condition
         self.quantity = quantity
     }
+
+    public static func totals(_ quantities: [Self]) -> [CardCondition: Int] {
+        quantities.reduce(into: [:]) { totals, quantity in
+            totals[quantity.condition, default: 0] += quantity.quantity
+        }
+    }
 }
 
 public struct Card: Codable, Hashable, Identifiable, Sendable {
@@ -56,7 +62,8 @@ public struct Card: Codable, Hashable, Identifiable, Sendable {
     public let setName: String
     public let cardNumber: String
     public let notes: String?
-    public let quantities: [CardConditionQuantity]
+    public let purchases: [CardPurchase]
+    public let purchasePriceChangePercent: Double?
     public let createdAt: Date
     public let updatedAt: Date
 
@@ -67,9 +74,10 @@ public struct Card: Codable, Hashable, Identifiable, Sendable {
         setName: String,
         cardNumber: String,
         notes: String?,
-        quantities: [CardConditionQuantity],
         createdAt: Date,
-        updatedAt: Date
+        updatedAt: Date,
+        purchases: [CardPurchase] = [],
+        purchasePriceChangePercent: Double? = nil
     ) {
         self.id = id
         self.game = game
@@ -77,9 +85,20 @@ public struct Card: Codable, Hashable, Identifiable, Sendable {
         self.setName = setName
         self.cardNumber = cardNumber
         self.notes = notes
-        self.quantities = quantities
+        self.purchases = purchases
+        self.purchasePriceChangePercent = purchasePriceChangePercent
         self.createdAt = createdAt
         self.updatedAt = updatedAt
+    }
+
+    public var quantities: [CardConditionQuantity] {
+        let totals = CardConditionQuantity.totals(
+            purchases.map { CardConditionQuantity(condition: $0.condition, quantity: $0.quantity) }
+        )
+        return CardCondition.allCases.compactMap { condition in
+            guard let quantity = totals[condition] else { return nil }
+            return CardConditionQuantity(condition: condition, quantity: quantity)
+        }
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -87,7 +106,8 @@ public struct Card: Codable, Hashable, Identifiable, Sendable {
         case game
         case name
         case notes
-        case quantities
+        case purchases
+        case purchasePriceChangePercent = "purchase_price_change_percent"
         case setName = "set_name"
         case cardNumber = "card_number"
         case createdAt = "created_at"

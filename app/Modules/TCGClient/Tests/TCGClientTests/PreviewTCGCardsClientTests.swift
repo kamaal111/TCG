@@ -138,5 +138,5 @@ private let previewPayload = UpsertCardPayload(
     setName: "Base Set",
     cardNumber: "44/102",
     notes: nil,
-    quantities: [.init(condition: .excellent, quantity: 1)]
+    purchases: [.init(condition: .excellent, quantity: 1)]
 )

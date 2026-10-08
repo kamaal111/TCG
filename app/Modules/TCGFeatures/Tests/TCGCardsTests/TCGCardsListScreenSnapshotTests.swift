@@ -17,6 +17,35 @@ import Testing
 @MainActor
 struct TCGCardsListScreenSnapshotTests {
     @Test
+    func `Renders purchase gains losses and stable cards`() async {
+        let samples = [
+            purchaseCard(id: "gain", change: 25), purchaseCard(id: "loss", change: -25),
+            purchaseCard(id: "stable", change: 0), purchaseCard(id: "unknown", change: nil),
+        ]
+        let feature = TCGCards(client: .preview(cardsOutcome: .success(cards: samples)))
+        let model = TCGCardsListScreenModel()
+        await model.load(using: feature)
+        #expect(feature.cards.count == 4)
+        await assertScreenSnapshot(testName: #function) { makeScreen(feature: feature, model: model) }
+    }
+
+    private func purchaseCard(id: String, change: Double?) -> Card {
+        let source = PreviewTCGCardsClient.sampleCards[0]
+        return Card(
+            id: id,
+            game: source.game,
+            name: source.name,
+            setName: source.setName,
+            cardNumber: source.cardNumber,
+            notes: nil,
+            createdAt: source.createdAt,
+            updatedAt: source.updatedAt,
+            purchases: source.purchases,
+            purchasePriceChangePercent: change
+        )
+    }
+
+    @Test
     func `Renders a selected set`() async {
         let feature = TCGCards(client: .preview(cardsOutcome: .success(cards: PreviewTCGCardsClient.sampleCards)))
         let model = TCGCardsListScreenModel()

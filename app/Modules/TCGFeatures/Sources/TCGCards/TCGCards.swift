@@ -54,6 +54,12 @@ public final class TCGCards {
         }
     }
 
+    func purchaseDefault(game: ClientCardGame, name: String, cardNumber: String) async -> Result<
+        CardSearchResult, SearchPricingErrors
+    > {
+        await client.pricing.search(game: game, query: "\(name) \(cardNumber)")
+    }
+
     func addCard(_ values: CardFormValues) async -> Result<Void, TCGCardsOperationError> {
         let result = await client.cards.create(with: values.payload)
             .map(insertCard)
@@ -160,7 +166,7 @@ public final class TCGCards {
 
     private func mapIssues(_ issues: [TCGClientValidationIssue]) -> [TCGCardsValidationIssue] {
         issues.compactMap { issue in
-            guard let path = issue.path.last else { return nil }
+            guard let path = issue.path.first else { return nil }
             guard let field = TCGCardsValidationField(rawValue: path) else { return nil }
             return .init(field: field, message: issue.message)
         }

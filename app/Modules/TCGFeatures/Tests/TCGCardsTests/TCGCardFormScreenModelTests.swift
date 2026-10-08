@@ -262,6 +262,104 @@ struct TCGCardFormScreenModelTests {
         #expect(!unavailableModel.isSubmitting)
     }
 
+    @Test
+    func `New batches prefill the average instead of the lowest price`() throws {
+        let card = PreviewTCGPricingClient.samplePricedCards[0]
+        let model = TCGCardFormScreenModel(mode: .add, initialValues: .init(pricedCard: card))
+        model.addBatch(condition: .played)
+        let batch = try #require(model.values.batches.first)
+        let average = try #require(card.market?.market)
+        #expect(batch.price == Decimal(string: String(format: "%.6f", average)))
+        #expect(batch.currency == card.market?.currency)
+        #expect(model.values.payload.purchases.first?.quantity == 1)
+    }
+
+    @Test
+    func `Multiple purchases in one condition retain individual costs and aggregate quantities`() {
+        let model = TCGCardFormScreenModel(mode: .add, initialValues: validValues)
+        model.values.batches = [
+            .init(condition: .nearMint, quantity: 2, priceText: "2"),
+            .init(condition: .nearMint, quantity: 3, priceText: "4"),
+        ]
+        #expect(model.values.quantities == [.nearMint: 5])
+        #expect(model.values.payload.purchases.map(\.purchasePrice) == [Decimal(2), Decimal(4)])
+        #expect(TCGCardsValidator.issues(for: model.values).isEmpty)
+        #expect(model.hasUnsavedChanges)
+    }
+
+    @Test
+    func `Market refresh preserves a manually edited price`() {
+        let model = TCGCardFormScreenModel(mode: .add, initialValues: validValues)
+        model.values.batches[0].priceText = "1.234567"
+        model.values.batches[0].priceWasEdited = true
+        model.applyMarketDefault(PreviewTCGPricingClient.samplePricedCards[0])
+        #expect(model.values.batches[0].price == Decimal(string: "1.234567"))
+    }
+
+    @Test
+    func `Changing the selected card clears automatic prices but preserves manual costs`() {
+        let model = TCGCardFormScreenModel(mode: .add, initialValues: validValues)
+        model.applyMarketDefault(PreviewTCGPricingClient.samplePricedCards[0])
+        model.addBatch(condition: .played)
+        model.values.batches[1].priceText = "3.50"
+        model.values.batches[1].priceWasEdited = true
+        model.values.name = "Different card"
+        #expect(model.values.batches[0].priceText.isEmpty)
+        #expect(model.values.batches[1].price == Decimal(string: "3.50"))
+        #expect(model.values.defaultMarketPrice == nil)
+    }
+
+    @Test
+    func `Invalid purchase text is validated and requires discard confirmation`() {
+        let model = TCGCardFormScreenModel(mode: .add, initialValues: validValues)
+        model.values.batches[0].priceText = "-1"
+        #expect(TCGCardsValidator.issues(for: model.values).map(\.field) == [.purchases])
+        #expect(model.hasUnsavedChanges)
+        #expect(!model.requestDismissal())
+    }
+
+    @Test
+    func `A missing average does not use the lowest price`() {
+        let card = PricedCard(
+            id: "low-only",
+            game: .pokemon,
+            name: "Pikachu",
+            cardNumber: "58",
+            market: MarketPrice(currency: .usd, low: 10),
+            pricedOn: .now,
+            fetchedAt: .now
+        )
+        let model = TCGCardFormScreenModel(mode: .add, initialValues: .init(pricedCard: card))
+        model.addBatch(condition: .mint)
+        #expect(model.values.batches.first?.price == nil)
+    }
+
+    @Test
+    func `A pricing response for an obsolete card cannot prefill the edited card`() async throws {
+        let transport = PendingCardSubmissionTransport()
+        let credentials = Credentials(
+            authToken: "auth-token",
+            authTokenExpiryDate: .distantFuture,
+            sessionToken: "session-token",
+            sessionUpdateAge: 1800,
+            lastSessionUpdate: .now
+        )
+        let client = TCGClient.default(
+            transport: transport,
+            credentialsKeychainKey: "purchase-prefill-test",
+            credentialsStore: InMemoryCredentialsStore(seed: try JSONEncoder().encode(credentials))
+        )
+        let model = TCGCardFormScreenModel(mode: .add, initialValues: validValues)
+        let refresh = Task { await model.refreshPurchaseDefault(using: TCGCards(client: client)) }
+        await transport.waitForRequest()
+        model.values.name = "Different card"
+        await transport.completePricing()
+        await refresh.value
+        #expect(model.values.defaultMarketPrice == nil)
+        #expect(model.values.batches[0].priceText.isEmpty)
+        #expect(model.values.name == "Different card")
+    }
+
     enum ChangedTextField: CaseIterable, Sendable {
         case name, setName, cardNumber, notes
 
@@ -298,6 +396,19 @@ private actor PendingCardSubmissionTransport: ClientTransport {
     func waitForRequest() async {
         guard !hasStarted else { return }
         await withCheckedContinuation { waitingForRequest = $0 }
+    }
+
+    func completePricing() {
+        guard let response else { preconditionFailure("A pricing request must be pending.") }
+        self.response = nil
+        let body = """
+            {"matches":[{"id":"priced-card","game":"one_piece","name":"Monkey D. Luffy","card_number":"OP01-003",
+            "market":{"condition":"near_mint","currency":"USD","market":5},
+            "priced_on":"2026-10-08T00:00:00.000Z","fetched_at":"2026-10-08T10:00:00.000Z"}]}
+            """
+        response.resume(
+            returning: (HTTPResponse(status: .ok, headerFields: [.contentType: "application/json"]), HTTPBody(body))
+        )
     }
 
     func failRequest() {
