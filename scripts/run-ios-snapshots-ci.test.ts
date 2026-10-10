@@ -43,6 +43,12 @@ if (process.env.MODE === 'metrics') {
   console.log('◇ Test run started.\\n✔ Test run with 31 tests passed after 1 second.');
   process.exit(0);
 }
+if (process.env.MODE === 'boot-service') {
+  const service = Number(fs.readFileSync(process.env.FIXTURE + '/worker.pid', 'utf8'));
+  try { process.kill(service, 0); } catch { process.exit(77); }
+  console.log('boot service survived until tests');
+  process.exit(0);
+}
 if (process.env.MODE === 'success') process.exit(0);
 if (process.env.MODE === 'failure') process.exit(65);
 const worker = childProcess.spawn(process.execPath, [process.env.FIXTURE + '/worker.mjs'], { stdio: 'inherit' });
@@ -60,16 +66,24 @@ setInterval(() => {}, 1000);
   fs.writeFileSync(
     path.join(directory, 'xcrun'),
     `#!${process.execPath}
+import childProcess from 'node:child_process';
 import fs from 'node:fs';
 if (process.argv[3] === 'bootstatus') {
   fs.writeFileSync(process.env.FIXTURE + '/boot.pid', String(process.pid));
   fs.writeFileSync(process.env.FIXTURE + '/boot.json', JSON.stringify(process.argv.slice(2)));
   console.log('boot ready');
+  if (process.env.MODE === 'boot-service') {
+    childProcess.spawn(process.execPath, [process.env.FIXTURE + '/worker.mjs'], { stdio: 'ignore' });
+    setInterval(() => {
+      if (fs.existsSync(process.env.FIXTURE + '/worker.pid')) process.exit(0);
+    }, 10);
+  } else {
   if (process.env.MODE === 'boot-failure') process.exit(9);
   if (process.env.MODE !== 'boot-hang') process.exit(0);
   process.on('SIGINT', () => {});
   process.on('SIGTERM', () => {});
   setInterval(() => console.log('boot progress'), 100);
+  }
 } else {
 fs.writeFileSync(process.env.FIXTURE + '/shutdown.pid', String(process.pid));
 fs.writeFileSync(process.env.FIXTURE + '/shutdown.json', JSON.stringify(process.argv.slice(2)));
@@ -225,6 +239,15 @@ describe('iOS snapshot CI supervisor', () => {
     expect(await run.exited).toBe(66);
     expect(fs.existsSync(path.join(directory, 'boot.pid'))).toBe(false);
     expect(fs.existsSync(path.join(directory, 'just.pid'))).toBe(false);
+  });
+
+  it('preserves simulator services between boot and tests, then cleans them up', async () => {
+    const directory = fixture('boot-service');
+    const run = start({ directory, simulator: 'iPhone 17' });
+
+    expect(await run.exited).toBe(0);
+    expect(run.output()).toContain('boot service survived until tests');
+    await vi.waitFor(() => expect(running(pid(directory, 'worker'))).toBe(false));
   });
 
   it('preserves boot failure and skips tests', async () => {

@@ -8,6 +8,7 @@ import type { HonoContext } from '../context.ts';
 import { CardNotFound } from './exceptions.ts';
 import type { CardGame } from './schemas/params.ts';
 import type { UpsertCard } from './schemas/payloads.ts';
+import type { DeleteCardsResponse } from './schemas/responses.ts';
 import { marketPurchaseAmount } from './utils/purchase-price.ts';
 import { purchaseQuantities } from './utils/quantities.ts';
 import { card, cardConditionQuantity, cardPurchaseBatch } from '../db/schema/cards.ts';
@@ -385,19 +386,32 @@ export class CardRepository {
     }
   }
 
-  /**
-   * Deletes a card when it is owned by the current session user.
-   *
-   * @param cardId Card identifier.
-   * @returns Whether a card was deleted.
-   */
-  async delete(cardId: string): Promise<boolean> {
+  async delete(cardIds: string[]): Promise<DeleteCardsResponse> {
+    const ids = new Set(cardIds).values().toArray();
+
+    if (ids.length === 0) {
+      return { deleted_ids: [], not_found_ids: [] };
+    }
+
     const deleted = await this.db
       .delete(card)
-      .where(and(eq(card.id, cardId), eq(card.userId, this.userId)))
+      .where(and(inArray(card.id, ids), eq(card.userId, this.userId)))
       .returning({ id: card.id });
 
-    return deleted.length > 0;
+    const deletedIds = new Set(deleted.map(row => row.id));
+
+    return ids.reduce<DeleteCardsResponse>(
+      (acc, id) => {
+        if (deletedIds.has(id)) {
+          acc.deleted_ids.push(id);
+        } else {
+          acc.not_found_ids.push(id);
+        }
+
+        return acc;
+      },
+      { deleted_ids: [], not_found_ids: [] },
+    );
   }
 }
 

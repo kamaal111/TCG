@@ -80,37 +80,32 @@ public final class TCGCards {
     }
 
     func deleteCard(id: String) async -> Result<Void, TCGCardsOperationError> {
-        let result = await deleteCardWithoutRefresh(id: id)
-        if case .success = result { await refresh() }
-        return result
+        await performDeletion(ids: [id]).flatMap { result in
+            result.deletedIDs.contains(id) ? .success(()) : .failure(.notFound)
+        }
     }
 
     func deleteCards(ids: [String]) async -> [TCGCardsOperationError] {
-        var errors: [TCGCardsOperationError] = []
-        var deletedAny = false
-        for id in ids {
-            switch await deleteCardWithoutRefresh(id: id) {
-            case .success: deletedAny = true
-            case .failure(let error): errors.append(error)
-            }
+        switch await performDeletion(ids: ids) {
+        case .success(let result): result.notFoundIDs.map { _ in .notFound }
+        case .failure(let error): [error]
         }
-        if deletedAny { await refresh() }
-        return errors
     }
 
-    private func deleteCardWithoutRefresh(id: String) async -> Result<Void, TCGCardsOperationError> {
-        let result: Result<Void, TCGCardsOperationError> = await client.cards.delete(id: id)
-            .map {
-                removeCard(id: id)
+    private func performDeletion(ids: [String]) async -> Result<DeleteCardsResult, TCGCardsOperationError> {
+        guard !ids.isEmpty else { return .success(DeleteCardsResult(deletedIDs: [], notFoundIDs: [])) }
+        switch await client.cards.delete(ids: ids) {
+        case .success(let result):
+            let deletedIDs = Set(result.deletedIDs)
+            if !deletedIDs.isEmpty {
+                setCards(cards.filter { !deletedIDs.contains($0.card.id) })
                 if collectionState.status == .loaded { collectionState.status = .idle }
+                await refresh()
             }
-            .mapError {
-                switch $0 {
-                case .notFound: .notFound
-                case .unauthorized, .unknown: .serverUnavailable
-                }
-            }
-        return result
+            return .success(result)
+        case .failure:
+            return .failure(.serverUnavailable)
+        }
     }
 
     private func refresh() async {
@@ -130,10 +125,6 @@ public final class TCGCards {
 
     private func replaceCard(_ card: CardWithPrice, id: String) {
         setCards(cards.map { $0.card.id == id ? card : $0 })
-    }
-
-    private func removeCard(id: String) {
-        setCards(cards.filter { $0.card.id != id })
     }
 
     private struct CollectionState {

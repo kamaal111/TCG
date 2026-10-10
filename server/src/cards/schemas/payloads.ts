@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { CardPurchaseInputSchema, CardCoreFieldsSchema } from './fields.ts';
+import { CardPurchaseInputSchema, CardCoreFieldsSchema, CardIdSchema } from './fields.ts';
 import { CARD_CONDITIONS, MAX_COPIES_PER_CONDITION } from '../../db/schema/cards.ts';
 import { purchaseQuantities } from '../utils/quantities.ts';
 
@@ -56,3 +56,9 @@ export const UpsertCardSchema = CardCoreFieldsSchema.extend({
   });
 
 export type UpsertCard = z.infer<typeof UpsertCardSchema>;
+
+export const DeleteCardsSchema = z
+  .object({
+    card_ids: z.array(CardIdSchema).meta({ description: 'Card entries to delete; duplicates are ignored' }),
+  })
+  .meta({ $id: 'DeleteCards', title: 'Delete Cards' });

@@ -1,66 +1,56 @@
 import { createRoute, defineOpenAPIRoute } from '@kamaalio/hono-standard-openapi';
 
 import { requireSessionMiddleware } from '../../auth/module.ts';
-import { APP_API_ROUTE_NAME } from '../../constants/common.ts';
 import { CONTENTFUL_STATUS_CODES } from '../../constants/http.ts';
 import { MIME_TYPES } from '../../constants/request.ts';
 import type { HonoEnvironment } from '../../context.ts';
-import { CardNotFoundErrorResponseSchema, ErrorResponseSchema } from '../../schemas/errors.ts';
-import { CARDS_OPENAPI_TAG, CARDS_ROUTE_NAME } from '../constants.ts';
-import { CardNotFound } from '../exceptions.ts';
+import { ErrorResponseSchema, ValidationErrorResponseSchema } from '../../schemas/errors.ts';
+import { CARDS_OPENAPI_TAG } from '../constants.ts';
 import { cardsLogger } from '../logging.ts';
-import { CardIdParamsSchema } from '../schemas/params.ts';
-import { DeleteCardResponseSchema } from '../schemas/responses.ts';
-
-const DELETE_CARD_PATH = '/{cardId}';
+import { DeleteCardsSchema } from '../schemas/payloads.ts';
+import { DeleteCardsResponseSchema } from '../schemas/responses.ts';
 
 const routeConfig = createRoute({
   method: 'delete',
-  path: DELETE_CARD_PATH,
+  path: '/',
   tags: [CARDS_OPENAPI_TAG],
-  summary: 'Delete an owned card',
-  description: "Delete an owned card entry from the authenticated user's collection.",
+  summary: 'Delete owned cards',
+  description:
+    'Delete owned matches and report missing or inaccessible IDs without distinguishing ownership. Each response array follows request order with duplicates removed.',
   middleware: [requireSessionMiddleware] as const,
   security: [{ bearerAuth: [] }],
-  request: { params: CardIdParamsSchema },
+  request: { body: { content: { [MIME_TYPES.JSON]: { schema: DeleteCardsSchema } } } },
   responses: {
     [CONTENTFUL_STATUS_CODES.OK]: {
-      description: 'Card deleted successfully',
-      content: { [MIME_TYPES.JSON]: { schema: DeleteCardResponseSchema } },
+      description: 'Deletion completed, including partial success or empty input',
+      content: { [MIME_TYPES.JSON]: { schema: DeleteCardsResponseSchema } },
+    },
+    [CONTENTFUL_STATUS_CODES.BAD_REQUEST]: {
+      description: 'Invalid card IDs',
+      content: { [MIME_TYPES.JSON]: { schema: ValidationErrorResponseSchema } },
     },
     [CONTENTFUL_STATUS_CODES.UNAUTHORIZED]: {
       description: 'Authenticated session not found',
       content: { [MIME_TYPES.JSON]: { schema: ErrorResponseSchema } },
     },
-    [CONTENTFUL_STATUS_CODES.NOT_FOUND]: {
-      description: 'Card not found or not owned by the authenticated user',
-      content: { [MIME_TYPES.JSON]: { schema: CardNotFoundErrorResponseSchema } },
-    },
   },
 });
-
-export const DELETE_CARD_ROUTE_PATH = `${APP_API_ROUTE_NAME}${CARDS_ROUTE_NAME}${routeConfig.path}` as const;
 
 const deleteCardRoute = defineOpenAPIRoute<HonoEnvironment, typeof routeConfig>({
   route: routeConfig,
   handler: async c => {
-    const { cardId } = c.req.valid('param');
-    const deleted = await c.get('cardRepository').delete(cardId);
-
-    if (!deleted) {
-      cardsLogger(c).warn(
-        { event: 'cards.access_denied', outcome: 'failure', error_code: 'CARD_NOT_FOUND', card_id: cardId },
-        'Card not found or not owned by the authenticated user.',
-      );
-      throw new CardNotFound(c);
-    }
-
+    const result = await c.get('cardRepository').delete(c.req.valid('json').card_ids);
     cardsLogger(c).info(
-      { event: 'cards.delete', outcome: 'success', card_id: cardId },
-      'Deleted an owned card from the collection.',
+      {
+        event: 'cards.delete',
+        outcome: 'success',
+        result_count: result.deleted_ids.length,
+        not_found_count: result.not_found_ids.length,
+      },
+      'Completed deletion of owned cards.',
     );
 
-    return c.json({}, { status: CONTENTFUL_STATUS_CODES.OK });
+    return c.json(result, { status: CONTENTFUL_STATUS_CODES.OK });
   },
 });
 

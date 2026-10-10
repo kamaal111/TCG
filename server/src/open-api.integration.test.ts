@@ -77,11 +77,32 @@ describe('OpenAPI specification integration', () => {
     ]);
   });
 
+  integrationTest('documents one deletion operation with an array request', async ({ app }) => {
+    const document = await readSpecification(app);
+    expect(document.paths['/app-api/cards']?.delete).toMatchObject({
+      requestBody: { content: { [MIME_TYPES.JSON]: { schema: { $ref: '#/components/schemas/DeleteCards' } } } },
+      responses: {
+        200: { content: { [MIME_TYPES.JSON]: { schema: { $ref: '#/components/schemas/DeleteCardsResponse' } } } },
+      },
+    });
+    expect(document.paths['/app-api/cards/{cardId}']?.delete).toBeUndefined();
+    expect(document.paths['/app-api/cards/bulk-delete']).toBeUndefined();
+    expect(document.components.schemas.DeleteCardResponse).toBeUndefined();
+  });
+
   integrationTest('names the components the standard-schema routes refer to', async ({ app }) => {
     const document = await readSpecification(app);
 
     expect(Object.keys(document.components.schemas)).toEqual(
-      expect.arrayContaining(['Card', 'CardWithPrice', 'UpsertCard', 'PricedCard', 'PricingSearchResponse']),
+      expect.arrayContaining([
+        'Card',
+        'CardWithPrice',
+        'UpsertCard',
+        'DeleteCards',
+        'DeleteCardsResponse',
+        'PricedCard',
+        'PricingSearchResponse',
+      ]),
     );
     expect(document.paths['/app-api/cards']?.get).toMatchObject({
       responses: {
@@ -118,10 +139,10 @@ describe('OpenAPI specification integration', () => {
     ]);
   });
 
-  integrationTest('describes the card identifier as a required path parameter', async ({ app }) => {
+  integrationTest('describes the update card identifier as a required path parameter', async ({ app }) => {
     const document = await readSpecification(app);
 
-    expect(document.paths['/app-api/cards/{cardId}']?.delete).toMatchObject({
+    expect(document.paths['/app-api/cards/{cardId}']?.put).toMatchObject({
       parameters: [
         {
           name: 'cardId',

@@ -150,26 +150,6 @@ struct TCGCardsClientTests {
     }
 
     @Test
-    func `Deletes a card through the generated operation`() async throws {
-        let transport = CardsRequestTransport(status: .ok, body: Data("{}".utf8))
-        _ = try await makeClient(transport: transport).cards.delete(id: "card-id").get()
-        let request = try #require(await transport.request)
-
-        #expect(request.method == .delete)
-        #expect(request.path == "/app-api/cards/card-id")
-        #expect(request.operationID == "delete/app-api/cards/{cardId}")
-    }
-
-    @Test
-    func `Maps a missing card on delete`() async {
-        let transport = CardsRequestTransport(status: .notFound, body: errorJSON(code: "CARD_NOT_FOUND"))
-
-        await #expect(throws: DeleteCardErrors.notFound) {
-            try await makeClient(transport: transport).cards.delete(id: "card-id").get()
-        }
-    }
-
-    @Test
     func `Creates purchases and decodes exact prices`() async throws {
         let input = try purchasePayload(id: nil)
         let transport = CardsRequestTransport(status: .created, body: purchaseCardJSON)
@@ -189,6 +169,82 @@ struct TCGCardsClientTests {
         #expect(request.operationID == "put/app-api/cards/{cardId}")
         try assertPurchasePayload(request, expectedID: "batch-id")
         try assertPurchaseResponse(saved)
+    }
+
+    @Test
+    func `Deletion uses one generated request and decodes partial success`() async throws {
+        let transport = CardsRequestTransport(
+            status: .ok,
+            body: Data(
+                """
+                {"deleted_ids":["first-card"],"not_found_ids":["missing-card"]}
+                """.utf8
+            )
+        )
+        let ids = ["first-card", "missing-card", "first-card"]
+        let result = try await makeClient(transport: transport).cards.delete(ids: ids).get()
+        let request = try #require(await transport.request)
+        let body = try #require(request.body)
+
+        #expect(request.method == .delete)
+        #expect(request.path == "/app-api/cards")
+        #expect(request.operationID == "delete/app-api/cards")
+        #expect(try JSONDecoder().decode(DeleteCardsPayload.self, from: body) == DeleteCardsPayload(cardIDs: ids))
+        #expect(result == DeleteCardsResult(deletedIDs: ["first-card"], notFoundIDs: ["missing-card"]))
+    }
+
+    @Test(arguments: [[], ["first-card"], ["first-card", "second-card"]])
+    func `Deletion decodes full and empty success`(ids: [String]) async throws {
+        let body = Data(
+            """
+            {"deleted_ids":\(String(decoding: try JSONEncoder().encode(ids), as: UTF8.self)),"not_found_ids":[]}
+            """.utf8
+        )
+        let transport = CardsRequestTransport(status: .ok, body: body)
+        #expect(
+            try await makeClient(transport: transport).cards.delete(ids: ids).get()
+                == DeleteCardsResult(deletedIDs: ids, notFoundIDs: [])
+        )
+    }
+
+    @Test
+    func `Deletion maps validation failures`() async {
+        let transport = CardsRequestTransport(status: .badRequest, body: validationJSON)
+        await #expect(throws: DeleteCardsErrors.badRequest(validations: [validationIssue])) {
+            try await makeClient(transport: transport).cards.delete(ids: ["invalid"]).get()
+        }
+    }
+
+    @Test
+    func `Deletion maps missing sessions`() async {
+        let transport = CardsRequestTransport(status: .unauthorized, body: errorJSON(code: "SESSION_NOT_FOUND"))
+        await #expect(throws: DeleteCardsErrors.unauthorized) {
+            try await makeClient(transport: transport).cards.delete(ids: ["first-card"]).get()
+        }
+    }
+
+    @Test
+    func `Deletion preserves undocumented failure statuses`() async {
+        let transport = CardsRequestTransport(status: .internalServerError, body: Data("{}".utf8))
+        await #expect(throws: DeleteCardsErrors.unknown(status: 500, payload: nil, cause: nil)) {
+            try await makeClient(transport: transport).cards.delete(ids: ["first-card"]).get()
+        }
+    }
+
+    @Test
+    func `Deletion maps malformed responses`() async {
+        let transport = CardsRequestTransport(status: .ok, body: Data("{}".utf8))
+        await #expect(throws: DeleteCardsErrors.unknown(status: 503, payload: nil, cause: nil)) {
+            try await makeClient(transport: transport).cards.delete(ids: ["first-card"]).get()
+        }
+    }
+
+    @Test
+    func `Deletion maps transport failures`() async {
+        let transport = CardsRequestTransport(status: .ok, body: Data(), fails: true)
+        await #expect(throws: DeleteCardsErrors.unknown(status: 503, payload: nil, cause: nil)) {
+            try await makeClient(transport: transport).cards.delete(ids: ["first-card"]).get()
+        }
     }
 
     private func purchasePayload(id: String?) throws -> UpsertCardPayload {
@@ -255,10 +311,12 @@ private actor CardsRequestTransport: ClientTransport {
     private(set) var request: CardsRecordedRequest?
     private let status: HTTPResponse.Status
     private let body: Data
+    private let fails: Bool
 
-    init(status: HTTPResponse.Status, body: Data) {
+    init(status: HTTPResponse.Status, body: Data, fails: Bool = false) {
         self.status = status
         self.body = body
+        self.fails = fails
     }
 
     func send(
@@ -267,6 +325,7 @@ private actor CardsRequestTransport: ClientTransport {
         baseURL _: URL,
         operationID: String
     ) async throws -> (HTTPResponse, HTTPBody?) {
+        if fails { throw URLError(.notConnectedToInternet) }
         let bodyData: Data?
         if let body {
             bodyData = try await Data(collecting: body, upTo: .max)

@@ -1,78 +1,172 @@
-import { eq } from 'drizzle-orm';
+import { inArray } from 'drizzle-orm';
 
-import { createCardRequest, sessionHeaders, validCardPayload } from './utils.ts';
-import { CONTENTFUL_STATUS_CODES } from '../../constants/http.ts';
-import { cardConditionQuantity } from '../../db/schema/cards.ts';
-import { expectErrorResponse } from '../../tests/auth.ts';
+import { createCardRequest, sessionHeaders } from './utils.ts';
+import { cardConditionQuantity, cardPurchaseBatch } from '../../db/schema/cards.ts';
+import { expectErrorResponse, expectValidationIssueForField } from '../../tests/auth.ts';
 import { integrationTest } from '../../tests/fixtures.ts';
 import { createTestUser } from '../../tests/utils.ts';
 import { CardSchema } from '../schemas/responses.ts';
 
-describe('Delete card integration', () => {
-  integrationTest('requires a session and hides missing cards', async ({ app, db }) => {
-    const unauthenticated = await app.request('/app-api/cards/missing', { method: 'DELETE' });
-    expect(await expectErrorResponse(unauthenticated, CONTENTFUL_STATUS_CODES.UNAUTHORIZED)).toMatchObject({
-      code: 'SESSION_NOT_FOUND',
-    });
-    const user = await createTestUser(app, db);
+const path = '/app-api/cards';
 
-    const missing = await app.request('/app-api/cards/00000000-0000-0000-0000-000000000000', {
-      method: 'DELETE',
-      headers: sessionHeaders(user.sessionToken),
-    });
+const missingId = '550e8400-e29b-41d4-a716-446655440003';
 
-    expect(await expectErrorResponse(missing, CONTENTFUL_STATUS_CODES.NOT_FOUND)).toMatchObject({
-      code: 'CARD_NOT_FOUND',
-    });
-  });
-
+describe('Delete cards integration', () => {
   integrationTest(
-    "does not delete another user's card and logs the access denial",
-    async ({ app, db, getLogsForRequestId, withRequestId }) => {
-      const owner = await createTestUser(app, db);
-      const otherUser = await createTestUser(app, db);
-      const card = CardSchema.parse(await (await createCardRequest(app, owner.sessionToken)).json());
+    'deletes owned cards with cascades, preserves other cards, and logs counts',
+    async ({ app, db, withRequestId, getLogsForRequestId }) => {
+      const user = await createTestUser(app, db);
+      const first = CardSchema.parse(await (await createCardRequest(app, user.sessionToken)).json());
+      const second = CardSchema.parse(await (await createCardRequest(app, user.sessionToken)).json());
+      const preserved = CardSchema.parse(await (await createCardRequest(app, user.sessionToken)).json());
+      const ids = [second.id, first.id];
+      const { headers, requestId } = withRequestId(Object.fromEntries(sessionHeaders(user.sessionToken).entries()));
+      const response = await app.request(path, { method: 'DELETE', headers, body: JSON.stringify({ card_ids: ids }) });
 
-      const { headers, requestId } = withRequestId(
-        Object.fromEntries(sessionHeaders(otherUser.sessionToken).entries()),
+      expect(response.status).toBe(200);
+      expect(await response.json()).toEqual({ deleted_ids: ids, not_found_ids: [] });
+      expect(await db.query.card.findFirst({ where: { id: first.id } })).toBeUndefined();
+      expect(await db.query.card.findFirst({ where: { id: second.id } })).toBeUndefined();
+      expect(await db.query.card.findFirst({ where: { id: preserved.id } })).toBeDefined();
+      expect(await db.select().from(cardConditionQuantity).where(inArray(cardConditionQuantity.cardId, ids))).toEqual(
+        [],
       );
-
-      const response = await app.request(`/app-api/cards/${card.id}`, { method: 'DELETE', headers });
-      expect(await expectErrorResponse(response, CONTENTFUL_STATUS_CODES.NOT_FOUND)).toMatchObject({
-        code: 'CARD_NOT_FOUND',
-      });
-      expect(await db.query.card.findFirst({ where: { id: card.id } })).toBeDefined();
+      expect(await db.select().from(cardPurchaseBatch).where(inArray(cardPurchaseBatch.cardId, ids))).toEqual([]);
       expect(getLogsForRequestId(requestId)).toEqual(
         expect.arrayContaining([
-          expect.objectContaining({ event: 'cards.access_denied', card_id: card.id, user_id: otherUser.userId }),
+          expect.objectContaining({
+            event: 'cards.delete',
+            result_count: 2,
+            not_found_count: 0,
+            user_id: user.userId,
+          }),
         ]),
       );
     },
   );
 
   integrationTest(
-    'deletes the card, cascades quantities, and preserves other cards',
-    async ({ app, db, getLogsForRequestId, withRequestId }) => {
+    'deduplicates IDs, hides ownership, preserves foreign cards, and safely retries',
+    async ({ app, db }) => {
       const user = await createTestUser(app, db);
-      const target = CardSchema.parse(await (await createCardRequest(app, user.sessionToken)).json());
+      const other = await createTestUser(app, db);
+      const owned = CardSchema.parse(await (await createCardRequest(app, user.sessionToken)).json());
+      const foreign = CardSchema.parse(await (await createCardRequest(app, other.sessionToken)).json());
 
-      const preserved = CardSchema.parse(
-        await (await createCardRequest(app, user.sessionToken, { ...validCardPayload, name: 'Preserved' })).json(),
-      );
+      const request = {
+        method: 'DELETE',
+        headers: sessionHeaders(user.sessionToken),
+        body: JSON.stringify({ card_ids: [owned.id, foreign.id, missingId, owned.id] }),
+      };
 
-      const { headers, requestId } = withRequestId(Object.fromEntries(sessionHeaders(user.sessionToken).entries()));
-      const response = await app.request(`/app-api/cards/${target.id}`, { method: 'DELETE', headers });
+      const response = await app.request(path, request);
 
-      expect(response.status).toBe(CONTENTFUL_STATUS_CODES.OK);
-      expect(await response.json()).toEqual({});
-      expect(await db.query.card.findFirst({ where: { id: target.id } })).toBeUndefined();
-      expect(await db.select().from(cardConditionQuantity).where(eq(cardConditionQuantity.cardId, target.id))).toEqual(
-        [],
-      );
-      expect(await db.query.card.findFirst({ where: { id: preserved.id } })).toBeDefined();
-      expect(getLogsForRequestId(requestId)).toEqual(
-        expect.arrayContaining([expect.objectContaining({ event: 'cards.delete', card_id: target.id })]),
-      );
+      expect(response.status).toBe(200);
+      expect(await response.json()).toEqual({ deleted_ids: [owned.id], not_found_ids: [foreign.id, missingId] });
+      expect(await db.query.card.findFirst({ where: { id: foreign.id } })).toBeDefined();
+      const retry = await app.request(path, request);
+      expect(retry.status).toBe(200);
+      expect(await retry.json()).toEqual({ deleted_ids: [], not_found_ids: [owned.id, foreign.id, missingId] });
     },
   );
+
+  integrationTest('deletes one ID through the shared endpoint and reports missing single IDs', async ({ app, db }) => {
+    const user = await createTestUser(app, db);
+    const owned = CardSchema.parse(await (await createCardRequest(app, user.sessionToken)).json());
+
+    const deleted = await app.request(path, {
+      method: 'DELETE',
+      headers: sessionHeaders(user.sessionToken),
+      body: JSON.stringify({ card_ids: [owned.id] }),
+    });
+
+    expect(deleted.status).toBe(200);
+    expect(await deleted.json()).toEqual({ deleted_ids: [owned.id], not_found_ids: [] });
+    expect(await db.query.card.findFirst({ where: { id: owned.id } })).toBeUndefined();
+
+    const missing = await app.request(path, {
+      method: 'DELETE',
+      headers: sessionHeaders(user.sessionToken),
+      body: JSON.stringify({ card_ids: [owned.id] }),
+    });
+
+    expect(missing.status).toBe(200);
+    expect(await missing.json()).toEqual({ deleted_ids: [], not_found_ids: [owned.id] });
+  });
+
+  integrationTest('removes both previous deletion paths', async ({ app, db }) => {
+    const user = await createTestUser(app, db);
+    const owned = CardSchema.parse(await (await createCardRequest(app, user.sessionToken)).json());
+
+    const previousSingle = await app.request(`/app-api/cards/${owned.id}`, {
+      method: 'DELETE',
+      headers: sessionHeaders(user.sessionToken),
+    });
+
+    const previousBulk = await app.request('/app-api/cards/bulk-delete', {
+      method: 'POST',
+      headers: sessionHeaders(user.sessionToken),
+      body: JSON.stringify({ card_ids: [owned.id] }),
+    });
+
+    expect(previousSingle.status).toBe(404);
+    expect(previousBulk.status).toBe(404);
+    expect(await db.query.card.findFirst({ where: { id: owned.id } })).toBeDefined();
+  });
+
+  integrationTest('accepts empty selections', async ({ app, db }) => {
+    const user = await createTestUser(app, db);
+
+    const response = await app.request(path, {
+      method: 'DELETE',
+      headers: sessionHeaders(user.sessionToken),
+      body: JSON.stringify({ card_ids: [] }),
+    });
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ deleted_ids: [], not_found_ids: [] });
+  });
+
+  integrationTest('requires a session before deleting any cards', async ({ app, db }) => {
+    const user = await createTestUser(app, db);
+    const owned = CardSchema.parse(await (await createCardRequest(app, user.sessionToken)).json());
+
+    const response = await app.request(path, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ card_ids: [owned.id] }),
+    });
+
+    expect(await expectErrorResponse(response, 401)).toMatchObject({ code: 'SESSION_NOT_FOUND' });
+    expect(await db.query.card.findFirst({ where: { id: owned.id } })).toBeDefined();
+  });
+
+  integrationTest.for([{}, { card_ids: 'invalid' }, { card_ids: ['invalid'] }])(
+    'rejects invalid payloads without mutation: %j',
+    async (payload, { app, db }) => {
+      const user = await createTestUser(app, db);
+
+      const response = await app.request(path, {
+        method: 'DELETE',
+        headers: sessionHeaders(user.sessionToken),
+        body: JSON.stringify(payload),
+      });
+
+      await expectValidationIssueForField(response, 'card_ids');
+    },
+  );
+
+  integrationTest('validates the entire batch before mutation', async ({ app, db }) => {
+    const user = await createTestUser(app, db);
+    const owned = CardSchema.parse(await (await createCardRequest(app, user.sessionToken)).json());
+
+    const response = await app.request(path, {
+      method: 'DELETE',
+      headers: sessionHeaders(user.sessionToken),
+      body: JSON.stringify({ card_ids: [owned.id, 'invalid'] }),
+    });
+
+    await expectValidationIssueForField(response, 'card_ids');
+    expect(await db.query.card.findFirst({ where: { id: owned.id } })).toBeDefined();
+  });
 });
