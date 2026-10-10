@@ -136,6 +136,14 @@ Verbose Xcode failure diagnostics are disabled in CI to avoid lengthy
 simulator diagnostic collection; snapshot images and result bundles remain
 available for ordinary test failures. Local test recipes are unchanged.
 
+CI sets `TCG_IOS_SNAPSHOT_SIMULATOR` to the same device as its test destination
+and builds snapshot test products before starting the simulator. It then waits
+for `simctl bootstatus -b` and runs `test-without-building`. Boot has a fixed deadline
+equal to `TCG_IOS_SNAPSHOT_IDLE_TIMEOUT_SECONDS`, even if it keeps reporting
+progress. Boot failure skips tests and still shuts down the simulator.
+CI builds only the destination's active architecture with at most two build
+operations and disables parallel test runners, avoiding simulator clones.
+
 Snapshots live under each suite's `__Snapshots__` directory. Review both actual
 and reference images before recording new baselines. See
 [snapshot failure handling](../docs/development.md#snapshot-failures) and the

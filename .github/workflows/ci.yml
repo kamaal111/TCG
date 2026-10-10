@@ -153,6 +153,7 @@ jobs:
     timeout-minutes: 90
     env:
       TCG_APP_IOS_TEST_DESTINATION: platform=iOS Simulator,OS=27.0,name=iPhone 17
+      TCG_IOS_SNAPSHOT_SIMULATOR: iPhone 17
       TCG_APP_CODE_SIGNING_ALLOWED: 'NO'
     steps:
       - name: Check out code
@@ -180,7 +181,11 @@ jobs:
           xcrun simctl list devices available
 
       - name: Run iOS snapshots
-        run: exec node scripts/run-ios-snapshots-ci.ts -collect-test-diagnostics never -resultBundlePath "$RUNNER_TEMP/ios-snapshots.xcresult"
+        run: >-
+          exec node scripts/run-ios-snapshots-ci.ts
+          -jobs 2 -parallel-testing-enabled NO ONLY_ACTIVE_ARCH=YES
+          -collect-test-diagnostics never
+          -resultBundlePath "$RUNNER_TEMP/ios-snapshots.xcresult"
 
       - name: Verify iOS localization coverage
         run: just check-localizations ios
