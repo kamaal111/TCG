@@ -110,6 +110,21 @@ jobs:
       - name: Set up just
         uses: extractions/setup-just@v4
 
+      - name: Identify Swift toolchain
+        id: swift-toolchain
+        run: |
+          echo "version=$(xcodebuild -version | tr '\n ' '--')" >> "$GITHUB_OUTPUT"
+          echo "TCG_APP_SOURCE_PACKAGES=$RUNNER_TEMP/tcg-source-packages" >> "$GITHUB_ENV"
+
+      - name: Cache Swift package downloads
+        id: swift-packages
+        uses: actions/cache@v6
+        with:
+          path: ${{ runner.temp }}/tcg-source-packages
+          key: swift-packages-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.swift-toolchain.outputs.version }}-${{ hashFiles('app/**/Package.resolved') }}
+          restore-keys: |
+            swift-packages-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.swift-toolchain.outputs.version }}-
+
       - name: Trust pinned Swift package plugin
         run: |
           install -d "$HOME/Library/org.swift.swiftpm/security"
@@ -130,7 +145,7 @@ jobs:
       - name: Verify macOS localization coverage
         run: |
           just test-localization-check
-          just check-localizations macos
+          just check-localizations-macos
 
       - name: Collect failed snapshots
         if: failure()
@@ -170,6 +185,21 @@ jobs:
       - name: Set up just
         uses: extractions/setup-just@v4
 
+      - name: Identify Swift toolchain
+        id: swift-toolchain
+        run: |
+          echo "version=$(xcodebuild -version | tr '\n ' '--')" >> "$GITHUB_OUTPUT"
+          echo "TCG_APP_SOURCE_PACKAGES=$RUNNER_TEMP/tcg-source-packages" >> "$GITHUB_ENV"
+
+      - name: Cache Swift package downloads
+        id: swift-packages
+        uses: actions/cache@v6
+        with:
+          path: ${{ runner.temp }}/tcg-source-packages
+          key: swift-packages-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.swift-toolchain.outputs.version }}-${{ hashFiles('app/**/Package.resolved') }}
+          restore-keys: |
+            swift-packages-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.swift-toolchain.outputs.version }}-
+
       - name: Trust pinned Swift package plugin
         run: |
           install -d "$HOME/Library/org.swift.swiftpm/security"
@@ -181,14 +211,22 @@ jobs:
           xcrun simctl list devices available
 
       - name: Run iOS snapshots
+        env:
+          TCG_SWIFT_PACKAGE_CACHE_HIT: ${{ steps.swift-packages.outputs.cache-hit }}
         run: >-
           exec node scripts/run-ios-snapshots-ci.ts
           -jobs 2 -parallel-testing-enabled NO ONLY_ACTIVE_ARCH=YES
           -collect-test-diagnostics never
           -resultBundlePath "$RUNNER_TEMP/ios-snapshots.xcresult"
+          "OBJROOT=$RUNNER_TEMP/ios-intermediates"
 
       - name: Verify iOS localization coverage
-        run: just check-localizations ios
+        run: |
+          started=$SECONDS
+          status=0
+          just check-localizations-ios --build-root "$RUNNER_TEMP/ios-intermediates" --configuration Debug-iphonesimulator || status=$?
+          printf '\nLocalization verification: %ss (exit %s).\n' "$((SECONDS - started))" "$status" >> "$GITHUB_STEP_SUMMARY"
+          exit "$status"
 
       - name: Collect failed snapshots
         if: failure() && !cancelled()

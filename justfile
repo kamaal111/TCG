@@ -13,6 +13,9 @@ APP_SCHEME := "TCG"
 APP_IOS_TEST_DESTINATION := env("TCG_APP_IOS_TEST_DESTINATION", "platform=iOS Simulator,OS=27.0,name=TCG Test iPhone")
 # Package tests do not need the app's development provisioning profiles.
 APP_CODE_SIGNING_ALLOWED := env("TCG_APP_CODE_SIGNING_ALLOWED", "NO")
+# CI restores package downloads separately from platform-specific build products.
+APP_SOURCE_PACKAGES := env("TCG_APP_SOURCE_PACKAGES", "")
+APP_SOURCE_PACKAGES_ARGS := if APP_SOURCE_PACKAGES == "" { "" } else { '-clonedSourcePackagesDirPath "' + APP_SOURCE_PACKAGES + '"' }
 
 DATABASE_HOST := env("TCG_DB_HOST", "localhost")
 DATABASE_PORT := env("TCG_DB_PORT", "5432")
@@ -175,16 +178,21 @@ test-heavy: test
 # Run app tests on macOS and iOS
 test-app: test-app-macos test-app-ios check-localizations
 
+# Check compiled localization keys against committed catalogs; run platform tests first
 check-localizations: check-localizations-macos check-localizations-ios
 
-check-localizations-ios:
-    just _check-localizations ios
+[positional-arguments]
+check-localizations-ios *args:
+    just _check-localizations ios "$@"
 
-check-localizations-macos:
-    just _check-localizations macos
+[positional-arguments]
+check-localizations-macos *args:
+    just _check-localizations macos "$@"
 
-_check-localizations platform:
-    node scripts/check-localizations.ts {{ platform }}
+[positional-arguments]
+_check-localizations platform *args:
+    node scripts/check-localizations.ts "$@"
+
 
 # Test localization coverage checks with isolated compiler-output fixtures
 test-localization-check:
@@ -194,6 +202,7 @@ test-localization-check:
 [working-directory("app")]
 test-app-macos:
     xcodebuild \
+        {{ APP_SOURCE_PACKAGES_ARGS }} \
         -project "{{ APP_PROJECT }}" \
         -scheme "{{ APP_SCHEME }}" \
         -destination "platform=macOS" \
@@ -205,6 +214,7 @@ test-app-macos:
 [working-directory("app")]
 test-app-ios:
     ../scripts/with-ios-simulator-lock \
+        {{ APP_SOURCE_PACKAGES_ARGS }} \
         -project "{{ APP_PROJECT }}" \
         -scheme "{{ APP_SCHEME }}" \
         -destination "{{ APP_IOS_TEST_DESTINATION }}" \
@@ -216,6 +226,7 @@ test-app-ios:
 [working-directory("app")]
 test-snapshots-macos:
     xcodebuild \
+        {{ APP_SOURCE_PACKAGES_ARGS }} \
         -project "{{ APP_PROJECT }}" \
         -scheme "{{ APP_SCHEME }}" \
         -destination "platform=macOS" \
@@ -254,6 +265,7 @@ _snapshots-ios action *args:
     action="$1"
     shift
     ../scripts/with-ios-simulator-lock \
+        {{ APP_SOURCE_PACKAGES_ARGS }} \
         -project "{{ APP_PROJECT }}" \
         -scheme "{{ APP_SCHEME }}" \
         -destination "{{ APP_IOS_TEST_DESTINATION }}" \

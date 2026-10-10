@@ -47,21 +47,6 @@ struct TCGCardsListScreenSnapshotTests {
     }
 
     @Test
-    func `Renders a selected set`() async throws {
-        let suiteName = "TCGCardsSnapshotTests.\(UUID().uuidString)"
-        let preferences = try #require(UserDefaults(suiteName: suiteName))
-        defer { preferences.removePersistentDomain(forName: suiteName) }
-        let saved = TCGCardsListScreenModel(preferences: preferences)
-        saved.gameFilter = .pokemon
-        saved.setNames = ["Base Set"]
-        let model = TCGCardsListScreenModel(preferences: preferences)
-        let feature = TCGCards(client: .preview(cardsOutcome: .success(cards: PreviewTCGCardsClient.sampleCards)))
-        await model.resumeLoadIfNeeded(using: feature)
-        #expect(feature.cards.map(\.card.id) == ["preview-card-2"])
-        await assertScreenSnapshot(testName: #function) { makeScreen(feature: feature, model: model) }
-    }
-
-    @Test
     func `Renders multiple selected sets`() async {
         let feature = TCGCards(client: .preview(cardsOutcome: .success(cards: PreviewTCGCardsClient.sampleCards)))
         let model = TCGCardsListScreenModel(preferences: nil)
@@ -81,17 +66,19 @@ struct TCGCardsListScreenSnapshotTests {
         await assertScreenSnapshot(testName: #function) { makeScreen(feature: feature, model: model) }
     }
 
-    @Test
-    func `Renders selected sets with large text`() async {
-        let feature = TCGCards(client: .preview(cardsOutcome: .success(cards: PreviewTCGCardsClient.sampleCards)))
-        let model = TCGCardsListScreenModel(preferences: nil)
-        model.setNames = ["Base Set", "Romance Dawn"]
-        await model.load(using: feature)
-        #expect(feature.cards.count == 2)
-        await assertScreenSnapshot(testName: #function) {
-            makeScreen(feature: feature, model: model).environment(\.dynamicTypeSize, .accessibility3)
+    #if os(iOS)
+        @Test
+        func `Renders selected sets with large text`() async {
+            let feature = TCGCards(client: .preview(cardsOutcome: .success(cards: PreviewTCGCardsClient.sampleCards)))
+            let model = TCGCardsListScreenModel(preferences: nil)
+            model.setNames = ["Base Set", "Romance Dawn"]
+            await model.load(using: feature)
+            #expect(feature.cards.count == 2)
+            await assertScreenSnapshot(testName: #function) {
+                makeScreen(feature: feature, model: model).environment(\.dynamicTypeSize, .accessibility3)
+            }
         }
-    }
+    #endif
 
     @Test
     func `Renders a populated collection`() async throws {
@@ -122,27 +109,19 @@ struct TCGCardsListScreenSnapshotTests {
         await assertScreenSnapshot(testName: #function) { makeScreen(feature: feature, model: model) }
     }
 
-    @Test
-    func `Renders a Pokemon filter`() async {
-        let feature = TCGCards(client: .preview(cardsOutcome: .success(cards: PreviewTCGCardsClient.sampleCards)))
-        let model = TCGCardsListScreenModel(preferences: nil)
-        model.gameFilter = .pokemon
-        await model.load(using: feature)
-        #expect(feature.cards.map(\.card.game) == [.pokemon])
-        await assertScreenSnapshot(testName: #function) { makeScreen(feature: feature, model: model) }
-    }
-
-    @Test
-    func `Renders the game filter with large text`() async throws {
-        let feature = TCGCards(client: .preview(cardsOutcome: .success(cards: PreviewTCGCardsClient.sampleCards)))
-        let model = TCGCardsListScreenModel(preferences: nil)
-        await model.load(using: feature)
-        #expect(feature.cards.count == 2)
-        await assertScreenSnapshot(testName: #function) {
-            makeScreen(feature: feature, model: model)
-                .environment(\.dynamicTypeSize, .accessibility3)
+    #if os(iOS)
+        @Test
+        func `Renders the game filter with large text`() async throws {
+            let feature = TCGCards(client: .preview(cardsOutcome: .success(cards: PreviewTCGCardsClient.sampleCards)))
+            let model = TCGCardsListScreenModel(preferences: nil)
+            await model.load(using: feature)
+            #expect(feature.cards.count == 2)
+            await assertScreenSnapshot(testName: #function) {
+                makeScreen(feature: feature, model: model)
+                    .environment(\.dynamicTypeSize, .accessibility3)
+            }
         }
-    }
+    #endif
 
     @Test
     func `Renders a collection with some unavailable prices`() async throws {

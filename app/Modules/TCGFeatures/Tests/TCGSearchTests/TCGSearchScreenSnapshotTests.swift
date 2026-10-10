@@ -83,13 +83,6 @@ struct TCGSearchScreenSnapshotTests {
     }
 
     @Test
-    func `Renders one selected search set`() async {
-        let state = await makeSetFilteredState(setNames: ["Crown Zenith"])
-        #expect(state.model.filteredResults(using: state.feature).count == 2)
-        await assertScreenSnapshot(testName: #function) { makeScreen(feature: state.feature, model: state.model) }
-    }
-
-    @Test
     func `Renders multiple selected search sets`() async {
         let state = await makeSetFilteredState(setNames: ["Crown Zenith", "Lost Origin"])
         #expect(state.model.filteredResults(using: state.feature).count == 3)
@@ -105,15 +98,17 @@ struct TCGSearchScreenSnapshotTests {
         await assertScreenSnapshot(testName: #function) { makeScreen(feature: state.feature, model: state.model) }
     }
 
-    @Test
-    func `Renders selected search sets with large text`() async {
-        let state = await makeSetFilteredState(setNames: ["Crown Zenith", "Lost Origin"])
-        #expect(state.model.setNames.count == 2)
-        await assertScreenSnapshot(testName: #function) {
-            makeScreen(feature: state.feature, model: state.model)
-                .environment(\.dynamicTypeSize, .accessibility3)
+    #if os(iOS)
+        @Test
+        func `Renders selected search sets with large text`() async {
+            let state = await makeSetFilteredState(setNames: ["Crown Zenith", "Lost Origin"])
+            #expect(state.model.setNames.count == 2)
+            await assertScreenSnapshot(testName: #function) {
+                makeScreen(feature: state.feature, model: state.model)
+                    .environment(\.dynamicTypeSize, .accessibility3)
+            }
         }
-    }
+    #endif
 
     private func makeSetFilteredState(setNames: Set<String>) async -> (
         feature: TCGSearch, model: TCGSearchScreenModel

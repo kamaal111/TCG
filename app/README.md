@@ -149,6 +149,11 @@ and reference images before recording new baselines. See
 [snapshot failure handling](../docs/development.md#snapshot-failures) and the
 [repository snapshot skill](../.agents/skills/swift-snapshot-testing/SKILL.md).
 
+Filter model tests cover exact selection and persistence behavior; screen
+snapshots retain representative selected-filter layouts in light and dark.
+The collection game/set and search set accessibility-size snapshots run on iOS
+only: their macOS references were identical to the standard-text snapshots.
+
 ## Localization coverage
 
 ### Search help Markdown
@@ -167,14 +172,28 @@ the help title, dismissal button, and error message remain in the catalog.
 
 ### String catalogs
 
-CI runs `just check-localizations macos` after the macOS tests and
-`just check-localizations ios` after the iOS snapshots. `just ready-app` runs both
+CI runs `just check-localizations-macos` after the macOS tests and
+`just check-localizations-ios` after the iOS snapshots. `just ready-app` runs both
 checks too. The checks compare the Swift compiler's `.stringsdata` output with
 the committed catalogs in each source module. A missing catalog, missing key, or
 missing compiler extraction fails the check with the affected path. When a
 non-source language appears in an app catalog, every extracted translatable key
 must have a completed translation in that language, including plural variants.
 English source keys can use their normal catalog fallback values.
+
+When the build uses an explicit `OBJROOT`, pass it to the checker to avoid another
+Xcode build-settings query:
+
+```sh
+just check-localizations-ios --build-root /tmp/tcg-ios-intermediates --configuration Debug-iphonesimulator
+```
+
+Both options are required together and must describe the current build's compiler
+output. The default invocation continues to discover those settings through Xcode.
+CI supplies its iOS intermediate directory directly and reports localization time
+alongside snapshot duration, Swift dependency cache status, time to first test,
+and completed test count in the job summary. Swift package downloads are cached
+separately from build products and simulator state.
 
 Use localized SwiftUI APIs or `String(localized:)` for user-facing text. Select
 the package's `.module` bundle when looking up its catalog. Keep game-dependent

@@ -1,5 +1,7 @@
 import childProcess from 'node:child_process';
+import fs from 'node:fs';
 import os from 'node:os';
+import stringDecoder from 'node:string_decoder';
 
 const gracePeriodMs = 2000;
 
@@ -52,6 +54,90 @@ function run(): void {
   let shutdownTimer: ReturnType<typeof setTimeout> | undefined;
   let idleTimer: ReturnType<typeof setTimeout> | undefined;
   let bootTimer: ReturnType<typeof setTimeout> | undefined;
+  const started = performance.now();
+  const milestones = new Map<string, number>();
+  let testCount = 0;
+
+  function milestone(name: string): void {
+    if (!milestones.has(name)) {
+      milestones.set(name, performance.now() - started);
+      log(`${name} (${((performance.now() - started) / 1000).toFixed(1)}s since start).`);
+    }
+  }
+
+  function observeLine(line: string): void {
+    if (line.includes('Resolve Package Graph')) {
+      milestone('Package resolution started');
+    }
+
+    if (line.includes('Resolved source packages:')) {
+      milestone('Package resolution completed');
+    }
+
+    if (line.includes("Test Suite 'Selected tests' started") || line.includes('◇ Test run started.')) {
+      milestone('First test started');
+    }
+
+    const count = /Test run with (\d+) tests?\b/.exec(line)?.[1];
+
+    if (count !== undefined) {
+      testCount += Number(count);
+    }
+  }
+
+  function observeOutput(): (data: Buffer) => void {
+    const decoder = new stringDecoder.StringDecoder('utf8');
+    let pending = '';
+
+    return data => {
+      pending += decoder.write(data);
+      let newline: number;
+
+      while ((newline = pending.indexOf('\n')) !== -1) {
+        observeLine(pending.slice(0, newline));
+        pending = pending.slice(newline + 1);
+      }
+
+      // xcodebuild emits newline-delimited output; bound unexpected partial lines.
+      if (pending.length > 65_536) {
+        pending = pending.slice(-65_536);
+      }
+    };
+  }
+
+  function summarize(): void {
+    milestone('Snapshot step completed');
+
+    const seconds = (value: number | undefined) =>
+      value === undefined ? 'Unavailable' : `${(value / 1000).toFixed(1)}s`;
+
+    const resolutionStart = milestones.get('Package resolution started');
+    const resolutionEnd = milestones.get('Package resolution completed');
+
+    const summary = [
+      '### iOS snapshot performance',
+      '',
+      '| Measurement | Result |',
+      '| --- | --- |',
+      `| Snapshot step | ${seconds(performance.now() - started)} |`,
+      `| Swift dependency cache hit | ${process.env.TCG_SWIFT_PACKAGE_CACHE_HIT === 'true' ? 'Yes' : 'No'} |`,
+      `| Package resolution | ${seconds(resolutionStart !== undefined && resolutionEnd !== undefined ? resolutionEnd - resolutionStart : undefined)} |`,
+      `| Time to first test (resolution, build, startup) | ${seconds(milestones.get('First test started'))} |`,
+      `| Reported completed tests | ${testCount} |`,
+      `| Exit code | ${exitCode} |`,
+      '',
+    ].join('\n');
+
+    const summaryPath = process.env.GITHUB_STEP_SUMMARY;
+
+    if (summaryPath) {
+      try {
+        fs.appendFileSync(summaryPath, summary + '\n');
+      } catch (error) {
+        log(`Could not write performance summary: ${String(error)}`);
+      }
+    }
+  }
 
   function finish(): void {
     clearTimeout(graceTimer);
@@ -59,6 +145,7 @@ function run(): void {
     clearTimeout(idleTimer);
     clearTimeout(bootTimer);
     signalGroup(shutdown, 'SIGKILL');
+    summarize();
     log(`Cleanup complete; exiting ${exitCode}.`);
     process.exit(exitCode);
   }
@@ -149,6 +236,8 @@ function run(): void {
     tests.stderr?.pipe(process.stderr);
     tests.stdout?.on('data', resetIdleDeadline);
     tests.stderr?.on('data', resetIdleDeadline);
+    tests.stdout?.on('data', observeOutput());
+    tests.stderr?.on('data', observeOutput());
     resetIdleDeadline();
     log(`Started ${phase} in process group ${tests.pid ?? 'unavailable'}.`);
     tests.once('error', error => {
