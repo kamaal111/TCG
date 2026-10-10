@@ -51,11 +51,13 @@ function run(): void {
   let graceTimer: ReturnType<typeof setTimeout> | undefined;
   let shutdownTimer: ReturnType<typeof setTimeout> | undefined;
   let idleTimer: ReturnType<typeof setTimeout> | undefined;
+  let bootTimer: ReturnType<typeof setTimeout> | undefined;
 
   function finish(): void {
     clearTimeout(graceTimer);
     clearTimeout(shutdownTimer);
     clearTimeout(idleTimer);
+    clearTimeout(bootTimer);
     signalGroup(shutdown, 'SIGKILL');
     log(`Cleanup complete; exiting ${exitCode}.`);
     process.exit(exitCode);
@@ -69,6 +71,7 @@ function run(): void {
     cleaningUp = true;
     clearTimeout(graceTimer);
     clearTimeout(idleTimer);
+    clearTimeout(bootTimer);
     signalGroup(tests, 'SIGKILL');
     log('Stopping CI simulators (two-second deadline).');
     shutdown = childProcess.spawn('xcrun', ['simctl', 'shutdown', 'all'], { detached: true, stdio: 'inherit' });
@@ -98,6 +101,7 @@ function run(): void {
 
     cancelled = true;
     clearTimeout(idleTimer);
+    clearTimeout(bootTimer);
     log(`Received ${signal}${repeated ? ' again' : ''}; cancelling iOS snapshots.`);
 
     if (cleaningUp) {
@@ -129,29 +133,67 @@ function run(): void {
     }, idleTimeoutSeconds * 1000);
   }
 
+  const simulator = process.env.TCG_IOS_SNAPSHOT_SIMULATOR;
+  const snapshotArgs = process.argv.slice(2);
+
+  const buildArgs = snapshotArgs.filter(
+    (argument, index) => argument !== '-resultBundlePath' && snapshotArgs[index - 1] !== '-resultBundlePath',
+  );
+
+  function launch(command: string, args: string[], phase: 'build' | 'boot' | 'test' = 'test'): void {
+    tests = childProcess.spawn(command, args, {
+      detached: true,
+      stdio: ['inherit', 'pipe', 'pipe'],
+    });
+    tests.stdout?.pipe(process.stdout);
+    tests.stderr?.pipe(process.stderr);
+    tests.stdout?.on('data', resetIdleDeadline);
+    tests.stderr?.on('data', resetIdleDeadline);
+    resetIdleDeadline();
+    log(`Started ${phase} in process group ${tests.pid ?? 'unavailable'}.`);
+    tests.once('error', error => {
+      log(`Could not launch ${phase === 'test' ? 'iOS snapshots' : phase}: ${error.message}`);
+      cleanup();
+    });
+    tests.once('exit', (code, signal) => {
+      clearTimeout(bootTimer);
+
+      if (phase !== 'test' && code === 0 && !cancelled && !timedOut && !cleaningUp) {
+        signalGroup(tests, 'SIGKILL');
+
+        if (phase === 'build' && simulator) {
+          log('Snapshot build completed; booting simulator.');
+          launch('xcrun', ['simctl', 'bootstatus', simulator, '-b'], 'boot');
+          bootTimer = setTimeout(() => {
+            timedOut = true;
+            exitCode = 124;
+            log(`Simulator boot exceeded ${idleTimeoutSeconds} seconds; failing before tests.`);
+            cleanup();
+          }, idleTimeoutSeconds * 1000);
+        } else {
+          log('Simulator boot completed; starting snapshots.');
+          launch('just', ['test-built-snapshots-ios', ...snapshotArgs]);
+        }
+
+        return;
+      }
+
+      if (!cancelled && !timedOut) {
+        exitCode = code ?? (signal === null ? 1 : 128 + os.constants.signals[signal]);
+      }
+
+      cleanup();
+    });
+  }
+
   process.on('SIGINT', () => cancel('SIGINT'));
   process.on('SIGTERM', () => cancel('SIGTERM'));
-  tests = childProcess.spawn('just', ['test-snapshots-ios', ...process.argv.slice(2)], {
-    detached: true,
-    stdio: ['inherit', 'pipe', 'pipe'],
-  });
-  tests.stdout?.pipe(process.stdout);
-  tests.stderr?.pipe(process.stderr);
-  tests.stdout?.on('data', resetIdleDeadline);
-  tests.stderr?.on('data', resetIdleDeadline);
-  resetIdleDeadline();
-  log(`Started iOS snapshots in process group ${tests.pid ?? 'unavailable'}.`);
-  tests.once('error', error => {
-    log(`Could not launch iOS snapshots: ${error.message}`);
-    cleanup();
-  });
-  tests.once('exit', (code, signal) => {
-    if (!cancelled && !timedOut) {
-      exitCode = code ?? (signal === null ? 1 : 128 + os.constants.signals[signal]);
-    }
 
-    cleanup();
-  });
+  if (simulator) {
+    launch('just', ['build-snapshots-ios', ...buildArgs], 'build');
+  } else {
+    launch('just', ['test-snapshots-ios', ...snapshotArgs]);
+  }
 }
 
 run();

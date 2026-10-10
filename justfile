@@ -219,9 +219,28 @@ test-snapshots-macos:
         SWIFT_EMIT_LOC_STRINGS=YES
 
 # Run iOS screen snapshot tests
-[working-directory("app")]
 [positional-arguments]
 test-snapshots-ios *args:
+    just _snapshots-ios test "$@"
+
+# Build iOS screen snapshot test products without launching the simulator
+[positional-arguments]
+build-snapshots-ios *args:
+    just _snapshots-ios build-for-testing "$@"
+
+# Run previously built iOS screen snapshot tests
+[positional-arguments]
+test-built-snapshots-ios *args:
+    just _snapshots-ios test-without-building "$@"
+
+[private]
+[working-directory("app")]
+[positional-arguments]
+_snapshots-ios action *args:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    action="$1"
+    shift
     ../scripts/with-ios-simulator-lock \
         -project "{{ APP_PROJECT }}" \
         -scheme "{{ APP_SCHEME }}" \
@@ -234,7 +253,7 @@ test-snapshots-ios *args:
         -only-testing:TCGSettingsTests/TCGSettingsScreenSnapshotTests \
         -only-testing:TCGDesignSystemTests/CardImageViewSnapshotTests \
         "$@" \
-        test \
+        "$action" \
         CODE_SIGNING_ALLOWED={{ APP_CODE_SIGNING_ALLOWED }} \
         SWIFT_EMIT_LOC_STRINGS=YES
 

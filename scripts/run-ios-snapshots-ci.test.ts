@@ -30,6 +30,11 @@ setInterval(() => {}, 1000);
     `#!${process.execPath}
 import childProcess from 'node:child_process';
 import fs from 'node:fs';
+if (process.argv[2] === 'build-snapshots-ios') {
+  fs.writeFileSync(process.env.FIXTURE + '/build.json', JSON.stringify(process.argv.slice(2)));
+  console.log('build completed');
+  process.exit(process.env.MODE === 'build-failure' ? 66 : 0);
+}
 fs.writeFileSync(process.env.FIXTURE + '/just.pid', String(process.pid));
 fs.writeFileSync(process.env.FIXTURE + '/args.json', JSON.stringify(process.argv.slice(2)));
 console.log('test output');
@@ -51,6 +56,16 @@ setInterval(() => {}, 1000);
     path.join(directory, 'xcrun'),
     `#!${process.execPath}
 import fs from 'node:fs';
+if (process.argv[3] === 'bootstatus') {
+  fs.writeFileSync(process.env.FIXTURE + '/boot.pid', String(process.pid));
+  fs.writeFileSync(process.env.FIXTURE + '/boot.json', JSON.stringify(process.argv.slice(2)));
+  console.log('boot ready');
+  if (process.env.MODE === 'boot-failure') process.exit(9);
+  if (process.env.MODE !== 'boot-hang') process.exit(0);
+  process.on('SIGINT', () => {});
+  process.on('SIGTERM', () => {});
+  setInterval(() => console.log('boot progress'), 100);
+} else {
 fs.writeFileSync(process.env.FIXTURE + '/shutdown.pid', String(process.pid));
 fs.writeFileSync(process.env.FIXTURE + '/shutdown.json', JSON.stringify(process.argv.slice(2)));
 console.log('shutdown ready');
@@ -59,6 +74,7 @@ if (process.env.MODE !== 'shutdown-hang') process.exit(0);
 process.on('SIGINT', () => {});
 process.on('SIGTERM', () => {});
 setInterval(() => {}, 1000);
+}
 `,
     { mode: 0o755 },
   );
@@ -71,9 +87,16 @@ interface StartOptions {
   args?: string[];
   githubActions?: string;
   idleTimeoutSeconds?: string;
+  simulator?: string;
 }
 
-function start({ directory, args = [], githubActions = 'true', idleTimeoutSeconds = '180' }: StartOptions) {
+function start({
+  directory,
+  args = [],
+  githubActions = 'true',
+  idleTimeoutSeconds = '180',
+  simulator = '',
+}: StartOptions) {
   const child = childProcess.spawn(process.execPath, [supervisor, ...args], {
     env: {
       ...process.env,
@@ -82,6 +105,7 @@ function start({ directory, args = [], githubActions = 'true', idleTimeoutSecond
       MODE: fs.readFileSync(path.join(directory, 'mode'), 'utf8'),
       GITHUB_ACTIONS: githubActions,
       TCG_IOS_SNAPSHOT_IDLE_TIMEOUT_SECONDS: idleTimeoutSeconds,
+      TCG_IOS_SNAPSHOT_SIMULATOR: simulator,
     },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
@@ -128,7 +152,7 @@ afterEach(() => {
   }
 
   for (const directory of fixtures.splice(0)) {
-    for (const name of ['just', 'worker', 'shutdown']) {
+    for (const name of ['just', 'worker', 'shutdown', 'boot']) {
       if (fs.existsSync(path.join(directory, `${name}.pid`))) {
         try {
           process.kill(pid(directory, name), 'SIGKILL');
@@ -143,6 +167,73 @@ afterEach(() => {
 });
 
 describe('iOS snapshot CI supervisor', () => {
+  it('builds first, waits for simulator boot, then tests without rebuilding', async () => {
+    const directory = fixture();
+    const run = start({ directory, simulator: 'iPhone 17', args: ['-jobs', '2', '-resultBundlePath', '/tmp/results'] });
+
+    expect(await run.exited).toBe(0);
+    expect(JSON.parse(fs.readFileSync(path.join(directory, 'boot.json'), 'utf8'))).toEqual([
+      'simctl',
+      'bootstatus',
+      'iPhone 17',
+      '-b',
+    ]);
+    expect(run.output().indexOf('boot ready')).toBeLessThan(run.output().indexOf('test output'));
+    expect(run.output().indexOf('build completed')).toBeLessThan(run.output().indexOf('boot ready'));
+    expect(JSON.parse(fs.readFileSync(path.join(directory, 'build.json'), 'utf8'))).toEqual([
+      'build-snapshots-ios',
+      '-jobs',
+      '2',
+    ]);
+    expect(JSON.parse(fs.readFileSync(path.join(directory, 'args.json'), 'utf8'))).toEqual([
+      'test-built-snapshots-ios',
+      '-jobs',
+      '2',
+      '-resultBundlePath',
+      '/tmp/results',
+    ]);
+    expect(run.output()).toContain('Simulator boot completed');
+  });
+
+  it('preserves build failure without booting the simulator', async () => {
+    const directory = fixture('build-failure');
+    const run = start({ directory, simulator: 'iPhone 17' });
+
+    expect(await run.exited).toBe(66);
+    expect(fs.existsSync(path.join(directory, 'boot.pid'))).toBe(false);
+    expect(fs.existsSync(path.join(directory, 'just.pid'))).toBe(false);
+  });
+
+  it('preserves boot failure and skips tests', async () => {
+    const directory = fixture('boot-failure');
+    const run = start({ directory, simulator: 'iPhone 17' });
+
+    expect(await run.exited).toBe(9);
+    expect(fs.existsSync(path.join(directory, 'just.pid'))).toBe(false);
+    expect(fs.existsSync(path.join(directory, 'shutdown.json'))).toBe(true);
+  });
+
+  it('bounds boot even when the simulator keeps reporting progress', async () => {
+    const directory = fixture('boot-hang');
+    const run = start({ directory, simulator: 'iPhone 17', idleTimeoutSeconds: '1' });
+
+    expect(await run.exited).toBe(124);
+    expect(run.output()).toContain('Simulator boot exceeded 1 seconds');
+    expect(fs.existsSync(path.join(directory, 'just.pid'))).toBe(false);
+    await vi.waitFor(() => expect(running(pid(directory, 'boot'))).toBe(false));
+  });
+
+  it('cancels simulator boot without starting tests', async () => {
+    const directory = fixture('boot-hang');
+    const run = start({ directory, simulator: 'iPhone 17' });
+    await vi.waitFor(() => expect(run.output()).toContain('boot ready'));
+    run.child.kill('SIGTERM');
+
+    expect(await run.exited).toBe(143);
+    expect(fs.existsSync(path.join(directory, 'just.pid'))).toBe(false);
+    await vi.waitFor(() => expect(running(pid(directory, 'boot'))).toBe(false));
+  });
+
   it('fails silent signal-resistant processes with exit 124 and kills their descendants', async () => {
     const directory = fixture('stubborn');
     const run = start({ directory, idleTimeoutSeconds: '1' });
