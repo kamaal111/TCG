@@ -11,7 +11,7 @@ let package = Package(
         .library(name: "TCGApp", targets: ["TCGApp"])
     ],
     dependencies: [
-        .package(url: "https://github.com/Kamaalio/kamaal-auth", .upToNextMinor(from: "0.0.13")),
+        .package(url: "https://github.com/Kamaalio/kamaal-auth", .upToNextMinor(from: "0.0.15")),
         .package(path: "../TCGFeatures"),
         .package(path: "../TCGClient"),
     ],

@@ -35,6 +35,7 @@ enum AuthTokenIssuer {
             return .failure(
                 AuthErrorBody.failure(status: 401, body: try? JSONEncoder().encode(unauthorized.body.json))
             )
+        case .internalServerError: return .failure(AuthRequestFailure(status: 500))
         case .undocumented(let statusCode, _): return .failure(AuthRequestFailure(status: statusCode))
         }
     }

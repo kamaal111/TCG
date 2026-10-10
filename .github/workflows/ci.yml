@@ -53,23 +53,15 @@ jobs:
       - name: Check out code
         uses: actions/checkout@v7
 
-      - name: Set up pnpm
-        uses: pnpm/action-setup@v6
-        with:
-          version: 12.5.1
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v7
+      - name: Set up pnpm and Node.js
+        uses: pnpm/setup@v3
         with:
           node-version-file: .node-version
-          cache: pnpm
-          cache-dependency-path: pnpm-lock.yaml
+          cache: true
+          require-lockfile: true
 
       - name: Set up just
         uses: extractions/setup-just@v4
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
 
       - name: Run server quality checks
         run: just quality-server
@@ -108,20 +100,12 @@ jobs:
       - name: Check out code
         uses: actions/checkout@v7
 
-      - name: Set up pnpm
-        uses: pnpm/action-setup@v6
-        with:
-          version: 12.5.1
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v7
+      - name: Set up pnpm and Node.js
+        uses: pnpm/setup@v3
         with:
           node-version-file: .node-version
-          cache: pnpm
-          cache-dependency-path: pnpm-lock.yaml
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+          cache: true
+          require-lockfile: true
 
       - name: Set up just
         uses: extractions/setup-just@v4
@@ -174,10 +158,11 @@ jobs:
       - name: Check out code
         uses: actions/checkout@v7
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v7
+      - name: Set up pnpm and Node.js
+        uses: pnpm/setup@v3
         with:
           node-version-file: .node-version
+          install: false
 
       - name: Set up just
         uses: extractions/setup-just@v4

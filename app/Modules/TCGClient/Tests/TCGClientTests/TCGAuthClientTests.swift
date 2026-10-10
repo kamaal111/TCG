@@ -117,6 +117,26 @@ struct TCGAuthClientTests {
     }
 
     @Test
+    func `Should preserve credentials when token issuance returns a documented server error`() async throws {
+        let initialData = try JSONEncoder().encode(makeCredentials(expiryDate: .distantFuture))
+        let credentialsStore = CredentialsStoreSpy(initialData: initialData)
+        let transport = RequestTransport.serverError()
+        let client = TCGClient.default(
+            transport: transport,
+            credentialsKeychainKey: "credentials-key",
+            credentialsStore: credentialsStore
+        )
+
+        let result = await client.auth.refreshToken()
+
+        #expect(throws: SessionErrors.unknown(status: 500, payload: nil, cause: nil)) {
+            try result.get()
+        }
+        #expect(credentialsStore.storedCredentialsData == initialData)
+        try await assertRefreshTokenRequest(in: transport)
+    }
+
+    @Test
     func `Should refresh the token before authenticated requests when the session needs an update`() async throws {
         let credentialsStore = try CredentialsStoreSpy(
             initialData: JSONEncoder().encode(
@@ -867,6 +887,17 @@ private actor RequestTransport: ClientTransport {
                 {
                   "message": "Authentication failed"
                 }
+                """.utf8
+            )
+        )
+    }
+
+    static func serverError() -> RequestTransport {
+        RequestTransport(
+            response: .init(status: .internalServerError, headerFields: [.contentType: "application/json"]),
+            responseBody: Data(
+                """
+                {"message": "Authentication provider failed"}
                 """.utf8
             )
         )

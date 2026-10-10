@@ -69,6 +69,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Authentication provider or token issuance failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
       summary: Sign up with email and password
       tags:
         - Authentication
@@ -132,6 +138,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Authentication provider or token issuance failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
       summary: Sign in with email and password
       tags:
         - Authentication
@@ -147,6 +159,12 @@ paths:
                 $ref: '#/components/schemas/SignOutResponse'
         '401':
           description: Authentication failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Authentication provider or token issuance failed
           content:
             application/json:
               schema:
@@ -177,6 +195,12 @@ paths:
                 $ref: '#/components/schemas/SessionResponse'
         '401':
           description: Session not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Authentication provider or token issuance failed
           content:
             application/json:
               schema:
@@ -231,6 +255,12 @@ paths:
                 $ref: '#/components/schemas/TokenResponse'
         '401':
           description: Not authenticated, session expired, or session not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Authentication provider or token issuance failed
           content:
             application/json:
               schema:

@@ -1,4 +1,4 @@
-FROM ghcr.io/jdx/mise:2026.9.16 AS mise
+FROM ghcr.io/jdx/mise:2026.10.6 AS mise
 
 FROM mcr.microsoft.com/devcontainers/base:trixie
 
