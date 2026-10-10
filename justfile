@@ -33,16 +33,23 @@ SERVER_RELATIVE_OUTPUT_SCHEMA_FILEPATH := ".." / OUTPUT_SCHEMA_FILEPATH
 DEVCONTAINER_COMPOSE := "docker compose -f .devcontainer/compose.services.yaml -f .devcontainer/compose.yaml"
 
 alias z := zed
+alias tc := typecheck
 alias fmt := format
 alias fmt-c := format-check
 alias prep := prepare
 alias i := install-modules
 alias dc-up := devcontainer-up
+alias dc-stop := devcontainer-stop
+alias dc-down := devcontainer-stop
+alias devcontainer-down := devcontainer-stop
+alias dc-rebuild := devcontainer-rebuild
 alias dc-sh := devcontainer-shell
 alias dc-exec := devcontainer-exec
+alias dc-rm := devcontainer-delete
+alias devcontainer-rm := devcontainer-delete
 
 # List available commands
-default:
+@_default:
     just --list --unsorted
 
 # Create a Herdr worktree with its own local environment
@@ -166,12 +173,17 @@ test: test-server test-server-image test-app test-scripts
 test-heavy: test
 
 # Run app tests on macOS and iOS
-test-app: test-app-macos test-app-ios
-    just check-localizations macos
-    just check-localizations ios
+test-app: test-app-macos test-app-ios check-localizations
 
-# Check compiled localization keys against committed catalogs; run platform tests first
-check-localizations platform:
+check-localizations: check-localizations-macos check-localizations-ios
+
+check-localizations-ios:
+    just _check-localizations ios
+
+check-localizations-macos:
+    just _check-localizations macos
+
+_check-localizations platform:
     node scripts/check-localizations.ts {{ platform }}
 
 # Test localization coverage checks with isolated compiler-output fixtures
@@ -261,8 +273,11 @@ _snapshots-ios action *args:
 test-snapshots: test-snapshots-macos test-snapshots-ios
 
 # Run server tests
+[parallel]
+test-server: test-packages _test-server
+
 [working-directory("server")]
-test-server: test-packages
+_test-server:
     {{ PNR }} test
 
 # Build the production server image
@@ -303,14 +318,6 @@ test-server-image: build-server-image
 # Run repository script tests with Vitest
 test-scripts:
     {{ PNR }} test
-
-# Test Herdr worktree environment setup
-test-herdr-worktree:
-    {{ PNR }} test scripts/create-herdr-worktree.test.ts
-
-# Run tests for the version-sync check script
-test-check-versions-in-sync:
-    {{ PNR }} test scripts/check-versions-in-sync.test.ts
 
 # Log available app destinations
 [working-directory("app")]
