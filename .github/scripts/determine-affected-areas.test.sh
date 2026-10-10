@@ -51,6 +51,8 @@ run_pull_request_case .github/workflows/ci.yml true true
 run_pull_request_case mise.toml true true
 run_pull_request_case scripts/check-localizations.ts false true
 run_pull_request_case scripts/check-localizations.test.ts false true
+run_pull_request_case scripts/run-ios-snapshots-ci.ts false true
+run_pull_request_case scripts/run-ios-snapshots-ci.test.ts false true
 run_pull_request_case scripts/check-versions-in-sync.ts true false
 run_pull_request_case vitest.config.ts true false
 run_pull_request_case docs/ci.md false false

@@ -5,7 +5,7 @@
     "strict": true,
     "noEmit": true,
     "skipLibCheck": true,
-    "types": ["node"],
+    "types": ["node", "vitest/globals"],
     "allowImportingTsExtensions": true,
     "noUncheckedIndexedAccess": true,
     "noUnusedLocals": true,
@@ -13,6 +13,7 @@
   },
   "include": [
     "vitest.config.ts",
+    "oxlint.config.ts",
     "scripts/build-server-image.ts",
     "scripts/build-server-image.test.ts",
     "scripts/check-server-image-health.ts",
@@ -21,6 +22,8 @@
     "scripts/create-herdr-worktree.ts",
     "scripts/create-herdr-worktree.test.ts",
     "scripts/check-versions-in-sync.ts",
-    "scripts/check-versions-in-sync.test.ts"
+    "scripts/check-versions-in-sync.test.ts",
+    "scripts/run-ios-snapshots-ci.ts",
+    "scripts/run-ios-snapshots-ci.test.ts"
   ]
 }

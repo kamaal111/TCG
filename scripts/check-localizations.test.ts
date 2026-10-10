@@ -1,14 +1,14 @@
-import { spawnSync } from 'node:child_process';
+import childProcess from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import url from 'node:url';
 
-import { expect, test, type TestContext } from 'vitest';
+import type { TestContext } from 'vitest';
 
 import { checkCatalogs, translated, type JSONValue } from './check-localizations.ts';
 
-const script = fileURLToPath(new URL('./check-localizations.ts', import.meta.url));
+const script = url.fileURLToPath(new URL('./check-localizations.ts', import.meta.url));
 
 const repo = path.dirname(path.dirname(script));
 
@@ -291,7 +291,7 @@ test('fails on filesystem errors', t => {
 });
 
 function cli(args: string[], env: NodeJS.ProcessEnv = {}) {
-  return spawnSync(process.execPath, [script, ...args], {
+  return childProcess.spawnSync(process.execPath, [script, ...args], {
     encoding: 'utf8',
     cwd: os.tmpdir(),
     env: { ...process.env, ...env },

@@ -118,6 +118,24 @@ filesystem sandbox. Inspect destinations with `just app-destinations` and set
 `TCG_APP_IOS_TEST_DESTINATION` when the local default is unavailable. CI uses
 `iPhone 17` on iOS 27.0 and the `xcode-27` runner.
 
+GitHub Actions skips the local simulator lock. Its iOS snapshot step uses
+`scripts/run-ios-snapshots-ci.ts` to supervise the recipe in a separate process
+group. Cancellation allows two seconds for a graceful stop before killing
+remaining build and test processes; termination or repeated cancellation
+escalates immediately. Simulator shutdown has a separate two-second deadline
+on success, failure, and cancellation. These limits apply only to CI's isolated
+runner. Cancelled runs skip snapshot artifact collection; ordinary failures
+still upload results. Cleanup timestamps help distinguish test cleanup delays
+from an unresponsive hosted runner or a stalled action post step.
+
+CI also fails with exit code 124 after three minutes without build or test
+output, stopping the process group and running the same bounded cleanup.
+Each stdout or stderr chunk resets this deadline. Set
+`TCG_IOS_SNAPSHOT_IDLE_TIMEOUT_SECONDS` to a positive integer to tune it.
+Verbose Xcode failure diagnostics are disabled in CI to avoid lengthy
+simulator diagnostic collection; snapshot images and result bundles remain
+available for ordinary test failures. Local test recipes are unchanged.
+
 Snapshots live under each suite's `__Snapshots__` directory. Review both actual
 and reference images before recording new baselines. See
 [snapshot failure handling](../docs/development.md#snapshot-failures) and the
