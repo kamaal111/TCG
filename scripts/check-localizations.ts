@@ -392,7 +392,7 @@ function main(): number {
 
   if (args.length === 1 && ['--help', '-h'].includes(args[0] ?? '')) {
     console.log(
-      'Usage: check-localizations.ts <macos|ios>\nCompare Xcode compiler-extracted keys with string catalogs.',
+      'Usage: check-localizations.ts <macos|ios> [--build-root PATH --configuration NAME]\nCompare Xcode compiler-extracted keys with string catalogs.',
     );
 
     return 0;
@@ -400,11 +400,60 @@ function main(): number {
 
   const platform = args[0];
 
-  if (args.length !== 1 || (platform !== 'macos' && platform !== 'ios')) {
+  if (platform !== 'macos' && platform !== 'ios') {
     throw new Error('Expected exactly one platform: macos or ios');
   }
 
   const root = path.dirname(path.dirname(url.fileURLToPath(import.meta.url)));
+  const options = new Map<string, string>();
+
+  for (let index = 1; index < args.length; index += 2) {
+    const option = args[index];
+    const value = args[index + 1];
+
+    if (
+      (option !== '--build-root' && option !== '--configuration') ||
+      !value ||
+      value.startsWith('--') ||
+      options.has(option)
+    ) {
+      throw new Error('Expected --build-root PATH and --configuration NAME together, each exactly once');
+    }
+
+    options.set(option, value);
+  }
+
+  const buildRoot = options.get('--build-root');
+  const configuration = options.get('--configuration');
+
+  if ((buildRoot === undefined) !== (configuration === undefined)) {
+    throw new Error('Expected --build-root PATH and --configuration NAME together, each exactly once');
+  }
+
+  const errors =
+    buildRoot !== undefined && configuration !== undefined
+      ? checkCatalogs(path.join(root, 'app'), buildRoot, configuration)
+      : checkDiscoveredCatalogs(root, platform);
+
+  if (errors.length) {
+    console.error('Localization coverage failed:');
+
+    for (const error of errors) {
+      console.error(`  ${error}`);
+    }
+
+    console.error("Sync catalogs from Xcode's extracted .stringsdata; see app/README.md.");
+
+    return 1;
+  }
+
+  console.log(`Localization catalogs cover all compiler-extracted ${platform} keys and declared translations.`);
+
+  return 0;
+}
+
+function checkDiscoveredCatalogs(root: string, platform: 'macos' | 'ios'): string[] {
+  const sourcePackages = process.env.TCG_APP_SOURCE_PACKAGES;
 
   const result = childProcess.execFileSync(
     'xcodebuild',
@@ -418,6 +467,7 @@ function main(): number {
       platform === 'macos' ? 'platform=macOS' : 'generic/platform=iOS Simulator',
       '-json',
       'CODE_SIGNING_ALLOWED=NO',
+      ...(sourcePackages ? ['-clonedSourcePackagesDirPath', sourcePackages] : []),
     ],
     { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] },
   );
@@ -436,23 +486,8 @@ function main(): number {
 
   const settings = object(target.buildSettings);
   const configuration = string(settings.CONFIGURATION) + (platform === 'ios' ? '-iphonesimulator' : '');
-  const errors = checkCatalogs(path.join(root, 'app'), string(settings.OBJROOT), configuration);
 
-  if (errors.length) {
-    console.error('Localization coverage failed:');
-
-    for (const error of errors) {
-      console.error(`  ${error}`);
-    }
-
-    console.error("Sync catalogs from Xcode's extracted .stringsdata; see app/README.md.");
-
-    return 1;
-  }
-
-  console.log(`Localization catalogs cover all compiler-extracted ${platform} keys and declared translations.`);
-
-  return 0;
+  return checkCatalogs(path.join(root, 'app'), string(settings.OBJROOT), configuration);
 }
 
 if (import.meta.url === url.pathToFileURL(process.argv[1] ?? '').href) {

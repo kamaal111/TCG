@@ -33,11 +33,16 @@ import fs from 'node:fs';
 if (process.argv[2] === 'build-snapshots-ios') {
   fs.writeFileSync(process.env.FIXTURE + '/build.json', JSON.stringify(process.argv.slice(2)));
   console.log('build completed');
+  if (process.env.MODE === 'metrics') console.log('Resolve Package Graph\\nResolved source packages:');
   process.exit(process.env.MODE === 'build-failure' ? 66 : 0);
 }
 fs.writeFileSync(process.env.FIXTURE + '/just.pid', String(process.pid));
 fs.writeFileSync(process.env.FIXTURE + '/args.json', JSON.stringify(process.argv.slice(2)));
 console.log('test output');
+if (process.env.MODE === 'metrics') {
+  console.log('◇ Test run started.\\n✔ Test run with 31 tests passed after 1 second.');
+  process.exit(0);
+}
 if (process.env.MODE === 'success') process.exit(0);
 if (process.env.MODE === 'failure') process.exit(65);
 const worker = childProcess.spawn(process.execPath, [process.env.FIXTURE + '/worker.mjs'], { stdio: 'inherit' });
@@ -88,6 +93,8 @@ interface StartOptions {
   githubActions?: string;
   idleTimeoutSeconds?: string;
   simulator?: string;
+  cacheHit?: string;
+  summaryPath?: string;
 }
 
 function start({
@@ -96,6 +103,8 @@ function start({
   githubActions = 'true',
   idleTimeoutSeconds = '180',
   simulator = '',
+  cacheHit = 'false',
+  summaryPath = path.join(directory, 'summary.md'),
 }: StartOptions) {
   const child = childProcess.spawn(process.execPath, [supervisor, ...args], {
     env: {
@@ -106,6 +115,8 @@ function start({
       GITHUB_ACTIONS: githubActions,
       TCG_IOS_SNAPSHOT_IDLE_TIMEOUT_SECONDS: idleTimeoutSeconds,
       TCG_IOS_SNAPSHOT_SIMULATOR: simulator,
+      TCG_SWIFT_PACKAGE_CACHE_HIT: cacheHit,
+      GITHUB_STEP_SUMMARY: summaryPath,
     },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
@@ -167,6 +178,18 @@ afterEach(() => {
 });
 
 describe('iOS snapshot CI supervisor', () => {
+  it('collects package and test metrics across separate build and test processes', async () => {
+    const directory = fixture('metrics');
+    const run = start({ directory, simulator: 'iPhone 17', cacheHit: 'true' });
+
+    expect(await run.exited).toBe(0);
+    const summary = fs.readFileSync(path.join(directory, 'summary.md'), 'utf8');
+    expect(summary).toMatch(/\| Package resolution \| \d+\.\ds \|/);
+    expect(summary).toMatch(/\| Time to first test \(resolution, build, startup\) \| \d+\.\ds \|/);
+    expect(summary).toContain('| Reported completed tests | 31 |');
+    expect(summary).toContain('| Swift dependency cache hit | Yes |');
+  });
+
   it('builds first, waits for simulator boot, then tests without rebuilding', async () => {
     const directory = fixture();
     const run = start({ directory, simulator: 'iPhone 17', args: ['-jobs', '2', '-resultBundlePath', '/tmp/results'] });
@@ -232,6 +255,57 @@ describe('iOS snapshot CI supervisor', () => {
     expect(await run.exited).toBe(143);
     expect(fs.existsSync(path.join(directory, 'just.pid'))).toBe(false);
     await vi.waitFor(() => expect(running(pid(directory, 'boot'))).toBe(false));
+  });
+
+  it.each(['stdout', 'stderr'])(
+    'reports milestones and counts from fragmented %s while preserving output',
+    async stream => {
+      const directory = fixture();
+      fs.writeFileSync(
+        path.join(directory, 'just'),
+        `#!${process.execPath}
+process.${stream}.write('Resolve Pack');
+setTimeout(() => {
+  process.${stream}.write('age Graph\\nResolved source packages:\\n◇ Test run started.\\n');
+  process.${stream}.write('✔ Test run with 31 tests in 4 suites passed after 48.971 seconds.\\n');
+  process.${stream}.write('✔ Test run with 1 test in 1 suite passed after 1.876 seconds.\\n');
+}, 20);
+`,
+        { mode: 0o755 },
+      );
+      const run = start({ directory, cacheHit: 'true' });
+
+      expect(await run.exited).toBe(0);
+      expect(run.output()).toContain('Resolve Package Graph');
+      expect(run.output()).toMatch(/Package resolution completed \(\d+\.\ds since start\)/);
+      expect(run.output()).toMatch(/First test started \(\d+\.\ds since start\)/);
+      expect(run.output()).toContain('Snapshot step completed');
+      const summary = fs.readFileSync(path.join(directory, 'summary.md'), 'utf8');
+      expect(summary).toContain('| Reported completed tests | 32 |');
+      expect(summary).toContain('| Swift dependency cache hit | Yes |');
+      expect(summary).toMatch(/\| Time to first test \(resolution, build, startup\) \| \d+\.\ds \|/);
+      expect(summary).toContain('| Exit code | 0 |');
+    },
+  );
+
+  it('reports unavailable milestones and cache miss on early test failure', async () => {
+    const directory = fixture('failure');
+    const run = start({ directory });
+
+    expect(await run.exited).toBe(65);
+    const summary = fs.readFileSync(path.join(directory, 'summary.md'), 'utf8');
+    expect(summary).toContain('| Swift dependency cache hit | No |');
+    expect(summary).toContain('| Package resolution | Unavailable |');
+    expect(summary).toContain('| Reported completed tests | 0 |');
+    expect(summary).toContain('| Exit code | 65 |');
+  });
+
+  it('preserves test failure when the performance summary cannot be written', async () => {
+    const directory = fixture('failure');
+    const run = start({ directory, summaryPath: directory });
+
+    expect(await run.exited).toBe(65);
+    expect(run.output()).toContain('Could not write performance summary');
   });
 
   it('fails silent signal-resistant processes with exit 124 and kills their descendants', async () => {

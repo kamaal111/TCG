@@ -294,7 +294,7 @@ function cli(args: string[], env: NodeJS.ProcessEnv = {}) {
   return childProcess.spawnSync(process.execPath, [script, ...args], {
     encoding: 'utf8',
     cwd: os.tmpdir(),
-    env: { ...process.env, ...env },
+    env: { ...process.env, TCG_APP_SOURCE_PACKAGES: '', ...env },
   });
 }
 
@@ -307,13 +307,59 @@ for (const arg of ['--help', '-h']) {
   });
 }
 
-for (const args of [[], ['linux'], ['macos', 'ios'], ['--help', 'macos']]) {
+for (const args of [[], ['linux'], ['--help', 'macos']]) {
   test(`CLI rejects ${JSON.stringify(args)} without Xcode`, () => {
     const result = cli(args, { PATH: '' });
     expect(result.status).toBe(1);
     expect(result.stderr).toMatch(/^Cannot verify localization coverage: Expected exactly one platform/);
   });
 }
+
+for (const args of [
+  ['macos', 'ios'],
+  ['ios', '--build-root', '/tmp/build'],
+  ['ios', '--configuration', 'Debug-iphonesimulator'],
+  ['ios', '--build-root'],
+  ['ios', '--build-root', '', '--configuration', 'Debug-iphonesimulator'],
+  ['ios', '--build-root', '/tmp/build', '--configuration', ''],
+  ['ios', '--build-root', '/tmp/build', '--configuration', 'Debug-iphonesimulator', '--build-root', '/tmp/other'],
+]) {
+  test(`CLI rejects incomplete or duplicate options ${JSON.stringify(args)} without Xcode`, () => {
+    const result = cli(args, { PATH: '' });
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain('Expected --build-root PATH and --configuration NAME together');
+  });
+}
+
+test('CLI checks explicit build output with spaces without invoking Xcode', t => {
+  const f = fakeXcode(t, 'process.exit(99);');
+  const source = path.join(repo, 'app/TCG/AbsentFixture.swift');
+  const build = path.join(f.root, 'build with spaces');
+  const output = path.join(build, 'Debug-iphonesimulator');
+  fs.mkdirSync(output, { recursive: true });
+  fs.writeFileSync(path.join(output, 'TCG.SwiftFileList'), quote(source) + '\n');
+  fs.writeFileSync(path.join(output, 'TCG.stringsdata'), JSON.stringify({ source, tables: {} }));
+
+  const result = cli(['ios', '--configuration', 'Debug-iphonesimulator', '--build-root', build], f.env);
+
+  expect(result.status).toBe(0);
+  expect(result.stdout).toContain('Localization catalogs cover all compiler-extracted ios keys');
+  expect(fs.existsSync(f.log)).toBe(false);
+});
+
+test('CLI fails explicit build output with missing compiler extraction without invoking Xcode', t => {
+  const f = fakeXcode(t, 'process.exit(99);');
+  const source = path.join(repo, 'app/TCG/AbsentFixture.swift');
+  const output = path.join(f.build, 'Debug-iphonesimulator');
+  fs.mkdirSync(output);
+  fs.writeFileSync(path.join(output, 'TCG.SwiftFileList'), quote(source) + '\n');
+
+  const result = cli(['ios', '--build-root', f.build, '--configuration', 'Debug-iphonesimulator'], f.env);
+
+  expect(result.status).toBe(1);
+  expect(result.stderr).toContain('no compiler string extraction');
+  expect(fs.existsSync(f.log)).toBe(false);
+});
 
 function fakeXcode(t: TestContext, body: string) {
   const f = fixture(t);
@@ -380,6 +426,22 @@ test('CLI reports coverage failure', t => {
   expect(result.stderr).toBe(
     "Localization coverage failed:\n  No app compilation inputs found for Release. Run the matching app tests first.\nSync catalogs from Xcode's extracted .stringsdata; see app/README.md.\n",
   );
+});
+
+test('CLI discovery uses the same package downloads as the app recipes', t => {
+  const f = fakeXcode(t, 'console.log(process.env.SETTINGS);');
+  const packages = path.join(f.root, 'source packages');
+
+  const result = cli(['macos'], {
+    ...f.env,
+    TCG_APP_SOURCE_PACKAGES: packages,
+    SETTINGS: JSON.stringify([{ target: 'TCG', buildSettings: { CONFIGURATION: 'Debug', OBJROOT: f.build } }]),
+  });
+
+  expect(result.status).toBe(1);
+  expect(result.stderr).toContain('No app compilation inputs found for Debug');
+  expect(JSON.parse(fs.readFileSync(f.log, 'utf8'))).toContain('-clonedSourcePackagesDirPath');
+  expect(JSON.parse(fs.readFileSync(f.log, 'utf8'))).toContain(packages);
 });
 
 for (const output of ['not JSON', '{}', '[]', '[{"target":"TCG","buildSettings":{}}]']) {
