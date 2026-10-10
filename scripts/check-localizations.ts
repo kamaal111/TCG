@@ -1,8 +1,8 @@
 /** Compare Xcode's compiler-extracted keys with the app's string catalogs. */
-import { execFileSync } from 'node:child_process';
+import childProcess from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import url from 'node:url';
 
 export type JSONValue = string | number | boolean | null | JSONValue[] | JSONObject;
 
@@ -404,9 +404,9 @@ function main(): number {
     throw new Error('Expected exactly one platform: macos or ios');
   }
 
-  const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
+  const root = path.dirname(path.dirname(url.fileURLToPath(import.meta.url)));
 
-  const result = execFileSync(
+  const result = childProcess.execFileSync(
     'xcodebuild',
     [
       '-showBuildSettings',
@@ -455,7 +455,7 @@ function main(): number {
   return 0;
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
+if (import.meta.url === url.pathToFileURL(process.argv[1] ?? '').href) {
   try {
     process.exitCode = main();
   } catch (error) {

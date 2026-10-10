@@ -157,6 +157,8 @@ jobs:
     steps:
       - name: Check out code
         uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - name: Set up pnpm and Node.js
         uses: pnpm/setup@v3
@@ -178,17 +180,17 @@ jobs:
           xcrun simctl list devices available
 
       - name: Run iOS snapshots
-        run: just test-snapshots-ios -resultBundlePath "$RUNNER_TEMP/ios-snapshots.xcresult"
+        run: exec node scripts/run-ios-snapshots-ci.ts -collect-test-diagnostics never -resultBundlePath "$RUNNER_TEMP/ios-snapshots.xcresult"
 
       - name: Verify iOS localization coverage
         run: just check-localizations ios
 
       - name: Collect failed snapshots
-        if: failure()
+        if: failure() && !cancelled()
         run: bash .github/scripts/collect-snapshot-failures.sh "$RUNNER_TEMP/ios-snapshot-failures" "$RUNNER_TEMP/ios-snapshots.xcresult"
 
       - name: Upload failed snapshots
-        if: failure()
+        if: failure() && !cancelled()
         uses: actions/upload-artifact@v7
         with:
           name: ios-snapshot-failures

@@ -1,4 +1,4 @@
-import { Writable } from 'node:stream';
+import stream from 'node:stream';
 
 import type { DestinationStream, LevelWithSilent, Logger, LoggerOptions } from 'pino';
 import pino from 'pino';
@@ -74,7 +74,7 @@ export function setRootLoggerDestination(destination: DestinationStream) {
 }
 
 export function createMemoryLogDestination(logs: string[]) {
-  return new Writable({
+  return new stream.Writable({
     write(chunk: string | Uint8Array, _encoding, callback) {
       logs.push(Buffer.from(chunk).toString('utf8'));
       callback();

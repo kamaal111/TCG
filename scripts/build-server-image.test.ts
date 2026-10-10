@@ -4,7 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import url from 'node:url';
 
-import { expect, test, type TestContext } from 'vitest';
+import type { TestContext } from 'vitest';
 import z from 'zod';
 
 const script = url.fileURLToPath(new URL('./build-server-image.ts', import.meta.url));

@@ -1,5 +1,3 @@
-import { describe, expect, it } from 'vitest';
-
 import { worktreeEnv } from './create-herdr-worktree.ts';
 
 const source = `# Local development
