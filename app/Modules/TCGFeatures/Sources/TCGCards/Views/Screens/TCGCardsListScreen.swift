@@ -95,7 +95,8 @@ public struct TCGCardsListScreen: View {
             }
             TCGSetFilterSection(
                 availableSetNames: model.availableSetNames(using: cardCollection),
-                selection: $model.setNames
+                selection: $model.setNames,
+                presentation: .submenu
             )
         }
     }

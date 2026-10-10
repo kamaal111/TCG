@@ -17,17 +17,54 @@ final class TCGCardsListScreenModel {
 
     var gameFilter: ClientCardGame? {
         didSet {
-            if gameFilter != oldValue { setNames = [] }
+            guard !isRestoringFilters else { return }
+            guard gameFilter != oldValue else { return }
+            setNames = []
+            preferences?.set(gameFilter?.rawValue, forKey: PreferenceKey.game)
         }
     }
-    var setNames: Set<String> = []
+    var setNames: Set<String> = [] {
+        didSet {
+            guard !isRestoringFilters else { return }
+            preferences?.set(setNames.sorted(), forKey: PreferenceKey.setNames)
+        }
+    }
     var presentedForm: CardFormRoute?
     var presentedImageURL: URL?
+
+    @ObservationIgnored private let preferences: UserDefaults?
+    @ObservationIgnored private var isRestoringFilters = true
 
     @ObservationIgnored private var toastTask: Task<Void, Never>?
     @ObservationIgnored private var loadedFilters: FilterSelection?
 
     var filters: FilterSelection { FilterSelection(game: gameFilter, setNames: setNames) }
+
+    init(preferences: UserDefaults? = .standard) {
+        self.preferences = preferences
+        let saved = Self.loadFilters(from: preferences)
+        gameFilter = saved.game
+        setNames = saved.setNames
+        isRestoringFilters = false
+    }
+
+    private static func loadFilters(from preferences: UserDefaults?) -> FilterSelection {
+        var game: ClientCardGame?
+        if let storedGame = preferences?.object(forKey: PreferenceKey.game) {
+            guard let rawValue = storedGame as? String else { return FilterSelection(game: nil, setNames: []) }
+            guard let parsed = ClientCardGame(rawValue: rawValue) else {
+                return FilterSelection(game: nil, setNames: [])
+            }
+            game = parsed
+        }
+        let setNames = preferences?.object(forKey: PreferenceKey.setNames) as? [String] ?? []
+        return FilterSelection(game: game, setNames: Set(setNames))
+    }
+
+    private enum PreferenceKey {
+        static let game = "TCGCards.filters.game"
+        static let setNames = "TCGCards.filters.setNames"
+    }
 
     func resumeLoadIfNeeded(using cards: TCGCards) async {
         guard loadedFilters != filters || !cards.hasLoadedCurrentCollection else { return }

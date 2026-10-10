@@ -1,29 +1,54 @@
 import SwiftUI
 
 public struct TCGSetFilterSection: View {
+    public enum Presentation {
+        case section
+        case submenu
+    }
+
+    private let presentation: Presentation
     private let availableSetNames: [String]
     @Binding private var selection: Set<String>
 
-    public init(availableSetNames: [String], selection: Binding<Set<String>>) {
+    public init(
+        availableSetNames: [String],
+        selection: Binding<Set<String>>,
+        presentation: Presentation = .section
+    ) {
+        self.presentation = presentation
         self.availableSetNames = availableSetNames
         _selection = selection
     }
 
     public var body: some View {
-        Section {
-            Button {
-                selection = []
+        switch presentation {
+        case .section:
+            Section {
+                options
+            } header: {
+                Text("Set name", bundle: .module)
+            }
+        case .submenu:
+            Menu {
+                options
             } label: {
-                Text("All sets", bundle: .module)
+                Text("Set name", bundle: .module)
             }
-            ForEach(availableSetNames, id: \.self) { name in
-                Toggle(isOn: selectionBinding(for: name)) { Text(verbatim: name) }
-                    #if os(iOS)
-                        .menuActionDismissBehavior(.disabled)
-                    #endif
-            }
-        } header: {
-            Text("Set name", bundle: .module)
+        }
+    }
+
+    @ViewBuilder
+    private var options: some View {
+        Button {
+            selection = []
+        } label: {
+            Text("All sets", bundle: .module)
+        }
+        ForEach(availableSetNames, id: \.self) { name in
+            Toggle(isOn: selectionBinding(for: name)) { Text(verbatim: name) }
+                #if os(iOS)
+                    .menuActionDismissBehavior(.disabled)
+                #endif
         }
     }
 

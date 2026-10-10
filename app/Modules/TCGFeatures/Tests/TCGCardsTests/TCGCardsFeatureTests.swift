@@ -74,7 +74,7 @@ struct TCGCardsFeatureTests {
     func `A failed mutation refresh retries when the loaded screen resumes`() async throws {
         let transport = PendingCollectionTransport()
         let feature = makePendingFeature(transport)
-        let model = TCGCardsListScreenModel()
+        let model = TCGCardsListScreenModel(preferences: nil)
         let initialLoad = Task { await model.load(using: feature) }
         await transport.waitForRequest("/app-api/cards")
         await transport.complete("/app-api/cards", setName: "Base Set")
@@ -104,7 +104,7 @@ struct TCGCardsFeatureTests {
     func `A cancelled initial load remains retryable when the screen resumes`() async {
         let transport = PendingCollectionTransport()
         let feature = makePendingFeature(transport)
-        let model = TCGCardsListScreenModel()
+        let model = TCGCardsListScreenModel(preferences: nil)
         let cancelledLoad = Task { await model.load(using: feature) }
         await transport.waitForRequest("/app-api/cards")
         cancelledLoad.cancel()
@@ -126,7 +126,7 @@ struct TCGCardsFeatureTests {
     func `Resuming a preloaded screen skips the duplicate request and still reloads changed sets`() async {
         let transport = PendingCollectionTransport()
         let feature = makePendingFeature(transport)
-        let model = TCGCardsListScreenModel()
+        let model = TCGCardsListScreenModel(preferences: nil)
         let initialLoad = Task { await model.load(using: feature) }
         await transport.waitForRequest("/app-api/cards")
         await transport.complete("/app-api/cards", setName: "Base Set")

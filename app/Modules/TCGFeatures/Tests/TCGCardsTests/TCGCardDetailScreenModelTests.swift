@@ -133,7 +133,7 @@ struct TCGCardDetailScreenModelTests {
 
     @Test
     func `Image exploration preserves collection details`() throws {
-        let model = TCGCardsListScreenModel()
+        let model = TCGCardsListScreenModel(preferences: nil)
         let card = makeModel().card
         model.showDetails(of: card)
         model.exploreImage(of: card)
@@ -145,7 +145,7 @@ struct TCGCardDetailScreenModelTests {
 
     @Test
     func `Missing artwork does not open image exploration`() {
-        let model = TCGCardsListScreenModel()
+        let model = TCGCardsListScreenModel(preferences: nil)
         let card = PreviewTCGCardsClient.sampleCards[0]
         model.exploreImage(of: .init(card: card, price: .init(cardId: card.id, status: .noMatch)))
         #expect(model.presentedImageURL == nil)
