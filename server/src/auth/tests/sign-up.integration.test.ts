@@ -66,6 +66,7 @@ describe('Sign-up integration', () => {
         emailVerified: false,
       });
       expect(persistedAccounts).toHaveLength(1);
+      expect(persistedAccounts[0]).toMatchObject({ providerId: 'credential', issuer: null });
       expect(persistedAccounts[0]?.password).toBeTruthy();
       expect(persistedAccounts[0]?.password).not.toBe(payload.password);
       expect(persistedSessions).toHaveLength(1);

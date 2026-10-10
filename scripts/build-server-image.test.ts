@@ -122,7 +122,7 @@ test('builds with an isolated editor-free config while preserving credentials an
     '--build-arg',
     'NODE_VERSION=26',
     '--build-arg',
-    'PNPM_VERSION=12.5.1',
+    'PNPM_VERSION=12.11.1',
     '--tag',
     'tcg-server:local',
     '.',

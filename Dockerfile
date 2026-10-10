@@ -1,5 +1,5 @@
 ARG NODE_VERSION=26
-ARG PNPM_VERSION=12.5.1
+ARG PNPM_VERSION=12.11.1
 
 FROM ghcr.io/pnpm/pnpm:${PNPM_VERSION} AS dependencies
 

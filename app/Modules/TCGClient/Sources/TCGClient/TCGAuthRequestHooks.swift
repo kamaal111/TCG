@@ -36,6 +36,7 @@ struct TCGAuthRequestHooks: AuthRequestHooks {
         case .badRequest(let badRequest): return .failure(failure(status: 400, body: try? badRequest.body.json))
         case .conflict(let conflict): return .failure(failure(status: 409, body: try? conflict.body.json))
         case .unauthorized(let unauthorized): return .failure(failure(status: 401, body: try? unauthorized.body.json))
+        case .internalServerError: return .failure(AuthRequestFailure(status: 500))
         case .undocumented(let statusCode, _): return .failure(AuthRequestFailure(status: statusCode))
         }
     }
@@ -54,6 +55,7 @@ struct TCGAuthRequestHooks: AuthRequestHooks {
         case .ok(let ok): return AuthTokenHeadersMapper.credentials(from: ok.headers)
         case .badRequest(let badRequest): return .failure(failure(status: 400, body: try? badRequest.body.json))
         case .unauthorized(let unauthorized): return .failure(failure(status: 401, body: try? unauthorized.body.json))
+        case .internalServerError: return .failure(AuthRequestFailure(status: 500))
         case .undocumented(let statusCode, _): return .failure(AuthRequestFailure(status: statusCode))
         }
     }
@@ -69,6 +71,7 @@ struct TCGAuthRequestHooks: AuthRequestHooks {
         switch response {
         case .ok: return .success(())
         case .unauthorized(let unauthorized): return .failure(failure(status: 401, body: try? unauthorized.body.json))
+        case .internalServerError: return .failure(AuthRequestFailure(status: 500))
         case .undocumented(let statusCode, _): return .failure(AuthRequestFailure(status: statusCode))
         }
     }
@@ -101,6 +104,7 @@ struct TCGAuthRequestHooks: AuthRequestHooks {
                 )
             )
         case .unauthorized(let unauthorized): return .failure(failure(status: 401, body: try? unauthorized.body.json))
+        case .internalServerError: return .failure(AuthRequestFailure(status: 500))
         case .undocumented(let statusCode, _): return .failure(AuthRequestFailure(status: statusCode))
         }
     }
