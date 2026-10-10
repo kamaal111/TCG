@@ -84,14 +84,25 @@ struct PreviewTCGCardsClient: TCGCardsClient {
         return OwnedCardPrice(cardId: card.id, status: pricedCard == nil ? .noMatch : .priced, price: pricedCard)
     }
 
-    func delete(id: String) async -> Result<Void, DeleteCardErrors> {
-        if case .notFound = outcome { return .failure(.notFound) }
+    func delete(ids: [String]) async -> Result<DeleteCardsResult, DeleteCardsErrors> {
         if case .serverUnavailable = outcome { return .failure(.unknown(status: 503, payload: nil, cause: nil)) }
+        if case .validationErrors(let issues) = outcome { return .failure(.badRequest(validations: issues)) }
+        var seen = Set<String>()
+        let uniqueIDs = ids.filter { seen.insert($0).inserted }
+        if case .notFound = outcome {
+            return .success(DeleteCardsResult(deletedIDs: [], notFoundIDs: uniqueIDs))
+        }
 
         return state.cards.withLock { cards in
-            guard let index = cards.firstIndex(where: { $0.id == id }) else { return .failure(.notFound) }
-            cards.remove(at: index)
-            return .success(())
+            let existingIDs = Set(cards.map(\.id))
+            let selectedIDs = Set(uniqueIDs)
+            cards.removeAll { selectedIDs.contains($0.id) }
+            return .success(
+                DeleteCardsResult(
+                    deletedIDs: uniqueIDs.filter { existingIDs.contains($0) },
+                    notFoundIDs: uniqueIDs.filter { !existingIDs.contains($0) }
+                )
+            )
         }
     }
 

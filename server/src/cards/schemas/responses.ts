@@ -95,17 +95,17 @@ export const CardsListResponseSchema = z
     example: { cards: [], available_set_names: [] },
   });
 
-export const DeleteCardResponseSchema = z.object({}).meta({
-  $id: 'DeleteCardResponse',
-  title: 'Delete Card Response',
-  description: 'Confirms that the card entry was deleted',
-  example: {},
-});
-
 export type CardResponse = z.infer<typeof CardSchema>;
 
 export type CardWithPriceResponse = z.infer<typeof CardWithPriceSchema>;
 
 export type CardsListResponse = z.infer<typeof CardsListResponseSchema>;
 
-export type DeleteCardResponse = z.infer<typeof DeleteCardResponseSchema>;
+export const DeleteCardsResponseSchema = z
+  .object({
+    deleted_ids: z.array(CardIdSchema),
+    not_found_ids: z.array(CardIdSchema),
+  })
+  .meta({ $id: 'DeleteCardsResponse', title: 'Delete Cards Response' });
+
+export type DeleteCardsResponse = z.infer<typeof DeleteCardsResponseSchema>;

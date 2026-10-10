@@ -417,6 +417,40 @@ paths:
       summary: List owned cards
       tags:
         - Cards
+    delete:
+      description: >-
+        Delete owned matches and report missing or inaccessible IDs without
+        distinguishing ownership. Each response array follows request order with
+        duplicates removed.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeleteCards'
+      responses:
+        '200':
+          description: Deletion completed, including partial success or empty input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeleteCardsResponse'
+        '400':
+          description: Invalid card IDs
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '401':
+          description: Authenticated session not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearerAuth: []
+      summary: Delete owned cards
+      tags:
+        - Cards
   /app-api/cards/{cardId}:
     put:
       description: >-
@@ -473,42 +507,6 @@ paths:
       security:
         - bearerAuth: []
       summary: Replace an owned card
-      tags:
-        - Cards
-    delete:
-      description: Delete an owned card entry from the authenticated user's collection.
-      parameters:
-        - schema:
-            type: string
-            format: uuid
-            description: Unique card entry identifier
-            example: 550e8400-e29b-41d4-a716-446655440000
-          required: true
-          description: Unique card entry identifier
-          name: cardId
-          in: path
-      responses:
-        '200':
-          description: Card deleted successfully
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/DeleteCardResponse'
-        '401':
-          description: Authenticated session not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: Card not found or not owned by the authenticated user
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CardNotFoundErrorResponse'
-      security:
-        - bearerAuth: []
-      summary: Delete an owned card
       tags:
         - Cards
   /app-api/pricing/search:
@@ -1363,12 +1361,35 @@ components:
         - code
       title: Card Not Found Error Response
       description: Error response for a missing or inaccessible owned card entry
-    DeleteCardResponse:
+    DeleteCardsResponse:
       type: object
-      properties: {}
-      title: Delete Card Response
-      description: Confirms that the card entry was deleted
-      example: {}
+      properties:
+        deleted_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+        not_found_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+      required:
+        - deleted_ids
+        - not_found_ids
+      title: Delete Cards Response
+    DeleteCards:
+      type: object
+      properties:
+        card_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          description: Card entries to delete; duplicates are ignored
+      required:
+        - card_ids
+      title: Delete Cards
     PricingSearchResponse:
       type: object
       properties:

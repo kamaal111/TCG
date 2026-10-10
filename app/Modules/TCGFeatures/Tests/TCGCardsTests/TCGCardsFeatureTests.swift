@@ -42,32 +42,121 @@ struct TCGCardsFeatureTests {
         #expect(!feature.isLoading)
     }
 
-    @Test(arguments: [false, true])
-    func `Batch deletion refreshes once and preserves partial failures`(secondDeleteFails: Bool) async throws {
+    @Test(arguments: [
+        (["pokemon-card", "one-piece-card"], [], []),
+        (["pokemon-card"], ["one-piece-card"], [TCGCardsOperationError.notFound]),
+    ])
+    func `Batch deletion uses one request and refreshes once`(scenario: ([String], [String], [TCGCardsOperationError]))
+        async throws
+    {
+        let (deletedIDs, notFoundIDs, expectedErrors) = scenario
         let transport = PendingCollectionTransport()
         let feature = makePendingFeature(transport)
         let initialLoad = Task { await feature.load(game: .pokemon, setNames: ["Base Set"]) }
         let listPath = "/app-api/cards?game=pokemon&set_name=Base%20Set"
         await transport.waitForRequest(listPath)
-        await transport.complete(listPath, setName: "Base Set")
+        await transport.completeWithCachedCards(listPath)
         try await initialLoad.value.get()
 
-        let deletion = Task { await feature.deleteCards(ids: ["first-card", "second-card"]) }
-        await transport.waitForRequest("/app-api/cards/first-card")
-        await transport.complete("/app-api/cards/first-card", status: .ok)
-        await transport.waitForRequest("/app-api/cards/second-card")
-        #expect(await transport.requestCount == 3)
-        await transport.complete(
-            "/app-api/cards/second-card",
-            status: secondDeleteFails ? .internalServerError : .ok
-        )
+        let deletion = Task { await feature.deleteCards(ids: ["pokemon-card", "one-piece-card"]) }
+        await transport.waitForRequest("/app-api/cards")
+        #expect(await transport.requestCount == 2)
+        try await transport.completeDeletion(deletedIDs: deletedIDs, notFoundIDs: notFoundIDs)
         await transport.waitForRequest(listPath)
+        #expect(feature.cards.isEmpty)
         await transport.complete(listPath, setName: "Remaining Set")
-        let errors = await deletion.value
-        #expect(errors == (secondDeleteFails ? [.serverUnavailable] : []))
-        #expect(await transport.requestCount == 4)
+        #expect(await deletion.value == expectedErrors)
+        #expect(await transport.requestCount == 3)
         #expect(feature.availableSetNames == ["Remaining Set"])
         #expect(feature.hasLoadedCurrentCollection)
+    }
+
+    @Test
+    func `Empty deletion sends no requests`() async {
+        let transport = PendingCollectionTransport()
+        let feature = makePendingFeature(transport)
+        #expect(await feature.deleteCards(ids: []).isEmpty)
+        #expect(await transport.requestCount == 0)
+    }
+
+    @Test
+    func `Missing deletion targets preserve cached rows without refreshing`() async throws {
+        let transport = PendingCollectionTransport()
+        let feature = makePendingFeature(transport)
+        let load = Task { await feature.load(game: nil) }
+        await transport.waitForRequest("/app-api/cards")
+        await transport.completeWithCachedCards("/app-api/cards")
+        try await load.value.get()
+        let cached = feature.cards
+        let deletion = Task { await feature.deleteCards(ids: ["missing", "missing"]) }
+        await transport.waitForRequest("/app-api/cards")
+        try await transport.completeDeletion(deletedIDs: [], notFoundIDs: ["missing"])
+        #expect(await deletion.value == [.notFound])
+        #expect(feature.cards == cached)
+        #expect(feature.hasLoadedCurrentCollection)
+        #expect(await transport.requestCount == 2)
+    }
+
+    @Test
+    func `Failed deletion requests preserve cached rows without refreshing`() async throws {
+        let transport = PendingCollectionTransport()
+        let feature = makePendingFeature(transport)
+        let load = Task { await feature.load(game: nil) }
+        await transport.waitForRequest("/app-api/cards")
+        await transport.completeWithCachedCards("/app-api/cards")
+        try await load.value.get()
+        let cached = feature.cards
+        let deletion = Task { await feature.deleteCards(ids: ["pokemon-card"]) }
+        await transport.waitForRequest("/app-api/cards")
+        await transport.complete("/app-api/cards", status: .internalServerError)
+        #expect(await deletion.value == [.serverUnavailable])
+        #expect(feature.cards == cached)
+        #expect(feature.hasLoadedCurrentCollection)
+        #expect(await transport.requestCount == 2)
+    }
+
+    @Test
+    func `A failed deletion refresh retains successful deletion and retries on resume`() async throws {
+        let transport = PendingCollectionTransport()
+        let feature = makePendingFeature(transport)
+        let model = TCGCardsListScreenModel(preferences: nil)
+        let load = Task { await model.load(using: feature) }
+        await transport.waitForRequest("/app-api/cards")
+        await transport.completeWithCachedCards("/app-api/cards")
+        await load.value
+        let deletion = Task { await feature.deleteCards(ids: ["pokemon-card"]) }
+        await transport.waitForRequest("/app-api/cards")
+        try await transport.completeDeletion(deletedIDs: ["pokemon-card"], notFoundIDs: [])
+        await transport.waitForRequest("/app-api/cards")
+        await transport.complete("/app-api/cards", status: .serviceUnavailable)
+        #expect(await deletion.value.isEmpty)
+        #expect(feature.cards.map(\.card.id) == ["one-piece-card"])
+        #expect(!feature.hasLoadedCurrentCollection)
+        let resumed = Task { await model.resumeLoadIfNeeded(using: feature) }
+        await transport.waitForRequest("/app-api/cards")
+        await transport.complete("/app-api/cards", setName: "Remaining Set")
+        await resumed.value
+        #expect(feature.hasLoadedCurrentCollection)
+        #expect(await transport.requestCount == 4)
+    }
+
+    @Test
+    func `A missing single deletion preserves cached rows and returns not found`() async throws {
+        let transport = PendingCollectionTransport()
+        let feature = makePendingFeature(transport)
+        let load = Task { await feature.load(game: nil) }
+        await transport.waitForRequest("/app-api/cards")
+        await transport.completeWithCachedCards("/app-api/cards")
+        try await load.value.get()
+        let cached = feature.cards
+        let deletion = Task { await feature.deleteCard(id: "pokemon-card") }
+        await transport.waitForRequest("/app-api/cards")
+        try await transport.completeDeletion(deletedIDs: [], notFoundIDs: ["pokemon-card"])
+        await #expect(throws: TCGCardsOperationError.notFound) { try await deletion.value.get() }
+        #expect(feature.cards == cached)
+        #expect(feature.hasLoadedCurrentCollection)
+        #expect(await transport.requestCount == 2)
+        #expect(await transport.deletionIDs == [["pokemon-card"]])
     }
 
     @Test
@@ -81,8 +170,9 @@ struct TCGCardsFeatureTests {
         await initialLoad.value
 
         let deletion = Task { await feature.deleteCard(id: "deleted-card") }
-        await transport.waitForRequest("/app-api/cards/deleted-card")
-        await transport.complete("/app-api/cards/deleted-card", status: .ok)
+        await transport.waitForRequest("/app-api/cards")
+        try await transport.completeDeletion(deletedIDs: ["deleted-card"], notFoundIDs: [])
+        #expect(await transport.deletionIDs == [["deleted-card"]])
         await transport.waitForRequest("/app-api/cards")
         await transport.complete("/app-api/cards", status: .serviceUnavailable)
         try await deletion.value.get()
@@ -297,17 +387,23 @@ struct TCGCardsFeatureTests {
 
 private actor PendingCollectionTransport: ClientTransport {
     private(set) var requestCount = 0
+    private(set) var deletionIDs: [[String]] = []
     private var pending: [String: CheckedContinuation<(HTTPResponse, HTTPBody?), Never>] = [:]
     private var waiters: [String: CheckedContinuation<Void, Never>] = [:]
 
     func send(
         _ request: HTTPRequest,
-        body _: HTTPBody?,
+        body: HTTPBody?,
         baseURL _: URL,
         operationID _: String
     ) async throws -> (HTTPResponse, HTTPBody?) {
         guard let path = request.path else { preconditionFailure("Collection requests require a path.") }
         requestCount += 1
+        if request.method == .delete {
+            guard let body else { preconditionFailure("Deletion requests require a body.") }
+            let data = try await Data(collecting: body, upTo: .max)
+            deletionIDs.append(try JSONDecoder().decode(DeleteCardsPayload.self, from: data).cardIDs)
+        }
         return await withCheckedContinuation { continuation in
             pending[path] = continuation
             waiters.removeValue(forKey: path)?.resume()
@@ -334,6 +430,15 @@ private actor PendingCollectionTransport: ClientTransport {
             preconditionFailure("A collection request must be pending before completion.")
         }
         continuation.resume(returning: (HTTPResponse(status: status), HTTPBody("{}")))
+    }
+
+    func completeDeletion(deletedIDs: [String], notFoundIDs: [String]) throws {
+        let path = "/app-api/cards"
+        guard let continuation = pending.removeValue(forKey: path) else {
+            preconditionFailure("A deletion request must be pending before completion.")
+        }
+        let body = try JSONSerialization.data(withJSONObject: ["deleted_ids": deletedIDs, "not_found_ids": notFoundIDs])
+        continuation.resume(returning: (HTTPResponse(status: .ok), HTTPBody(body)))
     }
 
     func completeWithCachedCards(_ path: String) {

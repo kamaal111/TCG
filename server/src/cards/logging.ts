@@ -13,6 +13,7 @@ export const CARDS_EVENTS = [
 export type CardsLogFields = DomainLogFields<(typeof CARDS_EVENTS)[number]> & {
   card_id?: string;
   result_count?: number;
+  not_found_count?: number;
   game?: CardGame;
 };
 

@@ -15,7 +15,7 @@ public protocol TCGCardsClient: Sendable {
     func list(game: ClientCardGame?, setNames: Set<String>) async -> Result<CardCollection, ListCardsErrors>
     func create(with payload: UpsertCardPayload) async -> Result<CardWithPrice, CreateCardErrors>
     func update(id: String, with payload: UpsertCardPayload) async -> Result<CardWithPrice, UpdateCardErrors>
-    func delete(id: String) async -> Result<Void, DeleteCardErrors>
+    func delete(ids: [String]) async -> Result<DeleteCardsResult, DeleteCardsErrors>
 }
 
 struct TCGCardsClientImpl: TCGCardsClient {
@@ -124,21 +124,29 @@ struct TCGCardsClientImpl: TCGCardsClient {
         }
     }
 
-    func delete(id: String) async -> Result<Void, DeleteCardErrors> {
-        let response: Operations.DeleteAppApiCardsCardId.Output
+    func delete(ids: [String]) async -> Result<DeleteCardsResult, DeleteCardsErrors> {
+        let payload = DeleteCardsPayload(cardIDs: ids)
+        let response: Operations.DeleteAppApiCards.Output
         do {
-            response = try await client.deleteAppApiCardsCardId(path: .init(cardId: id))
+            response = try await client.deleteAppApiCards(body: .json(.init(cardIds: payload.cardIDs)))
         } catch {
             return .failure(.unknown(status: 503, payload: nil, cause: error))
         }
 
         switch response {
-        case .ok:
-            return .success(())
+        case .ok(let response):
+            do {
+                let result = try response.body.json
+                return .success(DeleteCardsResult(deletedIDs: result.deletedIds, notFoundIDs: result.notFoundIds))
+            } catch {
+                return .failure(.unknown(status: 503, payload: nil, cause: error))
+            }
+        case .badRequest(let response):
+            return .failure(
+                .badRequest(validations: TCGClientValidationErrorParser.parseIssues(from: try? response.body.json))
+            )
         case .unauthorized:
             return .failure(.unauthorized)
-        case .notFound:
-            return .failure(.notFound)
         case .undocumented(let status, let payload):
             return .failure(.unknown(status: status, payload: payload, cause: nil))
         }

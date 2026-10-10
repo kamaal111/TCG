@@ -88,10 +88,38 @@ struct PreviewTCGCardsClientTests {
     }
 
     @Test
-    func `Delete removes a card`() async throws {
+    func `Deletion deduplicates, preserves unselected cards, and supports retries`() async throws {
         let client = TCGClient.preview(cardsOutcome: .success(cards: PreviewTCGCardsClient.sampleCards))
-        _ = try await client.cards.delete(id: "preview-card-1").get()
+        let ids = ["preview-card-1", "missing", "preview-card-1"]
+        #expect(
+            try await client.cards.delete(ids: ids).get()
+                == DeleteCardsResult(deletedIDs: ["preview-card-1"], notFoundIDs: ["missing"])
+        )
         #expect(try await client.cards.list(game: nil).get().map(\.card.id) == ["preview-card-2"])
+        #expect(
+            try await client.cards.delete(ids: ids).get()
+                == DeleteCardsResult(deletedIDs: [], notFoundIDs: ["preview-card-1", "missing"])
+        )
+        #expect(try await client.cards.delete(ids: []).get() == DeleteCardsResult(deletedIDs: [], notFoundIDs: []))
+    }
+
+    @Test
+    func `Deletion honors configured not found outcomes`() async throws {
+        let client = TCGClient.preview(cardsOutcome: .notFound)
+        #expect(
+            try await client.cards.delete(ids: ["preview-card-1"]).get()
+                == DeleteCardsResult(deletedIDs: [], notFoundIDs: ["preview-card-1"])
+        )
+        #expect(try await client.cards.list(game: nil).get().count == 2)
+    }
+
+    @Test
+    func `Deletion honors configured validation failures`() async {
+        let issue = TCGClientValidationIssue(code: "invalid_format", path: ["card_ids", "0"], message: "Invalid UUID")
+        let client = TCGClient.preview(cardsOutcome: .validationErrors([issue]))
+        await #expect(throws: DeleteCardsErrors.badRequest(validations: [issue])) {
+            try await client.cards.delete(ids: ["invalid"]).get()
+        }
     }
 
     @Test
@@ -104,13 +132,10 @@ struct PreviewTCGCardsClientTests {
     }
 
     @Test
-    func `Not found outcome rejects update and delete`() async {
+    func `Not found outcome rejects update`() async {
         let client = TCGClient.preview(cardsOutcome: .notFound)
         await #expect(throws: UpdateCardErrors.notFound) {
             try await client.cards.update(id: "preview-card-1", with: previewPayload).get()
-        }
-        await #expect(throws: DeleteCardErrors.notFound) {
-            try await client.cards.delete(id: "preview-card-1").get()
         }
     }
 
@@ -126,8 +151,8 @@ struct PreviewTCGCardsClientTests {
         await #expect(throws: UpdateCardErrors.unavailable) {
             try await client.cards.update(id: "preview-card-1", with: previewPayload).get()
         }
-        await #expect(throws: DeleteCardErrors.unknown(status: 503, payload: nil, cause: nil)) {
-            try await client.cards.delete(id: "preview-card-1").get()
+        await #expect(throws: DeleteCardsErrors.unknown(status: 503, payload: nil, cause: nil)) {
+            try await client.cards.delete(ids: ["preview-card-1"]).get()
         }
     }
 }

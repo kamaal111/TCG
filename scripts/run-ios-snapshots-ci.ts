@@ -45,6 +45,7 @@ function run(): void {
   }
 
   let tests: childProcess.ChildProcess | undefined;
+  const phaseProcesses: childProcess.ChildProcess[] = [];
   let shutdown: childProcess.ChildProcess | undefined;
   let exitCode = 1;
   let cancelled = false;
@@ -159,7 +160,11 @@ function run(): void {
     clearTimeout(graceTimer);
     clearTimeout(idleTimer);
     clearTimeout(bootTimer);
-    signalGroup(tests, 'SIGKILL');
+
+    for (const child of phaseProcesses) {
+      signalGroup(child, 'SIGKILL');
+    }
+
     log('Stopping CI simulators (two-second deadline).');
     shutdown = childProcess.spawn('xcrun', ['simctl', 'shutdown', 'all'], { detached: true, stdio: 'inherit' });
     shutdown.once('error', error => {
@@ -232,6 +237,7 @@ function run(): void {
       detached: true,
       stdio: ['inherit', 'pipe', 'pipe'],
     });
+    phaseProcesses.push(tests);
     tests.stdout?.pipe(process.stdout);
     tests.stderr?.pipe(process.stderr);
     tests.stdout?.on('data', resetIdleDeadline);
@@ -248,8 +254,6 @@ function run(): void {
       clearTimeout(bootTimer);
 
       if (phase !== 'test' && code === 0 && !cancelled && !timedOut && !cleaningUp) {
-        signalGroup(tests, 'SIGKILL');
-
         if (phase === 'build' && simulator) {
           log('Snapshot build completed; booting simulator.');
           launch('xcrun', ['simctl', 'bootstatus', simulator, '-b'], 'boot');
