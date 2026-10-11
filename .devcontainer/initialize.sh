@@ -30,7 +30,7 @@ own_container="$(docker ps --quiet \
 
 if [[ -z "$own_container" ]] && (exec 3<>"/dev/tcp/127.0.0.1/$app_port") 2>/dev/null; then
     echo "Port $app_port is already in use on the host." >&2
-    echo "Give this checkout its own PORT and BETTER_AUTH_URL in .env (just herdr-worktree does this)." >&2
+    echo "Run just setup-worktree from the host to configure distinct worktree ports in .env." >&2
     exit 1
 fi
 
