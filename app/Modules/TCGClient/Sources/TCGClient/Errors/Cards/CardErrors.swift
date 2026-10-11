@@ -71,3 +71,11 @@ public enum DeleteCardsErrors: Error, Equatable {
         }
     }
 }
+
+public enum CardBackupErrors: Error, Equatable {
+    case requestFailed
+    case invalidResponse(status: Int)
+    case unauthorized
+    case badRequest(validations: [TCGClientValidationIssue])
+    case unknown(status: Int)
+}

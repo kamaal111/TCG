@@ -5,6 +5,7 @@
 //  Created by Kamaal M Farah on 7/20/26.
 //
 
+import Foundation
 import KamaalExtensions
 import KamaalLogger
 import Observation
@@ -17,11 +18,15 @@ private let logger = KamaalLogger(from: TCGCards.self)
 public final class TCGCards {
     private(set) var cards: [CardWithPrice] = []
     private(set) var availableSetNames: Set<String> = []
+    private(set) var isLoadingNextPage = false
+    private(set) var nextPageError: TCGCardsOperationError?
 
     private let client: TCGClient
     private var collectionState = CollectionState()
 
     var isLoading: Bool { collectionState.status == .loading }
+    var hasMoreCards: Bool { collectionState.nextCursor != nil }
+
     var hasLoadedCurrentCollection: Bool { collectionState.status == .loaded }
 
     init(client: TCGClient) {
@@ -31,27 +36,114 @@ public final class TCGCards {
     public static func `default`() -> TCGCards { TCGCards(client: .default()) }
 
     func load(game: ClientCardGame?, setNames: Set<String> = []) async -> Result<Void, TCGCardsOperationError> {
-        if game != collectionState.game { availableSetNames = [] }
+        let pageCount =
+            game == collectionState.game && setNames == collectionState.setNames
+            ? max(1, collectionState.pageCount) : 1
+
+        return await loadCollection(.init(game: game, setNames: setNames, pageCount: pageCount))
+    }
+
+    func loadNextPage() async -> Result<Void, TCGCardsOperationError> {
+        guard collectionState.status == .loaded else { return .success(()) }
+        guard !isLoadingNextPage else { return .success(()) }
+        guard collectionState.nextCursor != nil else { return .success(()) }
+
+        let generation = collectionState.generation
+        isLoadingNextPage = true
+        nextPageError = nil
+
+        var pages = CollectionPages(cards: cards, state: collectionState)
+        let result = await loadPage(into: &pages, generation: generation)
+
+        guard generation == collectionState.generation else { return .success(()) }
+
+        isLoadingNextPage = false
+
+        switch result {
+        case .failure(let error):
+            nextPageError = error
+            return .failure(error)
+        case .success(let didLoadPage):
+            guard didLoadPage else { return .success(()) }
+
+            publish(pages)
+            return .success(())
+        }
+    }
+
+    private func loadCollection(_ request: CollectionRequest) async -> Result<Void, TCGCardsOperationError> {
+        if request.game != collectionState.game { availableSetNames = [] }
         collectionState = CollectionState(
-            game: game,
-            setNames: setNames,
+            game: request.game,
+            setNames: request.setNames,
             generation: collectionState.generation + 1,
-            status: .loading
+            status: .loading,
+            pageCount: request.pageCount
         )
         let generation = collectionState.generation
+        isLoadingNextPage = false
+        nextPageError = nil
         setCards(cards)
-        let result = await client.cards.list(game: game, setNames: setNames)
-        guard generation == collectionState.generation else { return .success(()) }
-        collectionState.status = .idle
-        guard !Task.isCancelled else { return .success(()) }
-        return result.map { collection in
-            setCards(collection.cards)
-            availableSetNames = collection.availableSetNames
-            collectionState.status = .loaded
-        }.mapError { _ in
+
+        var pages = CollectionPages()
+
+        repeat {
+            let result = await loadPage(into: &pages, generation: generation)
+
+            guard generation == collectionState.generation else { return .success(()) }
+
+            switch result {
+            case .failure(let error):
+                collectionState.status = .idle
+                return .failure(error)
+            case .success(let didLoadPage):
+                guard didLoadPage else {
+                    collectionState.status = .idle
+                    return .success(())
+                }
+            }
+        } while pages.nextCursor != nil && pages.pageCount < request.pageCount
+
+        publish(pages)
+        return .success(())
+    }
+
+    private func loadPage(into pages: inout CollectionPages, generation: Int) async -> Result<
+        Bool, TCGCardsOperationError
+    > {
+        guard generation == collectionState.generation else { return .success(false) }
+        guard !Task.isCancelled else { return .success(false) }
+
+        let result = await client.cards.listPage(
+            game: collectionState.game,
+            setNames: collectionState.setNames,
+            cursor: pages.nextCursor
+        )
+
+        guard generation == collectionState.generation else { return .success(false) }
+        guard !Task.isCancelled else { return .success(false) }
+
+        switch result {
+        case .failure:
             logger.error("Couldn't load the card collection.")
-            return .serverUnavailable
+            return .failure(.serverUnavailable)
+        case .success(let page):
+            guard pages.append(page) else {
+                logger.error("The collection page returned an invalid pagination cursor.")
+                return .failure(.serverUnavailable)
+            }
+
+            return .success(true)
         }
+    }
+
+    private func publish(_ pages: CollectionPages) {
+        setCards(pages.cards)
+        availableSetNames = pages.availableSetNames
+        collectionState.nextCursor = pages.nextCursor
+        collectionState.visitedCursors = pages.visitedCursors
+        collectionState.pageCount = pages.pageCount
+        collectionState.status = .loaded
     }
 
     func purchaseDefault(game: ClientCardGame, name: String, cardNumber: String) async -> Result<
@@ -108,8 +200,46 @@ public final class TCGCards {
         }
     }
 
+    public func exportCards() async -> Result<URL, CardsExportError> {
+        switch await client.cards.exportCards() {
+        case .success(let collection): return CardsCSV.export(collection).mapError { _ in .fileWriteFailed }
+        case .failure(let error): return .failure(.collection(error))
+        }
+    }
+
+    public func downloadCardsTemplate() -> Result<URL, CardsExportError> {
+        CardsCSV.export([]).mapError { _ in .fileWriteFailed }
+    }
+
+    func importCards(_ drafts: [CSVImportCard]) async -> Result<CardsImportCompletion, CardBackupErrors> {
+        let now = Date()
+        let cards = drafts.compactMap { CardsCSV.makeCard($0, now: now) }
+        let payload = ImportCardsPayload(cards: cards.map(ImportCardPayload.init))
+        switch await client.cards.importCards(payload) {
+        case .failure(let error): return .failure(error)
+        case .success(let result):
+            let refresh = await refreshCollection()
+            return .success(.init(result: result, needsRefresh: (try? refresh.get()) == nil))
+        }
+    }
+
+    func retryImportRefresh() async -> Bool {
+        let result = await refreshCollection()
+        return (try? result.get()) != nil
+    }
+
     private func refresh() async {
-        _ = await load(game: collectionState.game, setNames: collectionState.setNames)
+        _ = await refreshCollection()
+    }
+
+    private func refreshCollection() async -> Result<Void, TCGCardsOperationError> {
+        await loadCollection(
+            .init(
+                game: collectionState.game,
+                setNames: collectionState.setNames,
+                pageCount: max(1, collectionState.pageCount)
+            )
+        )
     }
 
     private func setCards(_ cards: [CardWithPrice]) {
@@ -132,12 +262,52 @@ public final class TCGCards {
         var setNames: Set<String> = []
         var generation = 0
         var status: Status = .idle
+        var nextCursor: String?
+        var visitedCursors: Set<String> = []
+        var pageCount = 0
 
         enum Status {
             case idle
             case loading
             case loaded
         }
+    }
+
+    private struct CollectionPages {
+        var cards: [CardWithPrice]
+        var availableSetNames: Set<String> = []
+        var nextCursor: String?
+        var visitedCursors: Set<String>
+        var pageCount: Int
+
+        private var cardIDs: Set<String>
+
+        init(cards: [CardWithPrice] = [], state: CollectionState = .init()) {
+            self.cards = cards
+            nextCursor = state.nextCursor
+            visitedCursors = state.visitedCursors
+            pageCount = state.pageCount
+            cardIDs = Set(cards.map(\.card.id))
+        }
+
+        mutating func append(_ page: CardCollectionPage) -> Bool {
+            if let next = page.nextCursor {
+                guard !next.isEmpty else { return false }
+                guard visitedCursors.insert(next).inserted else { return false }
+            }
+
+            cards.append(contentsOf: page.cards.filter { cardIDs.insert($0.card.id).inserted })
+            availableSetNames = page.availableSetNames
+            nextCursor = page.nextCursor
+            pageCount += 1
+            return true
+        }
+    }
+
+    private struct CollectionRequest {
+        let game: ClientCardGame?
+        let setNames: Set<String>
+        let pageCount: Int
     }
 
     private func mapCreateError(_ error: CreateCardErrors) -> TCGCardsOperationError {

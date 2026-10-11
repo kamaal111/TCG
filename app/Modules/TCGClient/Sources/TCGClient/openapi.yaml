@@ -310,6 +310,110 @@ paths:
       summary: Get a card image
       tags:
         - Images
+  /app-api/cards/export:
+    get:
+      description: >-
+        Export one page of the authenticated user's collection without fetching
+        prices or changing purchase costs. Follow next_cursor until null for the
+        complete backup.
+      parameters:
+        - schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            description: Maximum cards per page; defaults to 50 and cannot exceed 100
+            example: 50
+            default: 50
+          required: false
+          description: Maximum cards per page; defaults to 50 and cannot exceed 100
+          name: limit
+          in: query
+        - schema:
+            type: string
+            pattern: ^[A-Za-z0-9_-]+$
+            minLength: 1
+            maxLength: 256
+            description: >-
+              Opaque next_cursor from the preceding page; omit to start at the
+              newest card
+            example: eyJjcmVhdGVkQXQiOiIyMDI2LTA3LTIwVDEwOjMwOjAwLjAwMDAwMFoiLCJpZCI6IjU1MGU4NDAwLWUyOWItNDFkNC1hNzE2LTQ0NjY1NTQ0MDAwMCJ9
+          required: false
+          description: >-
+            Opaque next_cursor from the preceding page; omit to start at the
+            newest card
+          name: cursor
+          in: query
+      responses:
+        '200':
+          description: Collection backup page
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExportCardsResponse'
+        '400':
+          description: Invalid pagination parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '401':
+          description: Session not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Unexpected server failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearerAuth: []
+      summary: Export a page of owned cards without market pricing
+      tags:
+        - Cards
+  /app-api/cards/import:
+    post:
+      description: >-
+        Import cards into the authenticated user's collection. Matching owned
+        IDs replace changed cards and complete purchase history; unchanged cards
+        are skipped.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ImportCards'
+      responses:
+        '200':
+          description: Import completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImportCardsResponse'
+        '400':
+          description: Invalid cards
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '401':
+          description: Session not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Unexpected server failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearerAuth: []
+      summary: Import new cards and replace changed owned cards
+      tags:
+        - Cards
   /app-api/cards:
     post:
       description: Add an owned trading card entry to the authenticated user's collection.
@@ -351,8 +455,37 @@ paths:
       tags:
         - Cards
     get:
-      description: List the authenticated user's owned card entries, newest first.
+      description: >-
+        List one page of the authenticated user's owned cards, newest first,
+        with complete game-scoped set choices. Follow next_cursor until null for
+        all matching cards.
       parameters:
+        - schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            description: Maximum cards per page; defaults to 50 and cannot exceed 100
+            example: 50
+            default: 50
+          required: false
+          description: Maximum cards per page; defaults to 50 and cannot exceed 100
+          name: limit
+          in: query
+        - schema:
+            type: string
+            pattern: ^[A-Za-z0-9_-]+$
+            minLength: 1
+            maxLength: 256
+            description: >-
+              Opaque next_cursor from the preceding page; omit to start at the
+              newest card
+            example: eyJjcmVhdGVkQXQiOiIyMDI2LTA3LTIwVDEwOjMwOjAwLjAwMDAwMFoiLCJpZCI6IjU1MGU4NDAwLWUyOWItNDFkNC1hNzE2LTQ0NjY1NTQ0MDAwMCJ9
+          required: false
+          description: >-
+            Opaque next_cursor from the preceding page; omit to start at the
+            newest card
+          name: cursor
+          in: query
         - schema:
             type: string
             enum:
@@ -393,13 +526,19 @@ paths:
               schema:
                 $ref: '#/components/schemas/CardsListResponse'
         '400':
-          description: Invalid collection filters
+          description: Invalid collection filters or pagination parameters
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ValidationErrorResponse'
         '401':
           description: Authenticated session not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Unexpected server failure
           content:
             application/json:
               schema:
@@ -670,12 +809,14 @@ components:
                   path:
                     type: array
                     items:
-                      type:
-                        - string
-                        - number
+                      type: string
                     description: Path to the invalid field
                     example:
-                      - amount
+                      - cards
+                      - '0'
+                      - purchases
+                      - '0'
+                      - automatic_price_date
                   message:
                     type: string
                     description: Validation issue message
@@ -829,37 +970,44 @@ components:
           example: eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9...
       required:
         - token
-    CardWithPrice:
-      allOf:
-        - $ref: '#/components/schemas/Card'
-        - type: object
-          properties:
-            price:
-              $ref: '#/components/schemas/OwnedCardPrice'
-          required:
-            - price
-      title: Card With Price
-      description: An owned trading card entry with its freshly refreshed price
+    ExportCardsResponse:
+      type: object
+      properties:
+        cards:
+          type: array
+          items:
+            $ref: '#/components/schemas/Card'
+          description: One page of owned cards without refreshed market pricing
+        next_cursor:
+          type:
+            - string
+            - 'null'
+          description: Opaque cursor for the next page; null when this is the final page
+          example: null
+      required:
+        - cards
+        - next_cursor
+      title: Export Cards Response
+      description: One page of the authenticated user's owned cards and purchase history
       example:
-        id: 550e8400-e29b-41d4-a716-446655440000
-        game: one_piece
-        name: Monkey D. Luffy
-        set_name: Romance Dawn
-        card_number: OP01-003
-        notes: null
-        purchases:
-          - id: 550e8400-e29b-41d4-a716-446655440001
-            condition: near_mint
-            quantity: 2
-            purchase_price: null
-            currency: null
-            automatic_price_date: null
-        purchase_price_change_percent: null
-        created_at: '2026-07-20T10:30:00.000Z'
-        updated_at: '2026-07-20T10:30:00.000Z'
-        price:
-          card_id: 550e8400-e29b-41d4-a716-446655440000
-          status: priced
+        next_cursor: null
+        cards:
+          - id: 550e8400-e29b-41d4-a716-446655440000
+            game: one_piece
+            name: Monkey D. Luffy
+            set_name: Romance Dawn
+            card_number: OP01-003
+            notes: Alternate art
+            purchases:
+              - id: 550e8400-e29b-41d4-a716-446655440001
+                condition: near_mint
+                quantity: 2
+                purchase_price: '2.500000'
+                currency: USD
+                automatic_price_date: '2026-07-20'
+            purchase_price_change_percent: null
+            created_at: '2026-07-20T10:30:00.000Z'
+            updated_at: '2026-07-20T10:30:00.000Z'
     CardPurchase:
       type: object
       properties:
@@ -1003,6 +1151,247 @@ components:
         purchase_price_change_percent: null
         created_at: '2026-07-20T10:30:00.000Z'
         updated_at: '2026-07-20T10:30:00.000Z'
+    ImportCardsResponse:
+      type: object
+      properties:
+        imported_count:
+          type: integer
+          minimum: 0
+          maximum: 9007199254740991
+          description: Number of newly imported cards
+          example: 1
+        updated_count:
+          type: integer
+          minimum: 0
+          maximum: 9007199254740991
+          description: >-
+            Number of changed owned cards replaced, including their complete
+            purchases
+          example: 1
+        skipped_count:
+          type: integer
+          minimum: 0
+          maximum: 9007199254740991
+          description: Number of unchanged cards or repeated input identifiers skipped
+          example: 0
+      required:
+        - imported_count
+        - updated_count
+        - skipped_count
+      title: Import Cards Response
+      description: Counts of new, replaced, and unchanged cards
+      example:
+        imported_count: 1
+        updated_count: 1
+        skipped_count: 0
+    ImportCards:
+      type: object
+      properties:
+        cards:
+          type: array
+          items:
+            $ref: '#/components/schemas/ImportCard'
+          description: >-
+            Cards to import; matching owned identifiers replace changed cards
+            and their complete purchase history
+      required:
+        - cards
+      title: Import Cards
+      description: A collection backup to import into the authenticated user's account
+      example:
+        cards:
+          - id: 550e8400-e29b-41d4-a716-446655440000
+            game: one_piece
+            name: Monkey D. Luffy
+            set_name: Romance Dawn
+            card_number: OP01-003
+            notes: Alternate art
+            created_at: '2026-07-20T10:30:00.000Z'
+            updated_at: '2026-07-20T10:30:00.000Z'
+            purchases:
+              - id: 550e8400-e29b-41d4-a716-446655440001
+                condition: near_mint
+                quantity: 2
+                purchase_price: '2.50'
+                currency: USD
+                automatic_price_date: '2026-07-20'
+    ImportCard:
+      type: object
+      properties:
+        game:
+          type: string
+          enum:
+            - one_piece
+            - pokemon
+          description: Trading card game
+          example: one_piece
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: Card name
+          example: Monkey D. Luffy
+        set_name:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: Set name
+          example: Romance Dawn
+        card_number:
+          type: string
+          minLength: 1
+          maxLength: 50
+          description: Card number
+          example: OP01-003
+        notes:
+          type:
+            - null
+            - string
+          maxLength: 2000
+          description: Optional notes preserved from the backup
+          example: Alternate art
+        purchases:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+                format: uuid
+              condition:
+                type: string
+                enum:
+                  - mint
+                  - near_mint
+                  - excellent
+                  - good
+                  - played
+                  - damaged
+                description: Condition of the owned copies
+                example: near_mint
+              quantity:
+                type: integer
+                minimum: 1
+                maximum: 999
+                description: Number of copies owned in this condition
+                example: 2
+              purchase_price:
+                type:
+                  - null
+                  - string
+                pattern: ^(?:0|[1-9]\d{0,13})(?:\.\d{1,6})?$
+                description: >-
+                  Nonnegative price per card, as an exact decimal with at most
+                  six fractional digits
+                example: '2.50'
+                default: null
+              currency:
+                type:
+                  - null
+                  - string
+                enum:
+                  - JPY
+                  - USD
+                title: Currency
+                description: ISO 4217 currency supported by the pricing service.
+                example: USD
+                default: null
+              automatic_price_date:
+                type:
+                  - null
+                  - string
+                format: date
+                description: >-
+                  Original market pricing day; requires a purchase price when
+                  provided
+                example: '2026-07-20'
+                default: null
+            required:
+              - id
+              - condition
+              - quantity
+          minItems: 1
+          maxItems: 5994
+          description: >-
+            Purchase batches preserved from the backup, including exact costs
+            and currencies
+        id:
+          type: string
+          format: uuid
+          description: >-
+            Source card identifier used to create or replace cards owned by the
+            importing account
+          example: 550e8400-e29b-41d4-a716-446655440000
+        created_at:
+          type: string
+          format: date-time
+          description: Original creation timestamp preserved from the backup
+          example: '2026-07-20T10:30:00.000Z'
+        updated_at:
+          type: string
+          format: date-time
+          description: Original last update timestamp preserved from the backup
+          example: '2026-07-20T10:30:00.000Z'
+      required:
+        - game
+        - name
+        - set_name
+        - card_number
+        - purchases
+        - id
+        - created_at
+        - updated_at
+      title: Import Card
+      description: >-
+        An owned card from a backup, preserving source identity, timestamps, and
+        purchase history
+      example:
+        id: 550e8400-e29b-41d4-a716-446655440000
+        game: one_piece
+        name: Monkey D. Luffy
+        set_name: Romance Dawn
+        card_number: OP01-003
+        notes: Alternate art
+        created_at: '2026-07-20T10:30:00.000Z'
+        updated_at: '2026-07-20T10:30:00.000Z'
+        purchases:
+          - id: 550e8400-e29b-41d4-a716-446655440001
+            condition: near_mint
+            quantity: 2
+            purchase_price: '2.50'
+            currency: USD
+            automatic_price_date: '2026-07-20'
+    CardWithPrice:
+      allOf:
+        - $ref: '#/components/schemas/Card'
+        - type: object
+          properties:
+            price:
+              $ref: '#/components/schemas/OwnedCardPrice'
+          required:
+            - price
+      title: Card With Price
+      description: An owned trading card entry with its freshly refreshed price
+      example:
+        id: 550e8400-e29b-41d4-a716-446655440000
+        game: one_piece
+        name: Monkey D. Luffy
+        set_name: Romance Dawn
+        card_number: OP01-003
+        notes: null
+        purchases:
+          - id: 550e8400-e29b-41d4-a716-446655440001
+            condition: near_mint
+            quantity: 2
+            purchase_price: null
+            currency: null
+            automatic_price_date: null
+        purchase_price_change_percent: null
+        created_at: '2026-07-20T10:30:00.000Z'
+        updated_at: '2026-07-20T10:30:00.000Z'
+        price:
+          card_id: 550e8400-e29b-41d4-a716-446655440000
+          status: priced
     Currency:
       type: string
       enum:
@@ -1326,6 +1715,12 @@ components:
           items:
             $ref: '#/components/schemas/CardWithPrice'
           description: Owned card entries with daily pricing, newest first
+        next_cursor:
+          type:
+            - string
+            - 'null'
+          description: Opaque cursor for the next page; null when this is the final page
+          example: null
         available_set_names:
           type: array
           items:
@@ -1339,12 +1734,16 @@ components:
             independent of the set filter
       required:
         - cards
+        - next_cursor
         - available_set_names
       title: Cards List Response
-      description: The authenticated user's card collection
+      description: >-
+        One page of the authenticated user's card collection with complete
+        game-scoped set choices
       example:
         cards: []
         available_set_names: []
+        next_cursor: null
     CardNotFoundErrorResponse:
       type: object
       properties:

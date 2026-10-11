@@ -35,7 +35,7 @@ public struct TCGScene: Scene {
                     .tabItem { Label("Search", systemImage: "magnifyingglass") }
 
                 #if !os(macOS)
-                    NavigationStack { TCGSettingsScreen() }
+                    NavigationStack { TCGAppSettings(cards: cards) }
                         .tabItem { Label("Settings", systemImage: "gearshape") }
                 #endif
             }
@@ -45,7 +45,7 @@ public struct TCGScene: Scene {
         }
         #if os(macOS)
             Settings {
-                TCGSettingsScreen()
+                TCGAppSettings(cards: cards)
                     .environment(auth)
                     .frame(width: 450)
             }
@@ -84,5 +84,26 @@ private struct TCGSearchTab: View {
                     }
             }
         }
+    }
+}
+
+private struct TCGAppSettings: View {
+    let cards: TCGCards
+    @State private var importFile: ImportFile?
+
+    var body: some View {
+        TCGSettingsScreen(
+            onExport: { await cards.exportCards() },
+            onDownloadTemplate: { cards.downloadCardsTemplate() },
+            onImport: { importFile = .init(url: $0) }
+        )
+        .sheet(item: $importFile) { file in
+            TCGCardsImportReviewScreen(url: file.url).tcgCards(cards)
+        }
+    }
+
+    private struct ImportFile: Identifiable {
+        let id = UUID()
+        let url: URL
     }
 }

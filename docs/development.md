@@ -71,6 +71,8 @@ defaults; Better Auth also reads `BETTER_AUTH_SECRET`.
 | `BETTER_AUTH_SESSION_EXPIRY_DAYS`                                  | Session lifetime; `30`                                                                                                       |
 | `BETTER_AUTH_SESSION_UPDATE_AGE_DAYS`                              | Session update interval; `1`                                                                                                 |
 | `JWT_EXPIRY_DAYS`                                                  | API JWT lifetime; `7`                                                                                                        |
+| `CARD_IMPORT_BATCH_SIZE`                                           | Cards per database batch during import; `100`, positive integer; independent of API pagination                               |
+| `CARD_IMPORT_PURCHASE_BATCH_SIZE`                                  | Purchase rows per database insert during import; `1000`, positive integer                                                    |
 | `SCRYDEX_CLIENT`                                                   | `static` by default; use `real` for live pricing                                                                             |
 | `SCRYDEX_API_KEY`, `SCRYDEX_TEAM_ID`                               | Both required when `SCRYDEX_CLIENT=real`                                                                                     |
 | `SCRYDEX_BASE_URL`                                                 | Provider base URL; `https://api.scrydex.com`                                                                                 |

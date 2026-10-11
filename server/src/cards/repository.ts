@@ -1,14 +1,20 @@
 import assert from 'node:assert/strict';
+import crypto from 'node:crypto';
 
-import { and, desc, eq, getColumns, inArray, isNull, notInArray, sql } from 'drizzle-orm';
+import { omit } from '@kamaalio/kamaal/objects';
+import { and, eq, getColumns, inArray, isNull, notInArray, sql } from 'drizzle-orm';
 
+import { cardsLogger, type CardImportProgress } from './logging.ts';
 import { getSession } from '../auth/module.ts';
 import type { OwnedCardPriceResponse } from '../card-pricing/schemas/responses.ts';
 import type { HonoContext } from '../context.ts';
+import type { Database } from '../db/index.ts';
+import env from '../env.ts';
 import { CardNotFound } from './exceptions.ts';
-import type { CardGame } from './schemas/params.ts';
-import type { UpsertCard } from './schemas/payloads.ts';
-import type { DeleteCardsResponse } from './schemas/responses.ts';
+import type { CardsPaginationQuery, CardGame } from './schemas/params.ts';
+import type { ImportCard, UpsertCard } from './schemas/payloads.ts';
+import type { DeleteCardsResponse, ImportCardsResponse } from './schemas/responses.ts';
+import { encodeCardCursor } from './utils/pagination.ts';
 import { marketPurchaseAmount } from './utils/purchase-price.ts';
 import { purchaseQuantities } from './utils/quantities.ts';
 import { card, cardConditionQuantity, cardPurchaseBatch } from '../db/schema/cards.ts';
@@ -20,9 +26,14 @@ export type CardWithPurchases = typeof card.$inferSelect & {
   >[];
 };
 
+type Transaction = Parameters<Parameters<Database['transaction']>[0]>[0];
+
+type PurchaseWrite = typeof cardPurchaseBatch.$inferInsert;
+
 interface CardCollection {
   cards: CardWithPurchases[];
   availableSetNames: string[];
+  nextCursor: string | null;
 }
 
 export class CardRepository {
@@ -41,68 +52,46 @@ export class CardRepository {
   }
 
   /**
-   * Returns matching owned cards, newest first, and all game-scoped set choices
-   * from one database snapshot. Set choices do not depend on the set filter.
+   * Returns one owned-card page and all game-scoped set choices from one
+   * database snapshot. Set choices do not depend on the set filter or cursor.
    */
-  async listCollection(game: CardGame | undefined, setNames: string[]): Promise<CardCollection> {
+  async listCollection(
+    options: CardsPaginationQuery & { game?: CardGame; setNames: string[] },
+  ): Promise<CardCollection> {
+    const { game, setNames, limit, cursor } = options;
+
     return this.db.transaction(
       async tx => {
-        const ownedCards = tx.$with('collection_cards').as(
-          tx
-            .select()
-            .from(card)
-            .where(and(eq(card.userId, this.userId), game != null ? eq(card.game, game) : undefined)),
-        );
-
-        const sets = tx.$with('collection_sets').as(
-          tx
-            .selectDistinct({
-              name: ownedCards.setName,
-              position: sql`dense_rank() over (order by ${ownedCards.setName})`.mapWith(Number).as('position'),
-            })
-            .from(ownedCards),
-        );
-
-        const uniqueSetNames = new Set(setNames);
-
-        const setNamesInArray =
-          uniqueSetNames.size > 0 ? inArray(ownedCards.setName, uniqueSetNames.values().toArray()) : undefined;
+        const ownership = and(eq(card.userId, this.userId), game != null ? eq(card.game, game) : undefined);
+        const sets = await tx.selectDistinct({ name: card.setName }).from(card).where(ownership).orderBy(card.setName);
 
         const rows = await tx
-          .with(ownedCards, sets)
           .select({
-            setName: sets.name,
-            setPosition: sets.position,
-            card: getColumns(ownedCards),
+            ...getColumns(card),
+            cursorCreatedAt: sql<string>`to_char(${card.createdAt}, 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`,
           })
-          .from(sets)
-          .leftJoin(ownedCards, and(eq(ownedCards.setName, sets.name), setNamesInArray))
-          .orderBy(desc(ownedCards.createdAt));
+          .from(card)
+          .where(
+            and(
+              ownership,
+              setNames.length > 0 ? inArray(card.setName, new Set(setNames).values().toArray()) : undefined,
+              cursor != null
+                ? sql`(${card.createdAt}, ${card.id}) < (${cursor.createdAt}::timestamp, ${cursor.id})`
+                : undefined,
+            ),
+          )
+          .orderBy(sql`${card.createdAt} desc nulls last`, sql`${card.id} desc nulls last`)
+          .limit(limit + 1);
 
-        const reducedResult = rows.reduce(
-          (acc, row) => {
-            acc.namesByPosition.set(row.setPosition, row.setName);
+        const page = rows.slice(0, limit);
 
-            if (row.card == null) {
-              return acc;
-            }
+        const cards: CardWithPurchases[] = page.map(card => {
+          const ownedCard = omit(card, 'cursorCreatedAt');
 
-            let ownedCard = acc.cardsById.get(row.card.id);
+          return { ...ownedCard, purchaseBatches: [] };
+        });
 
-            if (ownedCard == null) {
-              ownedCard = { ...row.card, purchaseBatches: [] };
-              acc.cardsById.set(ownedCard.id, ownedCard);
-            }
-
-            return acc;
-          },
-          {
-            cardsById: new Map<string, CardWithPurchases>(),
-            namesByPosition: new Map<number, string>(),
-          },
-        );
-
-        const cards = reducedResult.cardsById.values().toArray();
+        const cardsById = new Map(cards.map(ownedCard => [ownedCard.id, ownedCard]));
 
         if (cards.length > 0) {
           const batches = await tx
@@ -122,24 +111,26 @@ export class CardRepository {
                 eq(card.userId, this.userId),
                 inArray(
                   card.id,
-                  cards.map(row => row.id),
+                  cards.map(ownedCard => ownedCard.id),
                 ),
               ),
             )
             .orderBy(cardPurchaseBatch.createdAt, cardPurchaseBatch.id);
 
           for (const batch of batches) {
-            reducedResult.cardsById.get(batch.cardId)?.purchaseBatches.push(batch);
+            cardsById.get(batch.cardId)?.purchaseBatches.push(batch);
           }
         }
 
+        const last = page.at(-1);
+
         return {
-          cards: reducedResult.cardsById.values().toArray(),
-          availableSetNames: reducedResult.namesByPosition
-            .entries()
-            .toArray()
-            .toSorted(([a], [b]) => a - b)
-            .map(([, name]) => name),
+          cards,
+          availableSetNames: sets.map(set => set.name),
+          nextCursor:
+            rows.length > limit && last != null
+              ? encodeCardCursor({ createdAt: last.cursorCreatedAt, id: last.id })
+              : null,
         };
       },
       { isolationLevel: 'repeatable read', accessMode: 'read only' },
@@ -181,9 +172,7 @@ export class CardRepository {
 
       assert(createdCard, 'Card insert did not return a row');
 
-      await tx
-        .insert(cardConditionQuantity)
-        .values(purchaseQuantities(values.purchases).map(quantity => ({ cardId: createdCard.id, ...quantity })));
+      await tx.insert(cardConditionQuantity).values(conditionQuantityRows(createdCard.id, values.purchases));
 
       const purchaseBatches = await tx
         .insert(cardPurchaseBatch)
@@ -192,6 +181,240 @@ export class CardRepository {
 
       return { ...createdCard, purchaseBatches };
     });
+  }
+
+  async importCards(inputs: ImportCard[]): Promise<ImportCardsResponse> {
+    const started = performance.now();
+    const uniqueInputs = new Map(inputs.map(input => [input.id, input]));
+    const entries = uniqueInputs.values().toArray();
+    const logger = cardsLogger(this.c);
+
+    const progress: CardImportProgress = {
+      stage: 'validated',
+      lastCompletedStage: 'validated',
+      transactionStatus: 'pending',
+    };
+
+    this.c.set('cardImportProgress', progress);
+    logger.info(
+      {
+        event: 'cards.import.validated',
+        outcome: 'success',
+        received_count: inputs.length,
+        unique_count: entries.length,
+      },
+      'Validated cards for import.',
+    );
+
+    try {
+      const response = await this.db.transaction(async tx => {
+        let importedCount = 0;
+        let updatedCount = 0;
+        let skippedCount = inputs.length - entries.length;
+        const batchSize = env.CARD_IMPORT_BATCH_SIZE;
+        const purchaseBatchSize = env.CARD_IMPORT_PURCHASE_BATCH_SIZE;
+        const batchCount = Math.ceil(entries.length / batchSize);
+        const processedOwnedIds = new Set<string>();
+
+        progress.stage = 'lock_acquisition';
+        const lockStarted = performance.now();
+        await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${'cards.import:' + this.userId}, 0))`);
+        progress.lastCompletedStage = 'lock_acquired';
+        logger.info(
+          { event: 'cards.import.lock_acquired', outcome: 'success', duration_ms: performance.now() - lockStarted },
+          'Acquired the owned-card import lock.',
+        );
+
+        progress.stage = 'ownership_resolution';
+        const sourceIds = entries.map(input => input.id);
+
+        const lockedCards = await tx
+          .select()
+          .from(card)
+          .where(
+            and(
+              eq(card.userId, this.userId),
+              sql`(${card.id} = any(${sql.param(sourceIds)}::text[]) or ${card.importSourceId} = any(${sql.param(sourceIds)}::text[]))`,
+            ),
+          )
+          .orderBy(card.id)
+          .for('update');
+
+        for (let offset = 0; offset < entries.length; offset += batchSize) {
+          const batchStarted = performance.now();
+          const chunk = entries.slice(offset, offset + batchSize);
+          const chunkIds = new Set(chunk.map(input => input.id));
+          const batchIndex = Math.floor(offset / batchSize) + 1;
+          progress.stage = 'ownership_resolution';
+
+          const owned = lockedCards.filter(
+            row => chunkIds.has(row.id) || (row.importSourceId != null && chunkIds.has(row.importSourceId)),
+          );
+
+          const ownedById = new Map(owned.map(row => [row.id, row]));
+
+          const ownedBySource = new Map(
+            owned.flatMap(row => (row.importSourceId == null ? [] : [[row.importSourceId, row] as const])),
+          );
+
+          const previousPurchases =
+            owned.length === 0
+              ? []
+              : await tx
+                  .select(getColumns(cardPurchaseBatch))
+                  .from(cardPurchaseBatch)
+                  .innerJoin(card, eq(card.id, cardPurchaseBatch.cardId))
+                  .where(
+                    and(
+                      eq(card.userId, this.userId),
+                      inArray(
+                        card.id,
+                        owned.map(row => row.id),
+                      ),
+                    ),
+                  );
+
+          const purchasesByCard = Map.groupBy(previousPurchases, purchase => purchase.cardId);
+          const candidates = chunk.filter(input => !ownedById.has(input.id) && !ownedBySource.has(input.id));
+          progress.lastCompletedStage = 'ownership_resolved';
+          logger.info(
+            {
+              event: 'cards.import.ownership_resolved',
+              outcome: 'success',
+              batch_index: batchIndex,
+              batch_count: batchCount,
+              owned_count: owned.length,
+              new_count: candidates.length,
+            },
+            'Resolved card ownership for the import batch.',
+          );
+
+          progress.stage = 'batch_preparation';
+
+          const created =
+            candidates.length === 0
+              ? []
+              : await tx
+                  .insert(card)
+                  .values(
+                    candidates.map(input => ({
+                      ...cardFields(input),
+                      id: crypto.randomUUID(),
+                      userId: this.userId,
+                      importSourceId: input.id,
+                      createdAt: new Date(input.created_at),
+                      updatedAt: new Date(input.updated_at),
+                    })),
+                  )
+                  .returning();
+
+          const createdBySource = new Map(
+            created.flatMap(row => (row.importSourceId == null ? [] : [[row.importSourceId, row] as const])),
+          );
+
+          const purchases: (typeof cardPurchaseBatch.$inferInsert)[] = [];
+          const quantities: (typeof cardConditionQuantity.$inferInsert)[] = [];
+          let batchUpdatedCount = 0;
+          let batchSkippedCount = 0;
+
+          for (const input of chunk) {
+            const existing = ownedById.get(input.id) ?? ownedBySource.get(input.id);
+            const target = existing ?? createdBySource.get(input.id);
+            assert(target, 'Imported card must have an owned target');
+            const previous = purchasesByCard.get(target.id) ?? [];
+            const previousIds = new Set(previous.map(purchase => purchase.id));
+
+            if (existing != null && (processedOwnedIds.has(target.id) || importMatches(existing, previous, input))) {
+              batchSkippedCount += 1;
+              continue;
+            }
+
+            processedOwnedIds.add(target.id);
+
+            if (existing != null) {
+              await tx
+                .update(card)
+                .set({
+                  ...cardFields(input),
+                  createdAt: new Date(input.created_at),
+                  updatedAt: new Date(input.updated_at),
+                  ...pricingLinkFields(existing, input),
+                })
+                .where(and(eq(card.id, target.id), eq(card.userId, this.userId)));
+
+              const retainedIds = input.purchases.flatMap(purchase =>
+                previousIds.has(purchase.id) ? [purchase.id] : [],
+              );
+
+              await clearReplacedPurchases(tx, target.id, retainedIds);
+              batchUpdatedCount += 1;
+            }
+
+            purchases.push(
+              ...input.purchases.map(purchase => ({
+                ...purchaseBatchFields(target.id, purchase),
+                id: previousIds.has(purchase.id) ? purchase.id : crypto.randomUUID(),
+                automaticPriceDate: purchase.automatic_price_date,
+              })),
+            );
+            quantities.push(...conditionQuantityRows(target.id, input.purchases));
+          }
+
+          for (let index = 0; index < purchases.length; index += purchaseBatchSize) {
+            await upsertPurchases(tx, purchases.slice(index, index + purchaseBatchSize));
+          }
+
+          if (quantities.length > 0) {
+            await tx.insert(cardConditionQuantity).values(quantities);
+          }
+
+          importedCount += created.length;
+          updatedCount += batchUpdatedCount;
+          skippedCount += batchSkippedCount;
+          progress.lastCompletedStage = 'batch_prepared';
+          logger.info(
+            {
+              event: 'cards.import.batch_prepared',
+              outcome: 'success',
+              batch_index: batchIndex,
+              batch_count: batchCount,
+              result_count: created.length,
+              updated_count: batchUpdatedCount,
+              skipped_count: batchSkippedCount,
+              purchase_count: purchases.length,
+              duration_ms: performance.now() - batchStarted,
+              transaction_status: 'pending',
+            },
+            'Prepared import batch writes; the transaction has not committed yet.',
+          );
+        }
+
+        progress.stage = 'commit';
+
+        return { imported_count: importedCount, updated_count: updatedCount, skipped_count: skippedCount };
+      });
+
+      progress.stage = 'completed';
+      progress.lastCompletedStage = 'completed';
+      progress.transactionStatus = 'committed';
+      logger.info(
+        {
+          event: 'cards.import',
+          outcome: 'success',
+          result_count: response.imported_count,
+          updated_count: response.updated_count,
+          skipped_count: response.skipped_count,
+          duration_ms: performance.now() - started,
+          transaction_status: 'committed',
+        },
+        'Committed the owned-card import.',
+      );
+
+      return response;
+    } catch (error) {
+      progress.transactionStatus = 'rolled_back';
+      throw error;
+    }
   }
 
   /**
@@ -225,17 +448,7 @@ export class CardRepository {
         .set({
           ...cardFields(values),
           updatedAt: new Date(),
-          // Clears a stale provider link so pricing re-resolves the identity for changed card details.
-          pricingCardId: sql`case
-            when ${card.game} = ${values.game} and ${card.name} = ${values.name} and ${card.cardNumber} = ${values.card_number}
-            then ${card.pricingCardId}
-            else null
-          end`,
-          pricingSource: sql`case
-            when ${card.game} = ${values.game} and ${card.name} = ${values.name} and ${card.cardNumber} = ${values.card_number}
-            then ${card.pricingSource}
-            else null
-          end`,
+          ...pricingLinkFields(ownedCard, values),
         })
         .where(and(eq(card.id, cardId), eq(card.userId, this.userId)))
         .returning();
@@ -244,52 +457,24 @@ export class CardRepository {
         return undefined;
       }
 
-      await tx.delete(cardConditionQuantity).where(eq(cardConditionQuantity.cardId, cardId));
+      const retainedIds = values.purchases.flatMap(batch => (batch.id == null ? [] : [batch.id]));
+      await clearReplacedPurchases(tx, cardId, retainedIds);
+      await tx.insert(cardConditionQuantity).values(conditionQuantityRows(cardId, values.purchases));
 
-      await tx
-        .insert(cardConditionQuantity)
-        .values(purchaseQuantities(values.purchases).map(quantity => ({ cardId, ...quantity })));
+      const purchases = values.purchases.map(batch => {
+        const previous = batch.id != null ? previousById.get(batch.id) : undefined;
 
-      const inputs = values.purchases;
+        const unchangedPrice =
+          previous?.purchasePrice === (batch.purchase_price != null ? decimalScale(batch.purchase_price) : null) &&
+          previous?.currency === batch.currency;
 
-      const retainedIds = inputs.flatMap(batch => (batch.id == null ? [] : [batch.id]));
-      await tx
-        .delete(cardPurchaseBatch)
-        .where(
-          and(
-            eq(cardPurchaseBatch.cardId, cardId),
-            retainedIds.length > 0 ? notInArray(cardPurchaseBatch.id, retainedIds) : undefined,
-          ),
-        );
+        return {
+          ...purchaseBatchFields(cardId, batch),
+          automaticPriceDate: unchangedPrice ? previous?.automaticPriceDate : null,
+        };
+      });
 
-      const purchaseBatches = await tx
-        .insert(cardPurchaseBatch)
-        .values(
-          inputs.map(batch => {
-            const previous = batch.id != null ? previousById.get(batch.id) : undefined;
-
-            const unchangedPrice =
-              previous?.purchasePrice === (batch.purchase_price != null ? decimalScale(batch.purchase_price) : null) &&
-              previous?.currency === batch.currency;
-
-            return {
-              ...purchaseBatchFields(cardId, batch),
-              automaticPriceDate: unchangedPrice ? previous?.automaticPriceDate : null,
-            };
-          }),
-        )
-        .onConflictDoUpdate({
-          target: cardPurchaseBatch.id,
-          set: {
-            condition: sql`excluded.condition`,
-            quantity: sql`excluded.quantity`,
-            purchasePrice: sql`excluded.purchase_price`,
-            currency: sql`excluded.currency`,
-            automaticPriceDate: sql`excluded.automatic_price_date`,
-            updatedAt: new Date(),
-          },
-        })
-        .returning();
+      const purchaseBatches = await upsertPurchases(tx, purchases).returning();
 
       return { ...updatedCard, purchaseBatches };
     });
@@ -415,6 +600,50 @@ export class CardRepository {
   }
 }
 
+/** Both callers hold an owned-card row lock before replacing its purchases. */
+async function clearReplacedPurchases(tx: Transaction, cardId: string, retainedIds: string[]): Promise<void> {
+  await tx.delete(cardConditionQuantity).where(eq(cardConditionQuantity.cardId, cardId));
+  await tx
+    .delete(cardPurchaseBatch)
+    .where(
+      and(
+        eq(cardPurchaseBatch.cardId, cardId),
+        retainedIds.length > 0 ? notInArray(cardPurchaseBatch.id, retainedIds) : undefined,
+      ),
+    );
+}
+
+function upsertPurchases(tx: Transaction, purchases: PurchaseWrite[]) {
+  return tx
+    .insert(cardPurchaseBatch)
+    .values(purchases)
+    .onConflictDoUpdate({
+      target: cardPurchaseBatch.id,
+      set: {
+        condition: sql`excluded.condition`,
+        quantity: sql`excluded.quantity`,
+        purchasePrice: sql`excluded.purchase_price`,
+        currency: sql`excluded.currency`,
+        automaticPriceDate: sql`excluded.automatic_price_date`,
+        updatedAt: new Date(),
+      },
+    });
+}
+
+function conditionQuantityRows(cardId: string, purchases: UpsertCard['purchases']) {
+  return purchaseQuantities(purchases).map(quantity => ({ cardId, ...quantity }));
+}
+
+function pricingLinkFields(existing: typeof card.$inferSelect, values: UpsertCard) {
+  const identityChanged =
+    existing.game !== values.game || existing.name !== values.name || existing.cardNumber !== values.card_number;
+
+  return {
+    pricingCardId: identityChanged ? null : existing.pricingCardId,
+    pricingSource: identityChanged ? null : existing.pricingSource,
+  };
+}
+
 function decimalScale(amount: string): string {
   const [whole, fraction = ''] = amount.split('.');
 
@@ -440,4 +669,50 @@ function purchaseBatchFields(cardId: string, batch: UpsertCard['purchases'][numb
     purchasePrice: batch.purchase_price,
     currency: batch.currency,
   };
+}
+
+function importMatches(
+  existing: typeof card.$inferSelect,
+  purchases: (typeof cardPurchaseBatch.$inferSelect)[],
+  input: ImportCard,
+): boolean {
+  const fields = cardFields(input);
+
+  if (
+    existing.game !== fields.game ||
+    existing.name !== fields.name ||
+    existing.setName !== fields.setName ||
+    existing.cardNumber !== fields.cardNumber ||
+    existing.notes !== fields.notes ||
+    existing.createdAt.getTime() !== new Date(input.created_at).getTime() ||
+    existing.updatedAt.getTime() !== new Date(input.updated_at).getTime()
+  ) {
+    return false;
+  }
+
+  const stored = purchases
+    .map(purchase =>
+      JSON.stringify([
+        purchase.condition,
+        purchase.quantity,
+        purchase.purchasePrice,
+        purchase.currency,
+        purchase.automaticPriceDate,
+      ]),
+    )
+    .sort();
+
+  const incoming = input.purchases
+    .map(purchase =>
+      JSON.stringify([
+        purchase.condition,
+        purchase.quantity,
+        purchase.purchase_price != null ? decimalScale(purchase.purchase_price) : null,
+        purchase.currency,
+        purchase.automatic_price_date,
+      ]),
+    )
+    .sort();
+
+  return stored.length === incoming.length && stored.every((value, index) => value === incoming[index]);
 }

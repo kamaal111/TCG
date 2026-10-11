@@ -1,6 +1,6 @@
 import { purchasePriceChangePercent } from '../utils/purchase-price.ts';
 
-const batches = [
+const batches: Parameters<typeof purchasePriceChangePercent>[0] = [
   { quantity: 2, purchasePrice: '2', currency: 'USD' },
   { quantity: 3, purchasePrice: '4', currency: 'USD' },
 ];

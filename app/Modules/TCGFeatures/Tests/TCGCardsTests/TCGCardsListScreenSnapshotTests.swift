@@ -30,6 +30,20 @@ struct TCGCardsListScreenSnapshotTests {
         await assertScreenSnapshot(testName: #function) { makeScreen(feature: feature, model: model) }
     }
 
+    @Test
+    func `Renders the loading pagination footer`() async {
+        await assertScreenSnapshot(testName: #function) {
+            CollectionPaginationFooter(isLoading: true, error: nil, retry: {})
+        }
+    }
+
+    @Test
+    func `Renders the pagination retry footer`() async {
+        await assertScreenSnapshot(testName: #function) {
+            CollectionPaginationFooter(isLoading: false, error: .serverUnavailable, retry: {})
+        }
+    }
+
     private func purchaseCard(id: String, change: Double?) -> Card {
         let source = PreviewTCGCardsClient.sampleCards[0]
         return Card(

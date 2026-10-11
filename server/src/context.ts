@@ -12,6 +12,7 @@ import type { CardImageWarmer } from './card-images/warmer.ts';
 import type { PricingClient } from './card-pricing/client.ts';
 import { CardPricingRepository } from './card-pricing/repository.ts';
 import { CardPricingService } from './card-pricing/service.ts';
+import type { CardImportProgress } from './cards/logging.ts';
 import { CardRepository } from './cards/repository.ts';
 import type { Database } from './db/index.ts';
 import type { RequestLogger } from './logging/index.ts';
@@ -40,6 +41,7 @@ interface ServiceVariables {
 
 interface LoggingVariables {
   logger: RequestLogger;
+  cardImportProgress?: CardImportProgress;
 }
 
 export type HonoVariables = RequestIdVariables &

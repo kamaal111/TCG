@@ -1,5 +1,6 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec';
 import { HTTPException } from 'hono/http-exception';
+import { z } from 'zod';
 
 import { CONTENTFUL_STATUS_CODES, type ContentfulStatusCode } from '../constants/http.ts';
 import type { HonoContext } from '../context.ts';
@@ -50,10 +51,20 @@ export class InvalidPayload<TContext = unknown> extends APIException<TContext> {
 }
 
 export class InvalidValidation extends InvalidPayload<{
-  validations: readonly StandardSchemaV1.Issue[];
+  validations: { code: string; path: string[]; message: string }[];
 }> {
   constructor(c: ExceptionContext, validations: readonly StandardSchemaV1.Issue[]) {
-    super(c, { context: { validations } });
+    super(c, {
+      context: {
+        validations: validations.map(issue => ({
+          code: z.object({ code: z.string().catch('validation_error') }).parse(issue).code,
+          path: (issue.path ?? []).map(segment =>
+            String(segment instanceof Object && 'key' in segment ? segment.key : segment),
+          ),
+          message: issue.message,
+        })),
+      },
+    });
   }
 }
 

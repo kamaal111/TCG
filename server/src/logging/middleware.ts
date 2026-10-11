@@ -1,5 +1,4 @@
 import { structuredLogger } from '@hono/structured-logger';
-import type { StandardSchemaV1 } from '@standard-schema/spec';
 import { HTTPException } from 'hono/http-exception';
 import { routePath } from 'hono/route';
 
@@ -25,6 +24,9 @@ function loggingMiddleware() {
       requestLogger(c).info(
         {
           event: 'request.completed',
+          import_stage: c.get('cardImportProgress')?.stage,
+          import_last_completed_stage: c.get('cardImportProgress')?.lastCompletedStage,
+          transaction_status: c.get('cardImportProgress')?.transactionStatus,
           route: getRouteForLog(c),
           status_code: c.res.status,
           duration_ms: roundDurationMs(elapsedMs),
@@ -38,6 +40,9 @@ function loggingMiddleware() {
       requestLogger(c)[level](
         {
           ...fields,
+          import_stage: c.get('cardImportProgress')?.stage,
+          import_last_completed_stage: c.get('cardImportProgress')?.lastCompletedStage,
+          transaction_status: c.get('cardImportProgress')?.transactionStatus,
           route: getRouteForLog(c),
           status_code: c.res.status,
           duration_ms: roundDurationMs(elapsedMs),
@@ -51,7 +56,15 @@ function loggingMiddleware() {
 
 interface ErrorLogDescription {
   level: 'error' | 'warn';
-  fields: Pick<RequestLogFields, 'event' | 'error_code' | 'validation_issue_count' | 'validation_issue_paths'> & {
+  fields: Pick<
+    RequestLogFields,
+    | 'event'
+    | 'error_code'
+    | 'validation_issue_count'
+    | 'validation_issue_paths'
+    | 'validation_issue_codes'
+    | 'validation_issue_messages'
+  > & {
     err?: unknown;
   };
   message: string;
@@ -67,8 +80,10 @@ function describeError(error: Error): ErrorLogDescription {
         event: 'request.validation.failed',
         error_code: error.code,
         validation_issue_count: validationIssues.length,
+        validation_issue_codes: validationIssues.map(issue => issue.code),
+        validation_issue_messages: validationIssues.map(issue => issue.message),
         validation_issue_paths: validationIssues.map(issue => {
-          const path = (issue.path ?? []).map(formatValidationPathSegment).join('.');
+          const path = issue.path.join('.');
 
           return path.length > 0 ? path : '<root>';
         }),
@@ -98,14 +113,6 @@ function describeError(error: Error): ErrorLogDescription {
     fields: { event: 'request.failed', error_code: 'INTERNAL_SERVER_ERROR', err: error },
     message: 'Request failed with an unexpected server error.',
   };
-}
-
-function formatValidationPathSegment(segment: PropertyKey | StandardSchemaV1.PathSegment) {
-  if (segment instanceof Object && 'key' in segment) {
-    return String(segment.key);
-  }
-
-  return String(segment);
 }
 
 // Falls back to c.req.path because routePath() isn't resolved yet this early in the middleware chain.

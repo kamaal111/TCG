@@ -12,10 +12,38 @@ import Testing
 @Suite("Preview TCGCards Client Tests")
 struct PreviewTCGCardsClientTests {
     @Test
+    func `Preview pages preserve complete set choices`() async throws {
+        let source = PreviewTCGCardsClient.sampleCards[0]
+        let cards = (0..<51).map { index in
+            Card(
+                id: "page-card-\(index)",
+                game: source.game,
+                name: source.name,
+                setName: index == 50 ? "Other Set" : source.setName,
+                cardNumber: source.cardNumber,
+                notes: nil,
+                createdAt: source.createdAt,
+                updatedAt: source.updatedAt,
+                purchases: source.purchases
+            )
+        }
+        let client = TCGClient.preview(cardsOutcome: .success(cards: cards))
+        let first = try await client.cards.listPage(game: nil, setNames: [], cursor: nil).get()
+        let second = try await client.cards.listPage(game: nil, setNames: [], cursor: first.nextCursor).get()
+        #expect(first.cards.count == 50)
+        #expect(first.nextCursor == "50")
+        #expect(second.cards.map(\.card.id) == ["page-card-50"])
+        #expect(second.nextCursor == nil)
+        #expect(first.availableSetNames == [source.setName, "Other Set"])
+        #expect(second.availableSetNames == first.availableSetNames)
+    }
+
+    @Test
     func `Set choices remain complete when filtering multiple sets across games`() async throws {
         let client = TCGClient.preview(cardsOutcome: .success(cards: PreviewTCGCardsClient.sampleCards))
-        let selected = try await client.cards.list(game: nil, setNames: ["Base Set", "Romance Dawn"]).get()
-        let pokemon = try await client.cards.list(game: .pokemon, setNames: ["Romance Dawn"]).get()
+        let selected = try await client.cards.listPage(game: nil, setNames: ["Base Set", "Romance Dawn"], cursor: nil)
+            .get()
+        let pokemon = try await client.cards.listPage(game: .pokemon, setNames: ["Romance Dawn"], cursor: nil).get()
 
         #expect(selected.cards.map(\.card) == PreviewTCGCardsClient.sampleCards)
         #expect(selected.availableSetNames == ["Base Set", "Romance Dawn"])
@@ -29,8 +57,8 @@ struct PreviewTCGCardsClientTests {
             CardWithPrice(card: $0, price: OwnedCardPrice(cardId: $0.id, status: .unavailable))
         }
         let client = TCGClient.preview(cardsOutcome: .successWithPrices(cards))
-        let selected = try await client.cards.list(game: nil, setNames: ["Base Set"]).get()
-        let differentlyCased = try await client.cards.list(game: nil, setNames: ["base set"]).get()
+        let selected = try await client.cards.listPage(game: nil, setNames: ["Base Set"], cursor: nil).get()
+        let differentlyCased = try await client.cards.listPage(game: nil, setNames: ["base set"], cursor: nil).get()
 
         #expect(selected.cards == [cards[1]])
         #expect(differentlyCased.cards.isEmpty)
@@ -42,33 +70,50 @@ struct PreviewTCGCardsClientTests {
             CardWithPrice(card: $0, price: OwnedCardPrice(cardId: $0.id, status: .unavailable))
         }
         let client = TCGClient.preview(cardsOutcome: .successWithPrices(cards))
-        #expect(try await client.cards.list(game: nil).get() == cards)
-        #expect(try await client.cards.list(game: .pokemon).get() == cards.filter { $0.card.game == .pokemon })
+        #expect(try await client.cards.listPage(game: nil, setNames: [], cursor: nil).get().cards == cards)
+        #expect(
+            try await client.cards.listPage(game: .pokemon, setNames: [], cursor: nil).get().cards
+                == cards.filter { $0.card.game == .pokemon }
+        )
     }
 
     @Test
     func `Success seeds the configured cards`() async throws {
         let client = TCGClient.preview(cardsOutcome: .success(cards: PreviewTCGCardsClient.sampleCards))
-        #expect(try await client.cards.list(game: nil).get().map(\.card) == PreviewTCGCardsClient.sampleCards)
+        #expect(
+            try await client.cards.listPage(game: nil, setNames: [], cursor: nil).get().cards.map(\.card)
+                == PreviewTCGCardsClient.sampleCards
+        )
     }
 
     @Test
     func `Lists only cards from the requested game`() async throws {
         let client = TCGClient.preview(cardsOutcome: .success(cards: PreviewTCGCardsClient.sampleCards))
 
-        #expect(try await client.cards.list(game: .pokemon).get().map(\.card.id) == ["preview-card-2"])
+        #expect(
+            try await client.cards.listPage(game: .pokemon, setNames: [], cursor: nil).get().cards.map(\.card.id) == [
+                "preview-card-2"
+            ]
+        )
     }
 
     @Test
     func `Empty starts with no cards`() async throws {
-        #expect(try await TCGClient.preview(cardsOutcome: .empty).cards.list(game: nil).get() == [])
+        #expect(
+            try await TCGClient.preview(cardsOutcome: .empty).cards.listPage(game: nil, setNames: [], cursor: nil).get()
+                .cards == []
+        )
     }
 
     @Test
     func `Create appends a card`() async throws {
         let client = TCGClient.preview(cardsOutcome: .empty)
         let created = try await client.cards.create(with: previewPayload).get()
-        #expect(try await client.cards.list(game: nil).get().map(\.card) == [created.card])
+        #expect(
+            try await client.cards.listPage(game: nil, setNames: [], cursor: nil).get().cards.map(\.card) == [
+                created.card
+            ]
+        )
     }
 
     @Test
@@ -76,7 +121,10 @@ struct PreviewTCGCardsClientTests {
         let client = TCGClient.preview(cardsOutcome: .success(cards: PreviewTCGCardsClient.sampleCards))
         let updated = try await client.cards.update(id: "preview-card-1", with: previewPayload).get()
         #expect(updated.card.name == previewPayload.name)
-        #expect(try await client.cards.list(game: nil).get().first?.card == updated.card)
+        #expect(
+            try await client.cards.listPage(game: nil, setNames: [], cursor: nil).get().cards.first?.card
+                == updated.card
+        )
     }
 
     @Test
@@ -95,7 +143,11 @@ struct PreviewTCGCardsClientTests {
             try await client.cards.delete(ids: ids).get()
                 == DeleteCardsResult(deletedIDs: ["preview-card-1"], notFoundIDs: ["missing"])
         )
-        #expect(try await client.cards.list(game: nil).get().map(\.card.id) == ["preview-card-2"])
+        #expect(
+            try await client.cards.listPage(game: nil, setNames: [], cursor: nil).get().cards.map(\.card.id) == [
+                "preview-card-2"
+            ]
+        )
         #expect(
             try await client.cards.delete(ids: ids).get()
                 == DeleteCardsResult(deletedIDs: [], notFoundIDs: ["preview-card-1", "missing"])
@@ -110,7 +162,7 @@ struct PreviewTCGCardsClientTests {
             try await client.cards.delete(ids: ["preview-card-1"]).get()
                 == DeleteCardsResult(deletedIDs: [], notFoundIDs: ["preview-card-1"])
         )
-        #expect(try await client.cards.list(game: nil).get().count == 2)
+        #expect(try await client.cards.listPage(game: nil, setNames: [], cursor: nil).get().cards.count == 2)
     }
 
     @Test
@@ -143,7 +195,7 @@ struct PreviewTCGCardsClientTests {
     func `Server unavailable outcome rejects every operation`() async {
         let client = TCGClient.preview(cardsOutcome: .serverUnavailable)
         await #expect(throws: ListCardsErrors.unavailable) {
-            try await client.cards.list(game: nil).get()
+            try await client.cards.listPage(game: nil, setNames: [], cursor: nil).get().cards
         }
         await #expect(throws: CreateCardErrors.unavailable) {
             try await client.cards.create(with: previewPayload).get()

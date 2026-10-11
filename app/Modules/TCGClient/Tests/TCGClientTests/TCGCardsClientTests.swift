@@ -16,9 +16,177 @@ import Testing
 @Suite("TCGClient Cards Tests")
 struct TCGCardsClientTests {
     @Test
+    func `Exports every card through the pricing independent operation`() async throws {
+        let transport = CardsRequestTransport(status: .ok, body: cardsListJSON)
+        let cards = try await makeClient(transport: transport).cards.exportCards().get()
+        let request = try #require(await transport.request)
+        #expect(request.method == .get)
+        #expect(request.path == "/app-api/cards/export")
+        #expect(request.operationID == "get/app-api/cards/export")
+        #expect(cards == [expectedCard])
+    }
+
+    @Test
+    func `Imports exact purchase costs with the generated operation`() async throws {
+        let transport = CardsRequestTransport(
+            status: .ok,
+            body: Data(
+                """
+                {"imported_count":1,"updated_count":0,"skipped_count":0}
+                """.utf8
+            )
+        )
+        let source = Card(
+            id: "550e8400-e29b-41d4-a716-446655440000",
+            game: expectedCard.game,
+            name: expectedCard.name,
+            setName: expectedCard.setName,
+            cardNumber: expectedCard.cardNumber,
+            notes: nil,
+            createdAt: expectedCard.createdAt.addingTimeInterval(0.125),
+            updatedAt: expectedCard.updatedAt,
+            purchases: [
+                .init(
+                    id: "550e8400-e29b-41d4-a716-446655440001",
+                    condition: .nearMint,
+                    quantity: 2,
+                    purchasePrice: Decimal(string: "3.123456"),
+                    currency: .usd,
+                    automaticPriceDate: "2026-07-20"
+                )
+            ]
+        )
+        let input = ImportCardsPayload(cards: [.init(card: source)])
+        let result = try await makeClient(transport: transport).cards.importCards(input).get()
+        let request = try #require(await transport.request)
+        let body = try #require(request.body)
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .custom { decoder in
+            let container = try decoder.singleValueContainer()
+            let value = try container.decode(String.self)
+            let formatter = ISO8601DateFormatter()
+            formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            return try #require(formatter.date(from: value))
+        }
+        let decoded = try decoder.decode(ImportCardsPayload.self, from: body)
+        #expect(request.method == .post)
+        #expect(request.path == "/app-api/cards/import")
+        #expect(request.operationID == "post/app-api/cards/import")
+        #expect(decoded == input)
+        #expect(result == .init(importedCount: 1, updatedCount: 0, skippedCount: 0))
+    }
+
+    @Test
+    func `Import reports indexed validation errors`() async {
+        let issue = TCGClientValidationIssue(
+            code: "invalid_format",
+            path: ["cards", "0", "purchases", "0", "automatic_price_date"],
+            message: "Invalid ISO date"
+        )
+        let transport = CardsRequestTransport(
+            status: .badRequest,
+            body: Data(
+                """
+                {
+                  "message": "Invalid payload", "code": "INVALID_PAYLOAD",
+                  "context": {"validations": [{
+                    "code": "invalid_format",
+                    "path": ["cards", "0", "purchases", "0", "automatic_price_date"],
+                    "message": "Invalid ISO date"
+                  }]}
+                }
+                """.utf8
+            )
+        )
+        await #expect(throws: CardBackupErrors.badRequest(validations: [issue])) {
+            try await makeClient(transport: transport).cards.importCards(.init(cards: [])).get()
+        }
+    }
+
+    @Test
+    func `Undecodable HTTP 400 remains an import rejection`() async {
+        let transport = CardsRequestTransport(status: .badRequest, body: Data("not JSON".utf8))
+
+        await #expect(throws: CardBackupErrors.badRequest(validations: [])) {
+            try await makeClient(transport: transport).cards.importCards(.init(cards: [])).get()
+        }
+    }
+
+    @Test
+    func `Undecodable HTTP 500 retains the server failure status`() async {
+        let transport = CardsRequestTransport(status: .internalServerError, body: Data("not JSON".utf8))
+
+        await #expect(throws: CardBackupErrors.unknown(status: 500)) {
+            try await makeClient(transport: transport).cards.importCards(.init(cards: [])).get()
+        }
+    }
+
+    @Test
+    func `Invalid HTTP 200 import response is not a connection failure`() async {
+        let transport = CardsRequestTransport(status: .ok, body: Data("{}".utf8))
+
+        await #expect(throws: CardBackupErrors.invalidResponse(status: 200)) {
+            try await makeClient(transport: transport).cards.importCards(.init(cards: [])).get()
+        }
+    }
+
+    @Test
+    func `Import request without a server response does not invent an HTTP status`() async {
+        let transport = CardsRequestTransport(status: .ok, body: Data(), fails: true)
+
+        await #expect(throws: CardBackupErrors.requestFailed) {
+            try await makeClient(transport: transport).cards.importCards(.init(cards: [])).get()
+        }
+    }
+
+    @Test
+    func `Backup operations map expired sessions`() async {
+        let exportTransport = CardsRequestTransport(status: .unauthorized, body: errorJSON(code: "SESSION_NOT_FOUND"))
+        let importTransport = CardsRequestTransport(status: .unauthorized, body: errorJSON(code: "SESSION_NOT_FOUND"))
+        await #expect(throws: CardBackupErrors.unauthorized) {
+            try await makeClient(transport: exportTransport).cards.exportCards().get()
+        }
+        await #expect(throws: CardBackupErrors.unauthorized) {
+            try await makeClient(transport: importTransport).cards.importCards(.init(cards: [])).get()
+        }
+    }
+
+    @Test
+    func `Import preserves an undocumented status`() async {
+        let transport = CardsRequestTransport(status: .init(code: 418), body: Data("{}".utf8))
+        await #expect(throws: CardBackupErrors.unknown(status: 418)) {
+            try await makeClient(transport: transport).cards.importCards(.init(cards: [])).get()
+        }
+    }
+
+    @Test
+    func `Import maps internal server failures as status 500`() async {
+        let transport = CardsRequestTransport(
+            status: .internalServerError,
+            body: errorJSON(code: "INTERNAL_SERVER_ERROR")
+        )
+        await #expect(throws: CardBackupErrors.unknown(status: 500)) {
+            try await makeClient(transport: transport).cards.importCards(.init(cards: [])).get()
+        }
+    }
+
+    @Test
+    func `Export maps connection and malformed response failures`() async {
+        let offline = CardsRequestTransport(status: .ok, body: Data(), fails: true)
+        let malformed = CardsRequestTransport(status: .ok, body: Data("{}".utf8))
+        await #expect(throws: CardBackupErrors.unknown(status: 503)) {
+            try await makeClient(transport: offline).cards.exportCards().get()
+        }
+        await #expect(throws: CardBackupErrors.unknown(status: 503)) {
+            try await makeClient(transport: malformed).cards.exportCards().get()
+        }
+    }
+
+    @Test
     func `Lists cards through the generated operation`() async throws {
         let transport = CardsRequestTransport(status: .ok, body: cardsListJSON)
-        let cards = try await makeClient(transport: transport).cards.list(game: .pokemon).get()
+        let cards = try await makeClient(transport: transport).cards.listPage(game: .pokemon, setNames: [], cursor: nil)
+            .get().cards
         let request = try #require(await transport.request)
 
         #expect(request.method == .get)
@@ -30,9 +198,10 @@ struct TCGCardsClientTests {
     @Test
     func `Lists repeated sets with encoded names and complete set choices`() async throws {
         let transport = CardsRequestTransport(status: .ok, body: cardsListJSON)
-        let collection = try await makeClient(transport: transport).cards.list(
+        let collection = try await makeClient(transport: transport).cards.listPage(
             game: .pokemon,
-            setNames: ["Base Set", "Special, Set & + 日本語"]
+            setNames: ["Base Set", "Special, Set & + 日本語"],
+            cursor: nil
         ).get()
         let request = try #require(await transport.request)
         let path = try #require(request.path)
@@ -48,7 +217,8 @@ struct TCGCardsClientTests {
     @Test
     func `Empty set selection omits the query parameter`() async throws {
         let transport = CardsRequestTransport(status: .ok, body: cardsListJSON)
-        let collection = try await makeClient(transport: transport).cards.list(game: nil, setNames: []).get()
+        let collection = try await makeClient(transport: transport).cards.listPage(game: nil, setNames: [], cursor: nil)
+            .get()
 
         #expect(await transport.request?.path == "/app-api/cards")
         #expect(collection.availableSetNames == ["Base Set", "Crown Zenith"])
@@ -58,7 +228,7 @@ struct TCGCardsClientTests {
     func `Preserves list validation failures as status 400`() async {
         let transport = CardsRequestTransport(status: .badRequest, body: validationJSON)
         await #expect(throws: ListCardsErrors.unknown(status: 400, payload: nil, cause: nil)) {
-            try await makeClient(transport: transport).cards.list(game: nil, setNames: [""]).get()
+            try await makeClient(transport: transport).cards.listPage(game: nil, setNames: [""], cursor: nil).get()
         }
     }
 
@@ -66,24 +236,25 @@ struct TCGCardsClientTests {
     func `Maps unavailable list pricing`() async {
         let transport = CardsRequestTransport(status: .serviceUnavailable, body: errorJSON(code: "UNAVAILABLE"))
         await #expect(throws: ListCardsErrors.unavailable) {
-            try await makeClient(transport: transport).cards.list(game: nil, setNames: ["Base Set"]).get()
+            try await makeClient(transport: transport).cards.listPage(game: nil, setNames: ["Base Set"], cursor: nil)
+                .get()
         }
     }
 
     @Test
     func `Maps a missing list session to unauthorized`() async {
         let transport = CardsRequestTransport(status: .unauthorized, body: errorJSON(code: "SESSION_NOT_FOUND"))
-        let result = await makeClient(transport: transport).cards.list(game: nil)
+        let result = await makeClient(transport: transport).cards.listPage(game: nil, setNames: [], cursor: nil)
 
         #expect(throws: ListCardsErrors.unauthorized) { try result.get() }
     }
 
     @Test
     func `Preserves undocumented list statuses`() async {
-        let transport = CardsRequestTransport(status: .init(code: 500), body: Data("{}".utf8))
-        let result = await makeClient(transport: transport).cards.list(game: nil)
+        let transport = CardsRequestTransport(status: .init(code: 418), body: Data("{}".utf8))
+        let result = await makeClient(transport: transport).cards.listPage(game: nil, setNames: [], cursor: nil)
 
-        await #expect(throws: ListCardsErrors.unknown(status: 500, payload: nil, cause: nil)) {
+        await #expect(throws: ListCardsErrors.unknown(status: 418, payload: nil, cause: nil)) {
             try result.get()
         }
     }
@@ -291,6 +462,115 @@ struct TCGCardsClientTests {
         #expect(saved.card.purchasePriceChangePercent == 25)
     }
 
+    @Test
+    func `Export follows every cursor and preserves card order`() async throws {
+        let transport = CardsRequestTransport(responses: [
+            .init(status: .ok, body: pageJSON(id: "first", cursor: "page-two")),
+            .init(status: .ok, body: pageJSON(id: "second", cursor: nil)),
+        ])
+        let cards = try await makeClient(transport: transport).cards.exportCards().get()
+        #expect(cards.map(\.id) == ["first", "second"])
+        #expect(
+            await transport.requests.map(\.path) == ["/app-api/cards/export", "/app-api/cards/export?cursor=page-two"]
+        )
+    }
+
+    @Test
+    func `Export fails when a later page fails instead of returning a partial backup`() async {
+        let transport = CardsRequestTransport(responses: [
+            .init(status: .ok, body: pageJSON(id: "first", cursor: "page-two")),
+            .init(status: .internalServerError, body: errorJSON(code: "INTERNAL_SERVER_ERROR")),
+        ])
+        await #expect(throws: CardBackupErrors.unknown(status: 500)) {
+            try await makeClient(transport: transport).cards.exportCards().get()
+        }
+        #expect(await transport.requests.count == 2)
+    }
+
+    @Test
+    func `Export rejects a repeating cursor`() async {
+        let transport = CardsRequestTransport(responses: [
+            .init(status: .ok, body: pageJSON(id: "first", cursor: "repeated")),
+            .init(status: .ok, body: pageJSON(id: "second", cursor: "repeated")),
+        ])
+        await #expect(throws: CardBackupErrors.unknown(status: 503)) {
+            try await makeClient(transport: transport).cards.exportCards().get()
+        }
+        #expect(await transport.requests.count == 2)
+    }
+
+    @Test
+    func `Export cancellation stops before requesting the next page`() async {
+        let transport = CardsRequestTransport(
+            responses: [.init(status: .ok, body: pageJSON(id: "first", cursor: "page-two"))],
+            cancelAfterResponse: true
+        )
+        let client = makeClient(transport: transport)
+        let task = Task { await client.cards.exportCards() }
+        await #expect(throws: CardBackupErrors.unknown(status: 503)) { try await task.value.get() }
+        #expect(await transport.requests.count == 1)
+    }
+
+    @Test
+    func `Listing a subsequent page preserves filters and complete set choices`() async throws {
+        let transport = CardsRequestTransport(responses: [
+            .init(status: .ok, body: pageJSON(id: "second", cursor: nil))
+        ])
+        let collection = try await makeClient(transport: transport).cards.listPage(
+            game: .pokemon,
+            setNames: ["Base Set"],
+            cursor: "page-two"
+        )
+        .get()
+        #expect(collection.cards.map(\.card.id) == ["second"])
+        #expect(collection.availableSetNames == ["Base Set", "Crown Zenith"])
+        let paths = await transport.requests.compactMap(\.path)
+        #expect(paths.count == 1)
+        let path = try #require(paths.first)
+        let url = try #require(URLComponents(string: "https://example.com\(path)"))
+        #expect(url.queryItems?.first { $0.name == "cursor" }?.value == "page-two")
+        #expect(url.queryItems?.first { $0.name == "game" }?.value == "pokemon")
+        #expect(url.queryItems?.first { $0.name == "set_name" }?.value == "Base Set")
+    }
+
+    @Test
+    func `Single page listing returns its cursor without fetching ahead`() async throws {
+        let transport = CardsRequestTransport(responses: [
+            .init(status: .ok, body: pageJSON(id: "first", cursor: "next"))
+        ])
+        let page = try await makeClient(transport: transport).cards.listPage(game: nil, setNames: [], cursor: "start")
+            .get()
+        #expect(page.nextCursor == "next")
+        #expect(page.cards.map(\.card.id) == ["first"])
+        #expect(page.availableSetNames == ["Base Set", "Crown Zenith"])
+        #expect(await transport.requests.map(\.path) == ["/app-api/cards?cursor=start"])
+    }
+
+    @Test
+    func `Single page listing maps internal server failures as status 500`() async {
+        let transport = CardsRequestTransport(
+            status: .internalServerError,
+            body: errorJSON(code: "INTERNAL_SERVER_ERROR")
+        )
+        await #expect(throws: ListCardsErrors.unknown(status: 500, payload: nil, cause: nil)) {
+            try await makeClient(transport: transport).cards.listPage(game: nil, setNames: [], cursor: nil).get()
+        }
+    }
+
+    private func pageJSON(id: String, cursor: String?) -> Data {
+        let card = String(decoding: cardJSON, as: UTF8.self).replacingOccurrences(of: "card-id", with: id)
+        let nextCursor = cursor.map { "\"\($0)\"" } ?? "null"
+        return Data(
+            """
+            {
+              "cards": [\(card)],
+              "available_set_names": ["Base Set", "Crown Zenith"],
+              "next_cursor": \(nextCursor)
+            }
+            """.utf8
+        )
+    }
+
     private func makeClient(transport: CardsRequestTransport) -> TCGClient {
         let credentials = Credentials(
             authToken: "auth-token",
@@ -309,6 +589,9 @@ struct TCGCardsClientTests {
 
 private actor CardsRequestTransport: ClientTransport {
     private(set) var request: CardsRecordedRequest?
+    private(set) var requests: [CardsRecordedRequest] = []
+    private var queuedResponses: [CardsTransportResponse]?
+    private let cancelAfterResponse: Bool
     private let status: HTTPResponse.Status
     private let body: Data
     private let fails: Bool
@@ -317,6 +600,15 @@ private actor CardsRequestTransport: ClientTransport {
         self.status = status
         self.body = body
         self.fails = fails
+        self.cancelAfterResponse = false
+    }
+
+    init(responses: [CardsTransportResponse], cancelAfterResponse: Bool = false) {
+        self.queuedResponses = responses
+        self.status = .ok
+        self.body = Data()
+        self.fails = false
+        self.cancelAfterResponse = cancelAfterResponse
     }
 
     func send(
@@ -332,17 +624,33 @@ private actor CardsRequestTransport: ClientTransport {
         } else {
             bodyData = nil
         }
-        self.request = CardsRecordedRequest(
+        let recorded = CardsRecordedRequest(
             method: request.method,
             path: request.path,
             operationID: operationID,
             body: bodyData
         )
+        self.request = recorded
+        requests.append(recorded)
+        let response: CardsTransportResponse
+        if var queue = queuedResponses {
+            guard !queue.isEmpty else { throw URLError(.badServerResponse) }
+            response = queue.removeFirst()
+            queuedResponses = queue
+        } else {
+            response = .init(status: status, body: self.body)
+        }
+        if cancelAfterResponse { withUnsafeCurrentTask { $0?.cancel() } }
         return (
-            HTTPResponse(status: status, headerFields: [.contentType: "application/json"]),
-            HTTPBody(self.body)
+            HTTPResponse(status: response.status, headerFields: [.contentType: "application/json"]),
+            HTTPBody(response.body)
         )
     }
+}
+
+private struct CardsTransportResponse: Sendable {
+    let status: HTTPResponse.Status
+    let body: Data
 }
 
 private struct CardsRecordedRequest: Sendable {
@@ -390,7 +698,8 @@ private let cardsListJSON = Data(
     """
     {
       "cards": [\(String(decoding: cardJSON, as: UTF8.self))],
-      "available_set_names": ["Base Set", "Crown Zenith"]
+      "available_set_names": ["Base Set", "Crown Zenith"],
+      "next_cursor": null
     }
     """.utf8
 )

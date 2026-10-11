@@ -244,6 +244,7 @@ test-snapshots-macos:
         -only-testing:TCGCardsTests/TCGCardsListScreenSnapshotTests \
         -only-testing:TCGCardsTests/TCGCardFormScreenSnapshotTests \
         -only-testing:TCGCardsTests/TCGCardDetailScreenSnapshotTests \
+        -only-testing:TCGCardsTests/TCGCardsImportReviewSnapshotTests \
         -only-testing:TCGSearchTests/TCGSearchScreenSnapshotTests \
         -only-testing:TCGSettingsTests/TCGSettingsScreenSnapshotTests \
         -only-testing:TCGDesignSystemTests/CardImageViewSnapshotTests \
@@ -285,6 +286,7 @@ _snapshots-ios action *args:
         -only-testing:TCGCardsTests/TCGCardsListScreenSnapshotTests \
         -only-testing:TCGCardsTests/TCGCardFormScreenSnapshotTests \
         -only-testing:TCGCardsTests/TCGCardDetailScreenSnapshotTests \
+        -only-testing:TCGCardsTests/TCGCardsImportReviewSnapshotTests \
         -only-testing:TCGSearchTests/TCGSearchScreenSnapshotTests \
         -only-testing:TCGSettingsTests/TCGSettingsScreenSnapshotTests \
         -only-testing:TCGDesignSystemTests/CardImageViewSnapshotTests \
