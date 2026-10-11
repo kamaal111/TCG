@@ -1,0 +1,66 @@
+scripts/setup-worktree.sh
+  s_afc494317408c4::t_23b924a927b2d5 63-65
+  s_afc494317408c4::t_a3eabe1a30da9a 1-62,66-69
+scripts/worktree-test-fixture.ts
+  s_afc494317408c4::t_33c2f08f1627d2 16
+  s_afc494317408c4::t_c24020859fb8aa 1-15,17-25
+justfile
+  s_afc494317408c4::t_b60d97eefe92b1 62-66
+  s_afc494317408c4::t_6fce310840597d 58-61,67-70
+scripts/create-herdr-worktree.test.ts
+  s_afc494317408c4::t_bbdd654a77e8a0 82
+  s_afc494317408c4::t_bdeefccc6fc287 16-34,47-48,50,77,83-85
+  s_afc494317408c4::t_2960c3f97c7280 1-14,35-46,51-58,60-66,69-76,78-81,86,88-95,97-115
+  s_afc494317408c4::t_b60d97eefe92b1 15,49,59,87,96,116
+  s_afc494317408c4::t_b92d08b241c715 67-68,117-135
+scripts/setup-worktree.test.ts
+  s_afc494317408c4::t_bdeefccc6fc287 262-274
+  s_afc494317408c4::t_291466d10ec105 45,54,64,72-73,86-88,179-185,208-234,237-242,251,254
+  s_afc494317408c4::t_bd3eaa8143378d 7
+  s_afc494317408c4::t_33c2f08f1627d2 56
+  s_afc494317408c4::t_9d0e2554bb6edb 248-249,252-253,256,259-260
+  s_afc494317408c4::t_35d0214a25c091 1-6,8-29,65-66,68-70,75-85,89-99,102-105,107-118,121-128,130-139,142-155,157-162,165-176,186-187,190-194,197-205,235,243-247,255,258,261
+  s_afc494317408c4::t_f79844eb810cc5 30-44,46-53,55,57-63
+  s_afc494317408c4::t_54aa3c3e3debf4 67,100-101,119-120,129,140-141,156,163-164,177-178,188-189,195-196,206-207,250
+  s_afc494317408c4::t_82139692bb9208 71,74,106,236,257
+.worktreeinclude
+  s_afc494317408c4::t_6fce310840597d 1
+.devcontainer/initialize.sh
+  s_afc494317408c4::t_7c694241da93f3 33
+tsconfig.scripts.json
+  s_afc494317408c4::t_6fce310840597d 22,24
+.gitignore
+  s_afc494317408c4::t_54aa3c3e3debf4 114
+scripts/create-herdr-worktree.sh
+  s_afc494317408c4::t_6e2d72c2a6489b 1-23
+oxlint.config.ts
+  s_afc494317408c4::t_30176cba647a23 10-35,40,57
+scripts/configure-worktree-env.ts
+  s_afc494317408c4::t_d1201855488d5b 13-17,19-21,23-24,26,43-50,56,58,69,75,85,89-91,97,99,137-139,141,145,154-180,183,194,196-201,217,219-220,223-227,229,231-232,234-242,244-245,247-249,251-252,254-255,258-260,265
+docs/development.md
+  s_afc494317408c4::t_b60d97eefe92b1 107-108,117-121,136
+  s_afc494317408c4::t_23b924a927b2d5 113,116
+  s_afc494317408c4::t_7c694241da93f3 104-106,109-112,122-135,137-140
+  s_afc494317408c4::t_eedb19bbb095d8 114-115
+  s_afc494317408c4::t_1ad9eb651fc775 213-214
+.devcontainer/README.md
+  s_afc494317408c4::t_7c694241da93f3 70,76,82
+scripts/prepare-worktree.sh
+  s_afc494317408c4::t_5570828a3745a6 1-20
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "6745427a729245eb59ba17d1576768eaf262108f",
+  "prompts": {},
+  "sessions": {
+    "s_afc494317408c4": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a12b8c-885f-72f3-9d99-5a7a1f0a329d",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": null
+    }
+  }
+}
