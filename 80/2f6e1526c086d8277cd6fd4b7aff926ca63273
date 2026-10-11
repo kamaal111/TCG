@@ -1,0 +1,153 @@
+server/src/open-api.integration.test.ts
+  s_d50940d8f4df6e::t_f2bd97fa100119 74-75
+app/Modules/TCGFeatures/Sources/TCGCards/Views/TCGCardFormFields.swift
+  s_d50940d8f4df6e::t_6004664c9afb7e 59-63
+server/src/cards/route.ts
+  s_d50940d8f4df6e::t_6bf70eee5ae991 6-7
+  s_d50940d8f4df6e::t_2ad2e5c07c3e8c 15-22
+app/Modules/TCGFeatures/Package.swift
+  s_d50940d8f4df6e::t_e5ed2330d761c8 74-76
+app/Modules/TCGFeatures/Tests/TCGCardsTests/TCGCardsImportReviewSnapshotTests.swift
+  s_d50940d8f4df6e::t_ed13c24afdbef4 1-48,50-53
+  s_d50940d8f4df6e::t_8a5cd78a4c6f86 49
+app/Modules/TCGFeatures/Sources/TCGCards/ImportExport/CSVImportCompletionView.swift
+  s_d50940d8f4df6e::t_22250f6a32554d 1-44
+app/Modules/TCGFeatures/Sources/TCGSettings/Views/Screens/TCGSettingsScreen.swift
+  s_d50940d8f4df6e::t_ebc8cd2afc2286 9-10,21-31,34,39,197-229
+  s_d50940d8f4df6e::t_26193a46c78696 8
+  s_d50940d8f4df6e::t_ed13c24afdbef4 35-38,40-42,45-50,52-54,59-81,92,121-196
+app/Modules/TCGClient/Sources/TCGClient/Preview/PreviewTCGCardsClient.swift
+  s_d50940d8f4df6e::t_b7945eae0efa5f 28-66
+app/Modules/TCGFeatures/Sources/TCGCards/ImportExport/CSVImportCardReviewView.swift
+  s_d50940d8f4df6e::t_76e4a9fe34461a 1-49
+app/Modules/TCGFeatures/Sources/TCGCards/ImportExport/CSVCardEditor.swift
+  s_d50940d8f4df6e::t_4f54ffa86d3e47 1-40
+app/Modules/TCGFeatures/Sources/TCGCards/ImportExport/CSVImportRowReviewView.swift
+  s_d50940d8f4df6e::t_f9fe2424182b19 1-40
+app/Modules/TCGFeatures/Sources/TCGCards/ImportExport/CSVImportIssueView.swift
+  s_d50940d8f4df6e::t_985c7641c87d76 1-14
+app/Modules/TCGFeatures/Sources/TCGCards/TCGCards.swift
+  s_d50940d8f4df6e::t_54002b6e24b655 132,134-137,139
+  s_d50940d8f4df6e::t_6004664c9afb7e 8,112-131,133,138
+app/Modules/TCGFeatures/Tests/TCGSettingsTests/TCGSettingsScreenSnapshotTests.swift
+  s_d50940d8f4df6e::t_494aecacfa0720 25-26
+  s_d50940d8f4df6e::t_ed13c24afdbef4 6,17-24,27-39
+server/drizzle/20261011163534_thick_photon/snapshot.json
+  s_d50940d8f4df6e::t_6bfaefdc48999d 1-2051
+app/Modules/TCGFeatures/Sources/TCGCards/ImportExport/CardsExportError.swift
+  s_d50940d8f4df6e::t_7d347cec262904 1-20
+app/Modules/TCGClient/Sources/TCGClient/Payloads/Cards/ImportCardsPayload.swift
+  s_d50940d8f4df6e::t_1cdf8ec1ded3cb 23-25,27-29,37-39,53,56,73,82,88
+  s_d50940d8f4df6e::t_b7945eae0efa5f 1-22,26,30-36,40-52,54-55,57-72,74-81,83-87,89-90
+app/Modules/TCGFeatures/Sources/TCGCards/ImportExport/CSVImportReviewContent.swift
+  s_d50940d8f4df6e::t_79bb950d11e4a0 1-86
+app/Modules/TCGUtils/Sources/TCGUtils/CSVFileDocument.swift
+  s_d50940d8f4df6e::t_4c3a2b5ccde431 1-21
+app/Modules/TCGClient/Sources/TCGClient/TCGCardsClient.swift
+  s_d50940d8f4df6e::t_b7945eae0efa5f 13-14,30-42,49,60-73
+  s_d50940d8f4df6e::t_09ddf1131d154f 74
+  s_d50940d8f4df6e::t_4288e4a0d546e8 43-48,50-59
+server/src/cards/routes/export-cards.ts
+  s_d50940d8f4df6e::t_12b7c0e594ea09 43,47
+  s_d50940d8f4df6e::t_6bf70eee5ae991 1-42,44-46,48-57
+app/Modules/TCGFeatures/Tests/TCGCardsTests/CardsCSVTests.swift
+  s_d50940d8f4df6e::t_4288e4a0d546e8 1-2,4-32,42-62,70-123,145-160,164-173,182,191-198
+  s_d50940d8f4df6e::t_03f7be2db6bac5 3,33-41,124-144,161-163,174-181,183-190
+  s_d50940d8f4df6e::t_d78219e77496fb 63-69
+server/src/cards/logging.ts
+  s_d50940d8f4df6e::t_6bfd4f80d045b3 7-8,18
+app/Modules/TCGFeatures/Sources/TCGCards/Views/TCGCardFormScreenModel.swift
+  s_d50940d8f4df6e::t_6004664c9afb7e 46,75,144,160-167,179,184
+app/Modules/TCGClient/Sources/TCGClient/openapi.yaml
+  s_d50940d8f4df6e::t_21f7d73785c817 313-314,318-337,341-369,889-895,897-898,1062-1068,1071-1074,1079-1081,1087-1093,1095-1096,1116-1148,1150-1199,1204-1212,1216-1218,1223-1225,1228-1230,1233-1242,1262-1292
+  s_d50940d8f4df6e::t_6bf70eee5ae991 315-317,338-340
+  s_d50940d8f4df6e::t_ac06ed0063b2ec 896,899-900,902-918,1069-1070,1075-1078,1082-1086,1094,1097-1115,1149,1200-1203,1213-1215,1219-1222,1226-1227,1231-1232,1243-1261
+app/Modules/TCGFeatures/Sources/TCGCards/ImportExport/CSVRowEditor.swift
+  s_d50940d8f4df6e::t_dd377d46ea0e5e 1-66
+app/Modules/TCGFeatures/Sources/TCGSettings/Localizable.xcstrings
+  s_d50940d8f4df6e::t_51e7a0c31a411b 6-35,45-56,60-67
+  s_d50940d8f4df6e::t_5470ffc7fb6d90 68
+server/src/cards/schemas/payloads.ts
+  s_d50940d8f4df6e::t_ef4d2568fcf27b 163
+  s_d50940d8f4df6e::t_1b383be673ad10 93-95
+  s_d50940d8f4df6e::t_4be013ab5109a5 3,9,28-44,46-58,60-64,66-68,85-86,96-99,102-103,164
+  s_d50940d8f4df6e::t_adb3ea9899ae8e 69-84,87-92,100-101,105-107,109,115-126,130,132,134-162
+app/Modules/TCGFeatures/Sources/TCGSettings/Views/Screens/TCGCSVImportIntroduction.swift
+  s_d50940d8f4df6e::t_ed13c24afdbef4 1-47
+server/src/db/schema/cards.ts
+  s_d50940d8f4df6e::t_44925f0463c0b8 33,51
+app/Modules/TCGFeatures/Sources/TCGCards/ImportExport/CardsCSV.swift
+  s_d50940d8f4df6e::t_d78219e77496fb 108-112
+  s_d50940d8f4df6e::t_c8be66baf548b3 69-70
+  s_d50940d8f4df6e::t_d042d9facc8507 39,63
+  s_d50940d8f4df6e::t_6004664c9afb7e 163
+  s_d50940d8f4df6e::t_916b8ae40433b8 64-68,123-125
+  s_d50940d8f4df6e::t_07caf8467b6f29 1-10,13-16,18-38,40-62,71-84,86,89,91-94,96-107,113-120,122,126-131,142-162,164-214,222-295,297-362,364-381,390-431,433-441,443-460,462-484
+  s_d50940d8f4df6e::t_4b00472b63625c 12,17,85,87-88,90,95,121,132-141,215-221,296,363,382-389
+  s_d50940d8f4df6e::t_4288e4a0d546e8 432,442,461
+  s_d50940d8f4df6e::t_aa363e609da1e1 11
+app/Modules/TCGFeatures/Sources/TCGCards/ImportExport/TCGCardsImportReviewScreen.swift
+  s_d50940d8f4df6e::t_4c3a2b5ccde431 1-124
+app/Modules/TCGFeatures/Sources/TCGCards/Localizable.xcstrings
+  s_d50940d8f4df6e::t_44cf959fc72fd9 356-358
+  s_d50940d8f4df6e::t_51e7a0c31a411b 24-33,54-56,63-78,82-90,97-105,121-123,127-135,145-153,157-171,175-204,211-225,229-231,250-252,274-276,286-295,302-304,308-316,320-339,343-345,349-355,359-363,367-372,376-401
+  s_d50940d8f4df6e::t_e577130ddf4def 402
+app/Modules/TCGClient/Sources/TCGClient/Errors/Cards/CardErrors.swift
+  s_d50940d8f4df6e::t_b7945eae0efa5f 74-79
+app/README.md
+  s_d50940d8f4df6e::t_b13eac6862766a 31,35-81
+server/src/cards/routes/import-cards.ts
+  s_d50940d8f4df6e::t_6bf70eee5ae991 1-63
+app/Modules/TCGFeatures/Sources/TCGCards/ImportExport/TCGCardsImportReviewModel.swift
+  s_d50940d8f4df6e::t_6004664c9afb7e 1-19,22-25,32-34,38-45,47-48,52-54,59-64,66-76,88,100,102,110-117,120-123,128-129,135,141-143
+  s_d50940d8f4df6e::t_bc922962dc50fe 26-27,30-31,35-36,46,56-58,65,77-87,89-99,118-119,124-127,130-134,136-140
+  s_d50940d8f4df6e::t_ed13c24afdbef4 20-21,29,37,50,55,101,103-109
+  s_d50940d8f4df6e::t_9097a98476eb76 49,51
+  s_d50940d8f4df6e::t_4c5feae4ad60c0 28
+app/Modules/TCGApp/Sources/TCGApp/TCGApp.swift
+  s_d50940d8f4df6e::t_ecf1f21dffaf55 38,48,89-109
+server/drizzle/20261011163534_thick_photon/migration.sql
+  s_d50940d8f4df6e::t_6bfaefdc48999d 1-2
+server/src/cards/tests/backup-cards.integration.test.ts
+  s_d50940d8f4df6e::t_1b383be673ad10 1-3,8-9,12-29,31-37,39-44,49-52,54,56-57,59,61,63-65,67,70-78,80-81,83-92,95-96,98-99,101,104-105,107,110-115,117-118,121-125,127,130-132,135,139,141,143-147,150-155,157-159,161,164-165,167,170-171,214-216,221-223,225-226,228,230-232
+  s_d50940d8f4df6e::t_06e81ed50d19d7 4-5
+  s_d50940d8f4df6e::t_c7ba11cbc44d63 30,38,58,66,79,82,100,106,119-120,133-134,140,148-149,160,166,220,227,229
+  s_d50940d8f4df6e::t_6bf70eee5ae991 6,10-11,45-48,55,62,68-69,93,97,103,109,116,129,137,163,169,191,197-199,217-219,224
+  s_d50940d8f4df6e::t_f85fa34b6f5e3f 128
+  s_d50940d8f4df6e::t_300fe6cae359ec 172-190,192-196,200-213
+  s_d50940d8f4df6e::t_ef4d2568fcf27b 7,53,60,94,102,108,126,136,138,142,156,162,168
+server/src/cards/repository.ts
+  s_d50940d8f4df6e::t_ef4d2568fcf27b 203-217,236-266
+  s_d50940d8f4df6e::t_e803eb9a8212eb 2,4,11,198-202,222-235,267-270
+  s_d50940d8f4df6e::t_f85fa34b6f5e3f 218-221
+server/src/cards/schemas/responses.ts
+  s_d50940d8f4df6e::t_adb3ea9899ae8e 113-146,150-155,157-162
+  s_d50940d8f4df6e::t_99a4640fefad3f 112,147-149,156
+scripts/run-ios-snapshots-recipes.test.ts
+  s_d50940d8f4df6e::t_0a40c20def4afd 72
+app/Modules/TCGFeatures/Tests/TCGCardsTests/TCGCardsImportReviewModelTests.swift
+  s_d50940d8f4df6e::t_620b4560916ab8 110-169
+  s_d50940d8f4df6e::t_1ac4e5375833bd 14-19
+  s_d50940d8f4df6e::t_4288e4a0d546e8 1-13,20-109
+app/Modules/TCGClient/Tests/TCGClientTests/TCGCardsClientTests.swift
+  s_d50940d8f4df6e::t_fc6ef948f3fbc3 18-38,59-118
+  s_d50940d8f4df6e::t_73ee2181092fda 39-58
+justfile
+  s_d50940d8f4df6e::t_80e78d21ab47dc 247,289
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "802f6e1526c086d8277cd6fd4b7aff926ca63273",
+  "prompts": {},
+  "sessions": {
+    "s_d50940d8f4df6e": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a12bbc-608d-73f2-8859-cd632e809b7a",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": null
+    }
+  }
+}
