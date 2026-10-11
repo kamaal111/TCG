@@ -64,8 +64,8 @@ exec "$REAL_JUST" "$@"
     SETUP_EXIT: '0',
   };
 
-  const run = (overrides: NodeJS.ProcessEnv = {}, branch = env.BRANCH) =>
-    childProcess.spawnSync(env.REAL_JUST, ['herdr-worktree', branch], {
+  const run = (overrides: NodeJS.ProcessEnv = {}, branch = env.BRANCH, args: string[] = []) =>
+    childProcess.spawnSync(env.REAL_JUST, ['herdr-worktree', branch, ...args], {
       cwd: main,
       env: { ...env, ...overrides },
       encoding: 'utf8',
@@ -84,9 +84,34 @@ test('creates through the Herdr boundary then runs the real shared setup recipe 
   expect((await fs.stat(path.join(checkout, '.env'))).mode & 0o777).toBe(0o600);
   expect(result.stdout + result.stderr).not.toContain('fixture-secret');
   expect(await fs.readFile(f.log, 'utf8')).toBe(
-    `herdr:worktree create --cwd ${f.main} --branch feature/cards --base origin/main --no-focus\njust:${checkout}:setup-worktree\n`,
+    `just:${f.main}:prepare-worktree feature/cards\nherdr:worktree create --cwd ${f.main} --branch feature/cards --base origin/main --focus\njust:${checkout}:setup-worktree\n`,
   );
 });
+
+test('allows keeping the original workspace focused while configuring the new checkout', async () => {
+  const f = await wrapperFixture();
+  const result = f.run({}, 'feature/cards', ['--no-focus']);
+  const checkout = await fs.realpath(f.checkout);
+
+  expect(result.status).toBe(0);
+  expect(await fs.readFile(f.log, 'utf8')).toBe(
+    `just:${f.main}:prepare-worktree feature/cards\nherdr:worktree create --cwd ${f.main} --branch feature/cards --base origin/main --no-focus\njust:${checkout}:setup-worktree\n`,
+  );
+  expect(await fs.readFile(path.join(checkout, '.env'), 'utf8')).toContain('COMPOSE_PROJECT_NAME=tcg-wt-');
+});
+
+test.each([['--unknown'], ['--no-focus', '--no-focus'], ['--no-focus', 'extra']])(
+  'rejects unsupported arguments %j before preparing or creating a worktree',
+  async (...args) => {
+    const f = await wrapperFixture();
+    const result = f.run({}, 'feature/cards', args);
+
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain('Usage: just herdr-worktree <new-branch> [--no-focus]');
+    expect(await fs.readFile(f.log, 'utf8')).toBe('');
+    await expect(fs.access(f.checkout)).rejects.toMatchObject({ code: 'ENOENT' });
+  },
+);
 
 test('propagates native Herdr failure without invoking setup', async () => {
   const f = await wrapperFixture();
@@ -121,7 +146,7 @@ test('rejects invalid branch names through preparation before invoking Herdr', a
   const result = f.run({}, 'invalid branch');
 
   expect(result.status).not.toBe(0);
-  expect(await fs.readFile(f.log, 'utf8')).toBe('');
+  expect(await fs.readFile(f.log, 'utf8')).toBe(`just:${f.main}:prepare-worktree invalid branch\n`);
   expect(await fs.readFile(f.log, 'utf8')).not.toContain('herdr:');
 });
 

@@ -64,10 +64,10 @@ setup-worktree:
 prepare-worktree branch:
     bash scripts/prepare-worktree.sh "$1"
 
-# Create a Herdr worktree, then configure its local environment
+# Create and focus a Herdr worktree, then configure it (opt out with --no-focus)
 [positional-arguments]
-herdr-worktree branch: (prepare-worktree branch)
-    bash scripts/create-herdr-worktree.sh "$1"
+herdr-worktree branch *args:
+    bash scripts/create-herdr-worktree.sh "$@"
 
 # Run dev server
 [working-directory("server")]

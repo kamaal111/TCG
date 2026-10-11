@@ -134,7 +134,17 @@ Git-directory lock; concurrent setup fails with retry instructions. After an
 interrupted process, remove the reported lock only when no setup is running.
 
 If you use Herdr, `just herdr-worktree feature/cards` runs preparation, creates
-the checkout through Herdr, and runs the same `just setup-worktree` there.
+the checkout through Herdr, selects its workspace, and runs the same
+`just setup-worktree` there. To keep the original workspace selected, use:
+
+```sh
+just herdr-worktree feature/cards --no-focus
+```
+
+Workspace selection happens during creation. Setup continues in the originating
+terminal, where any setup failure is reported; that terminal's working directory
+stays unchanged.
+
 You can also create it through Herdr directly and run setup yourself. No Herdr
 plugin is required. See [the setup entry point](../scripts/setup-worktree.sh) and
 [its environment helper](../scripts/configure-worktree-env.ts).
