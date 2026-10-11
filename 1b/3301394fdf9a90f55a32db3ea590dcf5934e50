@@ -1,0 +1,35 @@
+justfile
+  s_3e20094cbccdd4::t_78bc2a78c497de 268,270
+  s_3e20094cbccdd4::t_c76ea7cb2fa751 267,269,272
+scripts/run-ios-snapshots-recipes.test.ts
+  s_3e20094cbccdd4::t_a4bd73bb78685e 1-4,7-41,43-55,57-89,91-102
+  s_3e20094cbccdd4::t_1024aa4a8171ad 6,42,56,90
+  s_3e20094cbccdd4::t_ac2acf4e2d65f9 5
+scripts/run-ios-snapshots-ci.test.ts
+  s_3e20094cbccdd4::t_5a29f4b2441ca6 35-46,53,141,238-239,249-267,269-276
+  s_3e20094cbccdd4::t_a4bd73bb78685e 12-13,268
+app/README.md
+  s_3e20094cbccdd4::t_1024aa4a8171ad 147
+  s_3e20094cbccdd4::t_78bc2a78c497de 141-146
+scripts/run-ios-snapshots-ci.ts
+  s_3e20094cbccdd4::t_1024aa4a8171ad 273,275
+  s_3e20094cbccdd4::t_29eaf19fefa856 269-271,276-278
+  s_3e20094cbccdd4::t_78bc2a78c497de 4,231-232,242,262-267,274,279-289,318-327
+  s_3e20094cbccdd4::t_ac2acf4e2d65f9 268,272
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "1b3301394fdf9a90f55a32db3ea590dcf5934e50",
+  "prompts": {},
+  "sessions": {
+    "s_3e20094cbccdd4": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a12ba4-4a28-79f1-a59b-11d40e334def",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Kamaal Farah <kamaal.f1@gmail.com>"
+    }
+  }
+}
