@@ -1,0 +1,47 @@
+scripts/create-herdr-worktree.sh
+  s_afc494317408c4::t_6e2d72c2a6489b 1-35
+.gitignore
+  s_afc494317408c4::t_54aa3c3e3debf4 114
+tsconfig.scripts.json
+  s_afc494317408c4::t_6fce310840597d 22,24
+scripts/create-herdr-worktree.test.ts
+  s_afc494317408c4::t_bbdd654a77e8a0 69,121
+  s_afc494317408c4::t_2960c3f97c7280 1-8,55-68,70-120,122-153
+  s_afc494317408c4::t_6fce310840597d 9,22,38,50
+.worktreeinclude
+  s_afc494317408c4::t_6fce310840597d 1
+justfile
+  s_afc494317408c4::t_6fce310840597d 58-63,65
+docs/development.md
+  s_afc494317408c4::t_7c694241da93f3 104-129,203
+scripts/setup-worktree.ts
+  s_afc494317408c4::t_6fce310840597d 8,76,92,139-140,145-147,149,153,162-169,172-178,181-182,185,196,215,218-220,223,230-239,244-247,249-250,253-255,257-258,260,264,266-275,278,280-291,294,304-314,320,323-327,335,340
+  s_afc494317408c4::t_2950ece5be0a02 171,179-180,214,222,226,252,256,261-262,265,276,279,292,295,316,319,329
+  s_afc494317408c4::t_291466d10ec105 227,263,277,296-303,317
+  s_afc494317408c4::t_54aa3c3e3debf4 44-51,57,70,98,170,242,293,318,321-322,328,330-334
+.devcontainer/README.md
+  s_afc494317408c4::t_7c694241da93f3 70,76,82
+.devcontainer/initialize.sh
+  s_afc494317408c4::t_7c694241da93f3 33
+scripts/setup-worktree.test.ts
+  s_afc494317408c4::t_54aa3c3e3debf4 8,20,22,67-68,86-87,96,107-108,123,130-131,144-145,155-156,162-163,173-174
+  s_afc494317408c4::t_82139692bb9208 29-30,38,41,73,203
+  s_afc494317408c4::t_35d0214a25c091 1-7,9-19,21,23-28,31-37,42-52,56-66,69-72,74-85,88-95,97-106,109-122,124-129,132-143,153-154,157-161,164-172,202,210-214
+  s_afc494317408c4::t_291466d10ec105 39-40,53-55,146-152,175-201,204-209
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "9bdd2ca57f80607f957e487753fffd802d4e942e",
+  "prompts": {},
+  "sessions": {
+    "s_afc494317408c4": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a12b8c-885f-72f3-9d99-5a7a1f0a329d",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Kamaal Farah <kamaal.f1@gmail.com>"
+    }
+  }
+}
