@@ -9,8 +9,8 @@ const fixtures: string[] = [];
 
 const processes: childProcess.ChildProcess[] = [];
 
-function fixture(mode = 'success'): string {
-  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'tcg-ios-cancellation-'));
+function fixture(mode = 'success', prefix = 'tcg-ios-cancellation-'): string {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), prefix));
   fixtures.push(directory);
   fs.writeFileSync(path.join(directory, 'mode'), mode);
   fs.writeFileSync(
@@ -32,12 +32,25 @@ import childProcess from 'node:child_process';
 import fs from 'node:fs';
 if (process.argv[2] === 'build-snapshots-ios') {
   fs.writeFileSync(process.env.FIXTURE + '/build.json', JSON.stringify(process.argv.slice(2)));
+  const derivedData = process.argv[process.argv.indexOf('-derivedDataPath') + 1];
+  const products = derivedData + '/Build/Products';
+  fs.mkdirSync(products, { recursive: true });
+  fs.writeFileSync(process.env.FIXTURE + '/derived-data.txt', derivedData);
+  if (process.env.MODE !== 'missing-manifest') {
+    fs.writeFileSync(products + '/TCG_Test Scheme Action_iphonesimulator27.0-arm64.xctestrun', 'fixture');
+  }
+  if (process.env.MODE === 'ambiguous-manifest') {
+    fs.writeFileSync(products + '/TCG_Other_iphonesimulator27.0-arm64.xctestrun', 'fixture');
+  }
+  fs.writeFileSync(products + '/TCG_iphoneos27.0-arm64.xctestrun', 'unrelated');
+  fs.writeFileSync(products + '/Other_iphonesimulator27.0-arm64.xctestrun', 'unrelated');
   console.log('build completed');
   if (process.env.MODE === 'metrics') console.log('Resolve Package Graph\\nResolved source packages:');
   process.exit(process.env.MODE === 'build-failure' ? 66 : 0);
 }
 fs.writeFileSync(process.env.FIXTURE + '/just.pid', String(process.pid));
 fs.writeFileSync(process.env.FIXTURE + '/args.json', JSON.stringify(process.argv.slice(2)));
+fs.writeFileSync(process.env.FIXTURE + '/test-manifest.txt', process.env.TCG_APP_IOS_XCTESTRUN ?? '');
 console.log('test output');
 if (process.env.MODE === 'metrics') {
   console.log('◇ Test run started.\\n✔ Test run with 31 tests passed after 1 second.');
@@ -125,6 +138,7 @@ function start({
       ...process.env,
       PATH: directory,
       FIXTURE: directory,
+      TMPDIR: directory,
       MODE: fs.readFileSync(path.join(directory, 'mode'), 'utf8'),
       GITHUB_ACTIONS: githubActions,
       TCG_IOS_SNAPSHOT_IDLE_TIMEOUT_SECONDS: idleTimeoutSeconds,
@@ -221,6 +235,8 @@ describe('iOS snapshot CI supervisor', () => {
       'build-snapshots-ios',
       '-jobs',
       '2',
+      '-derivedDataPath',
+      fs.readFileSync(path.join(directory, 'derived-data.txt'), 'utf8'),
     ]);
     expect(JSON.parse(fs.readFileSync(path.join(directory, 'args.json'), 'utf8'))).toEqual([
       'test-built-snapshots-ios',
@@ -230,6 +246,34 @@ describe('iOS snapshot CI supervisor', () => {
       '/tmp/results',
     ]);
     expect(run.output()).toContain('Simulator boot completed');
+    const derivedData = fs.readFileSync(path.join(directory, 'derived-data.txt'), 'utf8');
+    expect(path.dirname(derivedData)).toBe(directory);
+    expect(fs.readFileSync(path.join(directory, 'test-manifest.txt'), 'utf8')).toBe(
+      path.join(derivedData, 'Build/Products/TCG_Test Scheme Action_iphonesimulator27.0-arm64.xctestrun'),
+    );
+  });
+
+  it.each(['missing-manifest', 'ambiguous-manifest'])('rejects %s before booting or testing', async mode => {
+    const directory = fixture(mode);
+    const run = start({ directory, simulator: 'iPhone 17' });
+
+    expect(await run.exited).toBe(1);
+    expect(run.output()).toContain('Expected one TCG iOS Simulator test manifest');
+    expect(fs.existsSync(path.join(directory, 'boot.pid'))).toBe(false);
+    expect(fs.existsSync(path.join(directory, 'just.pid'))).toBe(false);
+    expect(fs.existsSync(path.join(directory, 'shutdown.json'))).toBe(true);
+  });
+
+  it('hands off a fresh manifest when the temporary directory contains spaces', async () => {
+    const spacedDirectory = fixture('success', 'tcg ios snapshots-');
+    const run = start({ directory: spacedDirectory, simulator: 'iPhone 17' });
+
+    expect(await run.exited).toBe(0);
+    const derivedData = fs.readFileSync(path.join(spacedDirectory, 'derived-data.txt'), 'utf8');
+    expect(path.dirname(derivedData)).toBe(spacedDirectory);
+    expect(fs.readFileSync(path.join(spacedDirectory, 'test-manifest.txt'), 'utf8')).toBe(
+      path.join(derivedData, 'Build/Products/TCG_Test Scheme Action_iphonesimulator27.0-arm64.xctestrun'),
+    );
   });
 
   it('preserves build failure without booting the simulator', async () => {
