@@ -55,9 +55,19 @@ alias devcontainer-rm := devcontainer-delete
 @_default:
     just --list --unsorted
 
-# Create a Herdr worktree with its own local environment
-herdr-worktree branch:
-    node scripts/create-herdr-worktree.ts "$branch"
+# Configure this worktree with its own local environment and ports
+setup-worktree:
+    bash scripts/setup-worktree.sh
+
+# Validate a new worktree branch and refresh its base revision
+[positional-arguments]
+prepare-worktree branch:
+    bash scripts/prepare-worktree.sh "$1"
+
+# Create a Herdr worktree, then configure its local environment
+[positional-arguments]
+herdr-worktree branch: (prepare-worktree branch)
+    bash scripts/create-herdr-worktree.sh "$1"
 
 # Run dev server
 [working-directory("server")]

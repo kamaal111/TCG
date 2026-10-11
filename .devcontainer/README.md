@@ -67,19 +67,19 @@ used for this build.
 ## Worktrees
 
 Every checkout gets its own compose project: its own container, database, object storage and
-`node_modules` volumes. Herdr worktrees reuse their `COMPOSE_PROJECT_NAME`; other checkouts get a
+`node_modules` volumes. Configured worktrees reuse their `COMPOSE_PROJECT_NAME`; other checkouts get a
 name derived from their path. The workspace and the shared git directory are mounted at their host
 paths, so worktree `.git` links resolve.
 
 The API port is published on `127.0.0.1:$PORT` from the checkout's `.env`, so the iOS
 simulator and host tools reach `just dev-server` at the same URL as without a container. Checkouts
-need distinct `PORT` values to run side by side; `just herdr-worktree` assigns them, and
+need distinct `PORT` values to run side by side; `just setup-worktree` assigns them, and
 `devcontainer-up` refuses to start when the port is taken.
 
 PostgreSQL is published on `127.0.0.1:${TCG_DB_PORT:-5432}`. Host tools such as Postico can
 connect without an editor tunnel. With the default credentials and port, use
 `postgresql://tcg_user:tcg_password@127.0.0.1:5432/tcg`. For a worktree, use its `TCG_DB_PORT`
-from `.env` instead of `5432`; `just herdr-worktree` assigns distinct database ports too.
+from `.env` instead of `5432`; `just setup-worktree` assigns distinct database ports too.
 Connections inside the dev container continue to use `db:5432`. After changing the port
 configuration, run `just devcontainer-up` from the host to apply it, preserving database data.
 
