@@ -2,26 +2,21 @@ import { purchasePriceChangePercent } from './purchase-price.ts';
 import type { OwnedCardPriceResponse } from '../../card-pricing/schemas/responses.ts';
 import { toISO8601String } from '../../utils/strings.ts';
 import type { CardWithPurchases } from '../repository.ts';
-import {
-  type CardResponse,
-  CardSchema,
-  type CardWithPriceResponse,
-  CardWithPriceSchema,
-} from '../schemas/responses.ts';
+import type { CardResponse, CardWithPriceResponse } from '../schemas/responses.ts';
 
 export function serializeCard(card: CardWithPurchases): CardResponse {
-  return CardSchema.parse(serializeCardFields(card));
+  return serializeCardFields(card);
 }
 
 export function serializeCardWithPrice(card: CardWithPurchases, price: OwnedCardPriceResponse): CardWithPriceResponse {
-  return CardWithPriceSchema.parse({
+  return {
     ...serializeCardFields(card),
     purchase_price_change_percent: purchasePriceChangePercent(card.purchaseBatches, price.priced_card?.market),
     price,
-  });
+  };
 }
 
-function serializeCardFields(card: CardWithPurchases) {
+function serializeCardFields(card: CardWithPurchases): CardResponse {
   return {
     id: card.id,
     game: card.game,

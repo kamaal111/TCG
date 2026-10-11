@@ -28,7 +28,11 @@ describe('List cards integration', () => {
     const user = await createTestUser(app, db);
     const response = await app.request(LIST_CARDS_ROUTE_PATH, { headers: sessionHeaders(user.sessionToken) });
     expect(response.status).toBe(CONTENTFUL_STATUS_CODES.OK);
-    expect(CardsListResponseSchema.parse(await response.json())).toEqual({ cards: [], available_set_names: [] });
+    expect(CardsListResponseSchema.parse(await response.json())).toEqual({
+      cards: [],
+      available_set_names: [],
+      next_cursor: null,
+    });
   });
 
   integrationTest(
@@ -161,7 +165,7 @@ describe('List cards integration', () => {
   });
 
   integrationTest(
-    'reads cards and set choices once even when no selected sets match',
+    'reads a bounded card page and complete set choices when no selected sets match',
     async ({ app, db, storageClient }) => {
       const owner = await createTestUser(app, db);
       await createCardRequest(app, owner.sessionToken);
@@ -187,8 +191,9 @@ describe('List cards integration', () => {
       expect(CardsListResponseSchema.parse(await response.json())).toEqual({
         cards: [],
         available_set_names: ['Romance Dawn'],
+        next_cursor: null,
       });
-      expect(statements.filter(statement => statement.includes('from "card"'))).toHaveLength(1);
+      expect(statements.filter(statement => statement.includes('from "card"'))).toHaveLength(2);
     },
   );
 
@@ -203,7 +208,11 @@ describe('List cards integration', () => {
     });
 
     expect(response.status).toBe(CONTENTFUL_STATUS_CODES.OK);
-    expect(CardsListResponseSchema.parse(await response.json())).toEqual({ cards: [], available_set_names: [] });
+    expect(CardsListResponseSchema.parse(await response.json())).toEqual({
+      cards: [],
+      available_set_names: [],
+      next_cursor: null,
+    });
   });
 
   for (const setName of ['', 'x'.repeat(201)]) {

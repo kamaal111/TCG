@@ -43,7 +43,7 @@ final class TCGCardFormScreenModel {
         self.mode = mode
         let initial: CardFormValues
         switch mode {
-        case .add:
+        case .add, .draft:
             initial =
                 initialValues
                 ?? CardFormValues(game: .onePiece, name: "", setName: "", cardNumber: "", notes: "", quantities: [:])
@@ -72,6 +72,7 @@ final class TCGCardFormScreenModel {
     }
 
     func refreshPurchaseDefault(using cards: TCGCards) async {
+        if case .draft = mode { return }
         guard !values.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
         guard !values.cardNumber.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
         var calendar = Calendar(identifier: .gregorian)
@@ -140,6 +141,7 @@ final class TCGCardFormScreenModel {
         defer { isSubmitting = false }
         let result: Result<Void, TCGCardsOperationError>
         switch mode {
+        case .draft: return false
         case .add: result = await cards.addCard(values)
         case .edit(let card):
             result = await cards.updateCard(id: card.id, values: values).map { savedCard = $0 }
@@ -155,6 +157,14 @@ final class TCGCardFormScreenModel {
         }
     }
 
+    func saveDraft() -> CardFormValues? {
+        hasSubmitted = true
+        let issues = TCGCardsValidator.issues(for: values)
+        apply(issues)
+        guard issues.isEmpty else { return nil }
+        return values
+    }
+
     private func revalidateIfNeeded() {
         guard hasSubmitted else { return }
         apply(TCGCardsValidator.issues(for: values))
@@ -166,10 +176,12 @@ final class TCGCardFormScreenModel {
 
     enum Mode {
         case add
+        case draft
         case edit(Card)
 
         var title: String {
             switch self {
+            case .draft: String(localized: "Save Changes", bundle: .module)
             case .add: String(localized: "Add card", bundle: .module)
             case .edit: String(localized: "Edit card", bundle: .module)
             }

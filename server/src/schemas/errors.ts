@@ -25,9 +25,10 @@ export const CardNotFoundErrorResponseSchema = z
 const ValidationIssueSchema = z
   .object({
     code: z.string().meta({ description: 'Validation issue code', example: 'too_small' }),
-    path: z
-      .array(z.union([z.string(), z.number()]))
-      .meta({ description: 'Path to the invalid field', example: ['amount'] }),
+    path: z.array(z.string()).meta({
+      description: 'Path to the invalid field',
+      example: ['cards', '0', 'purchases', '0', 'automatic_price_date'],
+    }),
     message: z.string().meta({
       description: 'Validation issue message',
       example: 'Number must be greater than 0',

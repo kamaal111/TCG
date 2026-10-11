@@ -21,7 +21,8 @@ const routeConfig = createRoute({
   path: LIST_CARDS_PATH,
   tags: [CARDS_OPENAPI_TAG],
   summary: 'List owned cards',
-  description: "List the authenticated user's owned card entries, newest first.",
+  description:
+    "List one page of the authenticated user's owned cards, newest first, with complete game-scoped set choices. Follow next_cursor until null for all matching cards.",
   middleware: [requireSessionMiddleware] as const,
   security: [{ bearerAuth: [] }],
   request: { query: CardsListQuerySchema },
@@ -35,8 +36,12 @@ const routeConfig = createRoute({
       content: { [MIME_TYPES.JSON]: { schema: ErrorResponseSchema } },
     },
     [CONTENTFUL_STATUS_CODES.BAD_REQUEST]: {
-      description: 'Invalid collection filters',
+      description: 'Invalid collection filters or pagination parameters',
       content: { [MIME_TYPES.JSON]: { schema: ValidationErrorResponseSchema } },
+    },
+    [CONTENTFUL_STATUS_CODES.INTERNAL_SERVER_ERROR]: {
+      description: 'Unexpected server failure',
+      content: { [MIME_TYPES.JSON]: { schema: ErrorResponseSchema } },
     },
     [CONTENTFUL_STATUS_CODES.SERVICE_UNAVAILABLE]: {
       description: 'Pricing is temporarily unavailable because the upstream provider failed',
@@ -50,11 +55,15 @@ export const LIST_CARDS_ROUTE_PATH = `${APP_API_ROUTE_NAME}${CARDS_ROUTE_NAME}` 
 const listCardsRoute = defineOpenAPIRoute<HonoEnvironment, typeof routeConfig>({
   route: routeConfig,
   handler: async c => {
-    const { game, set_name } = c.req.valid('query');
+    const { game, set_name, ...pagination } = c.req.valid('query');
 
     const repository = c.get('cardRepository');
 
-    const { cards, availableSetNames } = await repository.listCollection(game, set_name ?? []);
+    const { cards, availableSetNames, nextCursor } = await repository.listCollection({
+      ...pagination,
+      game,
+      setNames: set_name ?? [],
+    });
 
     const prices = isNonEmpty(cards)
       ? await c.get('cardPricingService').priceOwnedCards(cards, { allowUnavailable: true })
@@ -64,10 +73,11 @@ const listCardsRoute = defineOpenAPIRoute<HonoEnvironment, typeof routeConfig>({
 
     const cardsWithPrices = zip([...cards], [...prices], true);
 
-    const response = CardsListResponseSchema.parse({
+    const response = {
       cards: cardsWithPrices.flatMap(([card, price]) => [serializeCardWithPrice(card, price)]),
       available_set_names: availableSetNames,
-    });
+      next_cursor: nextCursor,
+    };
 
     cardsLogger(c).info(
       { event: 'cards.list', outcome: 'success', result_count: response.cards.length, game },

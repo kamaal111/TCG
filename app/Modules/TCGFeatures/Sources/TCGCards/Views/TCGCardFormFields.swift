@@ -56,8 +56,11 @@ struct TCGCardFormFields: View {
                         }
                     }
                 }
-                Text("Purchase defaults use today's average near-mint market price.", bundle: .module)
-                    .font(.caption).foregroundStyle(.secondary)
+                if case .draft = model.mode {
+                } else {
+                    Text("Purchase defaults use today's average near-mint market price.", bundle: .module)
+                        .font(.caption).foregroundStyle(.secondary)
+                }
                 if let error = model.fieldErrors[.purchases] {
                     Text(error).font(.caption).foregroundStyle(.red)
                 }

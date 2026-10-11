@@ -21,6 +21,16 @@
         }
       }
     },
+    "%@: ‘%@’" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@: ‘%2$@’"
+          }
+        }
+      }
+    },
     "Add at least one card quantity." : {
 
     },
@@ -42,19 +52,62 @@
     "Batch total" : {
 
     },
+    "Cancel" : {
+
+    },
     "Card details" : {
 
     },
     "Card number" : {
 
     },
+    "Cards imported: %lld" : {
+
+    },
+    "Cards ready: %lld · purchases: %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Cards ready: %1$lld · purchases: %2$lld"
+          }
+        }
+      }
+    },
+    "Cards removed during review: %lld" : {
+
+    },
+    "Cards updated: %lld" : {
+
+    },
     "Change your filters to see more cards." : {
+
+    },
+    "Choose Another File" : {
+
+    },
+    "Choose Another File…" : {
+
+    },
+    "Choose another file and discard these edits?" : {
 
     },
     "Close" : {
 
     },
     "Collection error" : {
+
+    },
+    "Correct CSV Row" : {
+
+    },
+    "Correct Row" : {
+
+    },
+    "Correct the values below. Card fields must match across purchases with the same card ID." : {
+
+    },
+    "Couldn't load more cards" : {
 
     },
     "Couldn’t load price" : {
@@ -72,7 +125,19 @@
     "Discard Changes" : {
 
     },
+    "Discard Edits" : {
+
+    },
     "Discard changes?" : {
+
+    },
+    "Discard import edits?" : {
+
+    },
+    "Done" : {
+
+    },
+    "Download CSV Template" : {
 
     },
     "Each batch must contain between 1 and 999 cards." : {
@@ -84,10 +149,58 @@
     "Edit" : {
 
     },
+    "Edit Card" : {
+
+    },
+    "Edit Import Card" : {
+
+    },
+    "Edit Purchase" : {
+
+    },
     "Edit card" : {
 
     },
+    "Edit purchase at row %lld" : {
+
+    },
+    "Enter USD or JPY, or leave it blank when the price is blank." : {
+
+    },
+    "Enter a UUID card ID, such as 550e8400-e29b-41d4-a716-446655440000. Use the same ID for every purchase of this card." : {
+
+    },
+    "Enter a UUID purchase ID, or leave it blank to generate one." : {
+
+    },
+    "Enter a nonnegative price using a decimal point and at most six decimal places, such as 2.50." : {
+
+    },
     "Enter a nonnegative purchase price with at most six decimal places." : {
+
+    },
+    "Enter a real date as YYYY-MM-DD with a purchase price, or leave this field blank." : {
+
+    },
+    "Enter a value between 1 and %lld characters." : {
+
+    },
+    "Enter a whole number from 1 to 999." : {
+
+    },
+    "Enter an ISO 8601 timestamp, such as 2026-07-20T10:30:00Z, or leave it blank." : {
+
+    },
+    "Enter mint, near_mint, excellent, good, played, or damaged." : {
+
+    },
+    "Enter one_piece or pokemon." : {
+
+    },
+    "Excluded from import" : {
+
+    },
+    "Excluded source rows: %lld. Correct their issues or continue with the valid selection." : {
 
     },
     "Explore image of %@" : {
@@ -96,7 +209,31 @@
     "Game" : {
 
     },
+    "Generate Card ID" : {
+
+    },
+    "Import Cards (%lld)" : {
+
+    },
+    "Import Complete" : {
+
+    },
+    "Include this purchase" : {
+
+    },
+    "Invalid or excluded purchase rows skipped: %lld" : {
+
+    },
     "Keep Editing" : {
+
+    },
+    "Loading more cards…" : {
+
+    },
+    "Matching IDs replace cards and their complete purchase history in your collection. Unchanged cards and excluded rows are skipped." : {
+
+    },
+    "Missing columns: %@. Download the CSV template and copy your data into its columns." : {
 
     },
     "Monkey D. Luffy" : {
@@ -115,6 +252,9 @@
 
     },
     "No price" : {
+
+    },
+    "No purchase price" : {
 
     },
     "Notes" : {
@@ -138,6 +278,9 @@
     "Pricing" : {
 
     },
+    "Provide both purchase_price and currency, or leave both blank." : {
+
+    },
     "Purchase defaults use today's average near-mint market price." : {
 
     },
@@ -147,28 +290,146 @@
     "Purchase price unknown" : {
 
     },
+    "Purchase price: %@ %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Purchase price: %1$@ %2$@"
+          }
+        }
+      }
+    },
     "Quantities" : {
 
     },
     "Quantity: %lld" : {
 
     },
+    "Remove" : {
+
+    },
     "Remove purchase batch" : {
+
+    },
+    "Retry Refresh" : {
+
+    },
+    "Review Import" : {
+
+    },
+    "Review, edit, or remove cards before importing. Your collection won’t change until you confirm." : {
 
     },
     "Romance Dawn" : {
 
     },
+    "Row %lld has %lld columns; the header has %lld. Check for missing cells or extra commas. Put text containing commas inside double quotes." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Row %1$lld has %2$lld columns; the header has %3$lld. Check for missing cells or extra commas. Put text containing commas inside double quotes."
+          }
+        }
+      }
+    },
+    "Row %lld · %@ · quantity: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Row %1$lld · %2$@ · quantity: %3$@"
+          }
+        }
+      }
+    },
+    "Row %lld, %@: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Row %1$lld, %2$@: %3$@"
+          }
+        }
+      }
+    },
     "Save" : {
+
+    },
+    "Save Changes" : {
 
     },
     "Set name" : {
 
     },
+    "Shorten the notes to 2000 characters or fewer." : {
+
+    },
+    "Some column names appear more than once. Keep one of each column, using the CSV template as a guide." : {
+
+    },
+    "The CSV file could not be saved. Try exporting again." : {
+
+    },
+    "The CSV structure breaks at row %lld. Close quoted fields and double any quotes inside them, or save the file again as CSV from your spreadsheet app." : {
+
+    },
     "The server is unavailable. Please try again." : {
 
     },
+    "These purchases exceed 999 copies in one condition. Reduce the quantities or exclude this purchase." : {
+
+    },
+    "This CSV has no cards. Add your cards to the template, then choose the file again." : {
+
+    },
     "This card is no longer in your collection." : {
+
+    },
+    "This differs from another purchase of the same card. Make the card fields match, or give it a different card ID." : {
+
+    },
+    "This file could not be read as UTF-8 text. Save it as a UTF-8 CSV and choose the file again." : {
+
+    },
+    "This purchase ID is repeated. Remove the duplicate row or use a different purchase ID." : {
+
+    },
+    "Try again" : {
+
+    },
+    "Unchanged cards skipped: %lld" : {
+
+    },
+    "Unnamed card" : {
+
+    },
+    "We couldn’t accept this import. Your edits are still here. Review your CSV, or contact support if this keeps happening." : {
+
+    },
+    "We couldn’t complete your import. Your edits are still here. Try again in a moment, or contact support if this keeps happening." : {
+
+    },
+    "We couldn’t get a response while importing your cards. Your edits are still here. Try again. Retrying won’t create duplicate cards." : {
+
+    },
+    "We couldn’t import these cards. Correct the highlighted rows before retrying.\n%@" : {
+
+    },
+    "We couldn’t read the import confirmation. Your edits are still here. You can retry safely without creating duplicate cards. Contact support if this keeps happening." : {
+
+    },
+    "We couldn’t read this CSV" : {
+
+    },
+    "Your collection couldn’t be exported. Check your connection and signed-in account, then try again." : {
+
+    },
+    "Your import was saved, but the collection couldn’t refresh. Try refreshing when you’re connected." : {
+
+    },
+    "Your session expired. Sign in again, then retry. Your import edits are still here." : {
 
     },
     "vs. purchase · NM market" : {

@@ -56,6 +56,7 @@ public struct TCGCardsListScreen: View {
                 LazyVStack(alignment: .leading, spacing: 16) {
                     gameFilterMenu
                     collectionRows
+                    paginationFooter
                 }
                 .padding(24)
             }
@@ -71,9 +72,27 @@ public struct TCGCardsListScreen: View {
                         .onDelete { offsets in
                             Task { await model.delete(at: offsets, using: cardCollection) }
                         }
+                    paginationFooter
+                        .listRowSeparator(.hidden)
                 }
             }
         #endif
+    }
+
+    private var paginationFooter: some View {
+        CollectionPaginationFooter(
+            isLoading: cardCollection.isLoadingNextPage,
+            error: cardCollection.nextPageError,
+            retry: { Task { _ = await cardCollection.loadNextPage() } }
+        )
+    }
+
+    private func loadNextPageIfNeeded(after card: CardWithPrice) {
+        guard card.card.id == cardCollection.cards.last?.card.id else { return }
+        guard cardCollection.nextPageError == nil else { return }
+        guard cardCollection.hasMoreCards else { return }
+
+        Task { _ = await cardCollection.loadNextPage() }
     }
 
     private var gameFilterBinding: Binding<CardGame?> {
@@ -114,6 +133,7 @@ public struct TCGCardsListScreen: View {
         } else {
             ForEach(cardCollection.cards, id: \.card.id) { cardWithPrice in
                 cardButton(for: cardWithPrice)
+                    .onAppear { loadNextPageIfNeeded(after: cardWithPrice) }
                     #if os(macOS)
                         .padding(12)
                         .background(.background.secondary, in: RoundedRectangle(cornerRadius: 12))
@@ -130,6 +150,7 @@ public struct TCGCardsListScreen: View {
     private var cardRows: some DynamicViewContent {
         ForEach(cardCollection.cards, id: \.card.id) { cardWithPrice in
             cardButton(for: cardWithPrice)
+                .onAppear { loadNextPageIfNeeded(after: cardWithPrice) }
         }
     }
 

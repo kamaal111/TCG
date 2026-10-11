@@ -71,6 +71,8 @@ describe('OpenAPI specification integration', () => {
       '/app-api/auth/session',
       '/app-api/auth/token',
       '/app-api/images/{imageKey}',
+      '/app-api/cards/export',
+      '/app-api/cards/import',
       '/app-api/cards',
       '/app-api/cards/{cardId}',
       '/app-api/pricing/search',

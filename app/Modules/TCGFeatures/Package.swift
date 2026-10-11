@@ -71,7 +71,9 @@ let package = Package(
         .target(
             name: "TCGSettings",
             dependencies: [
-                .product(name: "KamaalAuth", package: "kamaal-auth")
+                .product(name: "KamaalAuth", package: "kamaal-auth"),
+                "TCGCards",
+                "TCGUtils",
             ],
             swiftSettings: [
                 .enableUpcomingFeature("ApproachableConcurrency"),

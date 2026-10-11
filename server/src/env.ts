@@ -26,6 +26,8 @@ export const EnvSchema = z
     BETTER_AUTH_URL: z.url(),
     PUBLIC_BASE_URL: z.url().optional(),
     JWT_EXPIRY_DAYS: z.coerce.number().gte(1).optional().default(7),
+    CARD_IMPORT_BATCH_SIZE: z.coerce.number().int().positive().default(100),
+    CARD_IMPORT_PURCHASE_BATCH_SIZE: z.coerce.number().int().positive().default(1_000),
     SCRYDEX_CLIENT: z.enum(Object.values(PRICING_CLIENT_MODES)).default(PRICING_CLIENT_MODES.STATIC),
     SCRYDEX_API_KEY: z.string().min(1).optional(),
     SCRYDEX_TEAM_ID: z.string().min(1).optional(),

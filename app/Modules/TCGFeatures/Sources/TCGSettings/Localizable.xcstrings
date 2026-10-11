@@ -4,6 +4,36 @@
     "About" : {
 
     },
+    "CSV Transfer" : {
+
+    },
+    "Choose File…" : {
+
+    },
+    "Close" : {
+
+    },
+    "Data" : {
+
+    },
+    "Download CSV Template" : {
+
+    },
+    "Download the template first, or choose a previous TCG export. Each row represents a purchase; use the same card ID for purchases of the same card." : {
+
+    },
+    "Export Cards" : {
+
+    },
+    "Export your entire collection to CSV, or review and import cards from a CSV file." : {
+
+    },
+    "Import Cards" : {
+
+    },
+    "OK" : {
+
+    },
     "Settings" : {
 
     },
@@ -13,7 +43,28 @@
     "Sign out of TCG?" : {
 
     },
+    "Start with the CSV template" : {
+
+    },
+    "The CSV couldn’t be saved. Check the destination’s available space and try again." : {
+
+    },
+    "The file couldn’t be opened. Choose a CSV file saved on your device or in Files and try again." : {
+
+    },
+    "The template couldn’t be created. Please try again." : {
+
+    },
     "Version" : {
+
+    },
+    "Your CSV was saved successfully." : {
+
+    },
+    "Your collection couldn’t be exported. Check your connection and signed-in account, then try again." : {
+
+    },
+    "You’ll review every card, correct issues, and edit or remove cards before importing. Matching IDs update cards and replace their purchase history in your account." : {
 
     }
   },

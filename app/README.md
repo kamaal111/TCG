@@ -28,9 +28,60 @@ queries. Reusing a query fetches current prices. Only completed searches that fo
 cards are saved, with automatic searches recorded at the end of editing. Users can
 remove individual entries or clear the selected game's history.
 
-Settings contains sign-out confirmation and app version information; it is an
+Settings contains card CSV import/export, sign-out confirmation, and app version information; it is an
 iOS tab and a separate macOS Settings scene. The macOS Settings command appears
 only while signed in.
+
+## Card CSV backups
+
+In Settings, choose **Export Cards** to save the complete collection, including all
+games and sets regardless of Collection filters. Export does not fetch market
+prices or backfill purchase costs. It works independently of pricing providers.
+
+Choose **Import Cards**, then **Download CSV Template** to save a headers-only
+UTF-8 CSV before entering your cards, or **Choose File…** to open a previous
+export. Every file opens a review before anything is saved. Edit card details and
+purchases, correct readable invalid rows, or remove cards. The review shows the
+source row, column, value, and suggested correction for each issue. Invalid rows
+are excluded until corrected; you can import the remaining valid purchases.
+Broken CSV structure or missing columns requires fixing and choosing the file
+again. Errors during submission retain the review for a safe retry.
+
+Each row represents a purchase batch. Repeat the card metadata and use the same
+`id` for all purchases belonging to one card. Separate card IDs remain separate
+entries, even when the card names and numbers match.
+
+| Columns | Accepted values |
+| --- | --- |
+| `id` | UUID; required and shared by the card’s purchase rows |
+| `game` | `one_piece` or `pokemon` |
+| `name`, `set_name`, `card_number` | Required; maximum 200, 200, and 50 characters |
+| `notes` | Optional; maximum 2000 characters |
+| `created_at`, `updated_at` | ISO 8601 timestamps; blank uses import time |
+| `purchase_id` | UUID identifying a purchase row; blank generates one |
+| `condition` | `mint`, `near_mint`, `excellent`, `good`, `played`, or `damaged` |
+| `quantity` | Whole number from 1 to 999; total per condition cannot exceed 999 |
+| `purchase_price`, `currency` | Both blank, or a nonnegative decimal with up to six decimal places and `USD` or `JPY` |
+| `automatic_price_date` | Optional real date in `YYYY-MM-DD` format, requiring a purchase price |
+
+Keep every template column. Use commas as separators and double quotes around
+values containing commas, quotes, or line breaks. Double any quote inside a
+quoted value. Blank lines are ignored. A headers-only file contains no cards.
+
+Import adds new cards and replaces changed cards whose IDs belong to your
+account, including their complete purchase history. Purchases absent from the
+CSV are removed from those cards; unchanged cards are skipped. CSV timestamps
+are restored even when the backup is older than the current card. Cards absent
+from the CSV remain in your collection. You can transfer a backup to another
+account: each receiving account gets its own internal card and purchase IDs,
+while the source card ID is retained for repeat-import matching and later
+exports. Importing never changes another account’s cards. Purchase costs,
+timestamps, notes, and automatic-pricing provenance are preserved; market
+prices, images, and provider links are not part of the backup.
+
+The completion report distinguishes new, updated, and unchanged cards, excluded
+purchase rows, and cards removed during review. If saving succeeds but refreshing
+fails, retry the collection refresh without importing again.
 
 ## Packages and state
 

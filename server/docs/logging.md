@@ -181,3 +181,33 @@ remain visible when collection listing returns affected prices as `unavailable`.
 Unexpected acquisition and operation failures log at error level, retaining the
 original diagnostic cause in `err`. Their returned API exceptions expose the safe
 `INTERNAL_SERVER_ERROR` response. Timeouts and provider failures remain warnings.
+
+## Card import milestones
+
+An import emits successful domain milestones at `info`, correlated with the existing
+`request_id` and authenticated `user_id`. They describe completed stages, not merely
+attempts. There is still exactly one terminal HTTP request lifecycle event.
+
+| Event                             | Completed milestone                                         | Fields                                                                                                                                         |
+| --------------------------------- | ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `cards.import.validated`          | Payload validated and input IDs deduplicated                | `received_count`, `unique_count`                                                                                                               |
+| `cards.import.lock_acquired`      | Per-user import serialization lock acquired                 | `duration_ms` (lock wait)                                                                                                                      |
+| `cards.import.ownership_resolved` | Owned cards and new candidates resolved for one batch       | `batch_index`, `batch_count`, `owned_count`, `new_count`                                                                                       |
+| `cards.import.batch_prepared`     | Batch writes completed inside the open transaction          | `batch_index`, `batch_count`, `result_count`, `updated_count`, `skipped_count`, `purchase_count`, `duration_ms`, `transaction_status: pending` |
+| `cards.import`                    | Transaction committed, including unchanged or empty imports | `result_count`, `updated_count`, `skipped_count`, `duration_ms`, `transaction_status: committed`                                               |
+
+`result_count` means newly created cards; `updated_count` means changed owned cards
+replaced; `skipped_count` means unchanged cards or repeated input IDs. Batch indexes
+start at one. Purchase counts describe written purchases. A prepared batch can still
+be rolled back; only `cards.import` proves the import committed.
+
+Request lifecycle events include `import_stage`, `import_last_completed_stage`, and
+`transaction_status` once import processing begins. A failed transaction has
+`transaction_status: rolled_back`; no committed import event is emitted. The current
+stage distinguishes lock acquisition, ownership resolution, batch preparation, and
+commit failures. Validation rejected before processing has no successful import milestones.
+
+`request.validation.failed` includes aligned `validation_issue_paths`,
+`validation_issue_codes`, and `validation_issue_messages` arrays, plus
+`validation_issue_count`. Paths use dotted string segments, including array indexes;
+messages explain the rule violated without including raw field values or request bodies.

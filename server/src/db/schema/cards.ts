@@ -15,6 +15,7 @@ import {
 } from 'drizzle-orm/pg-core';
 
 import { user } from './better-auth.ts';
+import type { Currency } from '../../card-pricing/types.ts';
 
 export const CARD_GAMES = ['one_piece', 'pokemon'] as const;
 
@@ -30,6 +31,7 @@ export const card = pgTable(
   'card',
   {
     id: text('id').primaryKey().$defaultFn(crypto.randomUUID),
+    importSourceId: text('import_source_id'),
     userId: text('user_id')
       .notNull()
       .references(() => user.id, { onDelete: 'cascade' }),
@@ -47,7 +49,8 @@ export const card = pgTable(
       .notNull(),
   },
   table => [
-    index('card_userId_createdAt_idx').on(table.userId, table.createdAt),
+    uniqueIndex('card_userId_importSourceId_idx').on(table.userId, table.importSourceId),
+    index('card_userId_createdAt_id_idx').on(table.userId, table.createdAt.desc(), table.id.desc()),
     check(
       'card_pricing_identity_pair_check',
       sql`(${table.pricingCardId} is null and ${table.pricingSource} is null) or (${table.pricingCardId} is not null and ${table.pricingSource} is not null)`,
@@ -83,7 +86,7 @@ export const cardPurchaseBatch = pgTable(
     condition: cardConditionEnum('condition').notNull(),
     quantity: integer('quantity').notNull(),
     purchasePrice: numeric('purchase_price', { precision: 20, scale: 6 }),
-    currency: text('currency'),
+    currency: text('currency').$type<Currency>(),
     automaticPriceDate: date('automatic_price_date'),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at')
