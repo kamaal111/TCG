@@ -1,0 +1,25 @@
+justfile
+  s_37e78da16b149d::t_1a1810ed68f8e6 67,69-70
+scripts/create-herdr-worktree.test.ts
+  s_37e78da16b149d::t_6b9ea0db694382 67-68,87,91-115,149
+docs/development.md
+  s_37e78da16b149d::t_1a1810ed68f8e6 137-147
+scripts/create-herdr-worktree.sh
+  s_37e78da16b149d::t_1a1810ed68f8e6 4-5,9-10,12
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "b13ea8792a67d72ad425c49becbe6195611479f2",
+  "prompts": {},
+  "sessions": {
+    "s_37e78da16b149d": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a12c2b-7222-7a21-b74f-376148644e75",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Kamaal Farah <kamaal.f1@gmail.com>"
+    }
+  }
+}
