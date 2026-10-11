@@ -264,10 +264,12 @@ _snapshots-ios action *args:
     set -euo pipefail
     action="$1"
     shift
+    selection_args=({{ APP_SOURCE_PACKAGES_ARGS }} -project "{{ APP_PROJECT }}" -scheme "{{ APP_SCHEME }}")
+    if [[ "$action" == test-without-building && -n "${TCG_APP_IOS_XCTESTRUN:-}" ]]; then
+        selection_args=(-xctestrun "$TCG_APP_IOS_XCTESTRUN")
+    fi
     ../scripts/with-ios-simulator-lock \
-        {{ APP_SOURCE_PACKAGES_ARGS }} \
-        -project "{{ APP_PROJECT }}" \
-        -scheme "{{ APP_SCHEME }}" \
+        "${selection_args[@]}" \
         -destination "{{ APP_IOS_TEST_DESTINATION }}" \
         -only-testing:TCGCardsTests/ScreenSnapshotSettlingTests \
         -only-testing:TCGCardsTests/TCGCardsListScreenSnapshotTests \

@@ -1,6 +1,7 @@
 import childProcess from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
+import path from 'node:path';
 import stringDecoder from 'node:string_decoder';
 
 const gracePeriodMs = 2000;
@@ -227,6 +228,8 @@ function run(): void {
 
   const simulator = process.env.TCG_IOS_SNAPSHOT_SIMULATOR;
   const snapshotArgs = process.argv.slice(2);
+  let derivedDataPath: string | undefined;
+  let testRunPath: string | undefined;
 
   const buildArgs = snapshotArgs.filter(
     (argument, index) => argument !== '-resultBundlePath' && snapshotArgs[index - 1] !== '-resultBundlePath',
@@ -236,6 +239,7 @@ function run(): void {
     tests = childProcess.spawn(command, args, {
       detached: true,
       stdio: ['inherit', 'pipe', 'pipe'],
+      env: { ...process.env, TCG_APP_IOS_XCTESTRUN: phase === 'test' ? testRunPath : undefined },
     });
     phaseProcesses.push(tests);
     tests.stdout?.pipe(process.stdout);
@@ -255,6 +259,34 @@ function run(): void {
 
       if (phase !== 'test' && code === 0 && !cancelled && !timedOut && !cleaningUp) {
         if (phase === 'build' && simulator) {
+          try {
+            if (!derivedDataPath) {
+              throw new Error('The snapshot build has no DerivedData directory.');
+            }
+
+            const products = path.join(derivedDataPath, 'Build', 'Products');
+
+            const manifests = fs
+              .readdirSync(products, { withFileTypes: true })
+              .filter(entry => entry.isFile() && /^TCG_.*iphonesimulator.*\.xctestrun$/.test(entry.name));
+
+            const [manifest] = manifests;
+
+            if (manifests.length !== 1 || !manifest) {
+              throw new Error(
+                `Expected one TCG iOS Simulator test manifest in ${products}; found ${manifests.length}.`,
+              );
+            }
+
+            testRunPath = path.join(products, manifest.name);
+            log(`Using built test manifest ${testRunPath}.`);
+          } catch (error) {
+            log(`Could not locate built snapshot tests: ${String(error)}`);
+            cleanup();
+
+            return;
+          }
+
           log('Snapshot build completed; booting simulator.');
           launch('xcrun', ['simctl', 'bootstatus', simulator, '-b'], 'boot');
           bootTimer = setTimeout(() => {
@@ -283,7 +315,16 @@ function run(): void {
   process.on('SIGTERM', () => cancel('SIGTERM'));
 
   if (simulator) {
-    launch('just', ['build-snapshots-ios', ...buildArgs], 'build');
+    try {
+      derivedDataPath = fs.mkdtempSync(path.join(os.tmpdir(), 'tcg-ios-snapshots-'));
+    } catch (error) {
+      log(`Could not create snapshot DerivedData directory: ${String(error)}`);
+      cleanup();
+
+      return;
+    }
+
+    launch('just', ['build-snapshots-ios', ...buildArgs, '-derivedDataPath', derivedDataPath], 'build');
   } else {
     launch('just', ['test-snapshots-ios', ...snapshotArgs]);
   }
