@@ -128,10 +128,15 @@ runner. Cancelled runs skip snapshot artifact collection; ordinary failures
 still upload results. Cleanup timestamps help distinguish test cleanup delays
 from an unresponsive hosted runner or a stalled action post step.
 
-CI also fails with exit code 124 after three minutes without build or test
-output, stopping the process group and running the same bounded cleanup.
-Each stdout or stderr chunk resets this deadline. Set
-`TCG_IOS_SNAPSHOT_IDLE_TIMEOUT_SECONDS` to a positive integer to tune it.
+CI allows up to ten minutes from launching the test phase until the first test
+starts. This is a fixed startup deadline: output cannot extend it. Set
+`TCG_IOS_SNAPSHOT_STARTUP_TIMEOUT_SECONDS` to a positive integer to tune it.
+After tests begin, or while building, three minutes without output fails with
+exit code 124 and the same bounded cleanup. Each stdout or stderr chunk resets
+this inactivity deadline. Set `TCG_IOS_SNAPSHOT_IDLE_TIMEOUT_SECONDS` to a
+positive integer to tune it. Startup duration and the timeout phase appear in
+the CI summary. An exit-zero test process must report at least one completed
+test; empty runs fail instead of passing the snapshot check.
 Verbose Xcode failure diagnostics are disabled in CI to avoid lengthy
 simulator diagnostic collection; snapshot images and result bundles remain
 available for ordinary test failures. Local test recipes are unchanged.

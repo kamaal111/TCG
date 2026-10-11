@@ -45,6 +45,15 @@ function run(): void {
     return;
   }
 
+  const startupTimeoutSeconds = Number(process.env.TCG_IOS_SNAPSHOT_STARTUP_TIMEOUT_SECONDS ?? 600);
+
+  if (!Number.isSafeInteger(startupTimeoutSeconds) || startupTimeoutSeconds <= 0) {
+    log('TCG_IOS_SNAPSHOT_STARTUP_TIMEOUT_SECONDS must be a positive integer.');
+    process.exitCode = 1;
+
+    return;
+  }
+
   let tests: childProcess.ChildProcess | undefined;
   const phaseProcesses: childProcess.ChildProcess[] = [];
   let shutdown: childProcess.ChildProcess | undefined;
@@ -56,6 +65,11 @@ function run(): void {
   let shutdownTimer: ReturnType<typeof setTimeout> | undefined;
   let idleTimer: ReturnType<typeof setTimeout> | undefined;
   let bootTimer: ReturnType<typeof setTimeout> | undefined;
+  let startupTimer: ReturnType<typeof setTimeout> | undefined;
+  let waitingForFirstTest = false;
+  let testPhaseStarted: number | undefined;
+  let timeoutPhase: string | undefined;
+  let currentPhase: 'build' | 'boot' | 'test' = 'test';
   const started = performance.now();
   const milestones = new Map<string, number>();
   let testCount = 0;
@@ -78,6 +92,12 @@ function run(): void {
 
     if (line.includes("Test Suite 'Selected tests' started") || line.includes('◇ Test run started.')) {
       milestone('First test started');
+
+      if (waitingForFirstTest) {
+        waitingForFirstTest = false;
+        clearTimeout(startupTimer);
+        resetIdleDeadline();
+      }
     }
 
     const count = /Test run with (\d+) tests?\b/.exec(line)?.[1];
@@ -116,6 +136,8 @@ function run(): void {
     const resolutionStart = milestones.get('Package resolution started');
     const resolutionEnd = milestones.get('Package resolution completed');
 
+    const firstTest = milestones.get('First test started');
+
     const summary = [
       '### iOS snapshot performance',
       '',
@@ -125,6 +147,8 @@ function run(): void {
       `| Swift dependency cache hit | ${process.env.TCG_SWIFT_PACKAGE_CACHE_HIT === 'true' ? 'Yes' : 'No'} |`,
       `| Package resolution | ${seconds(resolutionStart !== undefined && resolutionEnd !== undefined ? resolutionEnd - resolutionStart : undefined)} |`,
       `| Time to first test (resolution, build, startup) | ${seconds(milestones.get('First test started'))} |`,
+      `| Test startup | ${seconds(firstTest !== undefined && testPhaseStarted !== undefined ? firstTest - testPhaseStarted : undefined)} |`,
+      `| Timeout phase | ${timeoutPhase ?? 'None'} |`,
       `| Reported completed tests | ${testCount} |`,
       `| Exit code | ${exitCode} |`,
       '',
@@ -146,6 +170,7 @@ function run(): void {
     clearTimeout(shutdownTimer);
     clearTimeout(idleTimer);
     clearTimeout(bootTimer);
+    clearTimeout(startupTimer);
     signalGroup(shutdown, 'SIGKILL');
     summarize();
     log(`Cleanup complete; exiting ${exitCode}.`);
@@ -161,6 +186,7 @@ function run(): void {
     clearTimeout(graceTimer);
     clearTimeout(idleTimer);
     clearTimeout(bootTimer);
+    clearTimeout(startupTimer);
 
     for (const child of phaseProcesses) {
       signalGroup(child, 'SIGKILL');
@@ -195,6 +221,7 @@ function run(): void {
     cancelled = true;
     clearTimeout(idleTimer);
     clearTimeout(bootTimer);
+    clearTimeout(startupTimer);
     log(`Received ${signal}${repeated ? ' again' : ''}; cancelling iOS snapshots.`);
 
     if (cleaningUp) {
@@ -214,13 +241,14 @@ function run(): void {
   function resetIdleDeadline(): void {
     clearTimeout(idleTimer);
 
-    if (cancelled || cleaningUp) {
+    if (cancelled || cleaningUp || waitingForFirstTest) {
       return;
     }
 
     idleTimer = setTimeout(() => {
       timedOut = true;
       exitCode = 124;
+      timeoutPhase = currentPhase === 'test' ? 'Test execution' : 'Build';
       log(`No build or test output for ${idleTimeoutSeconds} seconds; failing stalled iOS snapshots.`);
       cleanup();
     }, idleTimeoutSeconds * 1000);
@@ -236,6 +264,20 @@ function run(): void {
   );
 
   function launch(command: string, args: string[], phase: 'build' | 'boot' | 'test' = 'test'): void {
+    currentPhase = phase;
+    waitingForFirstTest = phase === 'test';
+
+    if (waitingForFirstTest) {
+      testPhaseStarted = performance.now() - started;
+      startupTimer = setTimeout(() => {
+        timedOut = true;
+        exitCode = 124;
+        timeoutPhase = 'Test startup';
+        log(`Test startup exceeded ${startupTimeoutSeconds} seconds without starting a test.`);
+        cleanup();
+      }, startupTimeoutSeconds * 1000);
+    }
+
     tests = childProcess.spawn(command, args, {
       detached: true,
       stdio: ['inherit', 'pipe', 'pipe'],
@@ -254,8 +296,13 @@ function run(): void {
       log(`Could not launch ${phase === 'test' ? 'iOS snapshots' : phase}: ${error.message}`);
       cleanup();
     });
-    tests.once('exit', (code, signal) => {
+    tests.once(phase === 'test' ? 'close' : 'exit', (code: number | null, signal: NodeJS.Signals | null) => {
+      if (cleaningUp) {
+        return;
+      }
+
       clearTimeout(bootTimer);
+      clearTimeout(startupTimer);
 
       if (phase !== 'test' && code === 0 && !cancelled && !timedOut && !cleaningUp) {
         if (phase === 'build' && simulator) {
@@ -292,6 +339,7 @@ function run(): void {
           bootTimer = setTimeout(() => {
             timedOut = true;
             exitCode = 124;
+            timeoutPhase = 'Simulator boot';
             log(`Simulator boot exceeded ${idleTimeoutSeconds} seconds; failing before tests.`);
             cleanup();
           }, idleTimeoutSeconds * 1000);
@@ -305,6 +353,11 @@ function run(): void {
 
       if (!cancelled && !timedOut) {
         exitCode = code ?? (signal === null ? 1 : 128 + os.constants.signals[signal]);
+
+        if (phase === 'test' && exitCode === 0 && testCount === 0) {
+          exitCode = 1;
+          log('No completed tests were reported; refusing to accept an empty snapshot run.');
+        }
       }
 
       cleanup();

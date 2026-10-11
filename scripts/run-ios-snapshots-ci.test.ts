@@ -52,6 +52,7 @@ fs.writeFileSync(process.env.FIXTURE + '/just.pid', String(process.pid));
 fs.writeFileSync(process.env.FIXTURE + '/args.json', JSON.stringify(process.argv.slice(2)));
 fs.writeFileSync(process.env.FIXTURE + '/test-manifest.txt', process.env.TCG_APP_IOS_XCTESTRUN ?? '');
 console.log('test output');
+console.log('◇ Test run started.');
 if (process.env.MODE === 'metrics') {
   console.log('◇ Test run started.\\n✔ Test run with 31 tests passed after 1 second.');
   process.exit(0);
@@ -60,9 +61,13 @@ if (process.env.MODE === 'boot-service') {
   const service = Number(fs.readFileSync(process.env.FIXTURE + '/worker.pid', 'utf8'));
   try { process.kill(service, 0); } catch { process.exit(77); }
   console.log('boot service survived until tests');
+  console.log('✔ Test run with 1 test passed after 1 second.');
   process.exit(0);
 }
-if (process.env.MODE === 'success') process.exit(0);
+if (process.env.MODE === 'success') {
+  console.log('✔ Test run with 1 test passed after 1 second.');
+  process.exit(0);
+}
 if (process.env.MODE === 'failure') process.exit(65);
 const worker = childProcess.spawn(process.execPath, [process.env.FIXTURE + '/worker.mjs'], { stdio: 'inherit' });
 if (process.env.MODE !== 'graceful') {
@@ -119,6 +124,7 @@ interface StartOptions {
   args?: string[];
   githubActions?: string;
   idleTimeoutSeconds?: string;
+  startupTimeoutSeconds?: string;
   simulator?: string;
   cacheHit?: string;
   summaryPath?: string;
@@ -129,6 +135,7 @@ function start({
   args = [],
   githubActions = 'true',
   idleTimeoutSeconds = '180',
+  startupTimeoutSeconds = '600',
   simulator = '',
   cacheHit = 'false',
   summaryPath = path.join(directory, 'summary.md'),
@@ -142,6 +149,7 @@ function start({
       MODE: fs.readFileSync(path.join(directory, 'mode'), 'utf8'),
       GITHUB_ACTIONS: githubActions,
       TCG_IOS_SNAPSHOT_IDLE_TIMEOUT_SECONDS: idleTimeoutSeconds,
+      TCG_IOS_SNAPSHOT_STARTUP_TIMEOUT_SECONDS: startupTimeoutSeconds,
       TCG_IOS_SNAPSHOT_SIMULATOR: simulator,
       TCG_SWIFT_PACKAGE_CACHE_HIT: cacheHit,
       GITHUB_STEP_SUMMARY: summaryPath,
@@ -206,6 +214,53 @@ afterEach(() => {
 });
 
 describe('iOS snapshot CI supervisor', () => {
+  it('allows silent startup beyond the execution idle deadline', async () => {
+    const directory = fixture();
+    fs.writeFileSync(
+      path.join(directory, 'just'),
+      `#!${process.execPath}\nsetTimeout(() => { console.log('◇ Test run started.\\n✔ Test run with 1 test passed after 1 second.'); }, 1600);\n`,
+      { mode: 0o755 },
+    );
+    const run = start({ directory, idleTimeoutSeconds: '1', startupTimeoutSeconds: '4' });
+
+    expect(await run.exited).toBe(0);
+    expect(run.output()).not.toContain('failing stalled');
+    expect(fs.readFileSync(path.join(directory, 'summary.md'), 'utf8')).toMatch(/\| Test startup \| \d+\.\ds \|/);
+  });
+
+  it.each(['silent', 'progress'])('bounds %s startup without allowing output to extend its deadline', async mode => {
+    const directory = fixture();
+    fs.writeFileSync(
+      path.join(directory, 'just'),
+      `#!${process.execPath}\nsetInterval(() => { if (${JSON.stringify(mode)} === 'progress') console.log('startup progress'); }, 100);\n`,
+      { mode: 0o755 },
+    );
+    const run = start({ directory, startupTimeoutSeconds: '1' });
+
+    expect(await run.exited).toBe(124);
+    expect(run.output()).toContain('Test startup exceeded 1 seconds');
+    expect(fs.readFileSync(path.join(directory, 'summary.md'), 'utf8')).toContain('| Timeout phase | Test startup |');
+  });
+
+  it.each(['0', '-1', 'invalid', '1.5'])('rejects invalid startup timeout %s before launching work', async value => {
+    const directory = fixture();
+    const run = start({ directory, startupTimeoutSeconds: value });
+
+    expect(await run.exited).toBe(1);
+    expect(run.output()).toContain('TCG_IOS_SNAPSHOT_STARTUP_TIMEOUT_SECONDS must be a positive integer');
+    expect(fs.existsSync(path.join(directory, 'just.pid'))).toBe(false);
+    expect(fs.existsSync(path.join(directory, 'shutdown.pid'))).toBe(false);
+  });
+
+  it('rejects exit zero without completed tests', async () => {
+    const directory = fixture();
+    fs.writeFileSync(path.join(directory, 'just'), `#!${process.execPath}\nprocess.exit(0);\n`, { mode: 0o755 });
+    const run = start({ directory });
+
+    expect(await run.exited).toBe(1);
+    expect(run.output()).toContain('No completed tests were reported');
+  });
+
   it('collects package and test metrics across separate build and test processes', async () => {
     const directory = fixture('metrics');
     const run = start({ directory, simulator: 'iPhone 17', cacheHit: 'true' });
@@ -381,6 +436,7 @@ setTimeout(() => {
 
     expect(await run.exited).toBe(124);
     expect(run.output()).toContain('No build or test output for 1 seconds');
+    expect(fs.readFileSync(path.join(directory, 'summary.md'), 'utf8')).toContain('| Timeout phase | Test execution |');
     expect(running(pid(directory, 'just'))).toBe(false);
     await vi.waitFor(() => expect(running(pid(directory, 'worker'))).toBe(false));
     expect(fs.existsSync(path.join(directory, 'shutdown.json'))).toBe(true);
@@ -390,10 +446,10 @@ setTimeout(() => {
     const directory = fixture();
     fs.writeFileSync(
       path.join(directory, 'just'),
-      `#!${process.execPath}\nconst progress = setInterval(() => process.${stream}.write('progress\\n'), 200);\nsetTimeout(() => { clearInterval(progress); process.exit(0); }, 2200);\n`,
+      `#!${process.execPath}\nconsole.log('◇ Test run started.');\nconst progress = setInterval(() => process.${stream}.write('progress\\n'), 200);\nsetTimeout(() => { clearInterval(progress); console.log('✔ Test run with 1 test passed after 1 second.'); process.exit(0); }, 2200);\n`,
       { mode: 0o755 },
     );
-    const run = start({ directory, idleTimeoutSeconds: '1' });
+    const run = start({ directory, idleTimeoutSeconds: '1', startupTimeoutSeconds: '1' });
 
     expect(await run.exited).toBe(0);
     expect(run.output()).toContain('progress');
@@ -506,7 +562,11 @@ setTimeout(() => {
   it('bounds a hanging simulator shutdown without changing a successful result', async () => {
     const directory = fixture('shutdown-hang');
     fs.rmSync(path.join(directory, 'just'));
-    fs.writeFileSync(path.join(directory, 'just'), `#!${process.execPath}\nprocess.exit(0);\n`, { mode: 0o755 });
+    fs.writeFileSync(
+      path.join(directory, 'just'),
+      `#!${process.execPath}\nconsole.log('✔ Test run with 1 test passed after 1 second.');\nprocess.exit(0);\n`,
+      { mode: 0o755 },
+    );
     const started = performance.now();
     const run = start({ directory });
 
@@ -518,7 +578,11 @@ setTimeout(() => {
 
   it('handles cancellation during simulator shutdown without waiting for its deadline', async () => {
     const directory = fixture('shutdown-hang');
-    fs.writeFileSync(path.join(directory, 'just'), `#!${process.execPath}\nprocess.exit(0);\n`, { mode: 0o755 });
+    fs.writeFileSync(
+      path.join(directory, 'just'),
+      `#!${process.execPath}\nconsole.log('✔ Test run with 1 test passed after 1 second.');\nprocess.exit(0);\n`,
+      { mode: 0o755 },
+    );
     const run = start({ directory });
     await vi.waitFor(() => expect(run.output()).toContain('shutdown ready'));
     run.child.kill('SIGTERM');
@@ -529,7 +593,11 @@ setTimeout(() => {
 
   it('warns on simulator shutdown failure while preserving success', async () => {
     const directory = fixture('shutdown-failure');
-    fs.writeFileSync(path.join(directory, 'just'), `#!${process.execPath}\nprocess.exit(0);\n`, { mode: 0o755 });
+    fs.writeFileSync(
+      path.join(directory, 'just'),
+      `#!${process.execPath}\nconsole.log('✔ Test run with 1 test passed after 1 second.');\nprocess.exit(0);\n`,
+      { mode: 0o755 },
+    );
     const run = start({ directory });
 
     expect(await run.exited).toBe(0);
