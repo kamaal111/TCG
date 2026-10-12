@@ -1,0 +1,32 @@
+server/src/tests/pool-shutdown.ts
+  s_5fbf3fcf71797d::t_a3185acdb61a4a 11-13,15-17,19-25
+  s_5fbf3fcf71797d::t_e9fe73d04d0f94 1-3,5-6,8,14,18
+  s_5fbf3fcf71797d::t_3e3731797c5a2e 4,7,9-10,26
+server/src/tests/pool-shutdown.test.ts
+  s_5fbf3fcf71797d::t_3e3731797c5a2e 3-5,9-14,16,18-19,22-31,34-35,37-38,40,42-50,52-53,55-63,65-68,95
+  s_5fbf3fcf71797d::t_cb87ed22e4e1fc 1-2,6,15,21,32-33,41,51
+  s_5fbf3fcf71797d::t_2e7b8b1cb529be 69-72,74-77,79-94
+  s_5fbf3fcf71797d::t_e9fe73d04d0f94 7-8,17,20,36,39,54,64,73,78
+server/src/tests/utils.ts
+  s_5fbf3fcf71797d::t_a3185acdb61a4a 9,32,38,41-46
+  s_5fbf3fcf71797d::t_e9fe73d04d0f94 40
+server/src/tests/utils.integration.test.ts
+  s_5fbf3fcf71797d::t_a3185acdb61a4a 1-9,11-19,21-22,24-26,28-32
+  s_5fbf3fcf71797d::t_e9fe73d04d0f94 10,20,23,27
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "5a2afe2801f157603f3dec8d22cdad8b1046fc26",
+  "prompts": {},
+  "sessions": {
+    "s_5fbf3fcf71797d": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a12e90-9048-7961-97cb-795e40d4f34b",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Kamaal Farah <kamaal.f1@gmail.com>"
+    }
+  }
+}
