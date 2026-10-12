@@ -6,6 +6,7 @@ import type { Hono } from 'hono';
 import { Client, Pool } from 'pg';
 import { inject } from 'vitest';
 
+import { trackPoolShutdown } from './pool-shutdown.ts';
 import { SIGN_UP_ROUTE_PATH } from '../auth/constants.ts';
 import { CONTENTFUL_STATUS_CODES } from '../constants/http.ts';
 import { MIME_TYPES } from '../constants/request.ts';
@@ -28,25 +29,21 @@ export const createTestDatabase = async (): Promise<{
   const testDbUrl = new URL(baseDatabaseUrl);
   testDbUrl.pathname = `/${dbName}`;
   const pool = new Pool({ connectionString: testDbUrl.toString() });
+  const closePool = trackPoolShutdown(pool);
   const testDb = drizzle<typeof appRelations>({ client: pool, relations: appRelations });
 
   await migrate(testDb, { migrationsFolder: './drizzle' });
 
   const cleanup = async () => {
-    await pool.end();
+    await closePool();
     const dropClient = new Client({ connectionString: baseDatabaseUrl });
-    await dropClient.connect();
-    await dropClient.query(
-      `
-        SELECT pg_terminate_backend(pg_stat_activity.pid)
-        FROM pg_stat_activity
-        WHERE pg_stat_activity.datname = $1
-        AND pid <> pg_backend_pid();
-      `,
-      [dbName],
-    );
-    await dropClient.query(`DROP DATABASE ${dbName}`);
-    await dropClient.end();
+
+    try {
+      await dropClient.connect();
+      await dropClient.query(`DROP DATABASE ${dbName}`);
+    } finally {
+      await dropClient.end();
+    }
   };
 
   return { db: testDb, connectionString: testDbUrl.toString(), cleanup };
