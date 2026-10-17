@@ -163,6 +163,28 @@ just test-snapshots-ios
 just ready-app          # required final aggregate for app-only code changes
 ```
 
+App test and snapshot recipes require [xcbeautify](https://github.com/cpisciotta/xcbeautify).
+Run `just bootstrap` (or `just install-xcbeautify`) with Homebrew available.
+The separate installer preserves an existing xcbeautify installation; otherwise
+it runs `brew install xcbeautify`. Ruby and RubyGems are not required.
+
+Both local and CI logs display formatted build tasks and named test results.
+CI uses the GitHub Actions renderer; local commands use the terminal renderer.
+`just test-xcode-formatter` checks both renderers against representative build,
+Swift Testing, and XCTest output using the actual installed binary. It also runs
+in app CI and `just ready-app`. If an older installation fails this compatibility
+check, run `brew upgrade xcbeautify`. The check is validated with xcbeautify 3.2.1.
+Newer Swift Testing aggregate lines containing “in 3 suites” are not parsed by
+that version; the iOS job summary still reports totals from the raw stream.
+
+Recipes display formatted output and retain raw stdout/stderr under
+`.build/xcode-logs/`, replacing the log for that recipe on its next run. Set
+`TCG_XCODE_LOG_DIR` to choose another directory, or use
+`TCG_XCODE_RAW_OUTPUT=1 just test-app-macos` to troubleshoot with raw output.
+CI uploads `macos-xcode-logs` and `ios-xcode-logs` artifacts on failure for seven
+days. The iOS supervisor inspects raw output before the outer runner formats it,
+preserving its watchdogs and completed-test checks.
+
 Use the iOS recipes rather than invoking simulator tests directly; the wrapper
 serializes shared simulator access. Automation agents must run them outside a
 filesystem sandbox. Inspect destinations with `just app-destinations` and set

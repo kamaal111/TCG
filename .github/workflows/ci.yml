@@ -110,11 +110,18 @@ jobs:
       - name: Set up just
         uses: extractions/setup-just@v4
 
+      - name: Install xcbeautify if needed
+        run: just install-xcbeautify
+
+      - name: Verify formatter test visibility
+        run: just test-xcode-formatter
+
       - name: Identify Swift toolchain
         id: swift-toolchain
         run: |
           echo "version=$(xcodebuild -version | tr '\n ' '--')" >> "$GITHUB_OUTPUT"
           echo "TCG_APP_SOURCE_PACKAGES=$RUNNER_TEMP/tcg-source-packages" >> "$GITHUB_ENV"
+          echo "TCG_XCODE_LOG_DIR=$RUNNER_TEMP/xcode-logs" >> "$GITHUB_ENV"
 
       - name: Cache Swift package downloads
         id: swift-packages
@@ -160,6 +167,15 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
+      - name: Upload raw Xcode logs
+        if: failure() && !cancelled()
+        uses: actions/upload-artifact@v7
+        with:
+          name: macos-xcode-logs
+          path: ${{ runner.temp }}/xcode-logs
+          if-no-files-found: ignore
+          retention-days: 7
+
   app-ios:
     name: iOS snapshot checks
     needs: changes
@@ -185,11 +201,18 @@ jobs:
       - name: Set up just
         uses: extractions/setup-just@v4
 
+      - name: Install xcbeautify if needed
+        run: just install-xcbeautify
+
+      - name: Verify formatter test visibility
+        run: just test-xcode-formatter
+
       - name: Identify Swift toolchain
         id: swift-toolchain
         run: |
           echo "version=$(xcodebuild -version | tr '\n ' '--')" >> "$GITHUB_OUTPUT"
           echo "TCG_APP_SOURCE_PACKAGES=$RUNNER_TEMP/tcg-source-packages" >> "$GITHUB_ENV"
+          echo "TCG_XCODE_LOG_DIR=$RUNNER_TEMP/xcode-logs" >> "$GITHUB_ENV"
 
       - name: Cache Swift package downloads
         id: swift-packages
@@ -214,7 +237,8 @@ jobs:
         env:
           TCG_SWIFT_PACKAGE_CACHE_HIT: ${{ steps.swift-packages.outputs.cache-hit }}
         run: >-
-          exec node scripts/run-ios-snapshots-ci.ts
+          exec bash scripts/run-with-xcbeautify.sh ios-snapshots
+          node scripts/run-ios-snapshots-ci.ts
           -jobs 2 -parallel-testing-enabled NO ONLY_ACTIVE_ARCH=YES
           -collect-test-diagnostics never
           -resultBundlePath "$RUNNER_TEMP/ios-snapshots.xcresult"
@@ -238,5 +262,14 @@ jobs:
         with:
           name: ios-snapshot-failures
           path: ${{ runner.temp }}/ios-snapshot-failures
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Upload raw Xcode logs
+        if: failure() && !cancelled()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ios-xcode-logs
+          path: ${{ runner.temp }}/xcode-logs
           if-no-files-found: ignore
           retention-days: 7
