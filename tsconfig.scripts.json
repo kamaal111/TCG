@@ -25,6 +25,7 @@
     "scripts/check-versions-in-sync.ts",
     "scripts/check-versions-in-sync.test.ts",
     "scripts/run-ios-snapshots-ci.ts",
-    "scripts/run-ios-snapshots-ci.test.ts"
+    "scripts/run-ios-snapshots-ci.test.ts",
+    "scripts/run-with-xcbeautify.test.ts"
   ]
 }

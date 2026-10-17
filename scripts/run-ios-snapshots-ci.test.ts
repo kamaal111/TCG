@@ -13,6 +13,9 @@ function fixture(mode = 'success', prefix = 'tcg-ios-cancellation-'): string {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), prefix));
   fixtures.push(directory);
   fs.writeFileSync(path.join(directory, 'mode'), mode);
+  fs.writeFileSync(path.join(directory, 'xcbeautify'), `#!${process.execPath}\nprocess.stdin.pipe(process.stdout);`, {
+    mode: 0o755,
+  });
   fs.writeFileSync(
     path.join(directory, 'worker.mjs'),
     `import fs from 'node:fs';
@@ -128,10 +131,12 @@ interface StartOptions {
   simulator?: string;
   cacheHit?: string;
   summaryPath?: string;
+  formatted?: boolean;
 }
 
 function start({
   directory,
+  formatted = false,
   args = [],
   githubActions = 'true',
   idleTimeoutSeconds = '180',
@@ -140,10 +145,16 @@ function start({
   cacheHit = 'false',
   summaryPath = path.join(directory, 'summary.md'),
 }: StartOptions) {
-  const child = childProcess.spawn(process.execPath, [supervisor, ...args], {
+  const invocation = formatted
+    ? [path.resolve('scripts/run-with-xcbeautify.sh'), 'ios-snapshots', process.execPath, supervisor, ...args]
+    : [supervisor, ...args];
+
+  const child = childProcess.spawn(formatted ? '/bin/bash' : process.execPath, invocation, {
     env: {
       ...process.env,
-      PATH: directory,
+      TCG_XCODE_RAW_OUTPUT: '',
+      TCG_XCODE_LOG_DIR: path.join(directory, 'logs'),
+      PATH: formatted ? `${directory}:/usr/bin:/bin` : directory,
       FIXTURE: directory,
       TMPDIR: directory,
       MODE: fs.readFileSync(path.join(directory, 'mode'), 'utf8'),
@@ -214,6 +225,39 @@ afterEach(() => {
 });
 
 describe('iOS snapshot CI supervisor', () => {
+  it('observes raw test counts before the outer formatter filters output', async () => {
+    const directory = fixture('metrics');
+    fs.writeFileSync(
+      path.join(directory, 'xcbeautify'),
+      `#!${process.execPath}\nprocess.stdin.resume(); process.stdin.on('end', () => console.log('formatted output'));`,
+      { mode: 0o755 },
+    );
+    const run = start({ directory, formatted: true });
+
+    expect(await run.exited).toBe(0);
+    expect(run.output()).toContain('formatted output');
+    expect(fs.readFileSync(path.join(directory, 'summary.md'), 'utf8')).toContain('| Reported completed tests | 31 |');
+    expect(fs.readFileSync(path.join(directory, 'logs/ios-snapshots.log'), 'utf8')).toContain('Test run with 31 tests');
+  });
+
+  it.each([
+    ['SIGINT', 130],
+    ['SIGTERM', 143],
+  ] as const)(
+    'cleans up signal-resistant snapshot descendants when the outer formatter receives %s',
+    async (signal, exitCode) => {
+      const directory = fixture('hang');
+      const run = start({ directory, formatted: true });
+      await expect.poll(() => fs.existsSync(path.join(directory, 'worker.pid'))).toBe(true);
+      run.child.kill(signal);
+
+      expect(await run.exited).toBe(exitCode);
+      expect(running(pid(directory, 'just'))).toBe(false);
+      expect(running(pid(directory, 'worker'))).toBe(false);
+      expect(fs.readFileSync(path.join(directory, 'logs/ios-snapshots.log'), 'utf8')).toContain('Cleanup complete');
+    },
+  );
+
   it('allows silent startup beyond the execution idle deadline', async () => {
     const directory = fixture();
     fs.writeFileSync(

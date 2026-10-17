@@ -172,7 +172,7 @@ heavy: quality test-heavy
 
 # Run all verification checks for app
 [parallel]
-ready-app: quality-app test-app test-localization-check
+ready-app: quality-app test-app test-localization-check test-xcode-formatter
 
 # Run all verification checks for server
 [parallel]
@@ -208,10 +208,14 @@ _check-localizations platform *args:
 test-localization-check:
     {{ PNR }} test scripts/check-localizations.test.ts
 
+# Verify real formatter output for build tasks and named test results
+test-xcode-formatter:
+    bash scripts/test-xcode-formatter.sh
+
 # Run app tests on macOS
 [working-directory("app")]
 test-app-macos:
-    xcodebuild \
+    bash ../scripts/run-with-xcbeautify.sh test-app-macos xcodebuild \
         {{ APP_SOURCE_PACKAGES_ARGS }} \
         -project "{{ APP_PROJECT }}" \
         -scheme "{{ APP_SCHEME }}" \
@@ -223,7 +227,7 @@ test-app-macos:
 # Run app tests on iOS
 [working-directory("app")]
 test-app-ios:
-    ../scripts/with-ios-simulator-lock \
+    bash ../scripts/run-with-xcbeautify.sh test-app-ios ../scripts/with-ios-simulator-lock \
         {{ APP_SOURCE_PACKAGES_ARGS }} \
         -project "{{ APP_PROJECT }}" \
         -scheme "{{ APP_SCHEME }}" \
@@ -235,7 +239,7 @@ test-app-ios:
 # Run macOS screen snapshot tests
 [working-directory("app")]
 test-snapshots-macos:
-    xcodebuild \
+    bash ../scripts/run-with-xcbeautify.sh test-snapshots-macos xcodebuild \
         {{ APP_SOURCE_PACKAGES_ARGS }} \
         -project "{{ APP_PROJECT }}" \
         -scheme "{{ APP_SCHEME }}" \
@@ -279,7 +283,7 @@ _snapshots-ios action *args:
     if [[ "$action" == test-without-building && -n "${TCG_APP_IOS_XCTESTRUN:-}" ]]; then
         selection_args=(-xctestrun "$TCG_APP_IOS_XCTESTRUN")
     fi
-    ../scripts/with-ios-simulator-lock \
+    bash ../scripts/run-with-xcbeautify.sh "snapshots-ios-$action" ../scripts/with-ios-simulator-lock \
         "${selection_args[@]}" \
         -destination "{{ APP_IOS_TEST_DESTINATION }}" \
         -only-testing:TCGCardsTests/ScreenSnapshotSettlingTests \
@@ -441,7 +445,11 @@ format-app:
     swift format --in-place -r .
 
 # Bootstrap project
-bootstrap: prepare
+bootstrap: prepare install-xcbeautify
+
+# Install xcbeautify only when it is not already available
+install-xcbeautify:
+    bash scripts/install-xcbeautify.sh
 
 # Prepare project to work with
 prepare: install-modules

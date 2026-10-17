@@ -13,6 +13,7 @@ function invoke(recipe: string, manifest = '') {
   fs.mkdirSync(path.join(directory, 'app'));
   fs.mkdirSync(path.join(directory, 'scripts'));
   fs.copyFileSync('justfile', path.join(directory, 'justfile'));
+  fs.copyFileSync('scripts/run-with-xcbeautify.sh', path.join(directory, 'scripts/run-with-xcbeautify.sh'));
   const output = path.join(directory, 'arguments.json');
   fs.writeFileSync(
     path.join(directory, 'scripts/with-ios-simulator-lock'),
@@ -26,6 +27,7 @@ function invoke(recipe: string, manifest = '') {
     {
       env: {
         ...process.env,
+        TCG_XCODE_RAW_OUTPUT: '1',
         ARGUMENTS_FILE: output,
         TCG_APP_IOS_XCTESTRUN: manifest,
         TCG_APP_SOURCE_PACKAGES: '/tmp/source packages',
