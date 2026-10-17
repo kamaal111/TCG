@@ -1,5 +1,6 @@
 import { purchasePriceChangePercent } from './purchase-price.ts';
 import type { OwnedCardPriceResponse } from '../../card-pricing/schemas/responses.ts';
+import type { ForexSnapshot } from '../../forex/schemas/responses.ts';
 import { toISO8601String } from '../../utils/strings.ts';
 import type { CardWithPurchases } from '../repository.ts';
 import type { CardResponse, CardWithPriceResponse } from '../schemas/responses.ts';
@@ -8,10 +9,18 @@ export function serializeCard(card: CardWithPurchases): CardResponse {
   return serializeCardFields(card);
 }
 
-export function serializeCardWithPrice(card: CardWithPurchases, price: OwnedCardPriceResponse): CardWithPriceResponse {
+export function serializeCardWithPrice(
+  card: CardWithPurchases,
+  price: OwnedCardPriceResponse,
+  snapshot?: ForexSnapshot,
+): CardWithPriceResponse {
   return {
     ...serializeCardFields(card),
-    purchase_price_change_percent: purchasePriceChangePercent(card.purchaseBatches, price.priced_card?.market),
+    purchase_price_change_percent: purchasePriceChangePercent(
+      card.purchaseBatches,
+      price.priced_card?.market,
+      snapshot,
+    ),
     price,
   };
 }

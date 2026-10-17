@@ -28,6 +28,13 @@
   "testTargets" : [
     {
       "target" : {
+        "containerPath" : "container:Modules\/TCGFeatures",
+        "identifier" : "TCGCurrencyTests",
+        "name" : "TCGCurrencyTests"
+      }
+    },
+    {
+      "target" : {
         "containerPath" : "container:Modules\/TCGClient",
         "identifier" : "TCGClientTests",
         "name" : "TCGClientTests"

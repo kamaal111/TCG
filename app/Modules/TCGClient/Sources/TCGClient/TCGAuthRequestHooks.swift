@@ -88,7 +88,7 @@ struct TCGAuthRequestHooks: AuthRequestHooks {
         case .ok(let ok):
             let payload: Components.Schemas.SessionResponse
             do {
-                payload = try ok.body.json
+                payload = try ok.body.json.value1
             } catch {
                 return .failure(AuthRequestFailure(status: 503, cause: error))
             }

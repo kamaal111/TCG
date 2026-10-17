@@ -1,9 +1,9 @@
 import SwiftUI
 import TCGClient
+import TCGCurrency
 
 struct PurchaseBatchFields: View {
     @Binding var batch: PurchaseBatchFormValue
-    let marketCurrency: Currency?
     let remove: () -> Void
 
     var body: some View {
@@ -23,25 +23,29 @@ struct PurchaseBatchFields: View {
                     #if os(iOS)
                         .keyboardType(.decimalPad)
                     #endif
-                if let currency = marketCurrency {
-                    Text(batch.persistedID == nil ? currency.rawValue : batch.currency.rawValue).foregroundStyle(
-                        .secondary
+                Picker(
+                    selection: Binding(
+                        get: { batch.currency },
+                        set: {
+                            batch.currency = $0
+                            batch.priceWasEdited = true
+                        }
                     )
-                } else {
-                    Picker(selection: $batch.currency) {
-                        Text(verbatim: Currency.usd.rawValue).tag(Currency.usd)
-                        Text(verbatim: Currency.jpy.rawValue).tag(Currency.jpy)
-                    } label: {
-                        Text("Currency", bundle: .module)
+                ) {
+                    ForEach(Currency.allCases, id: \.self) { currency in
+                        Text(verbatim: currency.rawValue).tag(currency)
                     }
-                    .fixedSize()
+                } label: {
+                    Text("Currency", bundle: .module)
                 }
+                .fixedSize()
+
             }
             if let price = batch.price {
                 HStack {
                     Text("Batch total", bundle: .module)
                     Spacer()
-                    Text(price * Decimal(batch.quantity), format: .currency(code: batch.currency.rawValue))
+                    CurrencyAmount(price * Decimal(batch.quantity), currency: batch.currency)
                 }.font(.caption).foregroundStyle(.secondary)
             }
         }
@@ -55,7 +59,6 @@ struct PurchaseBatchFields: View {
             set: { value in
                 batch.priceText = value
                 batch.priceWasEdited = true
-                if batch.persistedID == nil, let marketCurrency { batch.currency = marketCurrency }
             }
         )
     }

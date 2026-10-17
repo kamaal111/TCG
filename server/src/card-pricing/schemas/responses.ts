@@ -1,8 +1,8 @@
 import { z } from 'zod';
 
 import { CARD_GAMES } from '../../db/schema/cards.ts';
+import { CurrencySchema } from '../../forex/currencies.ts';
 import { ApiCommonDatetime } from '../../schemas/common.ts';
-import { CURRENCIES } from '../types.ts';
 
 export const PRICE_HEADLINE_METRICS = { LOWEST_NEAR_MINT: 'lowest_near_mint' } as const;
 
@@ -13,12 +13,7 @@ export const OWNED_CARD_PRICE_STATUSES = {
   UNAVAILABLE: 'unavailable',
 } as const;
 
-export const CurrencySchema = z.enum(Object.values(CURRENCIES)).meta({
-  $id: 'Currency',
-  title: 'Currency',
-  description: 'ISO 4217 currency supported by the pricing service.',
-  example: CURRENCIES.USD,
-});
+export { CurrencySchema } from '../../forex/currencies.ts';
 
 const AmountSchema = z.number().nonnegative();
 

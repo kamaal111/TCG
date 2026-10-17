@@ -38,13 +38,14 @@ Each application domain owns one `logging.ts` declaring its events and fields, a
 accessor. Logger construction stays in `server/src/logging/index.ts`. Auth events and their field
 vocabulary are supplied by `@kamaalio/kamaal-auth-hono`, which receives the request logger.
 
-| Module                               | Events      | Accessor                                                 |
-| ------------------------------------ | ----------- | -------------------------------------------------------- |
-| `server/src/cards/logging.ts`        | `cards.*`   | `cardsLogger(c)`                                         |
-| `server/src/card-pricing/logging.ts` | `pricing.*` | `pricingLogger(c)`                                       |
-| `server/src/card-images/logging.ts`  | `images.*`  | `imagesLogger(c)` / `processImagesLogger()`              |
-| `server/src/logging/request.ts`      | `request.*` | `requestLogger(c)`                                       |
-| `server/src/logging/server.ts`       | `server.*`  | `serverLogger()` — process lifecycle, not request-scoped |
+| Module                               | Events                                            | Accessor                                                                          |
+| ------------------------------------ | ------------------------------------------------- | --------------------------------------------------------------------------------- |
+| `server/src/cards/logging.ts`        | `cards.*`                                         | `cardsLogger(c)`                                                                  |
+| `server/src/card-pricing/logging.ts` | `pricing.*`                                       | `pricingLogger(c)`                                                                |
+| `server/src/card-images/logging.ts`  | `images.*`                                        | `imagesLogger(c)` / `processImagesLogger()`                                       |
+| `server/src/logging/request.ts`      | `request.*`                                       | `requestLogger(c)`                                                                |
+| `server/src/forex/logging.ts`        | `forex.collect.completed`, `forex.collect.failed` | `forexProcessLogger()` — daily collector; fields `rate_date`, `collection_status` |
+| `server/src/logging/server.ts`       | `server.*`                                        | `serverLogger()` — process lifecycle, not request-scoped                          |
 
 A domain module looks like this:
 

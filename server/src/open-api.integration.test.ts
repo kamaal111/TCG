@@ -70,6 +70,8 @@ describe('OpenAPI specification integration', () => {
       '/app-api/auth/sign-out',
       '/app-api/auth/session',
       '/app-api/auth/token',
+      '/app-api/auth/preferences',
+      '/app-api/forex/latest',
       '/app-api/images/{imageKey}',
       '/app-api/cards/export',
       '/app-api/cards/import',

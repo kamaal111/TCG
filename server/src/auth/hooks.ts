@@ -1,3 +1,4 @@
+import type { SessionExtras } from '@kamaalio/kamaal-auth-core';
 import {
   type AuthCredentials,
   type AuthHookContext,
@@ -7,14 +8,18 @@ import {
   defineAuthHooks,
   getValueFromSetCookie,
 } from '@kamaalio/kamaal-auth-hono';
+import { eq } from 'drizzle-orm';
 import { type JWTPayload, decodeJwt } from 'jose';
 import z from 'zod';
 
 import type { Auth } from './better-auth.ts';
 import { BETTER_AUTH_BASE_URL } from './constants.ts';
 import type { Database } from '../db/index.ts';
+import { userPreferences } from '../db/schema/forex.ts';
 import { jwks } from '../db/schema/index.ts';
 import env from '../env.ts';
+import { DEFAULT_PREFERRED_CURRENCY } from '../forex/currencies.ts';
+import { SessionExtrasSchema } from './schemas/responses.ts';
 
 /**
  * Per-request state the hooks need. Reaches them as `c.locals`.
@@ -204,3 +209,19 @@ function decodeJwtSafely(token: string): JWTPayload | undefined {
     return undefined;
   }
 }
+
+export const sessionExtras: SessionExtras<typeof SessionExtrasSchema, AuthLocals> = {
+  schema: SessionExtrasSchema,
+  resolve: async (c, { userId }) => {
+    const [preference] = await c.locals.db
+      .select({ preferredCurrency: userPreferences.preferredCurrency })
+      .from(userPreferences)
+      .where(eq(userPreferences.userId, userId))
+      .limit(1);
+
+    return {
+      preferred_currency: preference?.preferredCurrency ?? DEFAULT_PREFERRED_CURRENCY,
+      has_preferred_currency_preference: preference != null,
+    };
+  },
+};

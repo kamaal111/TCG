@@ -1,5 +1,6 @@
 import SwiftUI
 import TCGClient
+import TCGCurrency
 import TCGDesignSystem
 
 public struct CardDetailMetadata {
@@ -123,7 +124,7 @@ public struct CardDetailContent<Supplemental: View>: View {
 
     private func price(_ title: LocalizedStringKey, amount: Double, currency: Currency) -> some View {
         LabeledContent {
-            Text(amount, format: .currency(code: currency.rawValue)).monospacedDigit()
+            CurrencyAmount(amount, currency: currency).monospacedDigit()
         } label: {
             Text(title, bundle: .module)
         }
@@ -132,7 +133,7 @@ public struct CardDetailContent<Supplemental: View>: View {
     private func movementRow(_ title: LocalizedStringKey, movement: PriceMovement, currency: Currency) -> some View {
         LabeledContent {
             VStack(alignment: .trailing, spacing: 4) {
-                Text(movement.priceChange, format: .currency(code: currency.rawValue))
+                CurrencyAmount(movement.priceChange, currency: currency)
                 Text(movement.percentChange / 100, format: .percent.precision(.fractionLength(1)))
                 Label(movement.trend.title, systemImage: movement.trend.systemImage)
                     .font(.caption)

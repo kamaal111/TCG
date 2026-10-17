@@ -76,7 +76,8 @@ const updateCardRoute = defineOpenAPIRoute<HonoEnvironment, typeof routeConfig>(
 
     await c.get('cardRepository').backfillPurchasePrices([updatedCard], [price]);
 
-    const response = serializeCardWithPrice(updatedCard, price);
+    const snapshot = await c.get('forexRepository').latestSnapshot();
+    const response = serializeCardWithPrice(updatedCard, price, snapshot);
     cardsLogger(c).info(
       { event: 'cards.update', outcome: 'success', card_id: cardId },
       'Updated an owned card in the collection.',

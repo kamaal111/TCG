@@ -1,5 +1,6 @@
 import type { PricedCardResponse } from '../../card-pricing/schemas/responses.ts';
 import type { cardPurchaseBatch } from '../../db/schema/cards.ts';
+import type { ForexSnapshot } from '../../forex/schemas/responses.ts';
 
 type BatchCost = Pick<typeof cardPurchaseBatch.$inferSelect, 'quantity' | 'purchasePrice' | 'currency'>;
 
@@ -20,7 +21,11 @@ function microUnits(amount: string): bigint {
   return BigInt(whole) * 1_000_000n + BigInt(fraction.padEnd(6, '0'));
 }
 
-export function purchasePriceChangePercent(batches: readonly BatchCost[], market: Market | undefined): number | null {
+export function purchasePriceChangePercent(
+  batches: readonly BatchCost[],
+  market: Market | undefined,
+  snapshot?: ForexSnapshot,
+): number | null {
   if (market?.market == null || batches.length === 0) {
     return null;
   }
@@ -29,11 +34,38 @@ export function purchasePriceChangePercent(batches: readonly BatchCost[], market
   let quantity = 0n;
 
   for (const batch of batches) {
-    if (batch.purchasePrice == null || batch.currency !== market.currency) {
+    if (batch.purchasePrice == null || batch.currency == null) {
       return null;
     }
 
-    cost += microUnits(batch.purchasePrice) * BigInt(batch.quantity);
+    let amount = microUnits(batch.purchasePrice);
+
+    if (batch.currency !== market.currency) {
+      const source = snapshot?.rates[batch.currency];
+      const target = snapshot?.rates[market.currency];
+
+      if (
+        source == null ||
+        target == null ||
+        source <= 0 ||
+        target <= 0 ||
+        !Number.isFinite(source) ||
+        !Number.isFinite(target)
+      ) {
+        return null;
+      }
+
+      const sourceUnits = BigInt(Math.round(source * 1e12));
+      const targetUnits = BigInt(Math.round(target * 1e12));
+
+      if (sourceUnits === 0n || targetUnits === 0n) {
+        return null;
+      }
+
+      amount = (amount * targetUnits + sourceUnits / 2n) / sourceUnits;
+    }
+
+    cost += amount * BigInt(batch.quantity);
     quantity += BigInt(batch.quantity);
   }
 

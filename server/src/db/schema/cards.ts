@@ -16,6 +16,7 @@ import {
 
 import { user } from './better-auth.ts';
 import type { Currency } from '../../card-pricing/types.ts';
+import { currencyConstraint } from '../../forex/currencies.ts';
 
 export const CARD_GAMES = ['one_piece', 'pokemon'] as const;
 
@@ -104,7 +105,7 @@ export const cardPurchaseBatch = pgTable(
       'card_purchase_batch_price_check',
       sql`${table.purchasePrice} >= 0 and ${table.purchasePrice} < 'Infinity'::numeric`,
     ),
-    check('card_purchase_batch_currency_check', sql`${table.currency} in ('USD', 'JPY')`),
+    check('card_purchase_batch_currency_check', sql`${table.currency} in ${currencyConstraint}`),
     check('card_purchase_batch_price_pair_check', sql`(${table.purchasePrice} is null) = (${table.currency} is null)`),
     check(
       'card_purchase_batch_date_check',

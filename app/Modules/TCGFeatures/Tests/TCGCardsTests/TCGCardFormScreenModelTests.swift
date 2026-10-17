@@ -17,6 +17,66 @@ import Testing
 @Suite("TCGCard Form Screen Model Tests")
 @MainActor
 struct TCGCardFormScreenModelTests {
+    @Test
+    func `Market defaults return a converted batch without changing the original`() {
+        let model = TCGCardFormScreenModel(mode: .add, initialValues: nil)
+        model.configureCurrency(
+            preferred: .eur,
+            rates: ExchangeRates(date: "2026-10-16", rates: ["EUR": 1, "USD": 1.25])
+        )
+        model.values.defaultMarketPrice = 12.5
+        model.values.defaultMarketCurrency = .usd
+        let original = PurchaseBatchFormValue(condition: .nearMint, quantity: 2, currency: .usd)
+        let updated = model.values.applyingMarketDefault(to: original)
+        #expect(original.priceText.isEmpty)
+        #expect(original.currency == .usd)
+        #expect(updated.id == original.id)
+        #expect(updated.quantity == 2)
+        #expect(updated.currency == .eur)
+        #expect(updated.price == 10)
+    }
+
+    @Test
+    func `Defaults new purchases to EUR and preserves manual JPY overrides`() {
+        let model = TCGCardFormScreenModel(mode: .add, initialValues: nil)
+        model.configureCurrency(
+            preferred: .eur,
+            rates: ExchangeRates(date: "2026-10-16", rates: ["EUR": 1, "USD": 1.25, "JPY": 150])
+        )
+        model.values.defaultMarketPrice = 12.5
+        model.values.defaultMarketCurrency = .usd
+        model.addBatch(condition: .nearMint)
+        #expect(model.values.batches[0].currency == .eur)
+        #expect(model.values.batches[0].price == 10)
+        model.values.batches[0].currency = .jpy
+        model.values.batches[0].priceText = "1500"
+        model.values.batches[0].priceWasEdited = true
+        model.configureCurrency(preferred: .eur, rates: nil)
+        #expect(model.values.batches[0].currency == .jpy)
+        #expect(model.values.batches[0].price == 1500)
+        model.applyMarketDefault(PreviewTCGPricingClient.samplePricedCards[0])
+        #expect(model.values.batches[0].currency == .jpy)
+        #expect(model.values.batches[0].price == 1500)
+    }
+
+    @Test
+    func `Currency and market refreshes preserve existing edit batches and convert new ones`() {
+        let card = PreviewTCGPricingClient.samplePricedCards[0]
+        let model = TCGCardFormScreenModel(mode: .edit(PreviewTCGCardsClient.sampleCards[0]), initialValues: nil)
+        let originalBatches = model.values.batches
+        let rates = ExchangeRates(date: "2026-10-16", rates: ["EUR": 1, "USD": 1.25, "JPY": 150])
+        model.configureCurrency(preferred: .eur, rates: rates)
+        model.applyMarketDefault(card)
+        #expect(model.values.batches == originalBatches)
+        model.addBatch(condition: .nearMint)
+        let expectedPrice = model.values.batches.last?.price
+        #expect(expectedPrice != nil)
+        #expect(model.values.batches.last?.currency == .eur)
+        model.applyMarketDefault(card)
+        #expect(Array(model.values.batches.dropLast()) == originalBatches)
+        #expect(model.values.batches.last?.price == expectedPrice)
+    }
+
     @Test(arguments: PreviewTCGPricingClient.samplePricedCards)
     func `Searched cards prefill details with empty quantities and notes`(card: PricedCard) {
         let model = TCGCardFormScreenModel(mode: .add, initialValues: .init(pricedCard: card))

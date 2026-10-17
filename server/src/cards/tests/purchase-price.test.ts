@@ -49,3 +49,14 @@ describe('Purchase price comparison', () => {
     ).toBe(0);
   });
 });
+
+test('compares a JPY purchase against a USD market value using one daily snapshot', () => {
+  const batches = [{ quantity: 2, purchasePrice: '1500.000000', currency: 'JPY' as const }];
+  expect(
+    purchasePriceChangePercent(
+      batches,
+      { market: 15, currency: 'USD' },
+      { base: 'EUR', date: '2026-10-16', rates: { EUR: 1, USD: 1.25, JPY: 150 } },
+    ),
+  ).toBe(20);
+});

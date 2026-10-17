@@ -61,7 +61,7 @@ entries, even when the card names and numbers match.
 | `purchase_id` | UUID identifying a purchase row; blank generates one |
 | `condition` | `mint`, `near_mint`, `excellent`, `good`, `played`, or `damaged` |
 | `quantity` | Whole number from 1 to 999; total per condition cannot exceed 999 |
-| `purchase_price`, `currency` | Both blank, or a nonnegative decimal with up to six decimal places and `USD` or `JPY` |
+| `purchase_price`, `currency` | Both blank, or a nonnegative decimal with up to six decimal places and a supported ECB currency code, such as `EUR`, `USD`, or `JPY` |
 | `automatic_price_date` | Optional real date in `YYYY-MM-DD` format, requiring a purchase price |
 
 Keep every template column. Use commas as separators and double quotes around
@@ -293,3 +293,20 @@ reflects the current source. CI checks both platforms to cover conditional text
 such as iOS sheet buttons. Checker regression tests run with
 `just test-localization-check` and need Node.js (using the repository's `.node-version`) and installed
 pnpm dependencies. They use Vitest and also run in the Linux devcontainer without Xcode.
+
+## Preferred currency
+
+Choose **Preferred currency** once in Settings. It is saved to your account and
+applies across Collection, Search, card details, and purchase totals on both
+platforms. Before an explicit selection, the app saves a supported device-region
+currency or falls back to USD through the central currency policy.
+
+New purchases default to that currency. Their currency picker remains adjustable
+when buying abroad. Editing an existing purchase preserves its original amount
+and currency; changing the display preference never rewrites purchase history.
+
+Conversions use the latest collected ECB snapshot, including for older purchases.
+The app retains the last valid rates offline. If a currency pair cannot be
+converted, it displays the original amount and currency with **Conversion
+unavailable**. Import/export retains original amounts and accepts the same
+supported currencies as purchase entry.

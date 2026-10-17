@@ -3,9 +3,11 @@ import type { Next } from 'hono';
 import { every } from 'hono/combine';
 
 import { BETTER_AUTH_BASE_PATH, JWKS_URL } from './constants.ts';
-import { type AuthLocals, authHooks } from './hooks.ts';
+import { type AuthLocals, authHooks, sessionExtras } from './hooks.ts';
+import { createUpdatePreferencesRoute } from './routes/update-preferences.ts';
+import type { SessionExtrasSchema } from './schemas/responses.ts';
 import { ONE_DAY_IN_SECONDS } from '../constants/time.ts';
-import type { HonoContext } from '../context.ts';
+import type { HonoContext, HonoEnvironment } from '../context.ts';
 import env from '../env.ts';
 import { openAPIRouterFactory } from '../open-api.ts';
 import { ErrorResponseSchema, ValidationErrorResponseSchema } from '../schemas/errors.ts';
@@ -18,7 +20,14 @@ const TRUSTED_ORIGINS = ['tcg://'];
  * The router is this app's own, so its `defaultHook` governs auth routes too and validation failures keep coming
  * back in the `InvalidValidation` envelope the rest of the API uses.
  */
-export const authModule = createAuthModule({
+export const authModule = createAuthModule<
+  { id: string; email: string; name: string; emailVerified: boolean; createdAt: Date },
+  { email: string; password: string; name: string; callbackURL?: string | undefined },
+  { email: string; password: string; callbackURL?: string | undefined },
+  typeof SessionExtrasSchema,
+  AuthLocals,
+  HonoEnvironment
+>({
   hooks: authHooks,
   router: openAPIRouterFactory(),
   config: {
@@ -37,6 +46,10 @@ export const authModule = createAuthModule({
     isTest: env.IS_TEST,
     // Passed in rather than declared by the package, so these components are registered exactly once.
     errorSchemas: { error: ErrorResponseSchema, validation: ValidationErrorResponseSchema },
+  },
+  sessionExtras,
+  extraRoutes: (router, deps) => {
+    router.openapiRoutes([createUpdatePreferencesRoute(deps)]);
   },
   logger: c => c.get('logger'),
   locals: (c): AuthLocals => ({ db: c.get('db'), auth: c.get('auth') }),
