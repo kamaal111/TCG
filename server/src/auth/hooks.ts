@@ -1,3 +1,4 @@
+import type { SessionExtras } from '@kamaalio/kamaal-auth-core';
 import {
   type AuthCredentials,
   type AuthHookContext,
@@ -10,22 +11,12 @@ import {
 import { type JWTPayload, decodeJwt } from 'jose';
 import z from 'zod';
 
-import type { Auth } from './better-auth.ts';
 import { BETTER_AUTH_BASE_URL } from './constants.ts';
-import type { Database } from '../db/index.ts';
-import { jwks } from '../db/schema/index.ts';
+import type { HonoContext } from '../context.ts';
 import env from '../env.ts';
+import { SessionExtrasSchema } from './schemas/responses.ts';
 
-/**
- * Per-request state the hooks need. Reaches them as `c.locals`.
- *
- * `auth` comes from the request context rather than the module singleton because integration tests build one
- * better-auth instance per test database.
- */
-export interface AuthLocals {
-  db: Database;
-  auth: Auth;
-}
+export type AuthLocals = HonoContext;
 
 const SESSION_COOKIE_NAME = 'better-auth.session_token';
 
@@ -62,14 +53,14 @@ export const authHooks = defineAuthHooks({
   },
 
   async signOut(c: Context) {
-    const response = await c.locals.auth.handler(c.request);
+    const response = await c.locals.get('auth').handler(c.request);
 
     // better-auth ends a cookie session by re-setting the cookie already expired; forward that to the client.
     return { ok: true, value: { headers: response.headers } };
   },
 
   async getSession(c: Context) {
-    const result = await c.locals.auth.api.getSession({ headers: c.headers });
+    const result = await c.locals.get('auth').api.getSession({ headers: c.headers });
 
     if (result == null) {
       return { ok: true, value: null };
@@ -89,7 +80,7 @@ export const authHooks = defineAuthHooks({
   },
 
   async issueToken(c: Context) {
-    const response = await c.locals.auth.handler(c.request);
+    const response = await c.locals.get('auth').handler(c.request);
 
     if (!response.ok) {
       return { ok: false, error: { code: 'SESSION_NOT_FOUND', message: 'Session not found' } };
@@ -101,12 +92,12 @@ export const authHooks = defineAuthHooks({
   },
 
   async jwks(c: Context) {
-    return c.locals.auth.handler(c.request);
+    return c.locals.get('auth').handler(c.request);
   },
 
   /** Tests have no reachable JWKS endpoint, so verification reads the keys better-auth persisted. */
   async verificationKeys(c: Context) {
-    const rows = await c.locals.db.select({ id: jwks.id, publicKey: jwks.publicKey }).from(jwks);
+    const rows = await c.locals.get('db').query.jwks.findMany({ columns: { id: true, publicKey: true } });
 
     return {
       keys: rows.map(row => ({ ...PublicJWKSchema.parse(JSON.parse(row.publicKey)), kid: row.id })),
@@ -115,7 +106,7 @@ export const authHooks = defineAuthHooks({
 
   /** Anything better-auth serves that this app does not model explicitly. */
   async fallback(c: Context) {
-    return c.locals.auth.handler(c.request);
+    return c.locals.get('auth').handler(c.request);
   },
 });
 
@@ -126,7 +117,7 @@ export const authHooks = defineAuthHooks({
  * understands but this app does not model (`callbackURL`) keep working.
  */
 async function authenticate(c: Context): Promise<AuthHookResult<{ user: AuthUser; credentials: AuthCredentials }>> {
-  const response = await c.locals.auth.handler(c.request);
+  const response = await c.locals.get('auth').handler(c.request);
   const body: unknown = await response.json();
 
   const failure = BetterAuthErrorSchema.safeParse(body);
@@ -167,7 +158,7 @@ async function mintToken(c: Context, sessionToken: string): Promise<string | nul
     headers: new Headers({ Authorization: `Bearer ${sessionToken}` }),
   });
 
-  const response = await c.locals.auth.handler(request);
+  const response = await c.locals.get('auth').handler(request);
 
   if (!response.ok) {
     return null;
@@ -204,3 +195,15 @@ function decodeJwtSafely(token: string): JWTPayload | undefined {
     return undefined;
   }
 }
+
+export const sessionExtras: SessionExtras<typeof SessionExtrasSchema, AuthLocals> = {
+  schema: SessionExtrasSchema,
+  resolve: async (c, { userId }) => {
+    const preferredCurrency = await c.locals.get('userPreferencesRepository').findPreferredCurrency(userId);
+
+    const currency = preferredCurrency ?? env.DEFAULT_PREFERRED_CURRENCY;
+    c.locals.set('preferredCurrency', currency);
+
+    return { preferred_currency: currency };
+  },
+};

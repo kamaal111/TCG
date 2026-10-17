@@ -10,6 +10,7 @@ import KamaalExtensions
 import KamaalLogger
 import Observation
 import TCGClient
+import TCGCurrency
 
 private let logger = KamaalLogger(from: TCGCards.self)
 
@@ -20,9 +21,11 @@ public final class TCGCards {
     private(set) var availableSetNames: Set<String> = []
     private(set) var isLoadingNextPage = false
     private(set) var nextPageError: TCGCardsOperationError?
+    private(set) var displayRefreshError: TCGCardsOperationError?
 
     private let client: TCGClient
     private var collectionState = CollectionState()
+    private var displayIdentity: TCGCurrency.DisplayIdentity?
 
     var isLoading: Bool { collectionState.status == .loading }
     var hasMoreCards: Bool { collectionState.nextCursor != nil }
@@ -34,6 +37,36 @@ public final class TCGCards {
     }
 
     public static func `default`() -> TCGCards { TCGCards(client: .default()) }
+
+    public func resetDisplayPrices() {
+        displayIdentity = nil
+        invalidateDisplayPrices()
+        collectionState = CollectionState(generation: collectionState.generation)
+        availableSetNames = []
+    }
+
+    public func refreshDisplayPrices(for identity: TCGCurrency.DisplayIdentity) async {
+        guard displayIdentity != identity else { return }
+        guard displayIdentity != nil else {
+            displayIdentity = identity
+            return
+        }
+        let needsRefresh = collectionState.pageCount > 0 || isLoading || !cards.isEmpty
+        displayIdentity = identity
+        invalidateDisplayPrices()
+        if needsRefresh { await refresh() }
+    }
+
+    private func invalidateDisplayPrices() {
+        collectionState.generation += 1
+        collectionState.status = .idle
+        collectionState.nextCursor = nil
+        collectionState.visitedCursors = []
+        cards = []
+        isLoadingNextPage = false
+        nextPageError = nil
+        displayRefreshError = nil
+    }
 
     func load(game: ClientCardGame?, setNames: Set<String> = []) async -> Result<Void, TCGCardsOperationError> {
         let pageCount =
@@ -153,17 +186,19 @@ public final class TCGCards {
     }
 
     func addCard(_ values: CardFormValues) async -> Result<Void, TCGCardsOperationError> {
+        let identity = displayIdentity
         let result = await client.cards.create(with: values.payload)
-            .map(insertCard)
+            .map { card in if displayIdentity == identity { insertCard(card) } }
             .mapError(mapCreateError)
         if case .success = result { await refresh() }
         return result
     }
 
     func updateCard(id: String, values: CardFormValues) async -> Result<CardWithPrice, TCGCardsOperationError> {
+        let identity = displayIdentity
         let result = await client.cards.update(id: id, with: values.payload)
             .map { card in
-                replaceCard(card, id: id)
+                if displayIdentity == identity { replaceCard(card, id: id) }
                 return card
             }
             .mapError(mapUpdateError)
@@ -228,8 +263,12 @@ public final class TCGCards {
         return (try? result.get()) != nil
     }
 
-    private func refresh() async {
-        _ = await refreshCollection()
+    func refresh() async {
+        let identity = displayIdentity
+        displayRefreshError = nil
+        let result = await refreshCollection()
+        guard identity == displayIdentity, !Task.isCancelled else { return }
+        if case .failure(let error) = result { displayRefreshError = error }
     }
 
     private func refreshCollection() async -> Result<Void, TCGCardsOperationError> {

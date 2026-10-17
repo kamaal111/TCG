@@ -9,7 +9,9 @@ import type { HonoContext, HonoEnvironment } from '../context.ts';
 export function handleServerError() {
   return ((err, ctx: HonoContext) => {
     if (err instanceof APIException || err instanceof HTTPException) {
-      return err.getResponse();
+      const response = err.getResponse();
+
+      return ctx.newResponse(response.body, response);
     }
 
     return ctx.json(

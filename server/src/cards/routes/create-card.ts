@@ -5,6 +5,7 @@ import { APP_API_ROUTE_NAME } from '../../constants/common.ts';
 import { CONTENTFUL_STATUS_CODES } from '../../constants/http.ts';
 import { MIME_TYPES } from '../../constants/request.ts';
 import type { HonoEnvironment } from '../../context.ts';
+import { logDisplayPrices } from '../../forex/logging.ts';
 import { ErrorResponseSchema, ValidationErrorResponseSchema } from '../../schemas/errors.ts';
 import { CARDS_OPENAPI_TAG, CARDS_ROUTE_NAME } from '../constants.ts';
 import { cardsLogger } from '../logging.ts';
@@ -48,12 +49,21 @@ export const CREATE_CARD_ROUTE_PATH = `${APP_API_ROUTE_NAME}${CARDS_ROUTE_NAME}`
 const createCardRoute = defineOpenAPIRoute<HonoEnvironment, typeof routeConfig>({
   route: routeConfig,
   handler: async c => {
-    const createdCard = await c.get('cardRepository').create(c.req.valid('json'));
+    const [createdCard, display] = await Promise.all([
+      c.get('cardRepository').create(c.req.valid('json')),
+      c.get('forexService').displayContext(),
+    ]);
+
+    if (display.isErr()) {
+      throw display.error;
+    }
+
     const [price] = await c.get('cardPricingService').priceOwnedCards([createdCard]);
 
     await c.get('cardRepository').backfillPurchasePrices([createdCard], [price]);
 
-    const response = serializeCardWithPrice(createdCard, price);
+    const response = serializeCardWithPrice(createdCard, price, display.value);
+    logDisplayPrices(c, display.value, [response]);
     cardsLogger(c).info(
       { event: 'cards.create', outcome: 'success', card_id: response.id },
       'Added an owned card to the collection.',

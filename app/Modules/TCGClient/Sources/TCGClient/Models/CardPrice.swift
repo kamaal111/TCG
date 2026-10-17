@@ -56,15 +56,49 @@ public enum PriceMetric: String, Codable, Hashable, Sendable {
     case lowestNearMint = "lowest_near_mint"
 }
 
-/// An ISO 4217 currency supplied by market pricing.
+/// An ISO 4217 currency supported by pricing, purchase entry, and ECB conversion.
 ///
 /// - Example:
 ///   ```swift
 ///   let currency = Currency.usd
 ///   ```
-public enum Currency: String, Codable, Hashable, Sendable {
-    case jpy = "JPY"
+public enum Currency: String, Codable, CaseIterable, Hashable, Sendable {
+    case eur = "EUR"
     case usd = "USD"
+    case jpy = "JPY"
+    case czk = "CZK"
+    case dkk = "DKK"
+    case gbp = "GBP"
+    case huf = "HUF"
+    case pln = "PLN"
+    case ron = "RON"
+    case sek = "SEK"
+    case chf = "CHF"
+    case isk = "ISK"
+    case nok = "NOK"
+    case `try` = "TRY"
+    case aud = "AUD"
+    case brl = "BRL"
+    case cad = "CAD"
+    case cny = "CNY"
+    case hkd = "HKD"
+    case idr = "IDR"
+    case ils = "ILS"
+    case inr = "INR"
+    case krw = "KRW"
+    case mxn = "MXN"
+    case myr = "MYR"
+    case nzd = "NZD"
+    case php = "PHP"
+    case sgd = "SGD"
+    case thb = "THB"
+    case zar = "ZAR"
+
+    public static let fallback: Currency = .usd
+
+    public static func initialPreference(locale: Locale = .current) -> Currency {
+        locale.currency.flatMap { Currency(rawValue: $0.identifier) } ?? fallback
+    }
 }
 
 /// A market-price change over one fixed time period.
@@ -200,6 +234,31 @@ public struct PriceHeadline: Codable, Hashable, Sendable {
     }
 }
 
+public struct PricedCardDisplay: Codable, Hashable, Sendable {
+    public let preferredCurrency: Currency
+    public let headline: PriceHeadline?
+    public let market: MarketPrice?
+    public let conversionUnavailable: Bool
+
+    public init(
+        preferredCurrency: Currency,
+        headline: PriceHeadline?,
+        market: MarketPrice?,
+        conversionUnavailable: Bool
+    ) {
+        self.preferredCurrency = preferredCurrency
+        self.headline = headline
+        self.market = market
+        self.conversionUnavailable = conversionUnavailable
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case preferredCurrency = "preferred_currency"
+        case headline, market
+        case conversionUnavailable = "conversion_unavailable"
+    }
+}
+
 /// A card and its normalized daily market pricing.
 ///
 /// - Example:
@@ -223,6 +282,7 @@ public struct PricedCard: Codable, Hashable, Identifiable, Sendable {
     public let imageURL: URL?
     public let headline: PriceHeadline?
     public let market: MarketPrice?
+    public let display: PricedCardDisplay?
     public let pricedOn: Date
     public let fetchedAt: Date
 
@@ -245,6 +305,7 @@ public struct PricedCard: Codable, Hashable, Identifiable, Sendable {
         imageURL: URL? = nil,
         headline: PriceHeadline? = nil,
         market: MarketPrice? = nil,
+        display: PricedCardDisplay? = nil,
         pricedOn: Date,
         fetchedAt: Date
     ) {
@@ -257,6 +318,7 @@ public struct PricedCard: Codable, Hashable, Identifiable, Sendable {
         self.imageURL = imageURL
         self.headline = headline
         self.market = market
+        self.display = display
         self.pricedOn = pricedOn
         self.fetchedAt = fetchedAt
     }
@@ -266,7 +328,7 @@ public struct PricedCard: Codable, Hashable, Identifiable, Sendable {
         case name
         case rarity
         case headline
-        case market
+        case market, display
         case id
         case setName = "set_name"
         case cardNumber = "card_number"
@@ -274,6 +336,10 @@ public struct PricedCard: Codable, Hashable, Identifiable, Sendable {
         case pricedOn = "priced_on"
         case fetchedAt = "fetched_at"
     }
+
+    public var displayHeadline: PriceHeadline? { display?.headline ?? headline }
+    public var displayMarket: MarketPrice? { display?.market ?? market }
+    public var conversionUnavailable: Bool { display?.conversionUnavailable ?? false }
 }
 
 /// Result of searching for cards and their pricing.

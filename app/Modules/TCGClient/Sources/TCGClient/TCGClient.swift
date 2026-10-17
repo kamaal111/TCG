@@ -14,6 +14,7 @@ import OpenAPIURLSession
 private let logger = KamaalLogger(from: TCGClient.self)
 
 public struct TCGClient: Sendable {
+    public let currency: TCGCurrencyClient
     public let auth: KamaalAuthClient
     public let cards: TCGCardsClient
     public let pricing: TCGPricingClient
@@ -22,12 +23,14 @@ public struct TCGClient: Sendable {
     private let credentialsStore: CredentialsStore
 
     private init(
+        currency: TCGCurrencyClient,
         auth: KamaalAuthClient,
         cards: TCGCardsClient,
         pricing: TCGPricingClient,
         credentialsKeychainKey: String,
         credentialsStore: CredentialsStore
     ) {
+        self.currency = currency
         self.auth = auth
         self.cards = cards
         self.pricing = pricing
@@ -110,6 +113,7 @@ public struct TCGClient: Sendable {
         let pricing = PreviewTCGPricingClient(outcome: pricingOutcome)
 
         return TCGClient(
+            currency: PreviewTCGCurrencyClient(),
             auth: auth,
             cards: cards,
             pricing: pricing,
@@ -163,6 +167,7 @@ public struct TCGClient: Sendable {
         let pricing = TCGPricingClientImpl(client: client)
 
         return TCGClient(
+            currency: TCGCurrencyClientImpl(client: client),
             auth: auth,
             cards: cards,
             pricing: pricing,

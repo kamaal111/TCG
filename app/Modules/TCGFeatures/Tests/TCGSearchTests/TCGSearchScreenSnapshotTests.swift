@@ -193,6 +193,7 @@ struct TCGSearchScreenSnapshotTests {
     func `Renders complete card details`() async {
         await assertScreenSnapshot(testName: #function) {
             TCGSearchDetailView(card: detailCard)
+                .tcgSearch(TCGSearch(client: .preview(), history: TCGSearchHistoryStore()))
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(.background)
                 .environment(\.timeZone, TimeZone(secondsFromGMT: 0)!)
@@ -212,6 +213,7 @@ struct TCGSearchScreenSnapshotTests {
         )
         await assertScreenSnapshot(testName: #function) {
             TCGSearchDetailView(card: card)
+                .tcgSearch(TCGSearch(client: .preview(), history: TCGSearchHistoryStore()))
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(.background)
                 .environment(\.timeZone, TimeZone(secondsFromGMT: 0)!)

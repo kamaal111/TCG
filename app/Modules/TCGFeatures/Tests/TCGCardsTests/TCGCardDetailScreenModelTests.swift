@@ -11,6 +11,20 @@ import Testing
 @MainActor
 struct TCGCardDetailScreenModelTests {
     @Test
+    func `Refreshing display prices preserves an open editor draft`() throws {
+        let model = makeModel()
+        model.edit()
+        let editor = try #require(model.editor)
+        editor.values.notes = "Unsaved draft"
+        let refreshed = CardWithPrice(card: model.card.card, price: .init(cardId: model.card.card.id, status: .noPrice))
+        model.replaceDisplay(with: refreshed)
+        #expect(model.card == refreshed)
+        #expect(model.editor === editor)
+        #expect(editor.values.notes == "Unsaved draft")
+        #expect(editor.hasUnsavedChanges)
+    }
+
+    @Test
     func `Editing a card out of the selected set keeps updated details and refreshes the filtered list`() async throws {
         let feature = TCGCards(client: .preview(cardsOutcome: .success(cards: PreviewTCGCardsClient.sampleCards)))
         try await feature.load(game: .pokemon, setNames: ["Base Set"]).get()

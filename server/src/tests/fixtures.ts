@@ -31,6 +31,7 @@ export const integrationTest = test
   .extend('app', ({ _fixturesSetup }) => _fixturesSetup.app)
   .extend('connectionString', ({ _fixturesSetup }) => _fixturesSetup.connectionString)
   .extend('storageClient', ({ _fixturesSetup }) => _fixturesSetup.storageClient)
+  .extend('pricingClient', ({ _fixturesSetup }) => _fixturesSetup.pricingClient)
   .extend('createTestRequestId', ({ _fixturesSetup }) => _fixturesSetup.createTestRequestId)
   .extend('getLogsForRequestId', ({ _fixturesSetup }) => _fixturesSetup.getLogsForRequestId)
   .extend('withRequestId', ({ _fixturesSetup }) => _fixturesSetup.withRequestId);

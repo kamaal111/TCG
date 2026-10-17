@@ -1,8 +1,8 @@
 import { z } from 'zod';
 
 import { CARD_GAMES } from '../../db/schema/cards.ts';
+import { CurrencySchema } from '../../forex/currencies.ts';
 import { ApiCommonDatetime } from '../../schemas/common.ts';
-import { CURRENCIES } from '../types.ts';
 
 export const PRICE_HEADLINE_METRICS = { LOWEST_NEAR_MINT: 'lowest_near_mint' } as const;
 
@@ -13,12 +13,7 @@ export const OWNED_CARD_PRICE_STATUSES = {
   UNAVAILABLE: 'unavailable',
 } as const;
 
-export const CurrencySchema = z.enum(Object.values(CURRENCIES)).meta({
-  $id: 'Currency',
-  title: 'Currency',
-  description: 'ISO 4217 currency supported by the pricing service.',
-  example: CURRENCIES.USD,
-});
+export { CurrencySchema } from '../../forex/currencies.ts';
 
 const AmountSchema = z.number().nonnegative();
 
@@ -75,6 +70,15 @@ export const MarketPriceSchema = z
     },
   });
 
+export const PricedCardDisplaySchema = z
+  .object({
+    preferred_currency: CurrencySchema,
+    conversion_unavailable: z.boolean(),
+    headline: PriceHeadlineSchema.optional(),
+    market: MarketPriceSchema.optional(),
+  })
+  .meta({ $id: 'PricedCardDisplay', title: 'Priced Card Display' });
+
 export const PricedCardSchema = z
   .object({
     id: z.uuid().meta({
@@ -93,6 +97,7 @@ export const PricedCardSchema = z
     }),
     headline: PriceHeadlineSchema.optional(),
     market: MarketPriceSchema.optional(),
+    display: PricedCardDisplaySchema.optional(),
     priced_on: ApiCommonDatetime.meta({
       description: 'UTC pricing date',
       example: '2026-07-23T00:00:00.000Z',

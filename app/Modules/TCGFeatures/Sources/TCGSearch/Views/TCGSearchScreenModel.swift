@@ -247,7 +247,7 @@ final class TCGSearchScreenModel {
         }
     }
 
-    private func show(_ error: TCGSearchOperationError) {
+    func show(_ error: TCGSearchOperationError) {
         toastTask?.cancel()
         toast = Toast(title: String(localized: "Search error", bundle: .module), message: error.errorDescription)
         toastTask = Task {

@@ -164,9 +164,6 @@
     "Edit purchase at row %lld" : {
 
     },
-    "Enter USD or JPY, or leave it blank when the price is blank." : {
-
-    },
     "Enter a UUID card ID, such as 550e8400-e29b-41d4-a716-446655440000. Use the same ID for every purchase of this card." : {
 
     },
@@ -180,6 +177,9 @@
 
     },
     "Enter a real date as YYYY-MM-DD with a purchase price, or leave this field blank." : {
+
+    },
+    "Enter a supported currency code, such as EUR, USD or JPY, or leave it blank when the price is blank." : {
 
     },
     "Enter a value between 1 and %lld characters." : {

@@ -7,6 +7,7 @@ import Foundation
 import HTTPTypes
 import KamaalAuth
 import OpenAPIRuntime
+import TCGCurrency
 import Testing
 
 @testable import TCGClient
@@ -15,6 +16,53 @@ import Testing
 @Suite("TCGSearch Feature Tests")
 @MainActor
 struct TCGSearchFeatureTests {
+    @Test
+    func `Changing currency ignores an older search response`() async throws {
+        let transport = HistoryPricingTransport(suspended: true)
+        await transport.setOutcome(.updated, for: 2)
+        let client = TCGClient.default(
+            transport: transport,
+            credentialsKeychainKey: "currency-search",
+            credentialsStore: InMemoryCredentialsStore()
+        )
+        let feature = TCGSearch(client: client, history: TCGSearchHistoryStore())
+        let currency = TCGCurrency(client: .preview(), defaults: nil)
+        await feature.refreshDisplayPrices(for: currency.displayIdentity)
+        let original = Task { await feature.search(game: .pokemon, query: "Giratina") }
+        await transport.waitUntilStarted()
+        #expect(await currency.save(.eur))
+        let refresh = Task { await feature.refreshDisplayPrices(for: currency.displayIdentity) }
+        await transport.waitUntilStarted(count: 2)
+        #expect(feature.results.isEmpty)
+        await transport.resume(count: 2)
+        await refresh.value
+        #expect(feature.results.first?.headline?.amount == 20)
+        await transport.resume()
+        try await original.value.get()
+        #expect(feature.results.first?.headline?.amount == 20)
+        #expect(feature.displayRefreshError == nil)
+    }
+
+    @Test
+    func `A failed currency refresh leaves no old search prices`() async throws {
+        let transport = HistoryPricingTransport()
+        await transport.setOutcome(.unavailable, for: 2)
+        let client = TCGClient.default(
+            transport: transport,
+            credentialsKeychainKey: "failed-currency-search",
+            credentialsStore: InMemoryCredentialsStore()
+        )
+        let feature = TCGSearch(client: client, history: TCGSearchHistoryStore())
+        let currency = TCGCurrency(client: .preview(), defaults: nil)
+        await feature.refreshDisplayPrices(for: currency.displayIdentity)
+        try await feature.search(game: .pokemon, query: "Giratina").get()
+        #expect(!feature.results.isEmpty)
+        #expect(await currency.save(.eur))
+        await feature.refreshDisplayPrices(for: currency.displayIdentity)
+        #expect(feature.results.isEmpty)
+        #expect(feature.displayRefreshError == .serverUnavailable)
+    }
+
     @Test
     func `Completed search identity is normalized retained on cancellation and reset on clearing`() async throws {
         let feature = TCGSearch(client: .preview(pricingOutcome: .success), history: TCGSearchHistoryStore())

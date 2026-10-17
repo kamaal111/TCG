@@ -6,10 +6,13 @@
 import KamaalAuth
 import SwiftUI
 import TCGCards
+import TCGClient
+import TCGCurrency
 import TCGUtils
 import UniformTypeIdentifiers
 
 public struct TCGSettingsScreen: View {
+    @Environment(\.tcgCurrency) private var currencyState
     @Environment(KamaalAuth.self) private var auth
     #if os(macOS)
         @Environment(\.dismiss) private var dismiss
@@ -56,6 +59,34 @@ public struct TCGSettingsScreen: View {
 
     public var body: some View {
         Form {
+            if let currencyState {
+                Section {
+                    Picker(
+                        selection: Binding(
+                            get: { currencyState.preferredCurrency },
+                            set: { selected in
+                                Task { await currencyState.save(selected) }
+                            }
+                        )
+                    ) {
+                        ForEach(Currency.allCases, id: \.self) { currency in
+                            Text(verbatim: currency.rawValue).tag(currency)
+                        }
+                    } label: {
+                        Text("Preferred currency", bundle: .module)
+                    }
+                    .disabled(currencyState.isSaving || !currencyState.preferenceLoaded)
+                    if currencyState.isSaving { ProgressView() }
+                    if currencyState.saveFailed {
+                        Text("Couldn’t save your currency. Please try again.", bundle: .module).foregroundStyle(.red)
+                    }
+                } footer: {
+                    Text(
+                        "Used throughout the app. You can choose a different currency for each purchase.",
+                        bundle: .module
+                    )
+                }
+            }
             if exportAction != nil && templateAction != nil && importAction != nil {
                 Section {
                     Button {
@@ -232,6 +263,7 @@ public struct TCGSettingsScreen: View {
     private func signOut() {
         Task {
             isSigningOut = true
+            currencyState?.clearSession()
             await auth.signOut()
             isSigningOut = false
             #if os(macOS)

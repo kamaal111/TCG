@@ -24,7 +24,7 @@ final class TCGCardFormScreenModel {
                 values.marketPricedOn = nil
                 values.pricingCardID = nil
                 for index in values.batches.indices {
-                    values.batches[index].applyDefaultPrice(nil, currency: nil)
+                    values.batches[index].applyDefaultPrice(nil, currency: values.preferredCurrency)
                 }
             }
             revalidateIfNeeded()
@@ -38,6 +38,7 @@ final class TCGCardFormScreenModel {
     var isShowingDiscardConfirmation = false
     private let initialValues: CardFormValues
     private var hasSubmitted = false
+    private var currencyConfigured = false
 
     init(mode: Mode, initialValues: CardFormValues?) {
         self.mode = mode
@@ -100,10 +101,24 @@ final class TCGCardFormScreenModel {
 
     func applyMarketDefault(_ card: PricedCard) {
         values.updateMarketDefault(card)
+        applyBatchDefaults()
+    }
+
+    func configureCurrency(preferred: Currency, rates: ExchangeRates?) {
+        if !currencyConfigured {
+            values.preferredCurrency = preferred
+            currencyConfigured = true
+        }
+        values.exchangeRates = rates
+        guard case .add = mode else { return }
+        applyBatchDefaults()
+    }
+
+    private func applyBatchDefaults() {
         let existingBatchIDs = Set(initialValues.batches.map(\.id))
-        for index in values.batches.indices {
-            if case .edit = mode, existingBatchIDs.contains(values.batches[index].id) { continue }
-            values.batches[index].applyDefaultPrice(values.defaultMarketPrice, currency: values.defaultMarketCurrency)
+        values.batches = values.batches.map { batch in
+            if case .edit = mode, existingBatchIDs.contains(batch.id) { return batch }
+            return values.applyingMarketDefault(to: batch)
         }
     }
 

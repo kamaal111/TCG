@@ -9,6 +9,7 @@ import KamaalAuth
 import SwiftUI
 import TCGCards
 import TCGClient
+import TCGCurrency
 import TCGSearch
 import TCGSettings
 
@@ -20,6 +21,8 @@ public struct TCGScene: Scene {
             storageNamespace: "\(Bundle.main.bundleIdentifier ?? "io.kamaal.TCG").TCGAuth"
         )
     )
+    @State private var currencyState = TCGCurrency()
+    @Environment(\.scenePhase) private var scenePhase
     @State private var cards = TCGCards.default()
     @State private var search = TCGSearch.default()
 
@@ -39,14 +42,30 @@ public struct TCGScene: Scene {
                         .tabItem { Label("Settings", systemImage: "gearshape") }
                 #endif
             }
+            .environment(\.tcgCurrency, currencyState)
             .tcgCards(cards)
             .tcgSearch(search)
             .kamaalAuth(auth)
+            .task { await currencyState.trackSession(auth) }
+            .task(id: DisplayRefreshIdentity(display: currencyState.displayIdentity, isLoggedIn: auth.isLoggedIn)) {
+                guard auth.isLoggedIn else {
+                    cards.resetDisplayPrices()
+                    search.resetDisplayPrices()
+                    return
+                }
+                async let collection: Void = cards.refreshDisplayPrices(for: currencyState.displayIdentity)
+                async let results: Void = search.refreshDisplayPrices(for: currencyState.displayIdentity)
+                _ = await (collection, results)
+            }
+            .onChange(of: scenePhase) { _, phase in
+                if phase == .active, auth.isLoggedIn { Task { await currencyState.refresh() } }
+            }
         }
         #if os(macOS)
             Settings {
                 TCGAppSettings(cards: cards)
                     .environment(auth)
+                    .environment(\.tcgCurrency, currencyState)
                     .frame(width: 450)
             }
             .commands {
@@ -60,6 +79,11 @@ public struct TCGScene: Scene {
                 }
             }
         #endif
+    }
+
+    private struct DisplayRefreshIdentity: Equatable {
+        let display: TCGCurrency.DisplayIdentity
+        let isLoggedIn: Bool
     }
 }
 

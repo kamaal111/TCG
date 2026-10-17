@@ -845,6 +845,7 @@ private actor RequestTransport: ClientTransport {
                 {
                   "token": "\(token)",
                   "user": {
+                    "preferred_currency": "USD",
                     "id": "user-id",
                     "created_at": "2026-07-12T12:00:00.000Z",
                     "email": "jane@example.com",
@@ -970,6 +971,7 @@ private actor RequestTransport: ClientTransport {
                     "updated_at": "2026-07-12T12:00:00.000Z"
                   },
                   "user": {
+                    "preferred_currency": "USD",
                     "id": "user-id",
                     "created_at": "2026-07-07T10:30:00.000Z",
                     "email": "jane@example.com",

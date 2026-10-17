@@ -114,7 +114,7 @@ final class TCGCardsListScreenModel {
         toast = nil
     }
 
-    private func show(_ error: TCGCardsOperationError) {
+    func show(_ error: TCGCardsOperationError) {
         toastTask?.cancel()
         toast = Toast(title: String(localized: "Collection error"), message: error.errorDescription ?? "")
         toastTask = Task {

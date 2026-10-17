@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 import { CardPurchaseSchema, CardCoreFieldsSchema, CardIdSchema } from './fields.ts';
 import { OwnedCardPriceSchema } from '../../card-pricing/schemas/responses.ts';
+import { CurrencySchema } from '../../forex/currencies.ts';
 import { ApiCommonDatetime } from '../../schemas/common.ts';
 
 export const CardSchema = CardCoreFieldsSchema.extend({
@@ -12,6 +13,7 @@ export const CardSchema = CardCoreFieldsSchema.extend({
   notes: z.string().max(2000).nullable().meta({ description: 'Optional notes', example: 'Alternate art' }),
   purchases: z.array(CardPurchaseSchema),
   purchase_price_change_percent: z.number().nullable(),
+  display_currency: CurrencySchema.optional(),
   created_at: ApiCommonDatetime.meta({
     description: 'Creation timestamp',
     example: '2026-07-20T10:30:00.000Z',

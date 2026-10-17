@@ -5,9 +5,11 @@
 
 import SwiftUI
 import TCGClient
+import TCGCurrency
 import TCGDesignSystem
 
 struct PricedCardRow: View {
+    @Environment(\.tcgCurrency) private var currencyState
     let card: PricedCard
     let actions: Actions
 
@@ -55,18 +57,24 @@ struct PricedCardRow: View {
                 Text(card.name).font(.headline)
                 Text("\(card.rarity ?? card.game.title) • \(card.cardNumber)", bundle: .module)
                     .foregroundStyle(.secondary)
-                marketDetails
+                if pricesAreCurrent { marketDetails }
             }
             Spacer(minLength: 12)
             VStack(alignment: .trailing, spacing: 8) {
-                if let headline = card.headline {
-                    Text(headline.amount, format: .currency(code: headline.currency.rawValue))
-                        .font(.title3.weight(.semibold).monospacedDigit())
-                        .fixedSize(horizontal: true, vertical: false)
+                if !pricesAreCurrent {
+                    ProgressView()
+                } else if let headline = card.displayHeadline {
+                    CurrencyAmount(
+                        headline.amount,
+                        currency: headline.currency,
+                        conversionUnavailable: card.conversionUnavailable
+                    )
+                    .font(.title3.weight(.semibold).monospacedDigit())
+                    .fixedSize(horizontal: true, vertical: false)
                 } else {
                     Text("No price", bundle: .module).foregroundStyle(.secondary)
                 }
-                if let trend = card.market?.trend7d?.trend {
+                if pricesAreCurrent, let trend = card.displayMarket?.trend7d?.trend {
                     Label(trend.title, systemImage: trend.systemImage)
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(TrendColor.color(for: trend))
@@ -78,14 +86,24 @@ struct PricedCardRow: View {
         .contentShape(Rectangle())
     }
 
+    private var pricesAreCurrent: Bool {
+        guard let currencyState else { return true }
+        return card.display?.preferredCurrency == currencyState.preferredCurrency
+    }
+
     @ViewBuilder
     private var marketDetails: some View {
-        if let market = card.market,
+        if let market = card.displayMarket,
             market.market != nil || market.trend7d != nil || market.trend30d != nil
         {
             HStack(spacing: 12) {
                 if let amount = market.market {
-                    Text("Market \(amount, format: .currency(code: market.currency.rawValue))", bundle: .module)
+                    CurrencyAmount(
+                        amount,
+                        currency: market.currency,
+                        label: String(localized: "Market", bundle: .module),
+                        conversionUnavailable: card.conversionUnavailable
+                    )
                 }
                 if let movement = market.trend7d {
                     Text(

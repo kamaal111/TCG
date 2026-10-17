@@ -5,6 +5,7 @@ import { APP_API_ROUTE_NAME } from '../../constants/common.ts';
 import { CONTENTFUL_STATUS_CODES } from '../../constants/http.ts';
 import { MIME_TYPES } from '../../constants/request.ts';
 import type { HonoEnvironment } from '../../context.ts';
+import { logDisplayPrices } from '../../forex/logging.ts';
 import {
   CardNotFoundErrorResponseSchema,
   ErrorResponseSchema,
@@ -62,7 +63,11 @@ const updateCardRoute = defineOpenAPIRoute<HonoEnvironment, typeof routeConfig>(
   route: routeConfig,
   handler: async c => {
     const { cardId } = c.req.valid('param');
-    const updatedCard = await c.get('cardRepository').update(cardId, c.req.valid('json'));
+
+    const [updatedCard, display] = await Promise.all([
+      c.get('cardRepository').update(cardId, c.req.valid('json')),
+      c.get('forexService').displayContext(),
+    ]);
 
     if (updatedCard == null) {
       cardsLogger(c).warn(
@@ -72,11 +77,16 @@ const updateCardRoute = defineOpenAPIRoute<HonoEnvironment, typeof routeConfig>(
       throw new CardNotFound(c);
     }
 
+    if (display.isErr()) {
+      throw display.error;
+    }
+
     const [price] = await c.get('cardPricingService').priceOwnedCards([updatedCard]);
 
     await c.get('cardRepository').backfillPurchasePrices([updatedCard], [price]);
 
-    const response = serializeCardWithPrice(updatedCard, price);
+    const response = serializeCardWithPrice(updatedCard, price, display.value);
+    logDisplayPrices(c, display.value, [response]);
     cardsLogger(c).info(
       { event: 'cards.update', outcome: 'success', card_id: cardId },
       'Updated an owned card in the collection.',

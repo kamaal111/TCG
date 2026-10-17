@@ -76,6 +76,7 @@ describe('Request logging middleware', () => {
     const response = await app.request('/api-exception', { headers: requestHeaders(testRequestId) });
 
     expect(response.status).toBe(CONTENTFUL_STATUS_CODES.BAD_REQUEST);
+    expect(response.headers.get(REQUEST_ID_HEADER_NAME)).toBe(testRequestId);
     expect(getLogsForRequestId(testRequestId)).toEqual([
       expect.objectContaining({
         event: 'request.error',
@@ -94,6 +95,7 @@ describe('Request logging middleware', () => {
     const response = await app.request('/http-exception', { headers: requestHeaders(testRequestId) });
 
     expect(response.status).toBe(CONTENTFUL_STATUS_CODES.NOT_FOUND);
+    expect(response.headers.get(REQUEST_ID_HEADER_NAME)).toBe(testRequestId);
     expect(getLogsForRequestId(testRequestId)).toEqual([
       expect.objectContaining({ event: 'request.error', outcome: 'failure', error_code: 'HTTP_ERROR' }),
     ]);
@@ -105,6 +107,7 @@ describe('Request logging middleware', () => {
     const response = await app.request('/boom', { headers: requestHeaders(testRequestId) });
 
     expect(response.status).toBe(CONTENTFUL_STATUS_CODES.INTERNAL_SERVER_ERROR);
+    expect(response.headers.get(REQUEST_ID_HEADER_NAME)).toBe(testRequestId);
     expect(getLogsForRequestId(testRequestId)).toEqual([
       expect.objectContaining({
         event: 'request.failed',

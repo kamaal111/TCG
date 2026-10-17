@@ -8,6 +8,7 @@ let package = Package(
     defaultLocalization: "en",
     platforms: [.macOS(.v15), .iOS(.v18)],
     products: [
+        .library(name: "TCGCurrency", targets: ["TCGCurrency"]),
         .library(name: "TCGCards", targets: ["TCGCards"]),
         .library(name: "TCGSearch", targets: ["TCGSearch"]),
         .library(name: "TCGSettings", targets: ["TCGSettings"]),
@@ -26,8 +27,17 @@ let package = Package(
     ],
     targets: [
         .target(
+            name: "TCGCurrency",
+            dependencies: [
+                "TCGClient", .product(name: "KamaalAuth", package: "kamaal-auth"),
+                .product(name: "KamaalLogger", package: "KamaalSwift"),
+            ],
+            resources: [.process("Localizable.xcstrings")],
+            swiftSettings: [.enableUpcomingFeature("ApproachableConcurrency"), .treatAllWarnings(as: .error)]
+        ),
+        .target(
             name: "TCGCardDetails",
-            dependencies: ["TCGClient", "TCGDesignSystem"],
+            dependencies: ["TCGClient", "TCGDesignSystem", "TCGCurrency"],
             resources: [.process("Localizable.xcstrings")],
             swiftSettings: [
                 .enableUpcomingFeature("ApproachableConcurrency"),
@@ -37,6 +47,7 @@ let package = Package(
         .target(
             name: "TCGCards",
             dependencies: [
+                "TCGCurrency",
                 .product(name: "KamaalUI", package: "KamaalSwift"),
                 .product(name: "KamaalUtils", package: "KamaalSwift"),
                 .product(name: "KamaalLogger", package: "KamaalSwift"),
@@ -55,6 +66,7 @@ let package = Package(
         .target(
             name: "TCGSearch",
             dependencies: [
+                "TCGCurrency",
                 .product(name: "Textual", package: "textual"),
                 .product(name: "KamaalLogger", package: "KamaalSwift"),
                 .product(name: "TCGDesignSystem", package: "TCGDesignSystem"),
@@ -71,6 +83,7 @@ let package = Package(
         .target(
             name: "TCGSettings",
             dependencies: [
+                "TCGCurrency",
                 .product(name: "KamaalAuth", package: "kamaal-auth"),
                 "TCGCards",
                 "TCGUtils",
@@ -92,8 +105,19 @@ let package = Package(
             ],
         ),
         .testTarget(
+            name: "TCGCurrencyTests",
+            dependencies: [
+                "TCGCurrency", "TCGClient", .product(name: "HTTPTypes", package: "swift-http-types"),
+                .product(name: "OpenAPIRuntime", package: "swift-openapi-runtime"),
+                .product(name: "KamaalAuth", package: "kamaal-auth"),
+                .product(name: "KamaalLogger", package: "KamaalSwift"),
+            ],
+            swiftSettings: [.enableUpcomingFeature("ApproachableConcurrency"), .treatAllWarnings(as: .error)]
+        ),
+        .testTarget(
             name: "TCGCardsTests",
             dependencies: [
+                "TCGCurrency",
                 .product(name: "KamaalAuth", package: "kamaal-auth"),
                 .product(name: "HTTPTypes", package: "swift-http-types"),
                 .product(name: "OpenAPIRuntime", package: "swift-openapi-runtime"),
@@ -112,6 +136,7 @@ let package = Package(
         .testTarget(
             name: "TCGSearchTests",
             dependencies: [
+                "TCGCurrency",
                 .product(name: "KamaalAuth", package: "kamaal-auth"),
                 "TCGSearch",
                 "TCGClient",
@@ -130,6 +155,8 @@ let package = Package(
         .testTarget(
             name: "TCGSettingsTests",
             dependencies: [
+                "TCGCurrency",
+                "TCGClient",
                 .product(name: "KamaalAuth", package: "kamaal-auth"),
                 "TCGSettings",
                 "TCGSnapshotTesting",

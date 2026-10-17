@@ -68,6 +68,9 @@ public struct TCGSearchScreen: View {
                 Text("This removes searches for the selected game from this device.", bundle: .module)
             }
             .toast(model.toast, dismiss: model.dismissToast)
+            .onChange(of: search.displayRefreshError) { _, error in
+                if let error { model.show(error) }
+            }
             .sheet(item: $model.presentedDetail) { card in
                 TCGSearchDetailView(card: card)
             }

@@ -3,6 +3,7 @@ import z from 'zod';
 import { PRICING_CLIENT_MODES, SERVER_MODES } from './constants/common.ts';
 import { BYTES_PER_MB } from './constants/size.ts';
 import { ONE_HOUR_IN_MS, ONE_MINUTE_IN_MS, ONE_SECOND_IN_MS } from './constants/time.ts';
+import { CurrencySchema } from './forex/currencies.ts';
 
 const LOG_LEVELS = {
   FATAL: 'fatal',
@@ -21,6 +22,7 @@ export const EnvSchema = z
     MODE: z.enum(Object.values(SERVER_MODES)).default(SERVER_MODES.SERVER),
     DEBUG: z.coerce.boolean().default(false),
     LOG_LEVEL: z.enum(Object.values(LOG_LEVELS)).default(LOG_LEVELS.INFO),
+    DEFAULT_PREFERRED_CURRENCY: CurrencySchema.default('USD'),
     BETTER_AUTH_SESSION_UPDATE_AGE_DAYS: z.coerce.number().gte(1).optional().default(1),
     BETTER_AUTH_SESSION_EXPIRY_DAYS: z.coerce.number().gte(1).optional().default(30),
     BETTER_AUTH_URL: z.url(),

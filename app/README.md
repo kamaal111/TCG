@@ -61,7 +61,7 @@ entries, even when the card names and numbers match.
 | `purchase_id` | UUID identifying a purchase row; blank generates one |
 | `condition` | `mint`, `near_mint`, `excellent`, `good`, `played`, or `damaged` |
 | `quantity` | Whole number from 1 to 999; total per condition cannot exceed 999 |
-| `purchase_price`, `currency` | Both blank, or a nonnegative decimal with up to six decimal places and `USD` or `JPY` |
+| `purchase_price`, `currency` | Both blank, or a nonnegative decimal with up to six decimal places and a supported ECB currency code, such as `EUR`, `USD`, or `JPY` |
 | `automatic_price_date` | Optional real date in `YYYY-MM-DD` format, requiring a purchase price |
 
 Keep every template column. Use commas as separators and double quotes around
@@ -293,3 +293,55 @@ reflects the current source. CI checks both platforms to cover conditional text
 such as iOS sheet buttons. Checker regression tests run with
 `just test-localization-check` and need Node.js (using the repository's `.node-version`) and installed
 pnpm dependencies. They use Vitest and also run in the Linux devcontainer without Xcode.
+
+## Preferred currency
+
+Choose **Preferred currency** once in Settings. It is saved to your account and
+applies across Collection, Search, card details, and purchase totals on both
+platforms. Before an explicit selection, the app saves a supported device-region
+currency or falls back to USD through the central currency policy.
+
+New purchases default to that currency. Their currency picker remains adjustable
+when buying abroad. Editing an existing purchase preserves its original amount
+and currency; changing the display preference never rewrites purchase history.
+
+Conversions use the latest collected ECB snapshot, including for older purchases.
+Collection, Search, and details use server-computed display prices. The app
+only converts amounts locally in purchase forms, using cached rates when offline.
+When the server cannot convert a currency pair, it returns the original amount
+and currency with an explicit **Conversion unavailable** indicator. Preference
+changes clear displayed prices, refetch them, and discard responses from the old
+preference; a failed refresh never restores old-currency prices. Import/export retains original amounts and accepts the same
+supported currencies as purchase entry.
+
+### Currency diagnostics
+
+In Xcode's console or macOS Console, filter the app process by `TCGCurrency` and
+`TCGCurrencyClientImpl` and include informational messages. Debug builds also
+record skipped refreshes, cancelled requests, and discarded late responses.
+These use the existing KamaalLogger categories, not a separate logging system.
+
+- `currency.preference.applied` confirms the currency applied by the app; its
+  source is `cache`, `initialize`, or `save`.
+- `currency.rates.applied` identifies `cache` or `network`, the snapshot date,
+  and the number of rates. A snapshot date is not necessarily today's date.
+- `currency.request.failed` identifies the operation, safe failure reason, and
+  HTTP status when known. Cancellation is a debug event instead of a failure.
+- `currency.preference.retained` and `currency.rates.retained` explain how the
+  app continued after a failed request, including whether cached rates exist.
+- `currency.cache.rejected` and `currency.cache.write_failed` identify cache
+  problems without including cached content. `currency.session.cleared` confirms
+  preference state was reset on sign-out.
+
+For manual testing, save GBP and look for `currency.preference.applied` with
+`source=save; currency=GBP`. Relaunch with a rate snapshot cached, then make the
+rate endpoint unavailable: expect `source=cache` followed by
+`currency.rates.retained` with `cache_status=available`. Without cached rates,
+expect `cache_status=missing` for purchase-form conversion. Display-price
+conversion is logged on the server as `forex.display.completed`, with the target
+currency, snapshot date, and fallback count; fallbacks are warnings.
+
+Request IDs remain a server concern. App logs do not generate, send, or carry
+them. Server request and domain logs use the existing `tcg-request-id` convention;
+see [server logging](../server/docs/logging.md#currency-workflows).
+Logs establish workflow state, while visual formatting still needs UI review.

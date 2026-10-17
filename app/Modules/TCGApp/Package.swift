@@ -20,6 +20,7 @@ let package = Package(
             name: "TCGApp",
             dependencies: [
                 .product(name: "TCGCards", package: "TCGFeatures"),
+                .product(name: "TCGCurrency", package: "TCGFeatures"),
                 .product(name: "TCGSearch", package: "TCGFeatures"),
                 .product(name: "TCGSettings", package: "TCGFeatures"),
                 .product(name: "KamaalAuth", package: "kamaal-auth"),

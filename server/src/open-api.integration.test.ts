@@ -7,6 +7,7 @@ import { createCardRequest, validCardPayload } from './cards/tests/utils.ts';
 import { CONTENTFUL_STATUS_CODES } from './constants/http.ts';
 import { MIME_TYPES } from './constants/request.ts';
 import type { HonoEnvironment } from './context.ts';
+import { CURRENCY_CODES } from './forex/currencies.ts';
 import { OPENAPI_JSON_SPEC_PATH, OPENAPI_YAML_SPEC_PATH } from './open-api.ts';
 import { expectValidationIssueForFields } from './tests/auth.ts';
 import { integrationTest } from './tests/fixtures.ts';
@@ -23,6 +24,33 @@ const SpecificationDocumentSchema = z
 type SpecificationDocument = z.infer<typeof SpecificationDocumentSchema>;
 
 describe('OpenAPI specification integration', () => {
+  integrationTest('shares currency definitions across purchase and import schemas', async ({ app }) => {
+    const document = await readSpecification(app);
+
+    expect(document.components.schemas.Currency).toMatchObject({ type: 'string', enum: [...CURRENCY_CODES] });
+    expect(document.components.schemas.NullableCurrency).toMatchObject({
+      type: ['null', 'string'],
+      enum: [...CURRENCY_CODES, null],
+    });
+    expect(document.components.schemas.NullableCurrency).not.toHaveProperty('default');
+    expect(document.components.schemas.CardPurchase).toMatchObject({
+      properties: { currency: { $ref: '#/components/schemas/NullableCurrency' } },
+    });
+    expect(document.components.schemas.CardPurchaseInput).toMatchObject({
+      properties: { currency: { $ref: '#/components/schemas/NullableCurrency' } },
+    });
+    expect(document.components.schemas.ImportCard).toMatchObject({
+      properties: {
+        notes: { type: ['null', 'string'], maxLength: 2000 },
+        purchases: {
+          items: {
+            properties: { currency: { $ref: '#/components/schemas/NullableCurrency', default: null } },
+          },
+        },
+      },
+    });
+  });
+
   integrationTest('downloads a specification with a valid JSON document shape', async ({ app }) => {
     const response = await sendSpecRequest(app, OPENAPI_JSON_SPEC_PATH);
 
@@ -70,6 +98,8 @@ describe('OpenAPI specification integration', () => {
       '/app-api/auth/sign-out',
       '/app-api/auth/session',
       '/app-api/auth/token',
+      '/app-api/auth/preferences',
+      '/app-api/forex/latest',
       '/app-api/images/{imageKey}',
       '/app-api/cards/export',
       '/app-api/cards/import',
