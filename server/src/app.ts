@@ -25,6 +25,7 @@ import dbSingleton from './db/index.ts';
 import env from './env.ts';
 import { handleServerError } from './exceptions/handler.ts';
 import { NotFound } from './exceptions/index.ts';
+import { EcbForexClient } from './forex/client.ts';
 import healthRoute, { HEALTH_ROUTE_NAME } from './health/index.ts';
 import loggingMiddleware from './logging/middleware.ts';
 import { serverLogger } from './logging/server.ts';
@@ -32,6 +33,19 @@ import { OPENAPI_YAML_SPEC_URL, openAPIRouterFactory, withOpenAPIDocumentation }
 import { S3ObjectStorageClient } from './storage/s3-client.ts';
 
 const SIGNALS_TO_TERMINATE_ON: NodeJS.Signals[] = ['SIGINT', 'SIGTERM'];
+
+type AppOverrides = Partial<
+  Pick<
+    InjectedContext,
+    | 'forexClient'
+    | 'db'
+    | 'pricingClient'
+    | 'storageClient'
+    | 'imageOriginClient'
+    | 'cardImageMaterializer'
+    | 'cardImageWarmer'
+  >
+>;
 
 interface Lifecycle {
   start: () => void;
@@ -44,14 +58,7 @@ class App {
   private server: ServerType | undefined;
   private readonly lifecycle: Lifecycle | undefined;
 
-  constructor(
-    overrides: Partial<
-      Pick<
-        InjectedContext,
-        'db' | 'pricingClient' | 'storageClient' | 'imageOriginClient' | 'cardImageMaterializer' | 'cardImageWarmer'
-      >
-    > = {},
-  ) {
+  constructor(overrides: AppOverrides = {}) {
     const created = createApp(overrides);
     this.app = created.app;
     this.lifecycle = created.lifecycle;
@@ -131,16 +138,10 @@ function assertObjectStorageIsConfigured() {
   );
 }
 
-function createApp(
-  overrides: Partial<
-    Pick<
-      InjectedContext,
-      'db' | 'pricingClient' | 'storageClient' | 'imageOriginClient' | 'cardImageMaterializer' | 'cardImageWarmer'
-    >
-  > = {},
-) {
+function createApp(overrides: AppOverrides = {}) {
   const db = overrides.db ?? dbSingleton;
   const auth = overrides.db != null ? createAuth(db) : authSingleton;
+  const forexClient = overrides.forexClient ?? new EcbForexClient();
   const pricingClient = overrides.pricingClient ?? createPricingClient();
   const storageClient = overrides.storageClient ?? new S3ObjectStorageClient();
   const imageOriginClient = overrides.imageOriginClient ?? new HttpCardImageOriginClient();
@@ -168,6 +169,7 @@ function createApp(
         .use(loggingMiddleware())
         .use(
           injectRequestContext({
+            forexClient,
             db,
             auth,
             pricingClient,

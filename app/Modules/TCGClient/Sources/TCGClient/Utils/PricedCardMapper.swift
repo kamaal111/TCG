@@ -69,8 +69,71 @@ enum PricedCardMapper {
 
     static func makeCurrency(_ currency: Components.Schemas.Currency) -> Currency {
         switch currency {
-        case .jpy: .jpy
+        case .eur: .eur
         case .usd: .usd
+        case .jpy: .jpy
+        case .czk: .czk
+        case .dkk: .dkk
+        case .gbp: .gbp
+        case .huf: .huf
+        case .pln: .pln
+        case .ron: .ron
+        case .sek: .sek
+        case .chf: .chf
+        case .isk: .isk
+        case .nok: .nok
+        case ._try: .try
+        case .aud: .aud
+        case .brl: .brl
+        case .cad: .cad
+        case .cny: .cny
+        case .hkd: .hkd
+        case .idr: .idr
+        case .ils: .ils
+        case .inr: .inr
+        case .krw: .krw
+        case .mxn: .mxn
+        case .myr: .myr
+        case .nzd: .nzd
+        case .php: .php
+        case .sgd: .sgd
+        case .thb: .thb
+        case .zar: .zar
+        }
+    }
+
+    static func generatedCurrency(_ currency: Currency) -> Components.Schemas.Currency {
+        switch currency {
+        case .eur: .eur
+        case .usd: .usd
+        case .jpy: .jpy
+        case .czk: .czk
+        case .dkk: .dkk
+        case .gbp: .gbp
+        case .huf: .huf
+        case .pln: .pln
+        case .ron: .ron
+        case .sek: .sek
+        case .chf: .chf
+        case .isk: .isk
+        case .nok: .nok
+        case .try: ._try
+        case .aud: .aud
+        case .brl: .brl
+        case .cad: .cad
+        case .cny: .cny
+        case .hkd: .hkd
+        case .idr: .idr
+        case .ils: .ils
+        case .inr: .inr
+        case .krw: .krw
+        case .mxn: .mxn
+        case .myr: .myr
+        case .nzd: .nzd
+        case .php: .php
+        case .sgd: .sgd
+        case .thb: .thb
+        case .zar: .zar
         }
     }
 

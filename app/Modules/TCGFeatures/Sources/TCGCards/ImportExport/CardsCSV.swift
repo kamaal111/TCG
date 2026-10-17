@@ -245,7 +245,11 @@ enum CardsCSV {
         if !currency.isEmpty && Currency(rawValue: currency) == nil {
             issue(
                 .currency,
-                String(localized: "Enter USD or JPY, or leave it blank when the price is blank.", bundle: .module)
+                String(
+                    localized:
+                        "Enter a supported currency code, such as EUR, USD or JPY, or leave it blank when the price is blank.",
+                    bundle: .module
+                )
             )
         }
         for column in [Column.createdAt, .updatedAt] where !trimmed(row[column]).isEmpty && date(row[column]) == nil {

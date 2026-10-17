@@ -48,3 +48,23 @@ new database migrations. The image does not run migrations on startup.
 - [API](docs/api.md) — routes, auth headers, owned-card payloads, pricing semantics, and errors.
 - [Logging](docs/logging.md) — how structured logging works here, the field vocabulary, and how to add an event.
 - [Card images](docs/card-images.md) — the image cache, its work queue, and how it behaves across instances.
+
+## Daily currency rates
+
+Run `just migrate`, then `just fetch-daily-currencies` from the repository root
+before using conversions. Schedule the latter once daily after 16:00 Europe/Frankfurt.
+It fetches the ECB daily XML feed and persists a validated EUR-based snapshot.
+Repeated or concurrent runs do not duplicate snapshots. Weekends and holidays
+retain the last published rates; collection errors preserve stored data and exit
+unsuccessfully. The script closes its database pool before exiting.
+
+`GET /app-api/forex/latest` requires authentication and returns `{base, date, rates}`.
+Without collected rates it returns HTTP 503 with `EXCHANGE_RATES_UNAVAILABLE`;
+card endpoints continue working. Market prices and purchase records retain their
+source currencies. The app converts them for display using the latest available
+snapshot, rather than historical purchase-date rates.
+
+`PATCH /app-api/auth/preferences` accepts `preferred_currency` and saves it to the
+authenticated account. Session responses include the resolved currency and whether
+a preference has been saved. New accounts resolve to USD until the app seeds their
+supported device-region currency.

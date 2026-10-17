@@ -50,7 +50,22 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AuthResponse'
+                allOf:
+                  - $ref: '#/components/schemas/AuthResponse'
+                  - properties:
+                      user:
+                        type: object
+                        properties:
+                          preferred_currency:
+                            $ref: '#/components/schemas/Currency'
+                          has_preferred_currency_preference:
+                            type: boolean
+                        required:
+                          - preferred_currency
+                          - has_preferred_currency_preference
+                    required:
+                      - user
+                    type: object
         '400':
           description: Invalid request or email already exists
           content:
@@ -125,7 +140,22 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AuthResponse'
+                allOf:
+                  - $ref: '#/components/schemas/AuthResponse'
+                  - properties:
+                      user:
+                        type: object
+                        properties:
+                          preferred_currency:
+                            $ref: '#/components/schemas/Currency'
+                          has_preferred_currency_preference:
+                            type: boolean
+                        required:
+                          - preferred_currency
+                          - has_preferred_currency_preference
+                    required:
+                      - user
+                    type: object
         '400':
           description: Invalid credentials or request
           content:
@@ -192,7 +222,22 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SessionResponse'
+                allOf:
+                  - $ref: '#/components/schemas/SessionResponse'
+                  - properties:
+                      user:
+                        type: object
+                        properties:
+                          preferred_currency:
+                            $ref: '#/components/schemas/Currency'
+                          has_preferred_currency_preference:
+                            type: boolean
+                        required:
+                          - preferred_currency
+                          - has_preferred_currency_preference
+                    required:
+                      - user
+                    type: object
         '401':
           description: Session not found
           content:
@@ -270,6 +315,85 @@ paths:
       summary: Get JWT token
       tags:
         - Authentication
+  /app-api/auth/preferences:
+    patch:
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                preferred_currency:
+                  $ref: '#/components/schemas/Currency'
+                only_if_unset:
+                  type: boolean
+              required:
+                - preferred_currency
+      responses:
+        '200':
+          description: Updated session
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SessionResponse'
+                  - properties:
+                      user:
+                        type: object
+                        properties:
+                          preferred_currency:
+                            $ref: '#/components/schemas/Currency'
+                          has_preferred_currency_preference:
+                            type: boolean
+                        required:
+                          - preferred_currency
+                          - has_preferred_currency_preference
+                    required:
+                      - user
+                    type: object
+        '400':
+          description: Invalid preference
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '401':
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearerAuth: []
+      summary: Update preferred currency
+      tags:
+        - Authentication
+  /app-api/forex/latest:
+    get:
+      responses:
+        '200':
+          description: Latest EUR-based exchange rates
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ForexSnapshot'
+        '401':
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: No rates collected yet
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearerAuth: []
+      summary: Get latest daily exchange rates
+      tags:
+        - Forex
   /app-api/images/{imageKey}:
     get:
       description: >-
@@ -785,6 +909,41 @@ components:
         email: test@example.com
         email_verified: false
         name: Test User
+    Currency:
+      type: string
+      enum:
+        - EUR
+        - USD
+        - JPY
+        - CZK
+        - DKK
+        - GBP
+        - HUF
+        - PLN
+        - RON
+        - SEK
+        - CHF
+        - ISK
+        - NOK
+        - TRY
+        - AUD
+        - BRL
+        - CAD
+        - CNY
+        - HKD
+        - IDR
+        - ILS
+        - INR
+        - KRW
+        - MXN
+        - MYR
+        - NZD
+        - PHP
+        - SGD
+        - THB
+        - ZAR
+      title: Currency
+      description: ISO 4217 currency supported by ECB conversion.
     ValidationErrorResponse:
       type: object
       properties:
@@ -970,6 +1129,28 @@ components:
           example: eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9...
       required:
         - token
+    ForexSnapshot:
+      type: object
+      properties:
+        base:
+          type: string
+          enum:
+            - EUR
+        date:
+          type: string
+          format: date
+        rates:
+          type: object
+          additionalProperties:
+            type: number
+            exclusiveMinimum: 0
+          propertyNames:
+            type: string
+      required:
+        - base
+        - date
+        - rates
+      title: Forex Snapshot
     ExportCardsResponse:
       type: object
       properties:
@@ -1045,11 +1226,38 @@ components:
             - null
             - string
           enum:
-            - JPY
+            - EUR
             - USD
+            - JPY
+            - CZK
+            - DKK
+            - GBP
+            - HUF
+            - PLN
+            - RON
+            - SEK
+            - CHF
+            - ISK
+            - NOK
+            - TRY
+            - AUD
+            - BRL
+            - CAD
+            - CNY
+            - HKD
+            - IDR
+            - ILS
+            - INR
+            - KRW
+            - MXN
+            - MYR
+            - NZD
+            - PHP
+            - SGD
+            - THB
+            - ZAR
           title: Currency
-          description: ISO 4217 currency supported by the pricing service.
-          example: USD
+          description: ISO 4217 currency supported by ECB conversion.
         automatic_price_date:
           type:
             - string
@@ -1290,11 +1498,38 @@ components:
                   - null
                   - string
                 enum:
-                  - JPY
+                  - EUR
                   - USD
+                  - JPY
+                  - CZK
+                  - DKK
+                  - GBP
+                  - HUF
+                  - PLN
+                  - RON
+                  - SEK
+                  - CHF
+                  - ISK
+                  - NOK
+                  - TRY
+                  - AUD
+                  - BRL
+                  - CAD
+                  - CNY
+                  - HKD
+                  - IDR
+                  - ILS
+                  - INR
+                  - KRW
+                  - MXN
+                  - MYR
+                  - NZD
+                  - PHP
+                  - SGD
+                  - THB
+                  - ZAR
                 title: Currency
-                description: ISO 4217 currency supported by the pricing service.
-                example: USD
+                description: ISO 4217 currency supported by ECB conversion.
                 default: null
               automatic_price_date:
                 type:
@@ -1392,14 +1627,6 @@ components:
         price:
           card_id: 550e8400-e29b-41d4-a716-446655440000
           status: priced
-    Currency:
-      type: string
-      enum:
-        - JPY
-        - USD
-      title: Currency
-      description: ISO 4217 currency supported by the pricing service.
-      example: USD
     PriceHeadline:
       type: object
       properties:
@@ -1696,11 +1923,38 @@ components:
             - null
             - string
           enum:
-            - JPY
+            - EUR
             - USD
+            - JPY
+            - CZK
+            - DKK
+            - GBP
+            - HUF
+            - PLN
+            - RON
+            - SEK
+            - CHF
+            - ISK
+            - NOK
+            - TRY
+            - AUD
+            - BRL
+            - CAD
+            - CNY
+            - HKD
+            - IDR
+            - ILS
+            - INR
+            - KRW
+            - MXN
+            - MYR
+            - NZD
+            - PHP
+            - SGD
+            - THB
+            - ZAR
           title: Currency
-          description: ISO 4217 currency supported by the pricing service.
-          example: USD
+          description: ISO 4217 currency supported by ECB conversion.
       required:
         - condition
         - quantity

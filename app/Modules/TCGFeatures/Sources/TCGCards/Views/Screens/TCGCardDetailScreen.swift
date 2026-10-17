@@ -1,6 +1,7 @@
 import SwiftUI
 import TCGCardDetails
 import TCGClient
+import TCGCurrency
 import TCGDesignSystem
 
 struct TCGCardDetailScreen: View {
@@ -102,7 +103,7 @@ struct TCGCardDetailScreen: View {
                     Text("\(batch.condition.title) ×\(batch.quantity)", bundle: .module)
                     Spacer()
                     if let amount = batch.purchasePrice, let currency = batch.currency {
-                        Text(amount, format: .currency(code: currency.rawValue))
+                        CurrencyAmount(amount, currency: currency)
                     } else {
                         Text("Purchase price unknown", bundle: .module).foregroundStyle(.secondary)
                     }

@@ -7,13 +7,14 @@
 
 import SwiftUI
 import TCGClient
+import TCGCurrency
 
 struct CardPriceView: View {
     let price: OwnedCardPrice?
 
     var body: some View {
         if let headline = price?.price?.headline, price?.status == .priced {
-            Text(headline.amount, format: .currency(code: headline.currency.rawValue))
+            CurrencyAmount(headline.amount, currency: headline.currency)
                 .font(.subheadline.weight(.semibold).monospacedDigit())
         } else if price?.status == .unavailable {
             Label {

@@ -147,6 +147,11 @@ make-migrations: prepare-server
 migrate: prepare-server
     {{ PNX }} drizzle-kit migrate
 
+# Fetch and persist the latest daily ECB currency rates
+[working-directory("server")]
+fetch-daily-currencies:
+    node scripts/fetch-daily-currencies.ts
+
 # Generate auth tables
 [working-directory("server")]
 make-auth-tables: prepare-server
@@ -247,6 +252,7 @@ test-snapshots-macos:
         -only-testing:TCGCardsTests/ScreenSnapshotSettlingTests \
         -only-testing:TCGCardsTests/TCGCardsListScreenSnapshotTests \
         -only-testing:TCGCardsTests/TCGCardFormScreenSnapshotTests \
+        -only-testing:TCGCardsTests/TCGCurrencyAmountSnapshotTests \
         -only-testing:TCGCardsTests/TCGCardDetailScreenSnapshotTests \
         -only-testing:TCGCardsTests/TCGCardsImportReviewSnapshotTests \
         -only-testing:TCGSearchTests/TCGSearchScreenSnapshotTests \
@@ -289,6 +295,7 @@ _snapshots-ios action *args:
         -only-testing:TCGCardsTests/ScreenSnapshotSettlingTests \
         -only-testing:TCGCardsTests/TCGCardsListScreenSnapshotTests \
         -only-testing:TCGCardsTests/TCGCardFormScreenSnapshotTests \
+        -only-testing:TCGCardsTests/TCGCurrencyAmountSnapshotTests \
         -only-testing:TCGCardsTests/TCGCardDetailScreenSnapshotTests \
         -only-testing:TCGCardsTests/TCGCardsImportReviewSnapshotTests \
         -only-testing:TCGSearchTests/TCGSearchScreenSnapshotTests \

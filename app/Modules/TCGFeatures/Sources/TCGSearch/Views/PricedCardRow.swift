@@ -5,6 +5,7 @@
 
 import SwiftUI
 import TCGClient
+import TCGCurrency
 import TCGDesignSystem
 
 struct PricedCardRow: View {
@@ -60,7 +61,7 @@ struct PricedCardRow: View {
             Spacer(minLength: 12)
             VStack(alignment: .trailing, spacing: 8) {
                 if let headline = card.headline {
-                    Text(headline.amount, format: .currency(code: headline.currency.rawValue))
+                    CurrencyAmount(headline.amount, currency: headline.currency)
                         .font(.title3.weight(.semibold).monospacedDigit())
                         .fixedSize(horizontal: true, vertical: false)
                 } else {
@@ -85,7 +86,11 @@ struct PricedCardRow: View {
         {
             HStack(spacing: 12) {
                 if let amount = market.market {
-                    Text("Market \(amount, format: .currency(code: market.currency.rawValue))", bundle: .module)
+                    CurrencyAmount(
+                        amount,
+                        currency: market.currency,
+                        label: String(localized: "Market", bundle: .module)
+                    )
                 }
                 if let movement = market.trend7d {
                     Text(

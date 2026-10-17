@@ -19,7 +19,7 @@ struct TCGPricingClientTests {
 
         #expect(try decoder.decode(Currency.self, from: Data(#""JPY""#.utf8)) == .jpy)
         #expect(throws: DecodingError.self) {
-            try decoder.decode(Currency.self, from: Data(#""GBP""#.utf8))
+            try decoder.decode(Currency.self, from: Data(#""XYZ""#.utf8))
         }
     }
 

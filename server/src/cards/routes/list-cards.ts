@@ -71,10 +71,11 @@ const listCardsRoute = defineOpenAPIRoute<HonoEnvironment, typeof routeConfig>({
 
     await repository.backfillPurchasePrices(cards, prices);
 
+    const snapshot = await c.get('forexRepository').latestSnapshot();
     const cardsWithPrices = zip([...cards], [...prices], true);
 
     const response = {
-      cards: cardsWithPrices.flatMap(([card, price]) => [serializeCardWithPrice(card, price)]),
+      cards: cardsWithPrices.flatMap(([card, price]) => [serializeCardWithPrice(card, price, snapshot)]),
       available_set_names: availableSetNames,
       next_cursor: nextCursor,
     };

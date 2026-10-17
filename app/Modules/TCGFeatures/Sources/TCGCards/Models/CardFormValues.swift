@@ -16,6 +16,8 @@ struct CardFormValues: Equatable {
     var cardNumber: String
     var notes: String
     var batches: [PurchaseBatchFormValue] = []
+    var preferredCurrency: Currency?
+    var exchangeRates: ExchangeRates?
     var defaultMarketPrice: Decimal?
     var defaultMarketCurrency: Currency?
     var marketPricedOn: Date?
@@ -38,9 +40,20 @@ struct CardFormValues: Equatable {
     }
 
     func newBatch(condition: CardCondition) -> PurchaseBatchFormValue {
-        var batch = PurchaseBatchFormValue(condition: condition, quantity: 1)
-        batch.applyDefaultPrice(defaultMarketPrice, currency: defaultMarketCurrency)
-        return batch
+        applyingMarketDefault(to: PurchaseBatchFormValue(condition: condition, quantity: 1))
+    }
+
+    func applyingMarketDefault(to batch: PurchaseBatchFormValue) -> PurchaseBatchFormValue {
+        let target = preferredCurrency ?? defaultMarketCurrency ?? .fallback
+        let converted: Decimal?
+        if let price = defaultMarketPrice, let source = defaultMarketCurrency {
+            converted = source == target ? price : exchangeRates?.convert(price, from: source, to: target)
+        } else {
+            converted = nil
+        }
+        var updated = batch
+        updated.applyDefaultPrice(converted, currency: target)
+        return updated
     }
 
     init(
@@ -115,7 +128,7 @@ struct PurchaseBatchFormValue: Equatable, Identifiable {
     var currency: Currency
     var priceWasEdited = false
 
-    init(condition: CardCondition, quantity: Int, priceText: String = "", currency: Currency = .usd) {
+    init(condition: CardCondition, quantity: Int, priceText: String = "", currency: Currency = .fallback) {
         id = UUID()
         persistedID = nil
         self.condition = condition
@@ -130,7 +143,7 @@ struct PurchaseBatchFormValue: Equatable, Identifiable {
         condition = batch.condition
         quantity = batch.quantity
         priceText = Self.priceText(for: batch.purchasePrice)
-        currency = batch.currency ?? .usd
+        currency = batch.currency ?? .fallback
     }
 
     static func == (lhs: Self, rhs: Self) -> Bool {
@@ -153,7 +166,7 @@ struct PurchaseBatchFormValue: Equatable, Identifiable {
         guard persistedID == nil else { return }
         guard !priceWasEdited else { return }
         priceText = Self.priceText(for: price)
-        self.currency = currency ?? .usd
+        self.currency = currency ?? .fallback
     }
 
     private static func priceText(for price: Decimal?) -> String {

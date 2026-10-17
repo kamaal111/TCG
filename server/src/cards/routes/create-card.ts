@@ -53,7 +53,8 @@ const createCardRoute = defineOpenAPIRoute<HonoEnvironment, typeof routeConfig>(
 
     await c.get('cardRepository').backfillPurchasePrices([createdCard], [price]);
 
-    const response = serializeCardWithPrice(createdCard, price);
+    const snapshot = await c.get('forexRepository').latestSnapshot();
+    const response = serializeCardWithPrice(createdCard, price, snapshot);
     cardsLogger(c).info(
       { event: 'cards.create', outcome: 'success', card_id: response.id },
       'Added an owned card to the collection.',
