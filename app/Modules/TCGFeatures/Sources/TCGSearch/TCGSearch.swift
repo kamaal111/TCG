@@ -7,6 +7,7 @@ import Foundation
 import KamaalLogger
 import Observation
 import TCGClient
+import TCGCurrency
 
 private let logger = KamaalLogger(from: TCGSearch.self)
 
@@ -17,6 +18,7 @@ public final class TCGSearch {
     private(set) var isSearching = false
     private(set) var hasSearched = false
     private(set) var completedSearch: SearchIdentity?
+    private(set) var displayRefreshError: TCGSearchOperationError?
     let history: TCGSearchHistoryStore
 
     struct SearchIdentity: Equatable {
@@ -33,6 +35,8 @@ public final class TCGSearch {
 
     private let client: TCGClient
     private var activeSearchID: UUID?
+    private var displayIdentity: TCGCurrency.DisplayIdentity?
+    private var lastSearch: SearchIdentity?
 
     init(client: TCGClient, history: TCGSearchHistoryStore) {
         self.client = client
@@ -46,6 +50,32 @@ public final class TCGSearch {
         TCGSearch(client: .default(), history: TCGSearchHistoryStore(defaults: .standard))
     }
 
+    public func resetDisplayPrices() {
+        displayIdentity = nil
+        lastSearch = nil
+        clear()
+    }
+
+    public func refreshDisplayPrices(for identity: TCGCurrency.DisplayIdentity) async {
+        guard displayIdentity != identity else { return }
+        guard displayIdentity != nil else {
+            displayIdentity = identity
+            return
+        }
+        displayIdentity = identity
+        clear()
+        await refresh()
+    }
+
+    func refresh() async {
+        guard let request = lastSearch else { return }
+        let identity = displayIdentity
+        displayRefreshError = nil
+        let result = await search(game: request.game, query: request.query, languages: Set(request.languages))
+        guard displayIdentity == identity, !Task.isCancelled else { return }
+        if case .failure(let error) = result { displayRefreshError = error }
+    }
+
     func search(game: ClientCardGame, query: String, languages: Set<ClientCardLanguage> = []) async -> Result<
         Void, TCGSearchOperationError
     > {
@@ -56,6 +86,7 @@ public final class TCGSearch {
         Bool, TCGSearchOperationError
     > {
         let searchID = UUID()
+        lastSearch = SearchIdentity(game: game, query: query, languages: languages)
         activeSearchID = searchID
         isSearching = true
         defer {
@@ -122,6 +153,7 @@ public final class TCGSearch {
 
     func clear() {
         cancel()
+        displayRefreshError = nil
         results = []
         hasSearched = false
         completedSearch = nil

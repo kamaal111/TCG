@@ -5,6 +5,8 @@ import { APP_API_ROUTE_NAME } from '../../constants/common.ts';
 import { CONTENTFUL_STATUS_CODES } from '../../constants/http.ts';
 import { MIME_TYPES } from '../../constants/request.ts';
 import type { HonoEnvironment } from '../../context.ts';
+import { displayPricedCard } from '../../forex/display.ts';
+import { logDisplayPrices } from '../../forex/logging.ts';
 import { ErrorResponseSchema, ValidationErrorResponseSchema } from '../../schemas/errors.ts';
 import { PRICING_OPENAPI_TAG, PRICING_ROUTE_NAME } from '../constants.ts';
 import { parseCardLanguages } from '../languages.ts';
@@ -48,8 +50,21 @@ const searchPricingRoute = defineOpenAPIRoute<HonoEnvironment, typeof routeConfi
   route: routeConfig,
   handler: async c => {
     const { game, query, languages } = c.req.valid('query');
-    const result = await c.get('cardPricingService').searchAndPrice(game, query, parseCardLanguages(languages));
-    const response = { matches: result.matches } satisfies PricingSearchResponse;
+
+    const [result, display] = await Promise.all([
+      c.get('cardPricingService').searchAndPrice(game, query, parseCardLanguages(languages)),
+      c.get('forexService').displayContext(),
+    ]);
+
+    if (display.isErr()) {
+      throw display.error;
+    }
+
+    const response: PricingSearchResponse = {
+      matches: result.matches.map(card => displayPricedCard(card, display.value)),
+    };
+
+    logDisplayPrices(c, display.value, response.matches);
     pricingLogger(c).info(
       { event: 'pricing.search.completed', outcome: 'success', result_count: response.matches.length, game },
       'Completed a card pricing search.',

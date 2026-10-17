@@ -1,9 +1,11 @@
 import SwiftUI
 import TCGClient
+import TCGCurrency
 import TCGDesignSystem
 import TCGModels
 
 struct TCGCardFormFields: View {
+    @Environment(\.tcgCurrency) private var currencyState
     @Environment(TCGCards.self) private var cards
     @FocusState private var focusedPricingField: PricingField?
     @State private var purchaseDefaultRefreshID = 0
@@ -49,7 +51,7 @@ struct TCGCardFormFields: View {
                         }
                         ForEach($model.values.batches) { $batch in
                             if batch.condition == condition {
-                                PurchaseBatchFields(batch: $batch, marketCurrency: model.values.defaultMarketCurrency) {
+                                PurchaseBatchFields(batch: $batch) {
                                     model.removeBatch(id: batch.id)
                                 }
                             }
@@ -83,7 +85,14 @@ struct TCGCardFormFields: View {
         .frame(maxWidth: 520)
         .padding(24)
         .frame(maxWidth: .infinity)
-        .task(id: purchaseDefaultRefreshID) { await model.refreshPurchaseDefault(using: cards) }
+        .task(id: purchaseDefaultRefreshID) {
+            if let currencyState, currencyState.preferenceLoaded {
+                model.configureCurrency(preferred: currencyState.preferredCurrency, rates: currencyState.rates)
+            }
+            await model.refreshPurchaseDefault(using: cards)
+        }
+        .onChange(of: currencyState?.preferenceLoaded) { _, _ in purchaseDefaultRefreshID += 1 }
+        .onChange(of: currencyState?.rates) { _, _ in purchaseDefaultRefreshID += 1 }
         .onChange(of: focusedPricingField) { previous, _ in
             guard previous != nil else { return }
             purchaseDefaultRefreshID += 1

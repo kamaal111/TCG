@@ -21,6 +21,8 @@
     "@tcg/scrydex": "workspace:*",
     "better-auth": "catalog:",
     "drizzle-orm": "catalog:",
+    "fast-xml-parser": "catalog:",
+    "fast-xml-validator": "catalog:",
     "hono": "catalog:",
     "jose": "catalog:",
     "js-yaml": "catalog:",

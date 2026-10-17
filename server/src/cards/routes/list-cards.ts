@@ -6,6 +6,7 @@ import { APP_API_ROUTE_NAME } from '../../constants/common.ts';
 import { CONTENTFUL_STATUS_CODES } from '../../constants/http.ts';
 import { MIME_TYPES } from '../../constants/request.ts';
 import type { HonoEnvironment } from '../../context.ts';
+import { logDisplayPrices } from '../../forex/logging.ts';
 import { ErrorResponseSchema, ValidationErrorResponseSchema } from '../../schemas/errors.ts';
 import { isNonEmpty } from '../../utils/type-utils.ts';
 import { CARDS_OPENAPI_TAG, CARDS_ROUTE_NAME } from '../constants.ts';
@@ -59,11 +60,18 @@ const listCardsRoute = defineOpenAPIRoute<HonoEnvironment, typeof routeConfig>({
 
     const repository = c.get('cardRepository');
 
-    const { cards, availableSetNames, nextCursor } = await repository.listCollection({
-      ...pagination,
-      game,
-      setNames: set_name ?? [],
-    });
+    const [{ cards, availableSetNames, nextCursor }, display] = await Promise.all([
+      repository.listCollection({
+        ...pagination,
+        game,
+        setNames: set_name ?? [],
+      }),
+      c.get('forexService').displayContext(),
+    ]);
+
+    if (display.isErr()) {
+      throw display.error;
+    }
 
     const prices = isNonEmpty(cards)
       ? await c.get('cardPricingService').priceOwnedCards(cards, { allowUnavailable: true })
@@ -74,11 +82,12 @@ const listCardsRoute = defineOpenAPIRoute<HonoEnvironment, typeof routeConfig>({
     const cardsWithPrices = zip([...cards], [...prices], true);
 
     const response = {
-      cards: cardsWithPrices.flatMap(([card, price]) => [serializeCardWithPrice(card, price)]),
+      cards: cardsWithPrices.flatMap(([card, price]) => [serializeCardWithPrice(card, price, display.value)]),
       available_set_names: availableSetNames,
       next_cursor: nextCursor,
     };
 
+    logDisplayPrices(c, display.value, response.cards);
     cardsLogger(c).info(
       { event: 'cards.list', outcome: 'success', result_count: response.cards.length, game },
       'Retrieved the owned card collection.',

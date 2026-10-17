@@ -12,6 +12,11 @@ final class TCGCardDetailScreenModel {
         self.card = card
     }
 
+    func replaceDisplay(with card: CardWithPrice) {
+        guard card.card.id == self.card.card.id else { return }
+        self.card = card
+    }
+
     func edit() {
         guard editor == nil else { return }
 

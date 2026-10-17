@@ -70,6 +70,7 @@ describe('iOS snapshot recipes', () => {
       '-only-testing:TCGCardsTests/ScreenSnapshotSettlingTests',
       '-only-testing:TCGCardsTests/TCGCardsListScreenSnapshotTests',
       '-only-testing:TCGCardsTests/TCGCardFormScreenSnapshotTests',
+      '-only-testing:TCGCardsTests/TCGCurrencyAmountSnapshotTests',
       '-only-testing:TCGCardsTests/TCGCardDetailScreenSnapshotTests',
       '-only-testing:TCGCardsTests/TCGCardsImportReviewSnapshotTests',
       '-only-testing:TCGSearchTests/TCGSearchScreenSnapshotTests',

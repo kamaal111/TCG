@@ -71,9 +71,9 @@ export const ImportCardSchema = CardInputSchema.extend({
     example: '550e8400-e29b-41d4-a716-446655440000',
   }),
   notes: UpsertCardSchema.shape.notes
+    .meta({ description: 'Optional notes preserved from the backup', example: 'Alternate art' })
     .nullable()
-    .transform(notes => notes ?? undefined)
-    .meta({ description: 'Optional notes preserved from the backup', example: 'Alternate art' }),
+    .transform(notes => notes ?? undefined),
   created_at: z.iso.datetime({ offset: true }).meta({
     description: 'Original creation timestamp preserved from the backup',
     example: '2026-07-20T10:30:00.000Z',
@@ -84,30 +84,32 @@ export const ImportCardSchema = CardInputSchema.extend({
   }),
   purchases: z
     .array(
-      CardPurchaseSchema.extend({
-        purchase_price: CardPurchaseSchema.shape.purchase_price.optional().default(null),
-        currency: CardPurchaseSchema.shape.currency.optional().default(null),
-        automatic_price_date: z.iso.date().nullish().default(null).meta({
-          description: 'Original market pricing day; requires a purchase price when provided',
-          example: '2026-07-20',
-        }),
-      }).superRefine((purchase, context) => {
-        if ((purchase.purchase_price == null) !== (purchase.currency == null)) {
-          context.addIssue({
-            code: 'custom',
-            path: ['purchase_price'],
-            message: 'Purchase price and currency must be provided together',
-          });
-        }
+      CardPurchaseSchema.omit({ display_price: true })
+        .extend({
+          purchase_price: CardPurchaseSchema.shape.purchase_price.optional().default(null),
+          currency: CardPurchaseSchema.shape.currency.optional().default(null),
+          automatic_price_date: z.iso.date().nullish().default(null).meta({
+            description: 'Original market pricing day; requires a purchase price when provided',
+            example: '2026-07-20',
+          }),
+        })
+        .superRefine((purchase, context) => {
+          if ((purchase.purchase_price == null) !== (purchase.currency == null)) {
+            context.addIssue({
+              code: 'custom',
+              path: ['purchase_price'],
+              message: 'Purchase price and currency must be provided together',
+            });
+          }
 
-        if (purchase.automatic_price_date != null && purchase.purchase_price == null) {
-          context.addIssue({
-            code: 'custom',
-            path: ['automatic_price_date'],
-            message: 'Automatic price date requires a purchase price',
-          });
-        }
-      }),
+          if (purchase.automatic_price_date != null && purchase.purchase_price == null) {
+            context.addIssue({
+              code: 'custom',
+              path: ['automatic_price_date'],
+              message: 'Automatic price date requires a purchase price',
+            });
+          }
+        }),
     )
     .min(1)
     .max(MAX_CONDITIONS * MAX_COPIES_PER_CONDITION)

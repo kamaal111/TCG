@@ -38,13 +38,15 @@ Each application domain owns one `logging.ts` declaring its events and fields, a
 accessor. Logger construction stays in `server/src/logging/index.ts`. Auth events and their field
 vocabulary are supplied by `@kamaalio/kamaal-auth-hono`, which receives the request logger.
 
-| Module                               | Events      | Accessor                                                 |
-| ------------------------------------ | ----------- | -------------------------------------------------------- |
-| `server/src/cards/logging.ts`        | `cards.*`   | `cardsLogger(c)`                                         |
-| `server/src/card-pricing/logging.ts` | `pricing.*` | `pricingLogger(c)`                                       |
-| `server/src/card-images/logging.ts`  | `images.*`  | `imagesLogger(c)` / `processImagesLogger()`              |
-| `server/src/logging/request.ts`      | `request.*` | `requestLogger(c)`                                       |
-| `server/src/logging/server.ts`       | `server.*`  | `serverLogger()` — process lifecycle, not request-scoped |
+| Module                               | Events                       | Accessor                                                                      |
+| ------------------------------------ | ---------------------------- | ----------------------------------------------------------------------------- |
+| `server/src/cards/logging.ts`        | `cards.*`                    | `cardsLogger(c)`                                                              |
+| `server/src/card-pricing/logging.ts` | `pricing.*`                  | `pricingLogger(c)`                                                            |
+| `server/src/card-images/logging.ts`  | `images.*`                   | `imagesLogger(c)` / `processImagesLogger()`                                   |
+| `server/src/logging/request.ts`      | `request.*`                  | `requestLogger(c)`                                                            |
+| `server/src/forex/logging.ts`        | `forex.*`                    | `forexProcessLogger()` for collection; `forexLogger(c)` for snapshot requests |
+| `server/src/auth/logging.ts`         | `auth.preferences.completed` | `preferencesLogger(c)`                                                        |
+| `server/src/logging/server.ts`       | `server.*`                   | `serverLogger()` — process lifecycle, not request-scoped                      |
 
 A domain module looks like this:
 
@@ -181,6 +183,36 @@ remain visible when collection listing returns affected prices as `unavailable`.
 Unexpected acquisition and operation failures log at error level, retaining the
 original diagnostic cause in `err`. Their returned API exceptions expose the safe
 `INTERNAL_SERVER_ERROR` response. Timeouts and provider failures remain warnings.
+
+## Currency workflows
+
+`forex.display.completed` records response-only display conversion after prices are prepared.
+Fields are `target_currency`, `rate_date`, `result_count`, and `fallback_count`.
+Original-currency fallbacks produce a warning; successful preferred-currency pricing
+produces an info event. Market projections and purchase display prices count as
+separate fallbacks. Neither original nor converted monetary amounts are logged.
+
+The preferences routes emit `auth.preferences.completed` only after the saved
+preference has been resolved. Fields are `preference_action` (`initialize` or
+`update`), `requested_currency`, and `preferred_currency`. Initialization can
+retain an existing preference: the event does not claim a new row was created.
+These events inherit `request_id` and the authenticated `user_id` from middleware.
+
+`forex.snapshot.loaded` confirms that the latest available snapshot was read,
+with `rate_date`, `base_currency`, and `result_count`. Its date may precede today;
+the event does not claim the collector fetched fresh rates. Collection continues
+to use `forex.collect.completed` and `forex.collect.failed`.
+
+Filter by the response's `tcg-request-id` to see domain milestones and exactly one
+terminal `request.*` event. The server generates the ID when none is supplied.
+Authentication, validation, missing snapshots, and unexpected errors continue to
+use the existing request failure events; no successful milestone is emitted.
+
+For manual testing, initialize EUR and then initialize JPY: the second event
+should show `requested_currency: JPY` and `preferred_currency: EUR`. An explicit
+GBP update should show `preference_action: update` and `preferred_currency: GBP`.
+A rate request without stored rates should produce `EXCHANGE_RATES_UNAVAILABLE`
+and no `forex.snapshot.loaded` event. No request or response bodies are logged.
 
 ## Card import milestones
 

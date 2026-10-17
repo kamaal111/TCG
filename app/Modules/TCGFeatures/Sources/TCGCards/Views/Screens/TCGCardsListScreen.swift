@@ -47,6 +47,9 @@ public struct TCGCardsListScreen: View {
                 await model.resumeLoadIfNeeded(using: cardCollection)
             }
             .toast(model.toast, dismiss: model.dismissToast)
+            .onChange(of: cardCollection.displayRefreshError) { _, error in
+                if let error { model.show(error) }
+            }
     }
 
     @ViewBuilder

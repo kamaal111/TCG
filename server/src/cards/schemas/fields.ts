@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
-import { CurrencySchema } from '../../card-pricing/schemas/responses.ts';
 import { CARD_CONDITIONS, CARD_GAMES, MAX_COPIES_PER_CONDITION } from '../../db/schema/cards.ts';
+import { CurrencySchema, NullableCurrencySchema } from '../../forex/currencies.ts';
 
 export const CardIdSchema = z.uuid();
 
@@ -42,8 +42,7 @@ const CardPurchaseFieldsSchema = z.object({
   condition: CardConditionQuantitySchema.shape.condition,
   quantity: CardConditionQuantitySchema.shape.quantity,
   purchase_price: PurchaseAmountSchema.nullable(),
-  // Swift OpenAPI Generator needs nullable enums inline rather than a reference/null union.
-  currency: CurrencySchema.meta({ $id: undefined }).nullable(),
+  currency: NullableCurrencySchema,
 });
 
 export const CardPurchaseInputSchema = CardPurchaseFieldsSchema.refine(
@@ -59,4 +58,12 @@ export const CardPurchaseSchema = CardPurchaseFieldsSchema.extend({
   automatic_price_date: z.string().nullable().meta({
     description: 'Market pricing day used to automatically fill the purchase price',
   }),
+  display_price: z
+    .object({
+      amount: z.string(),
+      currency: CurrencySchema,
+      conversion_unavailable: z.boolean(),
+    })
+    .meta({ $id: 'PurchaseDisplayPrice', title: 'Purchase Display Price' })
+    .optional(),
 }).meta({ $id: 'CardPurchase', title: 'Card Purchase' });

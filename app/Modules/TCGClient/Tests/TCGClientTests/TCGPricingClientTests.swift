@@ -14,12 +14,41 @@ import Testing
 @Suite("TCGClient Pricing Tests")
 struct TCGPricingClientTests {
     @Test
+    func `Decodes preferred-currency display prices without replacing source market amounts`() async throws {
+        let body = Data(
+            """
+            {"matches":[{
+              "id":"display-card","game":"pokemon","name":"Pikachu","card_number":"58",
+              "headline":{"amount":12.5,"currency":"USD","metric":"lowest_near_mint"},
+              "market":{"condition":"near_mint","currency":"USD","market":25},
+              "display":{"preferred_currency":"EUR","conversion_unavailable":false,
+                "headline":{"amount":10,"currency":"EUR","metric":"lowest_near_mint"},
+                "market":{"condition":"near_mint","currency":"EUR","market":20,
+                  "trend_7d":{"price_change":-2,"percent_change":-10}}},
+              "priced_on":"2026-10-16T00:00:00.000Z","fetched_at":"2026-10-16T10:00:00.000Z"
+            }]}
+            """.utf8
+        )
+        let transport = PricingRequestTransport(status: .ok, body: body)
+        let result = try await makeClient(transport: transport).pricing.search(game: .pokemon, query: "Pikachu").get()
+        let card = try #require(result.matches.first)
+        #expect(card.headline?.currency == .usd)
+        #expect(card.market?.market == 25)
+        #expect(card.display?.preferredCurrency == .eur)
+        #expect(card.displayHeadline?.amount == 10)
+        #expect(card.displayHeadline?.currency == .eur)
+        #expect(card.displayMarket?.market == 20)
+        #expect(card.displayMarket?.trend7d == PriceMovement(priceChange: -2, percentChange: -10))
+        #expect(!card.conversionUnavailable)
+    }
+
+    @Test
     func `Decodes only supported currencies`() throws {
         let decoder = JSONDecoder()
 
         #expect(try decoder.decode(Currency.self, from: Data(#""JPY""#.utf8)) == .jpy)
         #expect(throws: DecodingError.self) {
-            try decoder.decode(Currency.self, from: Data(#""GBP""#.utf8))
+            try decoder.decode(Currency.self, from: Data(#""XYZ""#.utf8))
         }
     }
 

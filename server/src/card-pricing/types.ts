@@ -1,4 +1,5 @@
 import type { CARD_GAMES } from '../db/schema/cards.ts';
+import type { Currency } from '../forex/currencies.ts';
 import type { GetRecordValues } from '../utils/type-utils.ts';
 
 export type CardGame = (typeof CARD_GAMES)[number];
@@ -8,12 +9,7 @@ export const CARD_GAME_MAP = {
   POKEMON: 'pokemon',
 } satisfies { [K in (typeof CARD_GAMES)[number] as Uppercase<K>]: K };
 
-export const CURRENCIES = {
-  JPY: 'JPY',
-  USD: 'USD',
-} as const;
-
-export type Currency = GetRecordValues<typeof CURRENCIES>;
+export type { Currency } from '../forex/currencies.ts';
 
 export const PRICING_SOURCES = {
   SCRYDEX_REAL: 'scrydex_real',

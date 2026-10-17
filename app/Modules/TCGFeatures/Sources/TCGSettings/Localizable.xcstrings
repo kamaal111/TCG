@@ -13,6 +13,9 @@
     "Close" : {
 
     },
+    "Couldn’t save your currency. Please try again." : {
+
+    },
     "Data" : {
 
     },
@@ -34,6 +37,9 @@
     "OK" : {
 
     },
+    "Preferred currency" : {
+
+    },
     "Settings" : {
 
     },
@@ -53,6 +59,9 @@
 
     },
     "The template couldn’t be created. Please try again." : {
+
+    },
+    "Used throughout the app. You can choose a different currency for each purchase." : {
 
     },
     "Version" : {

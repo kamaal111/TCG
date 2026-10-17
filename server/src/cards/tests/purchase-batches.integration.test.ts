@@ -54,7 +54,12 @@ describe('Purchase batches integration', () => {
     expect(edited.purchases).toHaveLength(2);
     expect(edited.purchases).toEqual(
       expect.arrayContaining([
-        { ...batch, purchase_price: '3.123456', automatic_price_date: null },
+        {
+          ...batch,
+          purchase_price: '3.123456',
+          automatic_price_date: null,
+          display_price: { amount: '3.123456', currency: 'USD', conversion_unavailable: false },
+        },
         expect.objectContaining({ condition: 'played', quantity: 1, purchase_price: '1.000000', currency: 'USD' }),
       ]),
     );

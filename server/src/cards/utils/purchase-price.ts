@@ -1,5 +1,7 @@
 import type { PricedCardResponse } from '../../card-pricing/schemas/responses.ts';
 import type { cardPurchaseBatch } from '../../db/schema/cards.ts';
+import { convertMicroUnits, decimalMicroUnits } from '../../forex/conversion.ts';
+import type { ForexSnapshot } from '../../forex/schemas/responses.ts';
 
 type BatchCost = Pick<typeof cardPurchaseBatch.$inferSelect, 'quantity' | 'purchasePrice' | 'currency'>;
 
@@ -14,13 +16,11 @@ export function marketPurchaseAmount(amount: number): string | null {
   return amount.toFixed(6);
 }
 
-function microUnits(amount: string): bigint {
-  const [whole = '0', fraction = ''] = amount.split('.');
-
-  return BigInt(whole) * 1_000_000n + BigInt(fraction.padEnd(6, '0'));
-}
-
-export function purchasePriceChangePercent(batches: readonly BatchCost[], market: Market | undefined): number | null {
+export function purchasePriceChangePercent(
+  batches: readonly BatchCost[],
+  market: Market | undefined,
+  snapshot?: ForexSnapshot,
+): number | null {
   if (market?.market == null || batches.length === 0) {
     return null;
   }
@@ -29,11 +29,21 @@ export function purchasePriceChangePercent(batches: readonly BatchCost[], market
   let quantity = 0n;
 
   for (const batch of batches) {
-    if (batch.purchasePrice == null || batch.currency !== market.currency) {
+    if (batch.purchasePrice == null || batch.currency == null) {
       return null;
     }
 
-    cost += microUnits(batch.purchasePrice) * BigInt(batch.quantity);
+    const amount = convertMicroUnits(decimalMicroUnits(batch.purchasePrice), {
+      source: batch.currency,
+      target: market.currency,
+      snapshot,
+    });
+
+    if (amount == null) {
+      return null;
+    }
+
+    cost += amount * BigInt(batch.quantity);
     quantity += BigInt(batch.quantity);
   }
 
@@ -47,7 +57,7 @@ export function purchasePriceChangePercent(batches: readonly BatchCost[], market
     return null;
   }
 
-  const current = microUnits(amount) * quantity;
+  const current = decimalMicroUnits(amount) * quantity;
 
   return Number(((current - cost) * 100_000_000n) / cost) / 1_000_000;
 }

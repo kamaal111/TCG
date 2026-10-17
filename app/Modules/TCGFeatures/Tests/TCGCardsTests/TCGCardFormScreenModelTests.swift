@@ -17,6 +17,129 @@ import Testing
 @Suite("TCGCard Form Screen Model Tests")
 @MainActor
 struct TCGCardFormScreenModelTests {
+    @Test(arguments: [
+        ("10", "1.9", "5.263158"),
+        ("5.13640806895938860748244912467786368", "1", "5.136408"),
+        ("9.9999999", "1", "10"),
+        ("0.0000004", "1", "0"),
+        ("1.234567", "1", "1.234567"),
+        ("1.2345665", "1", "1.234567"),
+    ])
+    func `Converted defaults fit purchase precision for existing and new batches`(scenario: (String, String, String))
+        throws
+    {
+        let (source, rate, expectedText) = scenario
+        let sourcePrice = try #require(Decimal(string: source))
+        let model = TCGCardFormScreenModel(mode: .add, initialValues: validValues)
+        model.values.defaultMarketPrice = sourcePrice
+        model.values.defaultMarketCurrency = .usd
+        model.configureCurrency(
+            preferred: .eur,
+            rates: ExchangeRates(date: "2026-10-16", rates: ["EUR": 1, "USD": try #require(Decimal(string: rate))])
+        )
+        model.addBatch(condition: .played)
+        let expectedPrice = try #require(Decimal(string: expectedText))
+        #expect(model.values.batches.map(\.priceText) == [expectedText, expectedText])
+        #expect(model.values.payload.purchases.map(\.purchasePrice) == [expectedPrice, expectedPrice])
+        #expect(model.values.payload.purchases.map(\.currency) == [.eur, .eur])
+        #expect(TCGCardsValidator.issues(for: model.values).isEmpty)
+    }
+
+    @Test
+    func `Currency refresh preserves and rejects manually entered prices beyond six decimals`() {
+        let model = TCGCardFormScreenModel(mode: .add, initialValues: validValues)
+        model.values.batches[0].priceText = "1.2345678"
+        model.values.batches[0].priceWasEdited = true
+        model.values.defaultMarketPrice = 10
+        model.values.defaultMarketCurrency = .usd
+        model.configureCurrency(
+            preferred: .eur,
+            rates: ExchangeRates(date: "2026-10-16", rates: ["EUR": 1, "USD": 1.9])
+        )
+        #expect(model.values.batches[0].priceText == "1.2345678")
+        #expect(TCGCardsValidator.issues(for: model.values).map(\.field) == [.purchases])
+    }
+
+    @Test
+    func `Converted purchase defaults save six decimal prices through the generated client`() async throws {
+        let model = TCGCardFormScreenModel(mode: .add, initialValues: validValues)
+        model.values.defaultMarketPrice = 10
+        model.values.defaultMarketCurrency = .usd
+        model.configureCurrency(
+            preferred: .eur,
+            rates: ExchangeRates(date: "2026-10-16", rates: ["EUR": 1, "USD": 1.9])
+        )
+        let transport = PurchaseSaveTransport()
+        let saved = try await makeClient(transport: transport).cards.create(with: model.values.payload).get()
+        let body = try #require(await transport.requestBody)
+        let sent = try JSONDecoder().decode(Components.Schemas.UpsertCard.self, from: body)
+        let purchase = try #require(sent.purchases.first)
+        #expect(purchase.purchasePrice == "5.263158")
+        #expect(purchase.currency?.rawValue == "EUR")
+        #expect(saved.card.purchases.first?.purchasePrice == Decimal(string: "5.263158"))
+        #expect(TCGCardsValidator.issues(for: model.values).isEmpty)
+    }
+
+    @Test
+    func `Market defaults return a converted batch without changing the original`() {
+        let model = TCGCardFormScreenModel(mode: .add, initialValues: nil)
+        model.configureCurrency(
+            preferred: .eur,
+            rates: ExchangeRates(date: "2026-10-16", rates: ["EUR": 1, "USD": 1.25])
+        )
+        model.values.defaultMarketPrice = 12.5
+        model.values.defaultMarketCurrency = .usd
+        let original = PurchaseBatchFormValue(condition: .nearMint, quantity: 2, currency: .usd)
+        let updated = model.values.applyingMarketDefault(to: original)
+        #expect(original.priceText.isEmpty)
+        #expect(original.currency == .usd)
+        #expect(updated.id == original.id)
+        #expect(updated.quantity == 2)
+        #expect(updated.currency == .eur)
+        #expect(updated.price == 10)
+    }
+
+    @Test
+    func `Defaults new purchases to EUR and preserves manual JPY overrides`() {
+        let model = TCGCardFormScreenModel(mode: .add, initialValues: nil)
+        model.configureCurrency(
+            preferred: .eur,
+            rates: ExchangeRates(date: "2026-10-16", rates: ["EUR": 1, "USD": 1.25, "JPY": 150])
+        )
+        model.values.defaultMarketPrice = 12.5
+        model.values.defaultMarketCurrency = .usd
+        model.addBatch(condition: .nearMint)
+        #expect(model.values.batches[0].currency == .eur)
+        #expect(model.values.batches[0].price == 10)
+        model.values.batches[0].currency = .jpy
+        model.values.batches[0].priceText = "1500"
+        model.values.batches[0].priceWasEdited = true
+        model.configureCurrency(preferred: .eur, rates: nil)
+        #expect(model.values.batches[0].currency == .jpy)
+        #expect(model.values.batches[0].price == 1500)
+        model.applyMarketDefault(PreviewTCGPricingClient.samplePricedCards[0])
+        #expect(model.values.batches[0].currency == .jpy)
+        #expect(model.values.batches[0].price == 1500)
+    }
+
+    @Test
+    func `Currency and market refreshes preserve existing edit batches and convert new ones`() {
+        let card = PreviewTCGPricingClient.samplePricedCards[0]
+        let model = TCGCardFormScreenModel(mode: .edit(PreviewTCGCardsClient.sampleCards[0]), initialValues: nil)
+        let originalBatches = model.values.batches
+        let rates = ExchangeRates(date: "2026-10-16", rates: ["EUR": 1, "USD": 1.25, "JPY": 150])
+        model.configureCurrency(preferred: .eur, rates: rates)
+        model.applyMarketDefault(card)
+        #expect(model.values.batches == originalBatches)
+        model.addBatch(condition: .nearMint)
+        let expectedPrice = model.values.batches.last?.price
+        #expect(expectedPrice != nil)
+        #expect(model.values.batches.last?.currency == .eur)
+        model.applyMarketDefault(card)
+        #expect(Array(model.values.batches.dropLast()) == originalBatches)
+        #expect(model.values.batches.last?.price == expectedPrice)
+    }
+
     @Test(arguments: PreviewTCGPricingClient.samplePricedCards)
     func `Searched cards prefill details with empty quantities and notes`(card: PricedCard) {
         let model = TCGCardFormScreenModel(mode: .add, initialValues: .init(pricedCard: card))
@@ -188,18 +311,7 @@ struct TCGCardFormScreenModelTests {
     @Test
     func `Dismissal is blocked during submission and a failed save preserves edits`() async throws {
         let transport = PendingCardSubmissionTransport()
-        let credentials = Credentials(
-            authToken: "auth-token",
-            authTokenExpiryDate: .distantFuture,
-            sessionToken: "session-token",
-            sessionUpdateAge: 1800,
-            lastSessionUpdate: .now
-        )
-        let client = TCGClient.default(
-            transport: transport,
-            credentialsKeychainKey: "card-form-dismissal-test",
-            credentialsStore: InMemoryCredentialsStore(seed: try JSONEncoder().encode(credentials))
-        )
+        let client = try makeClient(transport: transport)
         let model = TCGCardFormScreenModel(mode: .add, initialValues: nil)
         model.values = validValues
         let submission = Task { await model.submit(using: TCGCards(client: client)) }
@@ -337,18 +449,7 @@ struct TCGCardFormScreenModelTests {
     @Test
     func `A pricing response for an obsolete card cannot prefill the edited card`() async throws {
         let transport = PendingCardSubmissionTransport()
-        let credentials = Credentials(
-            authToken: "auth-token",
-            authTokenExpiryDate: .distantFuture,
-            sessionToken: "session-token",
-            sessionUpdateAge: 1800,
-            lastSessionUpdate: .now
-        )
-        let client = TCGClient.default(
-            transport: transport,
-            credentialsKeychainKey: "purchase-prefill-test",
-            credentialsStore: InMemoryCredentialsStore(seed: try JSONEncoder().encode(credentials))
-        )
+        let client = try makeClient(transport: transport)
         let model = TCGCardFormScreenModel(mode: .add, initialValues: validValues)
         let refresh = Task { await model.refreshPurchaseDefault(using: TCGCards(client: client)) }
         await transport.waitForRequest()
@@ -358,6 +459,21 @@ struct TCGCardFormScreenModelTests {
         #expect(model.values.defaultMarketPrice == nil)
         #expect(model.values.batches[0].priceText.isEmpty)
         #expect(model.values.name == "Different card")
+    }
+
+    private func makeClient(transport: any ClientTransport) throws -> TCGClient {
+        let credentials = Credentials(
+            authToken: "auth-token",
+            authTokenExpiryDate: .distantFuture,
+            sessionToken: "session-token",
+            sessionUpdateAge: 1800,
+            lastSessionUpdate: .now
+        )
+        return TCGClient.default(
+            transport: transport,
+            credentialsKeychainKey: "card-form-tests",
+            credentialsStore: InMemoryCredentialsStore(seed: try JSONEncoder().encode(credentials))
+        )
     }
 
     enum ChangedTextField: CaseIterable, Sendable {
@@ -371,6 +487,27 @@ struct TCGCardFormScreenModelTests {
             case .notes: \CardFormValues.notes
             }
         }
+    }
+}
+
+private actor PurchaseSaveTransport: ClientTransport {
+    private(set) var requestBody: Data?
+
+    func send(_ request: HTTPRequest, body: HTTPBody?, baseURL: URL, operationID: String) async throws -> (
+        HTTPResponse, HTTPBody?
+    ) {
+        if let body { requestBody = try await Data(collecting: body, upTo: 1_000_000) }
+        let response = """
+            {
+              "id":"saved-card","game":"one_piece","name":"Monkey D. Luffy",
+              "set_name":"Romance Dawn","card_number":"OP01-003","notes":null,
+              "created_at":"2026-10-16T10:00:00.000Z","updated_at":"2026-10-16T10:00:00.000Z",
+              "purchases":[{"id":"saved-purchase","condition":"near_mint","quantity":2,
+                "purchase_price":"5.263158","currency":"EUR","automatic_price_date":null}],
+              "purchase_price_change_percent":null,"price":{"card_id":"saved-card","status":"no_price"}
+            }
+            """
+        return (HTTPResponse(status: .created, headerFields: [.contentType: "application/json"]), HTTPBody(response))
     }
 }
 

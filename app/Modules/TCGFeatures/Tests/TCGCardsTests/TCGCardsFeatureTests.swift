@@ -9,6 +9,7 @@ import Foundation
 import HTTPTypes
 import KamaalAuth
 import OpenAPIRuntime
+import TCGCurrency
 import Testing
 
 @testable import TCGCards
@@ -17,6 +18,48 @@ import Testing
 @Suite("TCGCards Feature Tests")
 @MainActor
 struct TCGCardsFeatureTests {
+    @Test
+    func `Changing currency discards a delayed collection response`() async throws {
+        let transport = PendingCollectionTransport()
+        let feature = makePendingFeature(transport)
+        let currency = TCGCurrency(client: .preview(), defaults: nil)
+        await feature.refreshDisplayPrices(for: currency.displayIdentity)
+        let original = Task { await feature.load(game: nil) }
+        await transport.waitForRequest("/app-api/cards")
+        #expect(await currency.save(.eur))
+        let refresh = Task { await feature.refreshDisplayPrices(for: currency.displayIdentity) }
+        await transport.waitForRequests("/app-api/cards", count: 2)
+        #expect(feature.cards.isEmpty)
+        await transport.completePage("/app-api/cards", id: "old", cursor: nil)
+        try await original.value.get()
+        #expect(feature.cards.isEmpty)
+        #expect(feature.isLoading)
+        await transport.completePage("/app-api/cards", id: "fresh", cursor: nil)
+        await refresh.value
+        #expect(feature.cards.map(\.card.id) == ["fresh"])
+        #expect(feature.displayRefreshError == nil)
+    }
+
+    @Test
+    func `A failed currency refresh leaves no old collection prices`() async throws {
+        let transport = PendingCollectionTransport()
+        let feature = makePendingFeature(transport)
+        let currency = TCGCurrency(client: .preview(), defaults: nil)
+        await feature.refreshDisplayPrices(for: currency.displayIdentity)
+        let original = Task { await feature.load(game: nil) }
+        await transport.waitForRequest("/app-api/cards")
+        await transport.completePage("/app-api/cards", id: "old", cursor: nil)
+        try await original.value.get()
+        #expect(await currency.save(.eur))
+        let refresh = Task { await feature.refreshDisplayPrices(for: currency.displayIdentity) }
+        await transport.waitForRequest("/app-api/cards")
+        #expect(feature.cards.isEmpty)
+        await transport.complete("/app-api/cards", status: .serviceUnavailable)
+        await refresh.value
+        #expect(feature.cards.isEmpty)
+        #expect(feature.displayRefreshError == .serverUnavailable)
+    }
+
     @Test(arguments: [false, true])
     func `A failed filter load retains only matching cached rows`(changeGame: Bool) async throws {
         let transport = PendingCollectionTransport()
@@ -554,7 +597,8 @@ struct TCGCardsFeatureTests {
 private actor PendingCollectionTransport: ClientTransport {
     private(set) var requestCount = 0
     private(set) var deletionIDs: [[String]] = []
-    private var pending: [String: CheckedContinuation<(HTTPResponse, HTTPBody?), Never>] = [:]
+    private var pending: [String: [CheckedContinuation<(HTTPResponse, HTTPBody?), Never>]] = [:]
+    private var pendingCountWaiters: [String: (Int, CheckedContinuation<Void, Never>)] = [:]
     private var waiters: [String: CheckedContinuation<Void, Never>] = [:]
 
     func send(
@@ -571,7 +615,11 @@ private actor PendingCollectionTransport: ClientTransport {
             deletionIDs.append(try JSONDecoder().decode(DeleteCardsPayload.self, from: data).cardIDs)
         }
         return await withCheckedContinuation { continuation in
-            pending[path] = continuation
+            pending[path, default: []].append(continuation)
+            if let (count, waiter) = pendingCountWaiters[path], pending[path, default: []].count >= count {
+                pendingCountWaiters.removeValue(forKey: path)
+                waiter.resume()
+            }
             waiters.removeValue(forKey: path)?.resume()
         }
     }
@@ -581,10 +629,22 @@ private actor PendingCollectionTransport: ClientTransport {
         await withCheckedContinuation { waiters[path] = $0 }
     }
 
-    func complete(_ path: String, setName: String) {
-        guard let continuation = pending.removeValue(forKey: path) else {
+    func waitForRequests(_ path: String, count: Int) async {
+        if pending[path, default: []].count >= count { return }
+        await withCheckedContinuation { pendingCountWaiters[path] = (count, $0) }
+    }
+
+    private func takeRequest(_ path: String) -> CheckedContinuation<(HTTPResponse, HTTPBody?), Never> {
+        guard var requests = pending[path], !requests.isEmpty else {
             preconditionFailure("A collection request must be pending before completion.")
         }
+        let request = requests.removeFirst()
+        pending[path] = requests.isEmpty ? nil : requests
+        return request
+    }
+
+    func complete(_ path: String, setName: String) {
+        let continuation = takeRequest(path)
         let body = """
             {"cards": [], "available_set_names": ["\(setName)"], "next_cursor": null}
             """
@@ -592,16 +652,12 @@ private actor PendingCollectionTransport: ClientTransport {
     }
 
     func complete(_ path: String, status: HTTPResponse.Status) {
-        guard let continuation = pending.removeValue(forKey: path) else {
-            preconditionFailure("A collection request must be pending before completion.")
-        }
+        let continuation = takeRequest(path)
         continuation.resume(returning: (HTTPResponse(status: status), HTTPBody("{}")))
     }
 
     func completePage(_ path: String, id: String, cursor: String?) {
-        guard let continuation = pending.removeValue(forKey: path) else {
-            preconditionFailure("A page request must be pending before completion.")
-        }
+        let continuation = takeRequest(path)
         let nextCursor = cursor.map { "\"\($0)\"" } ?? "null"
         let body = """
             {
@@ -621,17 +677,13 @@ private actor PendingCollectionTransport: ClientTransport {
 
     func completeDeletion(deletedIDs: [String], notFoundIDs: [String]) throws {
         let path = "/app-api/cards"
-        guard let continuation = pending.removeValue(forKey: path) else {
-            preconditionFailure("A deletion request must be pending before completion.")
-        }
+        let continuation = takeRequest(path)
         let body = try JSONSerialization.data(withJSONObject: ["deleted_ids": deletedIDs, "not_found_ids": notFoundIDs])
         continuation.resume(returning: (HTTPResponse(status: .ok), HTTPBody(body)))
     }
 
     func completeWithCachedCards(_ path: String) {
-        guard let continuation = pending.removeValue(forKey: path) else {
-            preconditionFailure("A collection request must be pending before completion.")
-        }
+        let continuation = takeRequest(path)
         let body = """
             {"cards": [
               {"id": "pokemon-card", "game": "pokemon", "name": "Pikachu",

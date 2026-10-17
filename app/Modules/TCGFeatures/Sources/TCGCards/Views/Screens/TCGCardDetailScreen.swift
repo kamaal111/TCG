@@ -1,11 +1,13 @@
 import SwiftUI
 import TCGCardDetails
 import TCGClient
+import TCGCurrency
 import TCGDesignSystem
 
 struct TCGCardDetailScreen: View {
     @Environment(TCGCards.self) private var cards
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.tcgCurrency) private var currencyState
     @State private var model: TCGCardDetailScreenModel
 
     init(model: TCGCardDetailScreenModel) {
@@ -35,13 +37,29 @@ struct TCGCardDetailScreen: View {
             Divider()
             if let editor = model.editor {
                 editorContent(editor)
-            } else {
-                CardDetailContent(metadata: .init(ownedCard: model.card), price: model.card.price.price) {
-                    collectionDetails
+            } else if let displayedCard {
+                CardDetailContent(metadata: .init(ownedCard: displayedCard), price: displayedCard.price.price) {
+                    collectionDetails(displayedCard)
                 }
+            } else if cards.isLoading {
+                ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                VStack(spacing: 12) {
+                    Text("Couldn’t load price", bundle: .module)
+                    Button {
+                        Task { await cards.refresh() }
+                    } label: {
+                        Text("Try again", bundle: .module)
+                    }
+                }.frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
         .background(.background)
+        .onChange(of: cards.cards) { _, updated in
+            if let card = updated.first(where: { $0.card.id == model.card.card.id }) {
+                model.replaceDisplay(with: card)
+            }
+        }
         .disabled(model.editor?.isSubmitting == true)
         .interactiveDismissDisabled(model.editor?.hasUnsavedChanges == true || model.editor?.isSubmitting == true)
         #if os(macOS)
@@ -82,39 +100,52 @@ struct TCGCardDetailScreen: View {
         }
     }
 
-    private var collectionDetails: some View {
+    private var displayedCard: CardWithPrice? {
+        guard let currencyState else { return model.card }
+        return cards.cards.first {
+            $0.card.id == model.card.card.id && $0.card.displayCurrency == currencyState.preferredCurrency
+        }
+    }
+
+    private func collectionDetails(_ displayedCard: CardWithPrice) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             LabeledContent {
-                Text(model.card.card.setName)
+                Text(displayedCard.card.setName)
             } label: {
                 Text("Set name", bundle: .module)
             }
             Text("Quantities", bundle: .module).font(.headline)
             ForEach(CardCondition.allCases, id: \.self) { condition in
-                if let quantity = model.card.card.quantities.first(where: { $0.condition == condition }),
+                if let quantity = displayedCard.card.quantities.first(where: { $0.condition == condition }),
                     quantity.quantity > 0
                 {
                     LabeledContent(condition.title, value: quantity.quantity.formatted())
                 }
             }
-            ForEach(Array(model.card.card.purchases.enumerated()), id: \.offset) { _, batch in
+            ForEach(Array(displayedCard.card.purchases.enumerated()), id: \.offset) { _, batch in
                 HStack {
                     Text("\(batch.condition.title) ×\(batch.quantity)", bundle: .module)
                     Spacer()
-                    if let amount = batch.purchasePrice, let currency = batch.currency {
-                        Text(amount, format: .currency(code: currency.rawValue))
+                    if let price = batch.displayPrice {
+                        CurrencyAmount(
+                            price.amount,
+                            currency: price.currency,
+                            conversionUnavailable: price.conversionUnavailable
+                        )
+                    } else if let amount = batch.purchasePrice, let currency = batch.currency {
+                        CurrencyAmount(amount, currency: currency)
                     } else {
                         Text("Purchase price unknown", bundle: .module).foregroundStyle(.secondary)
                     }
                 }
             }
-            if let notes = model.card.card.notes, !notes.isEmpty {
+            if let notes = displayedCard.card.notes, !notes.isEmpty {
                 Text("Notes", bundle: .module).font(.headline)
                 Text(notes)
             }
-            if model.card.price.price == nil {
+            if displayedCard.price.price == nil {
                 Text("Pricing", bundle: .module).font(.title2.bold())
-                CardPriceView(price: model.card.price)
+                CardPriceView(price: displayedCard.price)
             }
         }
     }

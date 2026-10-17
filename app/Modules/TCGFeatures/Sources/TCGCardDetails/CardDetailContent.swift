@@ -1,5 +1,6 @@
 import SwiftUI
 import TCGClient
+import TCGCurrency
 import TCGDesignSystem
 
 public struct CardDetailMetadata {
@@ -71,10 +72,10 @@ public struct CardDetailContent<Supplemental: View>: View {
                 if let card {
                     VStack(alignment: .leading, spacing: 12) {
                         Text("Pricing", bundle: .module).font(.title2.bold()).accessibilityAddTraits(.isHeader)
-                        if let headline = card.headline {
+                        if let headline = card.displayHeadline {
                             price("Lowest Near Mint", amount: headline.amount, currency: headline.currency)
                         }
-                        if let market = card.market {
+                        if let market = card.displayMarket {
                             LabeledContent {
                                 Text(market.condition.title)
                             } label: {
@@ -93,7 +94,9 @@ public struct CardDetailContent<Supplemental: View>: View {
                                 movementRow("30-day change", movement: movement, currency: market.currency)
                             }
                         }
-                        if card.headline == nil && card.market?.low == nil && card.market?.market == nil {
+                        if card.displayHeadline == nil && card.displayMarket?.low == nil
+                            && card.displayMarket?.market == nil
+                        {
                             Text("No price", bundle: .module).foregroundStyle(.secondary)
                         }
                     }
@@ -123,7 +126,8 @@ public struct CardDetailContent<Supplemental: View>: View {
 
     private func price(_ title: LocalizedStringKey, amount: Double, currency: Currency) -> some View {
         LabeledContent {
-            Text(amount, format: .currency(code: currency.rawValue)).monospacedDigit()
+            CurrencyAmount(amount, currency: currency, conversionUnavailable: card?.conversionUnavailable ?? false)
+                .monospacedDigit()
         } label: {
             Text(title, bundle: .module)
         }
@@ -132,7 +136,11 @@ public struct CardDetailContent<Supplemental: View>: View {
     private func movementRow(_ title: LocalizedStringKey, movement: PriceMovement, currency: Currency) -> some View {
         LabeledContent {
             VStack(alignment: .trailing, spacing: 4) {
-                Text(movement.priceChange, format: .currency(code: currency.rawValue))
+                CurrencyAmount(
+                    movement.priceChange,
+                    currency: currency,
+                    conversionUnavailable: card?.conversionUnavailable ?? false
+                )
                 Text(movement.percentChange / 100, format: .percent.precision(.fractionLength(1)))
                 Label(movement.trend.title, systemImage: movement.trend.systemImage)
                     .font(.caption)

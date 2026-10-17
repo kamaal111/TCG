@@ -309,7 +309,7 @@ struct TCGCardsClientImpl: TCGCardsClient {
                     condition: makeImportCondition(purchase.condition),
                     quantity: purchase.quantity,
                     purchasePrice: purchase.purchasePrice,
-                    currency: purchase.currency.map(makeImportCurrency),
+                    currency: purchase.currency.map(makeGeneratedPurchaseCurrency),
                     automaticPriceDate: purchase.automaticPriceDate
                 )
             },
@@ -339,12 +339,40 @@ struct TCGCardsClientImpl: TCGCardsClient {
         }
     }
 
-    private static func makeImportCurrency(
+    private static func makeGeneratedPurchaseCurrency(
         _ currency: Currency
-    ) -> Components.Schemas.ImportCard.PurchasesPayloadPayload.CurrencyPayload {
+    ) -> Components.Schemas.NullableCurrency {
         switch currency {
+        case .eur: .eur
         case .usd: .usd
         case .jpy: .jpy
+        case .czk: .czk
+        case .dkk: .dkk
+        case .gbp: .gbp
+        case .huf: .huf
+        case .pln: .pln
+        case .ron: .ron
+        case .sek: .sek
+        case .chf: .chf
+        case .isk: .isk
+        case .nok: .nok
+        case .try: ._try
+        case .aud: .aud
+        case .brl: .brl
+        case .cad: .cad
+        case .cny: .cny
+        case .hkd: .hkd
+        case .idr: .idr
+        case .ils: .ils
+        case .inr: .inr
+        case .krw: .krw
+        case .mxn: .mxn
+        case .myr: .myr
+        case .nzd: .nzd
+        case .php: .php
+        case .sgd: .sgd
+        case .thb: .thb
+        case .zar: .zar
         }
     }
 
@@ -384,7 +412,8 @@ struct TCGCardsClientImpl: TCGCardsClient {
             createdAt: card.createdAt,
             updatedAt: card.updatedAt,
             purchases: card.purchases.map(Self.makeBatch),
-            purchasePriceChangePercent: card.purchasePriceChangePercent
+            purchasePriceChangePercent: card.purchasePriceChangePercent,
+            displayCurrency: card.displayCurrency.map(PricedCardMapper.makeCurrency)
         )
     }
 
@@ -394,7 +423,7 @@ struct TCGCardsClientImpl: TCGCardsClient {
             condition: makeGeneratedCondition(batch.condition),
             quantity: batch.quantity,
             purchasePrice: batch.purchasePrice.map { NSDecimalNumber(decimal: $0).stringValue },
-            currency: batch.currency.flatMap { .init(rawValue: $0.rawValue) }
+            currency: batch.currency.map(makeGeneratedPurchaseCurrency)
         )
     }
 
@@ -407,7 +436,16 @@ struct TCGCardsClientImpl: TCGCardsClient {
                 Decimal(string: $0, locale: TCGLocales.decimal)
             },
             currency: batch.currency.flatMap { Currency(rawValue: $0.rawValue) },
-            automaticPriceDate: batch.automaticPriceDate
+            automaticPriceDate: batch.automaticPriceDate,
+            displayPrice: batch.displayPrice.flatMap { display in
+                Decimal(string: display.amount, locale: TCGLocales.decimal).map {
+                    PurchaseDisplayPrice(
+                        amount: $0,
+                        currency: PricedCardMapper.makeCurrency(display.currency),
+                        conversionUnavailable: display.conversionUnavailable
+                    )
+                }
+            }
         )
     }
 

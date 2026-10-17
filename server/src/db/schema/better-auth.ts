@@ -85,6 +85,7 @@ export const jwks = pgTable('jwks', {
 });
 
 export const authRelations = defineRelationsPart({ user, session, account, verification, jwks }, r => ({
+  jwks: {},
   user: {
     sessions: r.many.session({
       from: r.user.id,

@@ -16,6 +16,45 @@ import Testing
 @Suite("TCGClient Cards Tests")
 struct TCGCardsClientTests {
     @Test
+    func `Purchase display amounts do not replace original travel costs in save requests`() async throws {
+        let body = Data(
+            """
+            {"id":"travel-card","game":"one_piece","name":"Luffy","set_name":"Romance Dawn",
+             "card_number":"OP01-003","notes":null,"display_currency":"EUR",
+             "created_at":"2026-10-16T10:00:00.000Z","updated_at":"2026-10-16T10:00:00.000Z",
+             "purchase_price_change_percent":null,
+             "purchases":[{"id":"purchase","condition":"near_mint","quantity":2,
+               "purchase_price":"1500.000000","currency":"JPY","automatic_price_date":null,
+               "display_price":{"amount":"10.000000","currency":"EUR","conversion_unavailable":false}}],
+             "price":{"card_id":"travel-card","status":"no_price"}}
+            """.utf8
+        )
+        let transport = CardsRequestTransport(status: .created, body: body)
+        let input = UpsertCardPayload(
+            game: .onePiece,
+            name: "Luffy",
+            setName: "Romance Dawn",
+            cardNumber: "OP01-003",
+            notes: nil,
+            purchases: [.init(condition: .nearMint, quantity: 2, purchasePrice: 1500, currency: .jpy)]
+        )
+        let client = makeClient(transport: transport)
+        let result = try await client.cards.create(with: input).get()
+        let purchase = try #require(result.card.purchases.first)
+        #expect(result.card.displayCurrency == .eur)
+        #expect(purchase.purchasePrice == 1500)
+        #expect(purchase.currency == .jpy)
+        #expect(purchase.displayPrice?.amount == 10)
+        #expect(purchase.displayPrice?.currency == .eur)
+        #expect(purchase.displayPrice?.conversionUnavailable == false)
+        let request = try #require(await transport.request)
+        let requestBody = try #require(request.body)
+        let sent = try JSONDecoder().decode(Components.Schemas.UpsertCard.self, from: requestBody)
+        #expect(sent.purchases.first?.purchasePrice == "1500")
+        #expect(sent.purchases.first?.currency?.rawValue == "JPY")
+    }
+
+    @Test
     func `Exports every card through the pricing independent operation`() async throws {
         let transport = CardsRequestTransport(status: .ok, body: cardsListJSON)
         let cards = try await makeClient(transport: transport).cards.exportCards().get()
@@ -26,8 +65,8 @@ struct TCGCardsClientTests {
         #expect(cards == [expectedCard])
     }
 
-    @Test
-    func `Imports exact purchase costs with the generated operation`() async throws {
+    @Test(arguments: Currency.allCases)
+    func `Imports exact purchase costs with the generated operation`(currency: Currency) async throws {
         let transport = CardsRequestTransport(
             status: .ok,
             body: Data(
@@ -51,7 +90,7 @@ struct TCGCardsClientTests {
                     condition: .nearMint,
                     quantity: 2,
                     purchasePrice: Decimal(string: "3.123456"),
-                    currency: .usd,
+                    currency: currency,
                     automaticPriceDate: "2026-07-20"
                 )
             ]
@@ -320,6 +359,18 @@ struct TCGCardsClientTests {
         }
     }
 
+    @Test(arguments: Currency.allCases)
+    func `Creates purchases with every supported currency`(currency: Currency) async throws {
+        let input = try purchasePayload(id: nil, currency: currency)
+        let transport = CardsRequestTransport(status: .created, body: purchaseCardJSON)
+        _ = try await makeClient(transport: transport).cards.create(with: input).get()
+        let request = try #require(await transport.request)
+        let body = try #require(request.body)
+        let sent = try JSONDecoder().decode(Components.Schemas.UpsertCard.self, from: body)
+        let purchase = try #require(sent.purchases.first)
+        #expect(purchase.currency?.rawValue == currency.rawValue)
+    }
+
     @Test
     func `Creates purchases and decodes exact prices`() async throws {
         let input = try purchasePayload(id: nil)
@@ -418,7 +469,7 @@ struct TCGCardsClientTests {
         }
     }
 
-    private func purchasePayload(id: String?) throws -> UpsertCardPayload {
+    private func purchasePayload(id: String?, currency: Currency = .usd) throws -> UpsertCardPayload {
         let amount = try #require(Decimal(string: "3.123456"))
         return UpsertCardPayload(
             game: .onePiece,
@@ -426,7 +477,9 @@ struct TCGCardsClientTests {
             setName: payload.setName,
             cardNumber: payload.cardNumber,
             notes: nil,
-            purchases: [CardPurchase(id: id, condition: .nearMint, quantity: 2, purchasePrice: amount, currency: .usd)]
+            purchases: [
+                CardPurchase(id: id, condition: .nearMint, quantity: 2, purchasePrice: amount, currency: currency)
+            ]
         )
     }
 
