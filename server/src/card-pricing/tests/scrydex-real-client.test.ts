@@ -5,6 +5,29 @@ import { z } from 'zod';
 import { RealScrydexClient } from '../scrydex/real-client.ts';
 
 describe('RealScrydexClient', () => {
+  it('searches lowercase promo numbers without escaping the provider identity', async () => {
+    const requestedURLs: string[] = [];
+
+    const client = makeClient(async input => {
+      requestedURLs.push(stringifyRequestURL(input));
+
+      return jsonResponse({
+        data: [{ id: 'P-110', name: 'Monkey.D.Luffy', number: '110', printed_number: 'P-110' }],
+      });
+    });
+
+    const result = await client.searchCards('one_piece', 'p-110');
+    assert(result.isOk());
+
+    expect(result.value.records.map(record => record.card)).toEqual([
+      { id: 'P-110', name: 'Monkey.D.Luffy', cardNumber: 'P-110', pricing: {} },
+    ]);
+    expect(requestedURLs).toHaveLength(1);
+    const requestURL = new URL(requestedURLs[0] ?? 'invalid:');
+    expect(requestURL.pathname).toBe('/onepiece/v1/cards');
+    expect(requestURL.searchParams.get('q')).toBe('!id:P-110');
+  });
+
   it('constructs an authenticated One Piece search and decodes pricing', async () => {
     const requests: { url: string; headers: Headers }[] = [];
 
