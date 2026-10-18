@@ -2,9 +2,9 @@ import { normalizeCardLanguages, type CardLanguage } from '../languages.ts';
 import type { CardGame } from '../types.ts';
 import { CARD_GAME_MAP } from '../types.ts';
 
-const ONE_PIECE_CARD_NUMBER = /^[A-Z]{2}\d{2}-\d{3}$/i;
+const ONE_PIECE_CARD_NUMBER = /^(?:[A-Z]{2}\d{2}|P)-\d{3}$/i;
 
-const POKEMON_EXPANSION_ID = /^[a-z]{1,4}\d[a-z0-9]*(?:_[a-z]{2})?$/i;
+const POKEMON_EXPANSION_ID = /^(?:[a-z]{1,4}\d[a-z0-9]*|mep)(?:_[a-z]{2})?$/i;
 
 const NUMERIC_CARD_NUMBER = /^\d+$/;
 
@@ -27,10 +27,6 @@ export function buildScrydexQuery(game: CardGame, query: string, languages: read
 
 function buildCardQuery(game: CardGame, query: string): string {
   const normalized = query.trim().replace(/\s+/g, ' ');
-
-  if (game === CARD_GAME_MAP.ONE_PIECE && ONE_PIECE_CARD_NUMBER.test(normalized)) {
-    return `!id:${normalized.toUpperCase()}`;
-  }
 
   const terms = normalized.split(' ');
   const lastTerm = terms.at(-1);
@@ -60,17 +56,20 @@ function buildCardQuery(game: CardGame, query: string): string {
   }
 
   const name = terms.slice(0, -1).join(' ');
-  const numberField = game === CARD_GAME_MAP.ONE_PIECE ? 'id' : 'number';
-  const number = game === CARD_GAME_MAP.ONE_PIECE ? lastTerm.toUpperCase() : lastTerm;
 
-  const numberQuery =
-    game === CARD_GAME_MAP.POKEMON ? pokemonNumberQuery(number) : `!${numberField}:${escapeScrydexValue(number)}`;
+  const numberQuery = game === CARD_GAME_MAP.POKEMON ? pokemonNumberQuery(lastTerm) : onePieceNumberQuery(lastTerm);
 
   if (name.length === 0) {
     return numberQuery;
   }
 
   return `name:"${escapeScrydexValue(name)}" AND ${numberQuery}`;
+}
+
+function onePieceNumberQuery(number: string): string {
+  const normalized = number.toUpperCase();
+
+  return `!id:${ONE_PIECE_CARD_NUMBER.test(normalized) ? normalized : escapeScrydexValue(normalized)}`;
 }
 
 function pokemonNumberQuery(number: string): string {

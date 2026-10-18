@@ -15,14 +15,14 @@ export function buildSearchQuery(name: string, cardNumber: string): string {
 }
 
 export function queryKey(game: CardGame, query: string, languages: readonly CardLanguage[] = []): string {
-  const version = game === 'pokemon' ? 'v2|' : '';
+  const version = game === 'pokemon' ? 'v3' : 'v2';
 
   const selected = normalizeCardLanguages(game, languages);
   const normalized = normalizeName(query).toLowerCase();
 
   return selected.length === 0
-    ? `${game}|${version}${normalized}`
-    : `${game}|languages-v1|${selected.join(',')}|${normalized}`;
+    ? `${game}|${version}|${normalized}`
+    : `${game}|${version}|languages-v1|${selected.join(',')}|${normalized}`;
 }
 
 export function todayUTC(): string {

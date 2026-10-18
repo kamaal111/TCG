@@ -7,9 +7,11 @@ import { cardPriceSearch } from '../../db/schema/card-pricing.ts';
 import type { ObjectStorageClient } from '../../storage/client.ts';
 import { integrationTest } from '../../tests/fixtures.ts';
 import { createTestUser } from '../../tests/utils.ts';
+import { parseCardLanguages } from '../languages.ts';
 import { SEARCH_PRICING_ROUTE_PATH } from '../routes/search-pricing.ts';
 import { PricingSearchResponseSchema } from '../schemas/responses.ts';
 import { RealScrydexClient } from '../scrydex/real-client.ts';
+import type { CardGame } from '../types.ts';
 import { queryKey, todayUTC } from '../utils/query.ts';
 
 const SHIFTRY = {
@@ -25,11 +27,169 @@ const SHIFTRY = {
 
 const SET_AND_PRINTED_NUMBER = '(!expansion.id:sv5m OR !expansion.id:sv5m_ja) AND !printed_number:"072/071"';
 
+const LUFFY_PROMO = {
+  id: 'P-110',
+  name: 'Monkey.D.Luffy',
+  number: '110',
+  printed_number: 'P-110',
+  variants: [
+    { name: 'fourthAnniversaryStamp', prices: [{ condition: 'NM', type: 'raw', currency: 'USD', market: 20 }] },
+    { name: 'fourthAnniversaryWinnerStamp' },
+  ],
+} satisfies ScrydexRawCard;
+
+const TORCHIC_PROMO = {
+  id: 'mep-56',
+  name: 'Torchic',
+  number: '56',
+  printed_number: '056',
+  language_code: 'EN',
+  expansion: { id: 'mep', code: 'MEP', name: 'Mega Evolution Black Star Promos' },
+} satisfies ScrydexRawCard;
+
+const MEP_AND_NUMBER = '(!expansion.id:mep OR !expansion.id:mep_ja) AND !number:56';
+
 describe('Scrydex search through the authenticated pricing API', () => {
+  for (const { query, expectedQuery } of [
+    { query: 'p-110', expectedQuery: '!id:P-110' },
+    { query: 'Monkey.D.Luffy P-110', expectedQuery: 'name:"Monkey.D.Luffy" AND !id:P-110' },
+  ]) {
+    integrationTest(
+      `finds the anniversary promo using ${query} without requiring base-variant pricing`,
+      async ({ db, storageClient }) => {
+        const search = await createSearchApp({
+          db,
+          storageClient,
+          game: 'one_piece',
+          expectedQuery,
+          cards: [LUFFY_PROMO],
+        });
+
+        const response = await search.request(query);
+
+        expect(response.status).toBe(200);
+
+        const body = PricingSearchResponseSchema.parse(await response.json());
+        expect(body.matches).toMatchObject([{ game: 'one_piece', name: 'Monkey.D.Luffy', card_number: 'P-110' }]);
+        expect(body.matches[0]).not.toHaveProperty('market');
+        expect(body.matches[0]).not.toHaveProperty('headline');
+        expect(search.transport.paths).toEqual(['/onepiece/v1/cards']);
+        expect(search.transport.queries).toEqual([expectedQuery]);
+      },
+    );
+  }
+
+  integrationTest(
+    'bypasses the old empty promo cache and reuses the corrected result',
+    async ({ db, storageClient }) => {
+      await db.insert(cardPriceSearch).values({
+        game: 'one_piece',
+        pricingSource: 'scrydex_real',
+        queryKey: 'one_piece|p-110',
+        pricedOn: todayUTC(),
+        pricingCardIds: [],
+      });
+
+      const search = await createSearchApp({
+        db,
+        storageClient,
+        game: 'one_piece',
+        expectedQuery: '!id:P-110',
+        cards: [LUFFY_PROMO],
+      });
+
+      const first = await search.request('p-110');
+
+      expect(first.status).toBe(200);
+
+      const body = PricingSearchResponseSchema.parse(await first.json());
+      expect(body.matches).toMatchObject([{ name: 'Monkey.D.Luffy', card_number: 'P-110' }]);
+      expect(await db.query.cardPrice.findFirst({ where: { pricingCardId: 'P-110' } })).toMatchObject({
+        pricingSource: 'scrydex_real',
+        cardNumber: 'P-110',
+      });
+      expect(await db.query.cardPriceSearch.findFirst({ where: { queryKey: 'one_piece|v2|p-110' } })).toMatchObject({
+        pricingCardIds: ['P-110'],
+      });
+
+      const second = await search.request(' P-110 ', 'en');
+
+      expect(second.status).toBe(200);
+      expect(PricingSearchResponseSchema.parse(await second.json())).toEqual(body);
+      expect(search.transport.queries).toEqual(['!id:P-110']);
+      expect(await db.query.cardPriceSearch.findMany()).toHaveLength(2);
+    },
+  );
+
+  integrationTest('keeps an empty provider promo search empty', async ({ db, storageClient }) => {
+    const search = await createSearchApp({
+      db,
+      storageClient,
+      game: 'one_piece',
+      expectedQuery: '!id:P-110',
+      cards: [],
+    });
+
+    const response = await search.request('p-110');
+
+    expect(response.status).toBe(200);
+    expect(PricingSearchResponseSchema.parse(await response.json())).toEqual({ matches: [] });
+    expect(search.transport.queries).toEqual(['!id:P-110']);
+    expect(await db.query.cardPrice.findMany()).toEqual([]);
+  });
+
+  for (const { languages, oldKey, expectedQuery } of [
+    { languages: '', oldKey: 'pokemon|v2|mep 056', expectedQuery: MEP_AND_NUMBER },
+    {
+      languages: 'en',
+      oldKey: 'pokemon|languages-v1|en|mep 056',
+      expectedQuery: `(${MEP_AND_NUMBER}) AND (!language_code:EN)`,
+    },
+  ]) {
+    integrationTest(
+      `finds Torchic by MEP promo code despite an old empty cache with languages=${languages}`,
+      async ({ db, storageClient }) => {
+        await db.insert(cardPriceSearch).values({
+          game: 'pokemon',
+          pricingSource: 'scrydex_real',
+          queryKey: oldKey,
+          pricedOn: todayUTC(),
+          pricingCardIds: [],
+        });
+        const search = await createSearchApp({ db, storageClient, expectedQuery, cards: [TORCHIC_PROMO] });
+        const first = await search.request('mep 056', languages);
+
+        expect(first.status).toBe(200);
+
+        const body = PricingSearchResponseSchema.parse(await first.json());
+        expect(body.matches).toMatchObject([
+          { game: 'pokemon', name: 'Torchic', card_number: '056', set_name: 'Mega Evolution Black Star Promos' },
+        ]);
+        expect(await db.query.cardPrice.findFirst({ where: { pricingCardId: 'mep-56' } })).toMatchObject({
+          name: 'Torchic',
+          cardNumber: '056',
+        });
+        expect(
+          await db.query.cardPriceSearch.findFirst({
+            where: { queryKey: queryKey('pokemon', 'mep 056', parseCardLanguages(languages)) },
+          }),
+        ).toMatchObject({ pricingCardIds: ['mep-56'] });
+
+        const second = await search.request(' MEP   056 ', languages);
+
+        expect(second.status).toBe(200);
+        expect(PricingSearchResponseSchema.parse(await second.json())).toEqual(body);
+        expect(search.transport.paths).toEqual(['/pokemon/v1/cards']);
+        expect(search.transport.queries).toEqual([expectedQuery]);
+      },
+    );
+  }
+
   integrationTest('applies the English filter before requesting provider results', async ({ db, storageClient }) => {
     const card = { id: 'sv5-163', name: 'Shiftry', number: '163', language_code: 'EN' };
     const expectedQuery = '(name:"Shiftry") AND (!language_code:EN)';
     const search = await createSearchApp({ db, storageClient, expectedQuery, cards: [card] });
+
     const response = await search.request('Shiftry', 'en');
 
     expect(response.status).toBe(200);
@@ -44,6 +204,7 @@ describe('Scrydex search through the authenticated pricing API', () => {
     const card = SHIFTRY;
     const expectedQuery = '(name:"Shiftry") AND (!language_code:JA)';
     const search = await createSearchApp({ db, storageClient, expectedQuery, cards: [card] });
+
     const response = await search.request('Shiftry', 'ja');
 
     expect(response.status).toBe(200);
@@ -256,14 +417,15 @@ describe('Scrydex search through the authenticated pricing API', () => {
 });
 
 interface SearchAppOptions {
+  game?: CardGame;
   db: Database;
   storageClient: ObjectStorageClient;
   expectedQuery: string;
   cards: ScrydexRawCard[];
 }
 
-async function createSearchApp({ db, storageClient, expectedQuery, cards }: SearchAppOptions) {
-  const transport = new ScrydexSearchTransport(expectedQuery, cards);
+async function createSearchApp({ db, storageClient, expectedQuery, cards, game = 'pokemon' }: SearchAppOptions) {
+  const transport = new ScrydexSearchTransport(expectedQuery, cards, game);
 
   const pricingClient = new RealScrydexClient({
     apiKey: 'test-api-key',
@@ -278,7 +440,7 @@ async function createSearchApp({ db, storageClient, expectedQuery, cards }: Sear
   return {
     transport,
     request: (query: string, languages = '') =>
-      app.request(`${SEARCH_PRICING_ROUTE_PATH}?${new URLSearchParams({ game: 'pokemon', query, languages })}`, {
+      app.request(`${SEARCH_PRICING_ROUTE_PATH}?${new URLSearchParams({ game, query, languages })}`, {
         headers: sessionHeaders(user.sessionToken),
       }),
   };
@@ -291,6 +453,7 @@ class ScrydexSearchTransport {
   constructor(
     private readonly expectedQuery: string,
     private readonly cards: ScrydexRawCard[],
+    private readonly game: CardGame,
   ) {}
 
   readonly fetch: typeof fetch = async input => {
@@ -298,7 +461,8 @@ class ScrydexSearchTransport {
     const query = url.searchParams.get('q') ?? '';
     this.queries.push(query);
     this.paths.push(url.pathname);
-    const data = url.pathname === '/pokemon/v1/cards' && query === this.expectedQuery ? this.cards : [];
+    const expectedPath = this.game === 'pokemon' ? '/pokemon/v1/cards' : '/onepiece/v1/cards';
+    const data = url.pathname === expectedPath && query === this.expectedQuery ? this.cards : [];
 
     return Response.json({ data, total_count: data.length });
   };
