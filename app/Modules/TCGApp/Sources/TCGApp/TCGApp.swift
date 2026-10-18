@@ -97,15 +97,6 @@ private struct TCGSearchTab: View {
         .sheet(item: $selectedCard) { card in
             NavigationStack {
                 TCGCardFormScreen(pricedCard: card)
-                    .toolbar {
-                        ToolbarItem(placement: .cancellationAction) {
-                            Button {
-                                selectedCard = nil
-                            } label: {
-                                Text("Cancel", bundle: .module)
-                            }
-                        }
-                    }
             }
         }
     }

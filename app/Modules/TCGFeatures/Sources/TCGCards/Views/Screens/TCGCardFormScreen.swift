@@ -26,7 +26,9 @@ public struct TCGCardFormScreen: View {
 
     public var body: some View {
         formContent
-            .navigationTitle(model.mode.title)
+            #if os(iOS)
+                .toolbar(.hidden, for: .navigationBar)
+            #endif
             .confirmationDialog(
                 Text("Discard changes?", bundle: .module),
                 isPresented: $model.isShowingDiscardConfirmation,
@@ -56,39 +58,58 @@ public struct TCGCardFormScreen: View {
             .disabled(model.isSubmitting)
     }
 
-    @ViewBuilder
     private var formContent: some View {
-        #if os(macOS)
-            VStack(spacing: 0) {
-                HStack {
-                    dismissButton
-                    Spacer()
-                }
-                .overlay {
-                    Text(model.mode.title)
-                        .font(.headline)
-                        .allowsHitTesting(false)
-                }
-                .padding(.horizontal, 24)
-                .padding(.vertical, 12)
-                .background(Color(nsColor: .windowBackgroundColor))
-
-                Divider()
-                formScrollView
+        VStack(spacing: 0) {
+            HStack {
+                dismissButton
+                Spacer()
+                submitButton
             }
-        #else
+            .overlay {
+                Text(model.mode.title)
+                    .font(.headline)
+                    .allowsHitTesting(false)
+            }
+            .padding(.horizontal, 24)
+            .padding(.vertical, 12)
+            #if os(macOS)
+                .background(Color(nsColor: .windowBackgroundColor))
+            #else
+                .background(.background)
+            #endif
+
+            Divider()
             formScrollView
-                .toolbar {
-                    ToolbarItem(placement: .cancellationAction) { dismissButton }
-                }
-        #endif
+        }
     }
 
     private var formScrollView: some View {
         ScrollView {
-            TCGCardFormFields(model: model) {
-                Task { if await model.submit(using: cards) { dismiss() } }
+            TCGCardFormFields(model: model, submitsOnReturn: true, onSubmit: submit)
+        }
+    }
+
+    private var submitButton: some View {
+        Button(action: submit) {
+            if model.isSubmitting {
+                ProgressView().controlSize(.small)
+            } else {
+                submitTitle
             }
+        }
+        #if os(iOS)
+            .buttonStyle(.borderedProminent)
+        #endif
+        .keyboardShortcut(.defaultAction)
+        .disabled(model.isSubmitting)
+        .accessibilityLabel(submitTitle)
+    }
+
+    private var submitTitle: Text {
+        switch model.mode {
+        case .add: Text("Add", bundle: .module)
+        case .edit: Text("Save", bundle: .module)
+        case .draft: Text("Save Changes", bundle: .module)
         }
     }
 
@@ -105,6 +126,10 @@ public struct TCGCardFormScreen: View {
 
     private func requestDismissal() {
         if model.requestDismissal() { dismiss() }
+    }
+
+    private func submit() {
+        Task { if await model.submit(using: cards) { dismiss() } }
     }
 
 }

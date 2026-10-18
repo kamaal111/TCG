@@ -12,6 +12,7 @@ struct TCGCardFormFields: View {
 
     @Bindable var model: TCGCardFormScreenModel
     var submitTitle: String? = nil
+    var submitsOnReturn = false
     let onSubmit: () -> Void
 
     var body: some View {
@@ -74,6 +75,7 @@ struct TCGCardFormFields: View {
             TCGFormField(label: "Notes", error: model.fieldErrors[.notes]) {
                 TextField("Optional notes", text: $model.values.notes, axis: .vertical)
                     .lineLimit(3...6)
+                    .submitScope()
             }
             TCGSubmitButton(title: submitTitle ?? model.mode.title, isLoading: model.isSubmitting) {
                 onSubmit()
@@ -85,6 +87,9 @@ struct TCGCardFormFields: View {
         .frame(maxWidth: 520)
         .padding(24)
         .frame(maxWidth: .infinity)
+        .onSubmit {
+            if submitsOnReturn && !model.isSubmitting { onSubmit() }
+        }
         .task(id: purchaseDefaultRefreshID) {
             if let currencyState, currencyState.preferenceLoaded {
                 model.configureCurrency(preferred: currencyState.preferredCurrency, rates: currencyState.rates)
