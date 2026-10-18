@@ -309,7 +309,7 @@ struct TCGCardFormScreenModelTests {
     }
 
     @Test
-    func `Dismissal is blocked during submission and a failed save preserves edits`() async throws {
+    func `Submission blocks repeated saves and dismissal and preserves edits on failure`() async throws {
         let transport = PendingCardSubmissionTransport()
         let client = try makeClient(transport: transport)
         let model = TCGCardFormScreenModel(mode: .add, initialValues: nil)
@@ -317,6 +317,7 @@ struct TCGCardFormScreenModelTests {
         let submission = Task { await model.submit(using: TCGCards(client: client)) }
         await transport.waitForRequest()
         #expect(model.isSubmitting)
+        #expect(!(await model.submit(using: TCGCards(client: client))))
         #expect(!model.requestDismissal())
         #expect(!model.isShowingDiscardConfirmation)
         await transport.failRequest()
