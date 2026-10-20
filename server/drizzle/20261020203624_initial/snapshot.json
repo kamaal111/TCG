@@ -1,8 +1,8 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "fc9666cd-5b3a-4098-b1aa-90116b6dfc11",
-  "prevIds": ["792612d2-38a5-4157-9bb6-52fbba2e0717"],
+  "id": "9dda2067-3564-4c12-984f-e450b3816ea8",
+  "prevIds": ["00000000-0000-0000-0000-000000000000"],
   "ddl": [
     {
       "values": ["pending", "fetching", "ready", "failed"],
@@ -83,6 +83,24 @@
       "schema": "public"
     },
     {
+      "isRlsEnabled": false,
+      "name": "card_purchase_batch",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "exchange_rate",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "user_preferences",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
       "type": "text",
       "typeSchema": null,
       "notNull": true,
@@ -98,7 +116,7 @@
     {
       "type": "text",
       "typeSchema": null,
-      "notNull": true,
+      "notNull": false,
       "dimensions": 0,
       "default": null,
       "generated": null,
@@ -1086,6 +1104,19 @@
     {
       "type": "text",
       "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "import_source_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "card"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
       "notNull": true,
       "dimensions": 0,
       "default": null,
@@ -1292,32 +1323,186 @@
       "table": "card_condition_quantity"
     },
     {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "issuer",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "account_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": true,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "account_issuer_accountId_uidx",
-      "entityType": "indexes",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "id",
+      "entityType": "columns",
       "schema": "public",
-      "table": "account"
+      "table": "card_purchase_batch"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "card_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "card_purchase_batch"
+    },
+    {
+      "type": "card_condition",
+      "typeSchema": "public",
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "condition",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "card_purchase_batch"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "quantity",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "card_purchase_batch"
+    },
+    {
+      "type": "numeric(20,6)",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "purchase_price",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "card_purchase_batch"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "currency",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "card_purchase_batch"
+    },
+    {
+      "type": "date",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "automatic_price_date",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "card_purchase_batch"
+    },
+    {
+      "type": "timestamp",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "card_purchase_batch"
+    },
+    {
+      "type": "timestamp",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "updated_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "card_purchase_batch"
+    },
+    {
+      "type": "date",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "date",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "exchange_rate"
+    },
+    {
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "rates",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "exchange_rate"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "collected_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "exchange_rate"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "user_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "user_preferences"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "preferred_currency",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "user_preferences"
     },
     {
       "nameExplicit": true,
@@ -1624,9 +1809,44 @@
           "opclass": null
         },
         {
-          "value": "created_at",
+          "value": "import_source_id",
           "isExpression": false,
           "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": true,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "card_userId_importSourceId_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "card"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "user_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "created_at",
+          "isExpression": false,
+          "asc": false,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "id",
+          "isExpression": false,
+          "asc": false,
           "nullsFirst": false,
           "opclass": null
         }
@@ -1636,7 +1856,7 @@
       "with": "",
       "method": "btree",
       "concurrently": false,
-      "name": "card_userId_createdAt_idx",
+      "name": "card_userId_createdAt_id_idx",
       "entityType": "indexes",
       "schema": "public",
       "table": "card"
@@ -1668,6 +1888,27 @@
       "entityType": "indexes",
       "schema": "public",
       "table": "card_condition_quantity"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "card_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "card_purchase_batch_cardId_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "card_purchase_batch"
     },
     {
       "nameExplicit": false,
@@ -1720,6 +1961,32 @@
       "entityType": "fks",
       "schema": "public",
       "table": "card_condition_quantity"
+    },
+    {
+      "nameExplicit": false,
+      "columns": ["card_id"],
+      "schemaTo": "public",
+      "tableTo": "card",
+      "columnsTo": ["id"],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "name": "card_purchase_batch_card_id_card_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "card_purchase_batch"
+    },
+    {
+      "nameExplicit": false,
+      "columns": ["user_id"],
+      "schemaTo": "public",
+      "tableTo": "user",
+      "columnsTo": ["id"],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "name": "user_preferences_user_id_user_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "user_preferences"
     },
     {
       "columns": ["id"],
@@ -1802,6 +2069,30 @@
       "entityType": "pks"
     },
     {
+      "columns": ["id"],
+      "nameExplicit": false,
+      "name": "card_purchase_batch_pkey",
+      "schema": "public",
+      "table": "card_purchase_batch",
+      "entityType": "pks"
+    },
+    {
+      "columns": ["date"],
+      "nameExplicit": false,
+      "name": "exchange_rate_pkey",
+      "schema": "public",
+      "table": "exchange_rate",
+      "entityType": "pks"
+    },
+    {
+      "columns": ["user_id"],
+      "nameExplicit": false,
+      "name": "user_preferences_pkey",
+      "schema": "public",
+      "table": "user_preferences",
+      "entityType": "pks"
+    },
+    {
       "nameExplicit": false,
       "columns": ["token"],
       "nullsNotDistinct": false,
@@ -1832,6 +2123,48 @@
       "entityType": "checks",
       "schema": "public",
       "table": "card"
+    },
+    {
+      "value": "\"quantity\" between 1 and 999",
+      "name": "card_purchase_batch_quantity_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "card_purchase_batch"
+    },
+    {
+      "value": "\"purchase_price\" >= 0 and \"purchase_price\" < 'Infinity'::numeric",
+      "name": "card_purchase_batch_price_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "card_purchase_batch"
+    },
+    {
+      "value": "\"currency\" in ('EUR', 'USD', 'JPY', 'CZK', 'DKK', 'GBP', 'HUF', 'PLN', 'RON', 'SEK', 'CHF', 'ISK', 'NOK', 'TRY', 'AUD', 'BRL', 'CAD', 'CNY', 'HKD', 'IDR', 'ILS', 'INR', 'KRW', 'MXN', 'MYR', 'NZD', 'PHP', 'SGD', 'THB', 'ZAR')",
+      "name": "card_purchase_batch_currency_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "card_purchase_batch"
+    },
+    {
+      "value": "(\"purchase_price\" is null) = (\"currency\" is null)",
+      "name": "card_purchase_batch_price_pair_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "card_purchase_batch"
+    },
+    {
+      "value": "\"automatic_price_date\" is null or \"purchase_price\" is not null",
+      "name": "card_purchase_batch_date_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "card_purchase_batch"
+    },
+    {
+      "value": "\"preferred_currency\" in ('EUR', 'USD', 'JPY', 'CZK', 'DKK', 'GBP', 'HUF', 'PLN', 'RON', 'SEK', 'CHF', 'ISK', 'NOK', 'TRY', 'AUD', 'BRL', 'CAD', 'CNY', 'HKD', 'IDR', 'ILS', 'INR', 'KRW', 'MXN', 'MYR', 'NZD', 'PHP', 'SGD', 'THB', 'ZAR')",
+      "name": "user_preferences_currency_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "user_preferences"
     }
   ],
   "renames": []
