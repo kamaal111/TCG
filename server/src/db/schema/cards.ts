@@ -15,14 +15,9 @@ import {
 } from 'drizzle-orm/pg-core';
 
 import { user } from './better-auth.ts';
+import { currencyConstraint } from './currency.ts';
 import type { Currency } from '../../card-pricing/types.ts';
-import { currencyConstraint } from '../../forex/currencies.ts';
-
-export const CARD_GAMES = ['one_piece', 'pokemon'] as const;
-
-export const CARD_CONDITIONS = ['mint', 'near_mint', 'excellent', 'good', 'played', 'damaged'] as const;
-
-export const MAX_COPIES_PER_CONDITION = 999;
+import { CARD_GAMES, CARD_CONDITIONS, MAX_COPIES_PER_CONDITION } from '../../cards/types.ts';
 
 export const cardGameEnum = pgEnum('card_game', CARD_GAMES);
 

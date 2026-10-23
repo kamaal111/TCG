@@ -6,7 +6,6 @@ import { type RequestLogger, createRequestLogger } from './index.ts';
 import { type RequestLogFields, requestLogger } from './request.ts';
 import { CONTENTFUL_STATUS_CODES } from '../constants/http.ts';
 import type { HonoContext, HonoEnvironment } from '../context.ts';
-import env from '../env.ts';
 import { APIException, InvalidValidation } from '../exceptions/index.ts';
 
 function loggingMiddleware() {
@@ -17,7 +16,7 @@ function loggingMiddleware() {
         method: c.req.method,
         path: c.req.path,
         url: getUrlForLog(c),
-        mode: env.MODE,
+        mode: c.get('config').MODE,
         userAgent: c.req.header('User-Agent'),
       }),
     onResponse: (_logger, c, elapsedMs) => {
@@ -71,6 +70,10 @@ interface ErrorLogDescription {
 }
 
 function describeError(error: Error): ErrorLogDescription {
+  if (error instanceof APIException && error.status === CONTENTFUL_STATUS_CODES.INTERNAL_SERVER_ERROR) {
+    return describeInternalFailure(error);
+  }
+
   if (error instanceof InvalidValidation) {
     const validationIssues = error.context?.validations ?? [];
 
@@ -108,6 +111,10 @@ function describeError(error: Error): ErrorLogDescription {
     };
   }
 
+  return describeInternalFailure(error);
+}
+
+function describeInternalFailure(error: Error): ErrorLogDescription {
   return {
     level: 'error',
     fields: { event: 'request.failed', error_code: 'INTERNAL_SERVER_ERROR', err: error },

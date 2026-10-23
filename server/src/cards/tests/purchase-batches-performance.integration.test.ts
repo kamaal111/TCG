@@ -1,10 +1,10 @@
 import { drizzle } from 'drizzle-orm/node-postgres';
 
 import { createCardRequest, sessionHeaders } from './utils.ts';
-import App from '../../app.ts';
 import { StaticScrydexClient } from '../../card-pricing/scrydex/static-client.ts';
 import { cardPurchaseBatch } from '../../db/schema/cards.ts';
 import { appRelations } from '../../db/schema/index.ts';
+import App from '../../runtime/node/app.ts';
 import { integrationTest } from '../../tests/fixtures.ts';
 import { createTestUser } from '../../tests/utils.ts';
 

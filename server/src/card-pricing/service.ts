@@ -1,31 +1,33 @@
 import assert from 'node:assert/strict';
 
-import { normalizeCardLanguages, type CardLanguage } from './languages.ts';
-import { imageKeyForOriginURL, storageKeyForImageKey } from '../card-images/keys.ts';
-import { imagesLogger } from '../card-images/logging.ts';
-import type { CardWithPurchases } from '../cards/repository.ts';
-import type { HonoContext } from '../context.ts';
-import env from '../env.ts';
 import type { PricingClient, PricingClientError, PricingSearchResult } from './client.ts';
 import { PricingLockTimeout, PricingProviderUnavailable } from './exceptions.ts';
+import { normalizeCardLanguages, type CardLanguage } from './languages.ts';
 import { type PricingLogFields, pricingLogger } from './logging.ts';
+import { PricingOperation } from './operation.ts';
 import type { CardPriceRow, CardPricingRepository } from './repository.ts';
-import { isNonEmpty, type NonEmptyArray } from '../utils/type-utils.ts';
 import {
   OWNED_CARD_PRICE_STATUSES,
   type OwnedCardPriceResponse,
   type PricedCardResponse,
 } from './schemas/responses.ts';
 import type { CardGame, PricingCardRecord } from './types.ts';
+import { imageKeyForOriginURL, storageKeyForImageKey } from '../card-images/keys.ts';
+import { imagesLogger } from '../card-images/logging.ts';
+import type { CardImageRow } from '../card-images/repository.ts';
+import type { CardWithPurchases } from '../cards/repository.ts';
+import type { HonoContext } from '../context.ts';
+import { isNonEmpty, type NonEmptyArray } from '../utils/type-utils.ts';
 import { serializePricedCard } from './utils/pricing.ts';
 import { buildSearchQuery, normalizeCardNumber, normalizeName, queryKey, todayUTC } from './utils/query.ts';
-import type { CardImageRow } from '../card-images/repository.ts';
 
 export class CardPricingService {
   private readonly c: HonoContext;
+  private readonly operation: PricingOperation;
 
   constructor(c: HonoContext) {
     this.c = c;
+    this.operation = new PricingOperation(c);
   }
 
   private get repository(): CardPricingRepository {
@@ -64,7 +66,7 @@ export class CardPricingService {
 
     this.logCache('pricing.search.cache', 'miss', 0);
 
-    const result = await this.repository.withPricingLock(
+    const result = await this.operation.withPricingLock(
       {
         game,
         key: `pricing:search:${this.client.source}:${pricedOn}:${game}:${normalizedQueryKey}`,
@@ -125,7 +127,10 @@ export class CardPricingService {
         });
         this.logCache('pricing.search.cache', 'set', rows.length);
 
-        return { normalizedQuery, matches: rows.map(row => serializePricedCard(game, row)) };
+        return {
+          normalizedQuery,
+          matches: rows.map(row => serializePricedCard(game, row, this.c.get('config').PUBLIC_BASE_URL)),
+        };
       },
     );
 
@@ -223,12 +228,15 @@ export class CardPricingService {
       await this.registerImages([cached]);
       this.logCache('pricing.owned.cache', 'hit', 1, card.id);
 
-      return this.makeOwnedResponse(card.id, serializePricedCard(card.game, cached));
+      return this.makeOwnedResponse(
+        card.id,
+        serializePricedCard(card.game, cached, this.c.get('config').PUBLIC_BASE_URL),
+      );
     }
 
     this.logCache('pricing.owned.cache', 'miss', 0, card.id);
 
-    const result = await this.repository.withPricingLock(
+    const result = await this.operation.withPricingLock(
       {
         game: card.game,
         key: `pricing:card:${this.client.source}:${pricedOn}:${card.game}:${pricingCardId}`,
@@ -247,7 +255,10 @@ export class CardPricingService {
           await this.registerImages([populated]);
           this.logCache('pricing.owned.cache', 'hit', 1, card.id);
 
-          return this.makeOwnedResponse(card.id, serializePricedCard(card.game, populated));
+          return this.makeOwnedResponse(
+            card.id,
+            serializePricedCard(card.game, populated, this.c.get('config').PUBLIC_BASE_URL),
+          );
         }
 
         const providerStartedAt = performance.now();
@@ -282,7 +293,10 @@ export class CardPricingService {
         await this.registerImages([row]);
         this.logCache('pricing.owned.cache', 'set', 1, card.id);
 
-        return this.makeOwnedResponse(card.id, serializePricedCard(card.game, row));
+        return this.makeOwnedResponse(
+          card.id,
+          serializePricedCard(card.game, row, this.c.get('config').PUBLIC_BASE_URL),
+        );
       },
     );
 
@@ -321,7 +335,7 @@ export class CardPricingService {
     });
 
     await this.registerImages(orderedRows);
-    const matches = orderedRows.map(row => serializePricedCard(game, row));
+    const matches = orderedRows.map(row => serializePricedCard(game, row, this.c.get('config').PUBLIC_BASE_URL));
     this.logCache('pricing.search.cache', 'hit', matches.length);
 
     return { normalizedQuery, matches };
@@ -371,7 +385,7 @@ export class CardPricingService {
       'Registered card images for proxy delivery.',
     );
 
-    if (env.CARD_IMAGE_WORKER_ENABLED && env.CARD_IMAGE_WARM_ON_REGISTER) {
+    if (this.c.get('config').CARD_IMAGE_WORKER_ENABLED && this.c.get('config').CARD_IMAGE_WARM_ON_REGISTER) {
       this.c.get('cardImageWarmer').notifyRegistered(registered.length);
     }
   }

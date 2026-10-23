@@ -2,7 +2,8 @@ import { defineRelationsPart, sql } from 'drizzle-orm';
 import { check, date, jsonb, pgTable, text, timestamp } from 'drizzle-orm/pg-core';
 
 import { user } from './better-auth.ts';
-import { currencyConstraint, type Currency } from '../../forex/currencies.ts';
+import { currencyConstraint } from './currency.ts';
+import type { Currency } from '../../forex/currencies.ts';
 
 export const exchangeRate = pgTable('exchange_rate', {
   date: date('date').primaryKey(),

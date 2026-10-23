@@ -3,11 +3,12 @@ import { HTTPException } from 'hono/http-exception';
 import { requestId } from 'hono/request-id';
 
 import { cardsLogger } from '../../cards/logging.ts';
+import { ApplicationConfigSchema } from '../../config.ts';
 import { REQUEST_ID_HEADER_NAME } from '../../constants/common.ts';
 import { CONTENTFUL_STATUS_CODES } from '../../constants/http.ts';
 import type { HonoEnvironment } from '../../context.ts';
 import { handleServerError } from '../../exceptions/handler.ts';
-import { InvalidPayload } from '../../exceptions/index.ts';
+import { InternalServerError, InvalidPayload } from '../../exceptions/index.ts';
 import { createTestRequestId, getLogsForRequestId } from '../../tests/logs.ts';
 import loggingMiddleware from '../middleware.ts';
 
@@ -101,10 +102,10 @@ describe('Request logging middleware', () => {
     ]);
   });
 
-  test('logs an unexpected error at error level with a serialized cause', async () => {
+  test.each(['/boom', '/internal-failure'])('logs %s at error level with diagnostic details', async path => {
     const { app, requestId: testRequestId } = createLoggingTestApp();
 
-    const response = await app.request('/boom', { headers: requestHeaders(testRequestId) });
+    const response = await app.request(path, { headers: requestHeaders(testRequestId) });
 
     expect(response.status).toBe(CONTENTFUL_STATUS_CODES.INTERNAL_SERVER_ERROR);
     expect(response.headers.get(REQUEST_ID_HEADER_NAME)).toBe(testRequestId);
@@ -142,6 +143,10 @@ function createLoggingTestApp() {
   const app = new Hono<HonoEnvironment>()
     .onError(handleServerError())
     .use(requestId({ headerName: REQUEST_ID_HEADER_NAME }))
+    .use(async (c, next) => {
+      c.set('config', ApplicationConfigSchema.parse({ BETTER_AUTH_URL: 'http://localhost:8080', MODE: 'TEST' }));
+      await next();
+    })
     .use(loggingMiddleware());
 
   app.get('/ok', c => c.json({ message: 'ok' }));
@@ -166,6 +171,9 @@ function createLoggingTestApp() {
   });
   app.get('/boom', () => {
     throw new Error('Boom');
+  });
+  app.get('/internal-failure', () => {
+    throw new InternalServerError(undefined, { diagnosticMessage: 'Boom' });
   });
 
   return { app, requestId: createTestRequestId() };

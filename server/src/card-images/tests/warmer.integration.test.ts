@@ -1,17 +1,17 @@
 import { ok } from 'neverthrow';
 
-import { createDatabaseOnlyContext } from '../../context.ts';
-import { CARD_IMAGE_STATUSES, cardImage } from '../../db/schema/card-images.ts';
+import { cardImage } from '../../db/schema/card-images.ts';
+import { PostgresCardImageRepository } from '../../persistence/postgres/card-images.ts';
+import { CardImageWarmer } from '../../runtime/node/warmer.ts';
 import { integrationTest } from '../../tests/fixtures.ts';
 import { CardImageMaterializer } from '../materializer.ts';
 import type { CardImageOriginClient, CardImageOriginResult } from '../origin-client.ts';
-import { CardImageRepository } from '../repository.ts';
-import { CardImageWarmer } from '../warmer.ts';
+import { CARD_IMAGE_STATUSES } from '../types.ts';
 
 describe('CardImageWarmer', () => {
   integrationTest('claims no more images than it has capacity to work on', async ({ db, storageClient }) => {
     const origin = new GatedImageOriginClient();
-    const repository = new CardImageRepository(createDatabaseOnlyContext(db));
+    const repository = new PostgresCardImageRepository(db);
 
     const warmer = new CardImageWarmer({
       repository,
@@ -47,7 +47,7 @@ describe('CardImageWarmer', () => {
 
   integrationTest('is idle when there is nothing to claim', async ({ db, storageClient }) => {
     const origin = new GatedImageOriginClient();
-    const repository = new CardImageRepository(createDatabaseOnlyContext(db));
+    const repository = new PostgresCardImageRepository(db);
 
     const warmer = new CardImageWarmer({
       repository,

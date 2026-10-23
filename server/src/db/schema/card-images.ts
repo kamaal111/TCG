@@ -1,18 +1,7 @@
 import { defineRelationsPart, sql } from 'drizzle-orm';
 import { check, index, integer, pgEnum, pgTable, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core';
 
-type CardImageStatusMap = {
-  [Status in (typeof CARD_IMAGE_STATUS_ARRAY)[number] as Uppercase<Status>]: Status;
-};
-
-const CARD_IMAGE_STATUS_ARRAY = ['pending', 'fetching', 'ready', 'failed'] as const;
-
-export const CARD_IMAGE_STATUSES = {
-  PENDING: 'pending',
-  FETCHING: 'fetching',
-  READY: 'ready',
-  FAILED: 'failed',
-} satisfies CardImageStatusMap;
+import { CARD_IMAGE_STATUS_ARRAY } from '../../card-images/types.ts';
 
 export const cardImageStatusEnum = pgEnum('card_image_status', CARD_IMAGE_STATUS_ARRAY);
 

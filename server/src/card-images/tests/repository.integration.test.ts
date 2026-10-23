@@ -1,15 +1,15 @@
 import { eq, inArray } from 'drizzle-orm';
 
-import { createDatabaseOnlyContext } from '../../context.ts';
-import { CARD_IMAGE_STATUSES, cardImage } from '../../db/schema/card-images.ts';
+import { cardImage } from '../../db/schema/card-images.ts';
 import env from '../../env.ts';
+import { PostgresCardImageRepository } from '../../persistence/postgres/card-images.ts';
 import { integrationTest } from '../../tests/fixtures.ts';
-import { CardImageRepository } from '../repository.ts';
+import { CARD_IMAGE_STATUSES } from '../types.ts';
 
 describe('CardImageRepository attempt accounting', () => {
   integrationTest('clears the attempt count once an image is ready', async ({ db }) => {
     const imageKey = '1'.repeat(64);
-    const repository = new CardImageRepository(createDatabaseOnlyContext(db));
+    const repository = new PostgresCardImageRepository(db);
     await db.insert(cardImage).values({
       imageKey,
       originUrl: 'https://images.example.com/ready.png',
@@ -32,7 +32,7 @@ describe('CardImageRepository attempt accounting', () => {
 
   integrationTest('makes an image claimable again after its stored object disappears', async ({ db }) => {
     const imageKey = '2'.repeat(64);
-    const repository = new CardImageRepository(createDatabaseOnlyContext(db));
+    const repository = new PostgresCardImageRepository(db);
     await db.insert(cardImage).values({
       imageKey,
       originUrl: 'https://images.example.com/vanished.png',
@@ -57,7 +57,7 @@ describe('CardImageRepository attempt accounting', () => {
 
   integrationTest('stops claiming an image that exhausted its attempts', async ({ db }) => {
     const imageKey = '3'.repeat(64);
-    const repository = new CardImageRepository(createDatabaseOnlyContext(db));
+    const repository = new PostgresCardImageRepository(db);
     await db.insert(cardImage).values({
       imageKey,
       originUrl: 'https://images.example.com/exhausted.png',
@@ -74,7 +74,7 @@ describe('CardImageRepository attempt accounting', () => {
 
   integrationTest('clears a stale retry time when an image is claimed', async ({ db }) => {
     const imageKey = '4'.repeat(64);
-    const repository = new CardImageRepository(createDatabaseOnlyContext(db));
+    const repository = new PostgresCardImageRepository(db);
     await db.insert(cardImage).values({
       imageKey,
       originUrl: 'https://images.example.com/retry.png',
@@ -94,7 +94,7 @@ describe('CardImageRepository attempt accounting', () => {
 
 describe('CardImageRepository.claimBatch', () => {
   integrationTest('never hands the same image to two claimers', async ({ db }) => {
-    const repository = new CardImageRepository(createDatabaseOnlyContext(db));
+    const repository = new PostgresCardImageRepository(db);
     const imageKeys = Array.from({ length: 10 }, (_, index) => String(index).repeat(64));
     await db.insert(cardImage).values(
       imageKeys.map(imageKey => ({
@@ -120,7 +120,7 @@ describe('CardImageRepository.claimBatch', () => {
   });
 
   integrationTest('claims the oldest due images first', async ({ db }) => {
-    const repository = new CardImageRepository(createDatabaseOnlyContext(db));
+    const repository = new PostgresCardImageRepository(db);
     const now = Date.now();
     await db.insert(cardImage).values([
       {
@@ -153,7 +153,7 @@ describe('CardImageRepository.claimBatch', () => {
   });
 
   integrationTest('leaves exhausted and ready images alone', async ({ db }) => {
-    const repository = new CardImageRepository(createDatabaseOnlyContext(db));
+    const repository = new PostgresCardImageRepository(db);
     await db.insert(cardImage).values([
       {
         imageKey: 'd'.repeat(64),
@@ -181,7 +181,7 @@ describe('CardImageRepository.claimBatch', () => {
 
   integrationTest('returns a claim without consuming an attempt', async ({ db }) => {
     const imageKey = 'f'.repeat(64);
-    const repository = new CardImageRepository(createDatabaseOnlyContext(db));
+    const repository = new PostgresCardImageRepository(db);
     await db.insert(cardImage).values({
       imageKey,
       originUrl: 'https://images.example.com/released.png',
@@ -201,7 +201,7 @@ describe('CardImageRepository.claimBatch', () => {
 
 describe('CardImageRepository retry backoff', () => {
   integrationTest('waits longer after each failed attempt, up to a cap', async ({ db }) => {
-    const repository = new CardImageRepository(createDatabaseOnlyContext(db));
+    const repository = new PostgresCardImageRepository(db);
     const imageKeys = ['1', '2', '3'].map(prefix => prefix.repeat(63).concat('a'));
     await db.insert(cardImage).values(
       imageKeys.map(imageKey => ({
@@ -237,7 +237,7 @@ describe('CardImageRepository retry backoff', () => {
 
   integrationTest('stops recovering an expired lease once attempts run out', async ({ db }) => {
     const imageKey = '5'.repeat(64);
-    const repository = new CardImageRepository(createDatabaseOnlyContext(db));
+    const repository = new PostgresCardImageRepository(db);
     await db.insert(cardImage).values({
       imageKey,
       originUrl: 'https://images.example.com/stuck.png',
@@ -258,7 +258,7 @@ describe('CardImageRepository retry backoff', () => {
 
 describe('CardImageRepository.requeueForRefresh', () => {
   integrationTest('sends stored images back through materialization', async ({ db }) => {
-    const repository = new CardImageRepository(createDatabaseOnlyContext(db));
+    const repository = new PostgresCardImageRepository(db);
     const readyKey = '6'.repeat(64);
     const pendingKey = '7'.repeat(64);
     await db.insert(cardImage).values([

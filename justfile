@@ -27,7 +27,7 @@ DATABASE_URL := env("DATABASE_URL", "postgresql://" + DATABASE_USER + ":" + DATA
 PORT := env("PORT", "8080")
 BETTER_AUTH_URL := env("BETTER_AUTH_URL", "http://localhost:" + PORT)
 
-AUTH_CONFIG := "src/auth/better-auth.ts"
+AUTH_CONFIG := "src/runtime/node/auth-schema.ts"
 AUTH_SCHEMA := "src/db/schema/better-auth.ts"
 
 OUTPUT_SCHEMA_FILEPATH := "app/Modules/TCGClient/Sources/TCGClient/openapi.yaml"

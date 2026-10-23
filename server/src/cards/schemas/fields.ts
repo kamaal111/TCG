@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
-import { CARD_CONDITIONS, CARD_GAMES, MAX_COPIES_PER_CONDITION } from '../../db/schema/cards.ts';
 import { CurrencySchema, NullableCurrencySchema } from '../../forex/currencies.ts';
+import { CARD_CONDITIONS, CARD_GAMES, MAX_COPIES_PER_CONDITION } from '../types.ts';
 
 export const CardIdSchema = z.uuid();
 

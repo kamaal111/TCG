@@ -7,7 +7,9 @@ event and field vocabulary. This document is the contract: read it before adding
 ## Where log lines come from
 
 `@hono/structured-logger` owns the request lifecycle. `server/src/logging/middleware.ts` configures it;
-`server/src/logging/index.ts` constructs the root pino logger and request child loggers:
+`server/src/runtime/node/logging.ts` constructs the root pino logger;
+`server/src/logging/index.ts` exposes logging interfaces and delegates request
+child creation to the configured runtime:
 
 - It creates one pino child logger per request and stores it on `c.var.logger`.
 - It times the handler and emits exactly **one request lifecycle** line per request — `request.completed`
@@ -35,7 +37,7 @@ records every failure. Logging in both would duplicate every error line.
 ## The domain logger
 
 Each application domain owns one `logging.ts` declaring its events and fields, and exports an
-accessor. Logger construction stays in `server/src/logging/index.ts`. Auth events and their field
+accessor. Logger construction stays in `server/src/runtime/node/logging.ts`. Auth events and their field
 vocabulary are supplied by `@kamaalio/kamaal-auth-hono`, which receives the request logger.
 
 | Module                               | Events                       | Accessor                                                                      |
@@ -123,6 +125,8 @@ field is safe to index. The one object ever logged is `err`, which pino's standa
 whole entities, lock keys, or raw user search terms. Log the _shape_, not the value — `lock_key_type`, not
 `lock_key`. Redaction in `createLoggerOptions` is a backstop for dependencies that log a vocabulary we do not
 control, not a licence to pass secrets.
+Shared API exceptions with status 500 use `request.failed` at error level and retain
+their diagnostic error in `err`. Their HTTP response still uses the safe message.
 The request logger removes the query string from the incoming `url` before binding it.
 This keeps raw set filters, search terms, and credentials in query parameters out
 of every request and domain log. Top-level redaction does not sanitize values

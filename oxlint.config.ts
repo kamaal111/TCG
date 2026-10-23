@@ -35,8 +35,18 @@ const vitestGlobalImports = {
 
 export default defineConfig({
   extends: [kamaalOxlintConfig],
+  jsPlugins: ['@stylistic/eslint-plugin'],
   ignorePatterns: ['**/dist/**', '**/node_modules/**', '**/*.swift'],
   rules: {
+    '@stylistic/lines-between-class-members': [
+      'error',
+      {
+        enforce: [
+          { blankLine: 'always', prev: '*', next: 'method' },
+          { blankLine: 'always', prev: 'method', next: '*' },
+        ],
+      },
+    ],
     'no-restricted-imports': ['error', { paths: [vitestGlobalImports], patterns: [nodeDefaultImports] }],
     'vitest/no-standalone-expect': ['error', { additionalTestBlockFunctions: ['integrationTest'] }],
   },

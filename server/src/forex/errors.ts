@@ -1,9 +1,10 @@
-export abstract class ForexError extends Error {
+import { InternalServerError } from '../exceptions/index.ts';
+
+export abstract class ForexError extends InternalServerError {
   abstract readonly reason: string;
 
   constructor(message: string, options?: ErrorOptions) {
-    super(message, options);
-    this.name = new.target.name;
+    super(undefined, { diagnosticMessage: message, cause: options?.cause });
   }
 }
 

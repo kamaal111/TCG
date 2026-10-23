@@ -1,13 +1,6 @@
-import stream from 'node:stream';
-
-import type { DestinationStream, LevelWithSilent, Logger, LoggerOptions } from 'pino';
-import pino from 'pino';
-
 import type { ServerMode } from '../constants/common.ts';
 import type { HonoContext } from '../context.ts';
-import env from '../env.ts';
-
-const SERVICE_NAME = 'tcg-server';
+import { InternalServerError } from '../exceptions/index.ts';
 
 export interface CommonLogFields {
   outcome: 'failure' | 'success';
@@ -34,21 +27,38 @@ export interface RequestLogger {
   child(bindings: RequestLoggerBindings): RequestLogger;
 }
 
-interface CreateLoggerOptions {
-  destination?: DestinationStream;
-  level?: LevelWithSilent;
-  mode?: ServerMode;
-  pretty?: boolean;
+interface LoggingBackend {
+  root: RequestLogger;
+  createRequestLogger(fields: {
+    request_id: string;
+    method: string;
+    path: string;
+    url: string;
+    mode: ServerMode;
+    user_agent: string | undefined;
+  }): RequestLogger;
 }
 
-let rootLogger = createServerLogger();
+let backend: LoggingBackend | undefined;
+
+export function configureLogging(value: LoggingBackend): void {
+  backend = value;
+}
+
+function getLoggingBackend(): LoggingBackend {
+  if (backend == null) {
+    throw new InternalServerError(undefined, { diagnosticMessage: 'Logging must be configured by the runtime' });
+  }
+
+  return backend;
+}
 
 export function getDomainLogger<Fields extends DomainLogFields<string>>(c: HonoContext): DomainLogger<Fields> {
   return c.get('logger');
 }
 
 export function getProcessLogger<Fields extends DomainLogFields<string>>(): DomainLogger<Fields> {
-  return getRootLogger();
+  return getLoggingBackend().root;
 }
 
 export function createRequestLogger(fields: {
@@ -59,7 +69,7 @@ export function createRequestLogger(fields: {
   mode: ServerMode;
   userAgent: string | undefined;
 }): RequestLogger {
-  return getRootLogger().child({
+  return getLoggingBackend().createRequestLogger({
     request_id: fields.requestId,
     method: fields.method,
     path: fields.path,
@@ -67,47 +77,4 @@ export function createRequestLogger(fields: {
     mode: fields.mode,
     user_agent: fields.userAgent,
   });
-}
-
-export function setRootLoggerDestination(destination: DestinationStream) {
-  rootLogger = createServerLogger({ destination, pretty: false });
-}
-
-export function createMemoryLogDestination(logs: string[]) {
-  return new stream.Writable({
-    write(chunk: string | Uint8Array, _encoding, callback) {
-      logs.push(Buffer.from(chunk).toString('utf8'));
-      callback();
-    },
-  });
-}
-
-function getRootLogger() {
-  return rootLogger;
-}
-
-function createServerLogger(options: CreateLoggerOptions = {}): Logger {
-  const destination = options.destination ?? createDestination(options.pretty ?? env.DEBUG);
-  const loggerOptions = createLoggerOptions(options.level ?? env.LOG_LEVEL, options.mode ?? env.MODE);
-
-  return pino(loggerOptions, destination);
-}
-
-function createLoggerOptions(level: LevelWithSilent, mode: ServerMode): LoggerOptions {
-  return {
-    level,
-    base: { service: SERVICE_NAME, mode },
-    redact: {
-      paths: ['authorization', 'Authorization', 'cookie', 'Cookie', 'token', 'jwt', 'password', 'email'],
-      censor: '[Redacted]',
-    },
-  };
-}
-
-function createDestination(pretty: boolean) {
-  if (pretty) {
-    return pino.transport({ target: 'pino-pretty', options: { colorize: true, ignore: 'pid,hostname' } });
-  }
-
-  return pino.destination({ sync: true });
 }

@@ -3,10 +3,10 @@ import assert from 'node:assert/strict';
 import { eq, sql } from 'drizzle-orm';
 
 import { sessionHeaders, createCardRequest } from './utils.ts';
-import App from '../../app.ts';
 import { RealScrydexClient } from '../../card-pricing/scrydex/real-client.ts';
 import { CONTENTFUL_STATUS_CODES } from '../../constants/http.ts';
 import { card, cardPurchaseBatch } from '../../db/schema/cards.ts';
+import App from '../../runtime/node/app.ts';
 import { integrationTest } from '../../tests/fixtures.ts';
 import { createTestUser } from '../../tests/utils.ts';
 import { EXPORT_CARDS_ROUTE_PATH } from '../routes/export-cards.ts';

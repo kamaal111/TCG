@@ -1,9 +1,9 @@
 import type { ScrydexRawCard } from '@tcg/scrydex';
 
-import App from '../../app.ts';
 import { sessionHeaders } from '../../cards/tests/utils.ts';
 import type { Database } from '../../db/index.ts';
 import { cardPriceSearch } from '../../db/schema/card-pricing.ts';
+import App from '../../runtime/node/app.ts';
 import type { ObjectStorageClient } from '../../storage/client.ts';
 import { integrationTest } from '../../tests/fixtures.ts';
 import { createTestUser } from '../../tests/utils.ts';

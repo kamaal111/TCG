@@ -1,14 +1,17 @@
 import assert from 'node:assert/strict';
 
 import { drizzle } from 'drizzle-orm/node-postgres';
+import { Context } from 'hono';
 import { ResultAsync } from 'neverthrow';
 import { Client, Pool } from 'pg';
 
-import { createDatabaseOnlyContext } from '../../context.ts';
+import type { HonoEnvironment } from '../../context.ts';
 import type { Database } from '../../db/index.ts';
 import { appRelations } from '../../db/schema/index.ts';
+import env from '../../env.ts';
 import { APIException } from '../../exceptions/index.ts';
 import { createRequestLogger } from '../../logging/index.ts';
+import { createPostgresPersistence } from '../../persistence/postgres/index.ts';
 import { integrationTest } from '../../tests/fixtures.ts';
 import {
   PricingLockTimeout,
@@ -17,11 +20,12 @@ import {
   PricingOperationFailed,
   type PricingLockError,
 } from '../exceptions.ts';
-import { CardPricingRepository } from '../repository.ts';
+import { PricingOperation } from '../operation.ts';
 import { todayUTC } from '../utils/query.ts';
 
 function createRepository(db: Database, requestId: string) {
-  const c = createDatabaseOnlyContext(db);
+  const c = new Context<HonoEnvironment>(new Request('http://localhost'));
+  c.set('persistence', createPostgresPersistence(db, env.PRICING_LOCK_TIMEOUT_MS));
   c.set('requestId', requestId);
   c.set(
     'logger',
@@ -35,7 +39,7 @@ function createRepository(db: Database, requestId: string) {
     }),
   );
 
-  return { c, repository: new CardPricingRepository(c) };
+  return { c, repository: new PricingOperation(c) };
 }
 
 function pricingLock() {

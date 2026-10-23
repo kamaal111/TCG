@@ -3,8 +3,8 @@ import crypto from 'node:crypto';
 import type { ImagesLogFields } from './logging.ts';
 import type { CardImageOriginClient } from './origin-client.ts';
 import type { CardImageRepository, CardImageRow, ClaimedCardImageRow } from './repository.ts';
-import { CARD_IMAGE_STATUSES } from '../db/schema/card-images.ts';
-import env from '../env.ts';
+import { CARD_IMAGE_STATUSES } from './types.ts';
+import { DEFAULT_IMAGE_POLICY, type ApplicationConfig } from '../config.ts';
 import type { DomainLogger } from '../logging/index.ts';
 import type { ObjectStorageClient } from '../storage/client.ts';
 
@@ -50,6 +50,7 @@ export class CardImageMaterializer {
     repository: CardImageRepository;
     storageClient: ObjectStorageClient;
     imageOriginClient: CardImageOriginClient;
+    config?: Pick<ApplicationConfig, 'CARD_IMAGE_MAX_ATTEMPTS' | 'CARD_IMAGE_WARM_CONCURRENCY'>;
   };
   private readonly inFlight = new Map<string, Promise<CardImageMaterializationResult>>();
   private readonly limiter: AsyncLimiter;
@@ -58,9 +59,12 @@ export class CardImageMaterializer {
     repository: CardImageRepository;
     storageClient: ObjectStorageClient;
     imageOriginClient: CardImageOriginClient;
+    config?: Pick<ApplicationConfig, 'CARD_IMAGE_MAX_ATTEMPTS' | 'CARD_IMAGE_WARM_CONCURRENCY'>;
   }) {
     this.dependencies = dependencies;
-    this.limiter = new AsyncLimiter();
+    this.limiter = new AsyncLimiter(
+      dependencies.config?.CARD_IMAGE_WARM_CONCURRENCY ?? DEFAULT_IMAGE_POLICY.CARD_IMAGE_WARM_CONCURRENCY,
+    );
   }
 
   materialize(imageKey: string, options: MaterializationOptions): Promise<CardImageMaterializationResult> {
@@ -123,7 +127,13 @@ export class CardImageMaterializer {
     if (row == null) {
       const current = await this.dependencies.repository.getByImageKey(imageKey);
 
-      if (current == null || isExhausted(current)) {
+      if (
+        current == null ||
+        isExhausted(
+          current,
+          this.dependencies.config?.CARD_IMAGE_MAX_ATTEMPTS ?? DEFAULT_IMAGE_POLICY.CARD_IMAGE_MAX_ATTEMPTS,
+        )
+      ) {
         return { status: CARD_IMAGE_MATERAILIZATION_STATUSES.NOT_FOUND };
       }
 
@@ -291,11 +301,17 @@ export class CardImageMaterializer {
  * A row is out of attempts and will never be retried. A row currently being fetched is excluded:
  * claiming increments the count, so an in-flight attempt can legitimately sit at the cap.
  */
-function isExhausted(row: CardImageRow): boolean {
-  return row.attemptCount >= env.CARD_IMAGE_MAX_ATTEMPTS && row.status !== CARD_IMAGE_STATUSES.FETCHING;
+function isExhausted(row: CardImageRow, maxAttempts: number): boolean {
+  return row.attemptCount >= maxAttempts && row.status !== CARD_IMAGE_STATUSES.FETCHING;
 }
 
 class AsyncLimiter {
+  private readonly concurrency: number;
+
+  constructor(concurrency: number) {
+    this.concurrency = concurrency;
+  }
+
   private activeCount = 0;
   private readonly waiters: (() => void)[] = [];
 
@@ -310,7 +326,7 @@ class AsyncLimiter {
   }
 
   private async acquire(): Promise<void> {
-    if (this.activeCount < env.CARD_IMAGE_WARM_CONCURRENCY) {
+    if (this.activeCount < this.concurrency) {
       this.activeCount += 1;
 
       return;

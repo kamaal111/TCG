@@ -18,19 +18,19 @@ import {
   type StoredObjectHead,
 } from './client.ts';
 import { CONTENTFUL_STATUS_CODES } from '../constants/http.ts';
-import env from '../env.ts';
 import { toError, tryCatch } from '../utils/results.ts';
 
 type S3Sender = Pick<S3Client, 'send'>;
 
 interface S3ObjectStorageClientOptions {
   accessKeyId?: string;
-  bucket?: string;
+  bucket: string;
   clientFactory?: (configuration: S3ClientConfig) => S3Sender;
   endpoint?: string;
-  forcePathStyle?: boolean;
-  region?: string;
-  requestTimeoutMs?: number;
+  forcePathStyle: boolean;
+  region: string;
+  requestTimeoutMs: number;
+  maxAttempts: number;
   secretAccessKey?: string;
 }
 
@@ -45,16 +45,16 @@ export class S3ObjectStorageClient implements ObjectStorageClient {
   private readonly requestTimeoutMs: number;
   private readonly secretAccessKey: string | undefined;
 
-  constructor(options: S3ObjectStorageClientOptions = {}) {
-    this.accessKeyId = options.accessKeyId ?? env.OBJECT_STORAGE_ACCESS_KEY_ID;
-    this.secretAccessKey = options.secretAccessKey ?? env.OBJECT_STORAGE_SECRET_ACCESS_KEY;
-    this.bucket = options.bucket ?? env.OBJECT_STORAGE_BUCKET;
-    this.requestTimeoutMs = options.requestTimeoutMs ?? env.OBJECT_STORAGE_REQUEST_TIMEOUT_MS;
+  constructor(options: S3ObjectStorageClientOptions) {
+    this.accessKeyId = options.accessKeyId;
+    this.secretAccessKey = options.secretAccessKey;
+    this.bucket = options.bucket;
+    this.requestTimeoutMs = options.requestTimeoutMs;
 
     const configuration: S3ClientConfig = {
-      region: options.region ?? env.OBJECT_STORAGE_REGION,
-      endpoint: options.endpoint ?? env.OBJECT_STORAGE_ENDPOINT,
-      forcePathStyle: options.forcePathStyle ?? env.OBJECT_STORAGE_FORCE_PATH_STYLE,
+      region: options.region,
+      endpoint: options.endpoint,
+      forcePathStyle: options.forcePathStyle,
       credentials:
         this.accessKeyId != null && this.secretAccessKey != null
           ? { accessKeyId: this.accessKeyId, secretAccessKey: this.secretAccessKey }
@@ -62,7 +62,7 @@ export class S3ObjectStorageClient implements ObjectStorageClient {
       // Compatible stores may reject the SDK's otherwise automatic CRC32 headers.
       requestChecksumCalculation: 'WHEN_REQUIRED',
       responseChecksumValidation: 'WHEN_REQUIRED',
-      maxAttempts: env.OBJECT_STORAGE_MAX_ATTEMPTS,
+      maxAttempts: options.maxAttempts,
     };
 
     const clientFactory = options.clientFactory ?? (config => new S3Client(config));

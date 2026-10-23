@@ -3,15 +3,20 @@ import assert from 'node:assert/strict';
 import { eq } from 'drizzle-orm';
 
 import { createCardRequest, sessionHeaders } from './utils.ts';
-import App from '../../app.ts';
 import { RealScrydexClient } from '../../card-pricing/scrydex/real-client.ts';
-import type { InjectedContext } from '../../context.ts';
+import type { Database } from '../../db/index.ts';
 import { card, cardPurchaseBatch } from '../../db/schema/cards.ts';
+import App from '../../runtime/node/app.ts';
+import type { ObjectStorageClient } from '../../storage/client.ts';
 import { integrationTest } from '../../tests/fixtures.ts';
 import { createTestUser } from '../../tests/utils.ts';
 import { CardSchema } from '../schemas/responses.ts';
 
-type PendingPricingSetup = Pick<InjectedContext, 'db' | 'storageClient'> & { app: App['app'] };
+interface PendingPricingSetup {
+  db: Database;
+  app: App['app'];
+  storageClient: ObjectStorageClient;
+}
 
 async function pendingPricing({ app, db, storageClient }: PendingPricingSetup) {
   const user = await createTestUser(app, db);

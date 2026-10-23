@@ -1,6 +1,4 @@
-import type { cardConditionQuantity } from '../../db/schema/cards.ts';
-
-type ConditionQuantity = Pick<typeof cardConditionQuantity.$inferSelect, 'condition' | 'quantity'>;
+import type { ConditionQuantity } from '../types.ts';
 
 export function purchaseQuantities(purchases: readonly ConditionQuantity[]): ConditionQuantity[] {
   return purchases

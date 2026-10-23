@@ -11,6 +11,7 @@
 - For TCG Swift-client endpoint work, use the repository-local `tcg-client-endpoint` skill alongside the relevant Kamaal Super Mind skills.
 - Before adding or changing a server log line, read `server/docs/logging.md`; events and fields are declared per domain and enforced by the type checker.
 - Use domain-specific error types for neverthrow `Result` and `ResultAsync` failures; do not expose generic `Error` as their failure type. Errors returned to API users must use custom errors extending `APIException`. Keep unknown failures at capture boundaries and map them into the domain error contract.
+- All application-defined error classes must inherit from a base in `server/src/exceptions/index.ts`; add missing status bases there. Do not extend or construct generic errors in production code. Repositories may construct shared exceptions without HTTP context; the HTTP handler adds the request ID. Keep diagnostic details in causes or diagnostic messages and use safe response messages.
 - When changing user-facing Swift text, use compiler-extractable localized APIs and the owning module's resource bundle. Sync its string catalog through Xcode or `xcstringstool`, including both platforms' strings. `just ready-app` checks catalog coverage after compilation; see `app/README.md#localization-coverage`.
 
 ## Dev Container

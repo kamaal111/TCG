@@ -22,6 +22,7 @@ catalog:
   '@kamaalio/kamaal-auth-core': '~0.0.15'
   '@kamaalio/kamaal-auth-hono': '~0.0.15'
   '@standard-schema/spec': '^1.1.0'
+  '@stylistic/eslint-plugin': 5.10.0
   '@types/node': '^26.6.4'
   '@types/pg': '^8.23.1'
   '@vitest/coverage-v8': '^5.0.3'

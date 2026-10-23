@@ -2,21 +2,21 @@ import assert from 'node:assert/strict';
 
 import { ok } from 'neverthrow';
 
-import App from '../../app.ts';
 import { CONTENTFUL_STATUS_CODES } from '../../constants/http.ts';
-import { createDatabaseOnlyContext } from '../../context.ts';
-import { CARD_IMAGE_STATUSES, cardImage } from '../../db/schema/card-images.ts';
+import { cardImage } from '../../db/schema/card-images.ts';
 import env from '../../env.ts';
+import { PostgresCardImageRepository } from '../../persistence/postgres/card-images.ts';
+import App from '../../runtime/node/app.ts';
+import { CardImageWarmer } from '../../runtime/node/warmer.ts';
 import { integrationTest } from '../../tests/fixtures.ts';
 import { CardImageMaterializer } from '../materializer.ts';
 import type { CardImageOriginClient, CardImageOriginResult } from '../origin-client.ts';
-import { CardImageRepository } from '../repository.ts';
-import { CardImageWarmer } from '../warmer.ts';
+import { CARD_IMAGE_STATUSES } from '../types.ts';
 
 describe('Card image proxy integration', () => {
   integrationTest('allows one lease owner and rejects stale completion', async ({ db }) => {
     const imageKey = 'c'.repeat(64);
-    const repository = new CardImageRepository(createDatabaseOnlyContext(db));
+    const repository = new PostgresCardImageRepository(db);
     await db.insert(cardImage).values({
       imageKey,
       originUrl: 'https://images.example.com/lease.png',
@@ -46,7 +46,7 @@ describe('Card image proxy integration', () => {
     async ({ db, storageClient }) => {
       const imageKey = 'a'.repeat(64);
       const origin = new BlockingImageOriginClient();
-      const repository = new CardImageRepository(createDatabaseOnlyContext(db));
+      const repository = new PostgresCardImageRepository(db);
 
       const cardImageMaterializer = new CardImageMaterializer({
         repository,
@@ -102,7 +102,7 @@ describe('Card image proxy integration', () => {
   integrationTest('does not hold a database transaction while downloading an image', async ({ db, storageClient }) => {
     const imageKey = 'b'.repeat(64);
     const origin = new BlockingImageOriginClient();
-    const repository = new CardImageRepository(createDatabaseOnlyContext(db));
+    const repository = new PostgresCardImageRepository(db);
 
     const cardImageMaterializer = new CardImageMaterializer({
       repository,
@@ -134,7 +134,7 @@ describe('Card image proxy integration', () => {
   integrationTest('logs each origin image fetch', async ({ db, storageClient, getLogsForRequestId, withRequestId }) => {
     const imageKey = 'd'.repeat(64);
     const origin = new BlockingImageOriginClient();
-    const repository = new CardImageRepository(createDatabaseOnlyContext(db));
+    const repository = new PostgresCardImageRepository(db);
 
     const cardImageMaterializer = new CardImageMaterializer({
       repository,

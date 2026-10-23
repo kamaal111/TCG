@@ -1,7 +1,6 @@
 import crypto from 'node:crypto';
 import path from 'node:path';
 
-import env from '../env.ts';
 import { IMAGES_PATH_PREFIX } from './constants.ts';
 
 export function imageKeyForOriginURL(originURL: string): string {
@@ -12,10 +11,10 @@ export function storageKeyForImageKey(imageKey: string): string {
   return path.join('card-images', imageKey.slice(0, 2), imageKey.slice(2, 4), imageKey);
 }
 
-function imageProxyURL(imageKey: string): string {
-  return new URL(path.join(IMAGES_PATH_PREFIX, imageKey), env.PUBLIC_BASE_URL).toString();
+function imageProxyURL(imageKey: string, baseURL: string): string {
+  return new URL(path.join(IMAGES_PATH_PREFIX, imageKey), baseURL).toString();
 }
 
-export function proxyURLForOriginURL(originURL: string): string {
-  return imageProxyURL(imageKeyForOriginURL(originURL));
+export function proxyURLForOriginURL(originURL: string, baseURL: string): string {
+  return imageProxyURL(imageKeyForOriginURL(originURL), baseURL);
 }

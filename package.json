@@ -37,6 +37,7 @@
     "@devcontainers/cli": "catalog:",
     "@kamaal111/kamaal-quality-config": "catalog:",
     "@standard-schema/spec": "catalog:",
+    "@stylistic/eslint-plugin": "catalog:",
     "@types/node": "catalog:",
     "@types/pg": "catalog:",
     "@vitest/coverage-v8": "catalog:",

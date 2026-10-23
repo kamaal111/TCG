@@ -26,6 +26,11 @@ export interface ForexClient {
 
 export class EcbForexClient implements ForexClient {
   private readonly fetchImplementation: typeof fetch;
+  private readonly parser = new XMLParser({
+    ignoreAttributes: false,
+    attributeNamePrefix: '',
+    removeNSPrefix: true,
+  });
 
   constructor(options: { fetch?: typeof fetch } = {}) {
     this.fetchImplementation = options.fetch ?? fetch;
@@ -42,11 +47,7 @@ export class EcbForexClient implements ForexClient {
       const xml = feed.value;
       SyntaxValidator.validate(xml);
 
-      const raw: unknown = new XMLParser({
-        ignoreAttributes: false,
-        attributeNamePrefix: '',
-        removeNSPrefix: true,
-      }).parse(xml);
+      const raw: unknown = this.parser.parse(xml);
 
       const day = FeedSchema.parse(raw).Envelope.Cube.Cube;
 

@@ -11,18 +11,13 @@ import {
 import { type JWTPayload, decodeJwt } from 'jose';
 import z from 'zod';
 
-import { BETTER_AUTH_BASE_URL } from './constants.ts';
+import { BETTER_AUTH_BASE_PATH } from './constants.ts';
 import type { HonoContext } from '../context.ts';
-import env from '../env.ts';
 import { SessionExtrasSchema } from './schemas/responses.ts';
 
 export type AuthLocals = HonoContext;
 
 const SESSION_COOKIE_NAME = 'better-auth.session_token';
-
-const TOKEN_URL = new URL('token', BETTER_AUTH_BASE_URL);
-
-const SESSION_UPDATE_AGE_SECONDS = ONE_DAY_IN_SECONDS * env.BETTER_AUTH_SESSION_UPDATE_AGE_DAYS;
 
 const BetterAuthErrorSchema = z.object({ code: z.string(), message: z.string() });
 
@@ -88,7 +83,10 @@ export const authHooks = defineAuthHooks({
 
     const { token } = TokenResponseSchema.parse(await response.json());
 
-    return { ok: true, value: { token, expiresInSeconds: expiresInSeconds(token) } };
+    return {
+      ok: true,
+      value: { token, expiresInSeconds: expiresInSeconds(token, c.locals.get('config').JWT_EXPIRY_DAYS) },
+    };
   },
 
   async jwks(c: Context) {
@@ -97,7 +95,7 @@ export const authHooks = defineAuthHooks({
 
   /** Tests have no reachable JWKS endpoint, so verification reads the keys better-auth persisted. */
   async verificationKeys(c: Context) {
-    const rows = await c.locals.get('db').query.jwks.findMany({ columns: { id: true, publicKey: true } });
+    const rows = await c.locals.get('auth').verificationKeys();
 
     return {
       keys: rows.map(row => ({ ...PublicJWKSchema.parse(JSON.parse(row.publicKey)), kid: row.id })),
@@ -145,15 +143,15 @@ async function authenticate(c: Context): Promise<AuthHookResult<{ user: AuthUser
       credentials: {
         sessionToken,
         authToken: token,
-        authTokenExpiresInSeconds: expiresInSeconds(token),
-        sessionUpdateAgeSeconds: SESSION_UPDATE_AGE_SECONDS,
+        authTokenExpiresInSeconds: expiresInSeconds(token, c.locals.get('config').JWT_EXPIRY_DAYS),
+        sessionUpdateAgeSeconds: ONE_DAY_IN_SECONDS * c.locals.get('config').BETTER_AUTH_SESSION_UPDATE_AGE_DAYS,
       },
     },
   };
 }
 
 async function mintToken(c: Context, sessionToken: string): Promise<string | null> {
-  const request = new Request(TOKEN_URL, {
+  const request = new Request(new URL(`${BETTER_AUTH_BASE_PATH}/token`, c.locals.get('config').BETTER_AUTH_URL), {
     method: 'GET',
     headers: new Headers({ Authorization: `Bearer ${sessionToken}` }),
   });
@@ -178,11 +176,11 @@ function toAuthUser(user: z.infer<typeof BetterAuthUserSchema>): AuthUser {
 }
 
 /** Seconds until the JWT expires, falling back to the configured lifetime when it carries no `exp`. */
-function expiresInSeconds(token: string): number {
+function expiresInSeconds(token: string, expiryDays: number): number {
   const payload = decodeJwtSafely(token);
 
   if (payload?.exp == null) {
-    return ONE_DAY_IN_SECONDS * env.JWT_EXPIRY_DAYS;
+    return ONE_DAY_IN_SECONDS * expiryDays;
   }
 
   return payload.exp - Math.floor(Date.now() / 1000);
@@ -199,9 +197,18 @@ function decodeJwtSafely(token: string): JWTPayload | undefined {
 export const sessionExtras: SessionExtras<typeof SessionExtrasSchema, AuthLocals> = {
   schema: SessionExtrasSchema,
   resolve: async (c, { userId }) => {
-    const preferredCurrency = await c.locals.get('userPreferencesRepository').findPreferredCurrency(userId);
+    const preferredCurrency = await c.locals
+      .get('persistence')
+      .forRequest(
+        { requireUserId: () => userId },
+        {
+          cardsLogger: c.locals.get('logger'),
+          setImportProgress: progress => c.locals.set('cardImportProgress', progress),
+        },
+      )
+      .userPreferencesRepository.findPreferredCurrency();
 
-    const currency = preferredCurrency ?? env.DEFAULT_PREFERRED_CURRENCY;
+    const currency = preferredCurrency ?? c.locals.get('config').DEFAULT_PREFERRED_CURRENCY;
     c.locals.set('preferredCurrency', currency);
 
     return { preferred_currency: currency };

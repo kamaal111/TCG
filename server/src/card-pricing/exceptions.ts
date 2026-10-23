@@ -1,6 +1,6 @@
 import { CONTENTFUL_STATUS_CODES } from '../constants/http.ts';
 import { RETRY_AFTER_SECONDS } from '../constants/time.ts';
-import { APIException, type ExceptionContext } from '../exceptions/index.ts';
+import { APIException, InternalServerError, type ExceptionContext } from '../exceptions/index.ts';
 
 type CardPricingExceptionCode = (typeof CARD_PRICING_EXCEPTION_CODES)[keyof typeof CARD_PRICING_EXCEPTION_CODES];
 
@@ -44,14 +44,11 @@ export class PricingProviderUnavailable extends CardPriceException {
   }
 }
 
-class PricingInternalFailure extends APIException {
+class PricingInternalFailure extends InternalServerError {
   override readonly cause: Error;
 
   constructor(c: ExceptionContext, cause: Error) {
-    super(c, CONTENTFUL_STATUS_CODES.INTERNAL_SERVER_ERROR, {
-      message: 'Something went wrong',
-      code: 'INTERNAL_SERVER_ERROR',
-    });
+    super(c, { cause });
     this.cause = cause;
   }
 }

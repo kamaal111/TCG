@@ -3,12 +3,12 @@ import { drizzle } from 'drizzle-orm/node-postgres';
 import { Client } from 'pg';
 
 import { createCardRequest, sessionHeaders, validCardPayload } from './utils.ts';
-import App from '../../app.ts';
 import { StaticScrydexClient } from '../../card-pricing/scrydex/static-client.ts';
 import { todayUTC } from '../../card-pricing/utils/query.ts';
 import { CONTENTFUL_STATUS_CODES } from '../../constants/http.ts';
 import { card } from '../../db/schema/cards.ts';
 import { appRelations } from '../../db/schema/index.ts';
+import App from '../../runtime/node/app.ts';
 import { expectErrorResponse } from '../../tests/auth.ts';
 import { integrationTest } from '../../tests/fixtures.ts';
 import { createTestUser } from '../../tests/utils.ts';
