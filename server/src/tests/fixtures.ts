@@ -1,8 +1,8 @@
 import { createTestRequestId, getLogsForRequestId, withRequestId } from './logs.ts';
-import App from '../app.ts';
 import { createTestObjectStorage } from './storage.ts';
 import { createTestDatabase } from './utils.ts';
 import { StaticScrydexClient } from '../card-pricing/scrydex/static-client.ts';
+import App from '../runtime/node/app.ts';
 
 export const integrationTest = test
   .extend('_fixturesSetup', async ({ task: _task }, { onCleanup }) => {

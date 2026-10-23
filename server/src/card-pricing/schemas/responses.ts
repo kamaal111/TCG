@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { CARD_GAMES } from '../../db/schema/cards.ts';
+import { CARD_GAMES } from '../../cards/types.ts';
 import { CurrencySchema } from '../../forex/currencies.ts';
 import { ApiCommonDatetime } from '../../schemas/common.ts';
 

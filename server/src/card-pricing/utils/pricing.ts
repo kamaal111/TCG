@@ -4,7 +4,7 @@ import type { CardPriceRow } from '../repository.ts';
 import { PRICE_HEADLINE_METRICS, type PricedCardResponse, PricedCardSchema } from '../schemas/responses.ts';
 import type { CardGame } from '../types.ts';
 
-export function serializePricedCard(game: CardGame, row: CardPriceRow): PricedCardResponse {
+export function serializePricedCard(game: CardGame, row: CardPriceRow, baseURL: string): PricedCardResponse {
   const market =
     row.prices.market != null
       ? {
@@ -38,7 +38,7 @@ export function serializePricedCard(game: CardGame, row: CardPriceRow): PricedCa
         }
       : undefined;
 
-  const imageUrl = row.prices.image != null ? proxyURLForOriginURL(row.prices.image) : undefined;
+  const imageUrl = row.prices.image != null ? proxyURLForOriginURL(row.prices.image, baseURL) : undefined;
 
   return PricedCardSchema.parse({
     id: row.id,

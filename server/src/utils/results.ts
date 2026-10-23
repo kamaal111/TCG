@@ -1,5 +1,7 @@
 import { err, ok, ResultAsync, type Result } from 'neverthrow';
 
+import { InternalServerError } from '../exceptions/index.ts';
+
 export function tryCatch<T>(callback: () => Promise<T>): ResultAsync<T, unknown>;
 export function tryCatch<T>(callback: () => T): Result<T, unknown>;
 export function tryCatch<T>(callback: () => T | Promise<T>): Result<T, unknown> | ResultAsync<T, unknown> {
@@ -21,5 +23,5 @@ export function toError(cause: unknown): Error {
     return cause;
   }
 
-  return new Error(String(cause));
+  return new InternalServerError(undefined, { cause, diagnosticMessage: String(cause) });
 }

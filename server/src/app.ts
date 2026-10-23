@@ -1,163 +1,30 @@
-import { type ServerType, serve } from '@hono/node-server';
 import { $ } from '@kamaalio/hono-standard-openapi';
-import type { Hono } from 'hono';
-import { showRoutes } from 'hono/dev';
 import { requestId } from 'hono/request-id';
 import { secureHeaders } from 'hono/secure-headers';
 
-import appApiRoute from './app-api/index.ts';
-import { auth as authSingleton, createAuth } from './auth/better-auth.ts';
+import { createAppApiRoute } from './app-api/index.ts';
+import { createApplicationAuthModule } from './auth/module.ts';
 import cardImageAwareCompressionMiddleware from './card-images/compression-middleware.ts';
-import { CardImageMaterializer } from './card-images/materializer.ts';
-import { HttpCardImageOriginClient } from './card-images/origin-client.ts';
-import { CardImageRepository } from './card-images/repository.ts';
-import { CardImageWarmer } from './card-images/warmer.ts';
-import { createPricingClient } from './card-pricing/scrydex/factory.ts';
 import { APP_API_ROUTE_NAME, REQUEST_ID_HEADER_NAME } from './constants/common.ts';
-import { ONE_SECOND_IN_MS } from './constants/time.ts';
-import {
-  createDatabaseOnlyContext,
-  type HonoEnvironment,
-  type InjectedContext,
-  injectRequestContext,
-} from './context.ts';
-import dbSingleton from './db/index.ts';
-import env from './env.ts';
+import { type InjectedContext, injectRequestContext } from './context.ts';
 import { handleServerError } from './exceptions/handler.ts';
 import { NotFound } from './exceptions/index.ts';
-import { EcbForexClient } from './forex/client.ts';
 import healthRoute, { HEALTH_ROUTE_NAME } from './health/index.ts';
 import loggingMiddleware from './logging/middleware.ts';
-import { serverLogger } from './logging/server.ts';
-import { OPENAPI_YAML_SPEC_URL, openAPIRouterFactory, withOpenAPIDocumentation } from './open-api.ts';
-import { S3ObjectStorageClient } from './storage/s3-client.ts';
+import { openAPIRouterFactory, withOpenAPIDocumentation } from './open-api.ts';
 
-const SIGNALS_TO_TERMINATE_ON: NodeJS.Signals[] = ['SIGINT', 'SIGTERM'];
-
-type AppOverrides = Partial<
-  Pick<
-    InjectedContext,
-    | 'forexClient'
-    | 'db'
-    | 'pricingClient'
-    | 'storageClient'
-    | 'imageOriginClient'
-    | 'cardImageMaterializer'
-    | 'cardImageWarmer'
-  >
->;
-
-interface Lifecycle {
-  start: () => void;
-  stop: () => void;
-}
-
-class App {
-  readonly app: Hono<HonoEnvironment>;
-
-  private server: ServerType | undefined;
-  private readonly lifecycle: Lifecycle | undefined;
-
-  constructor(overrides: AppOverrides = {}) {
-    const created = createApp(overrides);
-    this.app = created.app;
-    this.lifecycle = created.lifecycle;
-  }
-
-  serve = () => {
-    assertObjectStorageIsConfigured();
-    this.start();
-    this.cleanupUnShotdown();
-  };
-
-  generateSpec = async () => {
-    const response = await this.app.request(OPENAPI_YAML_SPEC_URL, { headers: { Accept: 'text/yaml' } });
-
-    return response.text();
-  };
-
-  private start = () => {
-    const app = this.app;
-
-    if (app == null) {
-      return;
-    }
-
-    if (env.DEBUG) {
-      showRoutes(app, { verbose: false });
-    }
-
-    this.lifecycle?.start();
-    this.server = serve({ fetch: app.fetch, port: env.PORT }, info => {
-      serverLogger().info({ event: 'server.started', port: info.port, outcome: 'success' }, 'Started the HTTP server.');
-    });
-  };
-
-  private cleanupUnShotdown = () => {
-    const server = this.server;
-
-    if (server == null) {
-      return;
-    }
-
-    for (const signal of SIGNALS_TO_TERMINATE_ON) {
-      process.on(signal, () => {
-        this.lifecycle?.stop();
-        const logger = serverLogger();
-        logger.info({ event: 'server.shutdown.started', signal, outcome: 'success' }, 'Shutting the HTTP server down.');
-
-        server.close(() => {
-          logger.info({ event: 'server.shutdown.completed', outcome: 'success' }, 'Shut the HTTP server down.');
-          process.exit(0);
-        });
-
-        setTimeout(() => {
-          logger.warn(
-            { event: 'server.shutdown.forced', outcome: 'failure', error_code: 'SHUTDOWN_TIMEOUT' },
-            'Forced the HTTP server down after it did not close in time.',
-          );
-          process.exit(1);
-        }, 10 * ONE_SECOND_IN_MS);
-      });
-    }
-  };
-}
-
-function assertObjectStorageIsConfigured() {
-  const missing = (['OBJECT_STORAGE_ACCESS_KEY_ID', 'OBJECT_STORAGE_SECRET_ACCESS_KEY'] as const).filter(
-    key => env[key] == null,
-  );
-
-  if (missing.length === 0) {
-    return;
-  }
-
-  throw new Error(
-    `Missing object storage configuration: ${missing.join(', ')}. ` +
-      'Run `just start-services` and copy the object storage settings from .env.example.',
-  );
-}
-
-function createApp(overrides: AppOverrides = {}) {
-  const db = overrides.db ?? dbSingleton;
-  const auth = overrides.db != null ? createAuth(db) : authSingleton;
-  const forexClient = overrides.forexClient ?? new EcbForexClient();
-  const pricingClient = overrides.pricingClient ?? createPricingClient();
-  const storageClient = overrides.storageClient ?? new S3ObjectStorageClient();
-  const imageOriginClient = overrides.imageOriginClient ?? new HttpCardImageOriginClient();
-  const cardImageRepository = new CardImageRepository(createDatabaseOnlyContext(db));
-
-  const cardImageMaterializer =
-    overrides.cardImageMaterializer ??
-    new CardImageMaterializer({
-      repository: cardImageRepository,
-      storageClient,
-      imageOriginClient,
-    });
-
-  const cardImageWarmer =
-    overrides.cardImageWarmer ??
-    new CardImageWarmer({ repository: cardImageRepository, materializer: cardImageMaterializer });
+export function createApp({
+  config,
+  forexClient,
+  persistence,
+  auth,
+  pricingClient,
+  storageClient,
+  imageOriginClient,
+  cardImageMaterializer,
+  cardImageWarmer,
+}: InjectedContext) {
+  const authModule = createApplicationAuthModule(config);
 
   const app = withOpenAPIDocumentation(
     $(
@@ -166,11 +33,17 @@ function createApp(overrides: AppOverrides = {}) {
         .use(requestId({ headerName: REQUEST_ID_HEADER_NAME }))
         .use(cardImageAwareCompressionMiddleware())
         .use(secureHeaders())
+        .use(async (c, next) => {
+          c.set('config', config);
+          c.set('authModule', authModule);
+          await next();
+        })
         .use(loggingMiddleware())
         .use(
           injectRequestContext({
+            config,
             forexClient,
-            db,
+            persistence,
             auth,
             pricingClient,
             storageClient,
@@ -180,15 +53,10 @@ function createApp(overrides: AppOverrides = {}) {
           }),
         )
         .route(HEALTH_ROUTE_NAME, healthRoute)
-        .route(APP_API_ROUTE_NAME, appApiRoute),
+        .route(APP_API_ROUTE_NAME, createAppApiRoute(authModule)),
     ),
+    config.BASE_URL,
   ).all('/*', c => new NotFound(c).getResponse());
 
-  const lifecycle: Lifecycle | undefined = env.CARD_IMAGE_WORKER_ENABLED
-    ? { start: () => cardImageWarmer.start(), stop: () => cardImageWarmer.stop() }
-    : undefined;
-
-  return { app, lifecycle };
+  return app;
 }
-
-export default App;

@@ -1,17 +1,16 @@
-import { createDatabaseOnlyContext } from '../src/context.ts';
-import db from '../src/db/index.ts';
+import { createDatabase } from '../src/db/index.ts';
+import env from '../src/env.ts';
 import { EcbForexClient } from '../src/forex/client.ts';
+import { ForexCollector } from '../src/forex/collector.ts';
 import { forexProcessLogger } from '../src/forex/logging.ts';
-import { ForexRepository } from '../src/forex/repository.ts';
-import { ForexService } from '../src/forex/service.ts';
+import { PostgresForexRepository } from '../src/persistence/postgres/forex.ts';
+import { initializeNodeLogging } from '../src/runtime/node/logging.ts';
 
-const c = createDatabaseOnlyContext(db);
+initializeNodeLogging();
 
-c.set('forexRepository', new ForexRepository(c));
+const db = createDatabase({ url: env.DATABASE_URL, debug: env.DEBUG });
 
-c.set('forexClient', new EcbForexClient());
-
-const service = new ForexService(c);
+const service = new ForexCollector(new PostgresForexRepository(db), new EcbForexClient());
 
 const logger = forexProcessLogger();
 

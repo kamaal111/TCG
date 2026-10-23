@@ -1,9 +1,9 @@
 import type { PricedCardResponse } from '../../card-pricing/schemas/responses.ts';
-import type { cardPurchaseBatch } from '../../db/schema/cards.ts';
 import { convertMicroUnits, decimalMicroUnits } from '../../forex/conversion.ts';
 import type { ForexSnapshot } from '../../forex/schemas/responses.ts';
+import type { PurchaseBatch } from '../types.ts';
 
-type BatchCost = Pick<typeof cardPurchaseBatch.$inferSelect, 'quantity' | 'purchasePrice' | 'currency'>;
+type BatchCost = Pick<PurchaseBatch, 'quantity' | 'purchasePrice' | 'currency'>;
 
 type Market = Pick<NonNullable<PricedCardResponse['market']>, 'market' | 'currency'>;
 

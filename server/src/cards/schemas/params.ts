@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 import { CardCoreFieldsSchema, CardIdSchema } from './fields.ts';
-import { CARD_GAMES } from '../../db/schema/cards.ts';
+import { CARD_GAMES } from '../types.ts';
 import { decodeCardCursor } from '../utils/pagination.ts';
 
 export const CardIdParamsSchema = z.object({

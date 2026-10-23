@@ -1,7 +1,6 @@
 import { ScrydexClient, type ScrydexClientOptions } from '@tcg/scrydex';
 import { err, ok } from 'neverthrow';
 
-import env from '../../env.ts';
 import {
   type PricingClient,
   type PricingClientResult,
@@ -18,13 +17,7 @@ export class RealScrydexClient implements PricingClient {
   private readonly client: ScrydexClient;
 
   constructor(options: ScrydexClientOptions = {}) {
-    this.client = new ScrydexClient({
-      ...options,
-      apiKey: options.apiKey ?? env.SCRYDEX_API_KEY,
-      teamId: options.teamId ?? env.SCRYDEX_TEAM_ID,
-      baseURL: options.baseURL ?? env.SCRYDEX_BASE_URL,
-      requestTimeoutMs: options.requestTimeoutMs ?? env.SCRYDEX_REQUEST_TIMEOUT_MS,
-    });
+    this.client = new ScrydexClient(options);
   }
 
   async searchCards(

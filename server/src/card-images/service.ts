@@ -9,8 +9,7 @@ import type { CardImageRepository, CardImageRow } from './repository.ts';
 import { CONTENTFUL_STATUS_CODES, CONTENTLESS_STATUS_CODES } from '../constants/http.ts';
 import { ONE_YEAR_IN_SECONDS } from '../constants/time.ts';
 import type { HonoContext } from '../context.ts';
-import { CARD_IMAGE_STATUSES } from '../db/schema/card-images.ts';
-import env from '../env.ts';
+import { CARD_IMAGE_STATUSES } from './types.ts';
 import { OBJECT_STORAGE_ERROR_REASONS, type ObjectStorageClient } from '../storage/client.ts';
 
 export class CardImageService {
@@ -55,7 +54,7 @@ export class CardImageService {
         logger: this.logger,
         trigger: CARD_IMAGE_MATERIALIZATION_TRIGGERS.PROXY,
       }),
-      env.CARD_IMAGE_FOREGROUND_WAIT_MS,
+      this.c.get('config').CARD_IMAGE_FOREGROUND_WAIT_MS,
     );
 
     if (result == null || result.status === CARD_IMAGE_MATERAILIZATION_STATUSES.BUSY) {

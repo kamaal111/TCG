@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 import { REQUEST_ID_HEADER_NAME } from '../constants/common.ts';
-import { createMemoryLogDestination, setRootLoggerDestination } from '../logging/index.ts';
+import { createMemoryLogDestination, setRootLoggerDestination } from '../runtime/node/logging.ts';
 
 const rawLogs: string[] = [];
 

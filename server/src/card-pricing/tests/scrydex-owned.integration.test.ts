@@ -2,11 +2,11 @@ import assert from 'node:assert/strict';
 
 import { eq } from 'drizzle-orm';
 
-import App from '../../app.ts';
 import { LIST_CARDS_ROUTE_PATH } from '../../cards/routes/list-cards.ts';
 import { CardsListResponseSchema, CardSchema } from '../../cards/schemas/responses.ts';
 import { createCardRequest, sessionHeaders } from '../../cards/tests/utils.ts';
 import { card } from '../../db/schema/cards.ts';
+import App from '../../runtime/node/app.ts';
 import { integrationTest } from '../../tests/fixtures.ts';
 import { createTestUser } from '../../tests/utils.ts';
 import { RealScrydexClient } from '../scrydex/real-client.ts';

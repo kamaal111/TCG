@@ -1,5 +1,5 @@
 import { AUTH_ROUTE_NAME } from '../auth/constants.ts';
-import { authModule } from '../auth/module.ts';
+import type { ApplicationAuthModule } from '../auth/module.ts';
 import { IMAGES_ROUTE_NAME } from '../card-images/constants.ts';
 import imagesRoute from '../card-images/route.ts';
 import { PRICING_ROUTE_NAME } from '../card-pricing/constants.ts';
@@ -12,14 +12,16 @@ import forexRoute from '../forex/route.ts';
 import { allowedModes } from '../modes.ts';
 import { openAPIRouterFactory } from '../open-api.ts';
 
-const appApiRoute = openAPIRouterFactory();
+export function createAppApiRoute(authModule: ApplicationAuthModule) {
+  const appApiRoute = openAPIRouterFactory();
 
-appApiRoute
-  .use(allowedModes(SERVER_MODES.SERVER))
-  .route(AUTH_ROUTE_NAME, authModule.router)
-  .route(FOREX_ROUTE_NAME, forexRoute)
-  .route(IMAGES_ROUTE_NAME, imagesRoute)
-  .route(CARDS_ROUTE_NAME, cardsRoute)
-  .route(PRICING_ROUTE_NAME, pricingRoute);
+  appApiRoute
+    .use(allowedModes(SERVER_MODES.SERVER))
+    .route(AUTH_ROUTE_NAME, authModule.router)
+    .route(FOREX_ROUTE_NAME, forexRoute)
+    .route(IMAGES_ROUTE_NAME, imagesRoute)
+    .route(CARDS_ROUTE_NAME, cardsRoute)
+    .route(PRICING_ROUTE_NAME, pricingRoute);
 
-export default appApiRoute;
+  return appApiRoute;
+}

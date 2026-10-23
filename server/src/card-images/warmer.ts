@@ -1,17 +1,18 @@
 import crypto from 'node:crypto';
 
-import { processImagesLogger } from './logging.ts';
+import type { ImagesLogFields } from './logging.ts';
 import { CARD_IMAGE_MATERIALIZATION_TRIGGERS, type CardImageMaterializer } from './materializer.ts';
 import type { CardImageRepository, ClaimedCardImageRow } from './repository.ts';
-import env from '../env.ts';
+import type { DomainLogger } from '../logging/index.ts';
 
 // Identifies this process in lease owners so a stuck lease can be traced back to an instance.
 const INSTANCE_ID = crypto.randomUUID();
 
-interface CardImageWarmerDependencies {
+interface CardImageProcessorDependencies {
   repository: CardImageRepository;
   materializer: CardImageMaterializer;
-  concurrency?: number;
+  concurrency: number;
+  logger: DomainLogger<ImagesLogFields>;
 }
 
 /**
@@ -24,16 +25,14 @@ interface CardImageWarmerDependencies {
  * Note that `CARD_IMAGE_WARM_CONCURRENCY` is per instance, so origin load is that multiplied by
  * the number of instances running the warmer.
  */
-export class CardImageWarmer {
-  private readonly dependencies: CardImageWarmerDependencies;
+export class CardImageProcessor {
+  private readonly dependencies: CardImageProcessorDependencies;
   private readonly idleResolvers: (() => void)[] = [];
-  private timeout: NodeJS.Timeout | undefined;
-  private started = false;
   private activeWorkers = 0;
   private cycleRunning = false;
   private rescanRequested = false;
 
-  constructor(dependencies: CardImageWarmerDependencies) {
+  constructor(dependencies: CardImageProcessorDependencies) {
     this.dependencies = dependencies;
   }
 
@@ -42,36 +41,16 @@ export class CardImageWarmer {
       return;
     }
 
-    processImagesLogger().info(
+    this.dependencies.logger.info(
       { event: 'images.warm.queued', outcome: 'success', result_count: count },
       'Registered card images for warming.',
     );
     void this.cycle();
   }
 
-  start(options: { keepProcessAlive?: boolean } = {}): void {
-    if (this.started) {
-      return;
-    }
-
-    this.started = true;
-    processImagesLogger().info(
-      { event: 'images.warm.started', outcome: 'success', warm_concurrency: this.concurrency },
-      'Started the card image warmer on this instance.',
-    );
-    void this.cycle();
-    this.scheduleNextScan(options.keepProcessAlive ?? false);
-  }
-
-  stop(): void {
-    this.started = false;
-
-    if (this.timeout == null) {
-      return;
-    }
-
-    clearTimeout(this.timeout);
-    this.timeout = undefined;
+  async processPending(): Promise<void> {
+    await this.cycle();
+    await this.idle();
   }
 
   idle(): Promise<void> {
@@ -83,25 +62,7 @@ export class CardImageWarmer {
   }
 
   private get concurrency(): number {
-    return this.dependencies.concurrency ?? env.CARD_IMAGE_WARM_CONCURRENCY;
-  }
-
-  private scheduleNextScan(keepProcessAlive: boolean): void {
-    if (!this.started) {
-      return;
-    }
-
-    // Jittered so several instances do not poll the queue in lockstep.
-    const delay = env.CARD_IMAGE_WORKER_POLL_INTERVAL_MS * (0.5 + Math.random());
-
-    this.timeout = setTimeout(() => {
-      void this.cycle();
-      this.scheduleNextScan(keepProcessAlive);
-    }, delay);
-
-    if (!keepProcessAlive) {
-      this.timeout.unref();
-    }
+    return this.dependencies.concurrency;
   }
 
   /**
@@ -140,7 +101,7 @@ export class CardImageWarmer {
         keepClaiming = this.rescanRequested;
       }
     } catch (err) {
-      processImagesLogger().error(
+      this.dependencies.logger.error(
         { event: 'images.warm.queued', outcome: 'failure', error_code: 'CARD_IMAGE_QUEUE_FAILED', err },
         'Failed to claim card images requiring warming.',
       );
@@ -155,11 +116,11 @@ export class CardImageWarmer {
 
     try {
       const result = await this.dependencies.materializer.materializeClaimed(row, leaseOwner, {
-        logger: processImagesLogger(),
+        logger: this.dependencies.logger,
         trigger: CARD_IMAGE_MATERIALIZATION_TRIGGERS.WORKER,
       });
 
-      processImagesLogger().info(
+      this.dependencies.logger.info(
         {
           event: 'images.warm.completed',
           outcome: 'success',
@@ -172,7 +133,7 @@ export class CardImageWarmer {
         'Completed card image warming.',
       );
     } catch (err) {
-      processImagesLogger().error(
+      this.dependencies.logger.error(
         {
           event: 'images.warm.completed',
           outcome: 'failure',

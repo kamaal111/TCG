@@ -34,5 +34,6 @@ export async function createTestObjectStorage(): Promise<S3ObjectStorageClient> 
     forcePathStyle: true,
     region: connection.region,
     requestTimeoutMs: REQUEST_TIMEOUT_MS,
+    maxAttempts: 2,
   });
 }

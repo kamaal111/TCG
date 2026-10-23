@@ -7,7 +7,6 @@ import { z } from 'zod';
 import { CONTENTFUL_STATUS_CODES } from './constants/http.ts';
 import { MIME_TYPES } from './constants/request.ts';
 import type { HonoEnvironment } from './context.ts';
-import env from './env.ts';
 import { InvalidValidation } from './exceptions/index.ts';
 
 const SPEC_NAME = '/spec';
@@ -16,8 +15,6 @@ export const OPENAPI_JSON_SPEC_PATH = `${SPEC_NAME}.json`;
 
 export const OPENAPI_YAML_SPEC_PATH = `${SPEC_NAME}.yaml`;
 
-export const OPENAPI_YAML_SPEC_URL = new URL(`${env.BASE_URL}${OPENAPI_YAML_SPEC_PATH}`);
-
 const SPEC_SOURCE_OF_TRUTH_URL = OPENAPI_JSON_SPEC_PATH;
 
 export const YAML_OPTIONS = { indent: 2, noRefs: true };
@@ -25,7 +22,7 @@ export const YAML_OPTIONS = { indent: 2, noRefs: true };
 const OPENAPI_INFO = {
   openapi: '3.1.1',
   info: { version: '1.0.0', title: 'TCG API' },
-  servers: [{ url: env.BASE_URL }],
+
   components: {
     securitySchemes: { bearerAuth: { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' } as const },
   },
@@ -65,12 +62,13 @@ export function openAPIRouterFactory(): StandardOpenAPIHono<HonoEnvironment> {
 
 export function withOpenAPIDocumentation<E extends Env = Env, S extends Schema = Schema, BasePath extends string = '/'>(
   app: StandardOpenAPIHono<E, S, BasePath>,
+  baseURL: string,
 ) {
   const appWithSpecs = $(
     app
-      .get(OPENAPI_JSON_SPEC_PATH, c => c.json(buildSpecification(app)))
+      .get(OPENAPI_JSON_SPEC_PATH, c => c.json(buildSpecification(app, baseURL)))
       .get(OPENAPI_YAML_SPEC_PATH, c =>
-        c.text(yaml.dump(buildSpecification(app), YAML_OPTIONS), CONTENTFUL_STATUS_CODES.OK, {
+        c.text(yaml.dump(buildSpecification(app, baseURL), YAML_OPTIONS), CONTENTFUL_STATUS_CODES.OK, {
           'Content-Type': MIME_TYPES.YAML,
         }),
       ),
@@ -81,6 +79,7 @@ export function withOpenAPIDocumentation<E extends Env = Env, S extends Schema =
 
 function buildSpecification<E extends Env, S extends Schema, BasePath extends string>(
   app: StandardOpenAPIHono<E, S, BasePath>,
+  baseURL: string,
 ) {
-  return OpenAPISpecSchema.parse(app.getOpenAPIDocument(OPENAPI_INFO));
+  return OpenAPISpecSchema.parse(app.getOpenAPIDocument({ ...OPENAPI_INFO, servers: [{ url: baseURL }] }));
 }

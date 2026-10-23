@@ -1,8 +1,14 @@
 import z from 'zod';
 
-import { CardImageRepository } from '../src/card-images/repository.ts';
-import { createDatabaseOnlyContext } from '../src/context.ts';
-import db from '../src/db/index.ts';
+import type { CardImageRepository } from '../src/card-images/repository.ts';
+import { createDatabase } from '../src/db/index.ts';
+import env from '../src/env.ts';
+import { PostgresCardImageRepository } from '../src/persistence/postgres/card-images.ts';
+import { initializeNodeLogging } from '../src/runtime/node/logging.ts';
+
+initializeNodeLogging();
+
+const db = createDatabase({ url: env.DATABASE_URL, debug: env.DEBUG });
 
 const IMAGE_KEY_PATTERN = /^[0-9a-f]{64}$/;
 
@@ -18,7 +24,7 @@ const ArgsSchema = z.tuple([
  * art, or a change to how images are fetched or stored.
  */
 async function refreshCardImages(target: string) {
-  const repository = new CardImageRepository(createDatabaseOnlyContext(db));
+  const repository = new PostgresCardImageRepository(db);
   const imageKeys = await getImageKeys(target, repository);
 
   if (imageKeys.length === 0) {

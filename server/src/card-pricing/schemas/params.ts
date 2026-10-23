@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { CARD_GAMES } from '../../db/schema/cards.ts';
+import { CARD_GAMES } from '../../cards/types.ts';
 import { CardLanguageSchema, SUPPORTED_CARD_LANGUAGES } from '../languages.ts';
 
 export type PricingSearchQuery = z.infer<typeof PricingSearchQuerySchema>;

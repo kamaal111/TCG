@@ -1,4 +1,3 @@
-import { sql } from 'drizzle-orm';
 import { z } from 'zod';
 
 export const CURRENCY_CODES = [
@@ -46,5 +45,3 @@ export const NullableCurrencySchema = z.enum(CURRENCY_CODES).nullable().meta({
 });
 
 export type Currency = z.infer<typeof CurrencySchema>;
-
-export const currencyConstraint = sql.raw(`('${CURRENCY_CODES.join("', '")}')`);

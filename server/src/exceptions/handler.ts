@@ -1,22 +1,17 @@
 import type { ErrorHandler } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 
-import { APIException } from './index.ts';
-import { CONTENTFUL_STATUS_CODES } from '../constants/http.ts';
+import { InternalServerError } from './index.ts';
 import type { HonoContext, HonoEnvironment } from '../context.ts';
 
 // Logging happens in the logging middleware's onError hook, not here — avoid duplicating it.
 export function handleServerError() {
   return ((err, ctx: HonoContext) => {
-    if (err instanceof APIException || err instanceof HTTPException) {
-      const response = err.getResponse();
+    const failure = err instanceof HTTPException ? err : new InternalServerError(ctx, { cause: err });
+    const response = failure.getResponse();
+    const headers = new Headers(response.headers);
+    headers.set('Request-Id', ctx.get('requestId'));
 
-      return ctx.newResponse(response.body, response);
-    }
-
-    return ctx.json(
-      { message: 'Something went wrong', code: 'INTERNAL_SERVER_ERROR' },
-      CONTENTFUL_STATUS_CODES.INTERNAL_SERVER_ERROR,
-    );
+    return ctx.newResponse(response.body, { status: failure.status, headers });
   }) satisfies ErrorHandler<HonoEnvironment>;
 }

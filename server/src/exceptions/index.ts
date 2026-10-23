@@ -12,18 +12,23 @@ export class APIException<TContext = unknown> extends HTTPException {
   readonly code: string;
 
   constructor(
-    c: ExceptionContext,
+    c: ExceptionContext | undefined,
     statusCode: ContentfulStatusCode,
     options: {
       message: string;
       code: string;
       headers?: Headers;
       context?: TContext;
+      cause?: unknown;
+      diagnosticMessage?: string;
     },
   ) {
     const headers = options.headers ?? new Headers();
     headers.set('Content-Type', 'application/json');
-    headers.set('Request-Id', c.get('requestId'));
+
+    if (c != null) {
+      headers.set('Request-Id', c.get('requestId'));
+    }
 
     const response = new Response(
       JSON.stringify({
@@ -34,7 +39,8 @@ export class APIException<TContext = unknown> extends HTTPException {
       { status: statusCode, headers },
     );
 
-    super(statusCode, { res: response, message: options.message });
+    super(statusCode, { res: response, message: options.diagnosticMessage ?? options.message, cause: options.cause });
+    this.name = new.target.name;
     this.code = options.code;
     this.context = options.context;
   }
@@ -78,7 +84,7 @@ export class Unauthorized extends APIException {
 }
 
 export class NotFound extends APIException {
-  constructor(c: ExceptionContext, options?: { message?: string; code?: string }) {
+  constructor(c: ExceptionContext | undefined, options?: { message?: string; code?: string }) {
     super(c, CONTENTFUL_STATUS_CODES.NOT_FOUND, {
       message: options?.message ?? 'Not found',
       code: options?.code ?? 'NOT_FOUND',
@@ -89,5 +95,16 @@ export class NotFound extends APIException {
 export class ServiceUnavailable extends APIException {
   constructor(c: ExceptionContext, options: { message: string; code: string; headers?: Headers }) {
     super(c, CONTENTFUL_STATUS_CODES.SERVICE_UNAVAILABLE, options);
+  }
+}
+
+export class InternalServerError extends APIException {
+  constructor(c?: ExceptionContext, options?: { cause?: unknown; diagnosticMessage?: string }) {
+    super(c, CONTENTFUL_STATUS_CODES.INTERNAL_SERVER_ERROR, {
+      message: 'Something went wrong',
+      code: 'INTERNAL_SERVER_ERROR',
+      cause: options?.cause,
+      diagnosticMessage: options?.diagnosticMessage,
+    });
   }
 }

@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 import { CardPurchaseInputSchema, CardCoreFieldsSchema, CardIdSchema, CardPurchaseSchema } from './fields.ts';
-import { CARD_CONDITIONS, MAX_COPIES_PER_CONDITION } from '../../db/schema/cards.ts';
+import { CARD_CONDITIONS, MAX_COPIES_PER_CONDITION } from '../types.ts';
 import { purchaseQuantities } from '../utils/quantities.ts';
 
 const MAX_CONDITIONS = CARD_CONDITIONS.length;

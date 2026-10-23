@@ -7,6 +7,8 @@ describe('card image keys', () => {
 
     expect(key).toBe('be4a788218080174c971ab0609618bb99adc181b359970f635015732541b3bf0');
     expect(storageKeyForImageKey(key)).toBe(`card-images/be/4a/${key}`);
-    expect(proxyURLForOriginURL(originURL)).toBe(`http://localhost:8080/app-api/images/${key}`);
+    expect(proxyURLForOriginURL(originURL, 'http://localhost:8080')).toBe(
+      `http://localhost:8080/app-api/images/${key}`,
+    );
   });
 });

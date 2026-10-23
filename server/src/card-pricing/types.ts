@@ -1,4 +1,4 @@
-import type { CARD_GAMES } from '../db/schema/cards.ts';
+import type { CARD_GAMES } from '../cards/types.ts';
 import type { Currency } from '../forex/currencies.ts';
 import type { GetRecordValues } from '../utils/type-utils.ts';
 
@@ -50,4 +50,35 @@ export interface NormalizedPricingCard {
 export interface PricingCardRecord {
   card: NormalizedPricingCard;
   raw: unknown;
+}
+
+export interface CardPriceRow {
+  id: string;
+  game: CardGame;
+  pricingCardId: string;
+  cardNumber: string;
+  name: string;
+  pricedOn: string;
+  prices: NormalizedPricing;
+  raw: unknown;
+  pricingSource: PricingSource;
+  fetchedAt: Date;
+}
+
+export interface CardPriceSearchRow {
+  id: string;
+  game: CardGame;
+  queryKey: string;
+  pricedOn: string;
+  pricingCardIds: string[];
+  pricingSource: PricingSource;
+  fetchedAt: Date;
+}
+
+export interface CardPriceUpsertValues {
+  game: CardGame;
+  card: NormalizedPricingCard;
+  raw: unknown;
+  pricedOn: string;
+  pricingSource: PricingSource;
 }

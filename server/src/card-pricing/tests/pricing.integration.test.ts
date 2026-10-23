@@ -4,13 +4,13 @@ import { and, eq } from 'drizzle-orm';
 import { err } from 'neverthrow';
 import { Client } from 'pg';
 
-import App from '../../app.ts';
 import { imageKeyForOriginURL } from '../../card-images/keys.ts';
 import { LIST_CARDS_ROUTE_PATH } from '../../cards/routes/list-cards.ts';
 import { createCardRequest, sessionHeaders } from '../../cards/tests/utils.ts';
 import { CONTENTFUL_STATUS_CODES } from '../../constants/http.ts';
 import { cardImage } from '../../db/schema/card-images.ts';
 import { cardPrice } from '../../db/schema/card-pricing.ts';
+import App from '../../runtime/node/app.ts';
 import { expectErrorResponse, expectValidationIssueForField } from '../../tests/auth.ts';
 import { integrationTest } from '../../tests/fixtures.ts';
 import { createTestUser } from '../../tests/utils.ts';

@@ -1,8 +1,7 @@
-import type { HonoContext } from '../context.ts';
-import { NotFound } from '../exceptions/index.ts';
+import { NotFound, type ExceptionContext } from '../exceptions/index.ts';
 
 export class CardNotFound extends NotFound {
-  constructor(c: HonoContext) {
+  constructor(c?: ExceptionContext) {
     super(c, { message: 'Card not found', code: 'CARD_NOT_FOUND' });
   }
 }

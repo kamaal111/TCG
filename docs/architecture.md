@@ -12,7 +12,7 @@
 | `app/Modules/TCGClient/`              | Generated OpenAPI contract plus handwritten auth, collection, and pricing adapters |
 | `app/Modules/TCGDesignSystem/`        | Shared form controls, game picker, toasts, and image loading                       |
 | `app/Modules/TCGModels/`, `TCGUtils/` | App-facing game model and shared utilities                                         |
-| `server/src/auth/`                    | Better Auth configuration, auth-module integration, and session middleware         |
+| `server/src/auth/`                    | Authentication contract, auth-module integration, and session middleware           |
 | `server/src/cards/`                   | User-owned card CRUD, validation, and persistence                                  |
 | `server/src/card-pricing/`            | Search, provider normalization, daily caches, and owned-card matching              |
 | `server/src/card-images/`, `storage/` | Image registration, durable worker queue, proxy, and S3 access                     |
@@ -51,10 +51,10 @@ and search state and injects it into SwiftUI. Feature objects use client protoco
 screen models manage presentation state and task scheduling. Preview clients
 replace network and credential dependencies for previews and snapshots.
 
-The server entry point constructs `App` and serves it. `App` assembles middleware,
-routes, and shared dependencies, starts the image warmer when enabled, and stops
-it on shutdown. Tests can inject database, provider, storage, and image dependencies
-through the app constructor.
+The server entry point starts `NodeApp`, which composes PostgreSQL, S3 and external
+clients before calling the shared `createApp` factory. Node owns HTTP serving,
+image polling and shutdown. Tests can supply providers through Node composition
+or construct the shared app directly from application contracts.
 
 Request middleware establishes the request ID, compression policy, security
 headers, logging, and context before routing. `context.ts` supplies dependencies
@@ -120,3 +120,63 @@ boundaries. Swift client tests exercise request/response mapping with controlled
 transports, feature tests cover state changes, and snapshots cover screen/image
 rendering. See [development](development.md#verification-and-ci) and
 [app development](../app/README.md) for the corresponding workflows.
+
+## Persistence and runtime boundaries
+
+The shared `createApp(dependencies)` factory builds Hono middleware and routes. It
+receives application configuration, authentication, persistence, object storage,
+external clients, image materialization and an image scheduling interface. It does
+not select a database, open connections, register process signals or start timers.
+`runtime/node/app.ts` composes the current providers; `index.ts` starts that Node
+runtime. The runtime owns polling, shutdown and disposal of its database pool.
+
+Each domain's `repository.ts` declares operations in domain types. PostgreSQL
+implementations live in `persistence/postgres/`; schemas and historical migrations
+remain in `db/` and `server/drizzle/`. Application code cannot import Drizzle,
+provider schemas or concrete repositories. The architecture test enforces this
+boundary. Pure card reconciliation and pricing policies are shared domain code.
+
+Request repositories receive an authentication accessor bound to the validated
+session. Owned-card queries enforce that identity together with resource IDs;
+client input cannot choose the owner. Session enrichment uses the principal
+already verified by the authentication framework. Shared image and forex
+repositories do not require HTTP context. Better Auth configuration and JWKS
+persistence are behind the PostgreSQL authentication adapter.
+
+Contracts specify behavior rather than SQL mechanisms: imports are atomic and
+idempotent, collection pages have a consistent snapshot, image claims are atomic
+and completions are fenced by lease owner. `PricingCoordinator` provides exclusive
+execution across instances with bounded acquisition and release on failure.
+PostgreSQL implements these using its transactions and locks. Request logging
+remains outside those implementations.
+
+All application-defined error classes inherit from the shared exception hierarchy
+in `server/src/exceptions/index.ts`. Add missing status bases there instead of
+extending `Error` or constructing generic errors in production code. Repositories
+can construct these exceptions without HTTP context; the HTTP handler attaches
+the current request ID. Every such exception already defines its safe response,
+so a missed domain-specific mapping cannot expose diagnostic details or turn a
+known purchase-ownership failure into a generic 500. Internal failures keep their
+diagnostic message and cause for logging while returning the standard safe 500
+body. The architecture and exception-response tests enforce this convention.
+
+`CardImageProcessor.processPending()` can be awaited without installing a timer.
+Node's `CardImageWarmer` implements registration notifications and polling. A
+future runtime supplies its own scheduler and must await or explicitly schedule
+background work; this refactor does not implement Cloudflare Workers execution.
+
+`ObjectStorageClient` remains the image-storage contract. The S3 implementation
+receives endpoint, credentials, bucket, region and request policy explicitly.
+An S3-compatible provider such as R2 or Spaces can reuse it after compatibility
+verification. A native R2 binding implementation can implement the same contract.
+Changing stores still requires copying existing objects with their keys and
+metadata, or deliberately rebuilding the cache.
+
+To add another database, implement the domain repositories, pricing coordinator
+and authentication persistence, provide its schema and migrations, and wire them
+in a new composition root. Register the reusable persistence contract suite using
+real provider fixtures. Keep provider-specific fault injection separate. Do not
+weaken transaction, ownership or lease guarantees to fit a provider. A database
+that cannot satisfy them requires a separate product/architecture decision.
+Data conversion, account/session transfer and deployment cutover are separate
+migration work; no provider fallback or migration is performed automatically.

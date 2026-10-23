@@ -1,6 +1,6 @@
 import { err, ok, type Result } from 'neverthrow';
 
-import env from '../env.ts';
+import { DEFAULT_IMAGE_POLICY } from '../config.ts';
 
 const ALLOWED_CONTENT_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp', 'image/avif', 'image/gif']);
 
@@ -42,8 +42,8 @@ export class HttpCardImageOriginClient implements CardImageOriginClient {
 
   constructor(options: { fetch?: Fetch; maxBytes?: number; requestTimeoutMs?: number } = {}) {
     this.fetchImplementation = options.fetch ?? fetch;
-    this.maxBytes = options.maxBytes ?? env.CARD_IMAGE_MAX_BYTES;
-    this.requestTimeoutMs = options.requestTimeoutMs ?? env.CARD_IMAGE_REQUEST_TIMEOUT_MS;
+    this.maxBytes = options.maxBytes ?? DEFAULT_IMAGE_POLICY.CARD_IMAGE_MAX_BYTES;
+    this.requestTimeoutMs = options.requestTimeoutMs ?? DEFAULT_IMAGE_POLICY.CARD_IMAGE_REQUEST_TIMEOUT_MS;
   }
 
   async fetchImage(url: string): Promise<CardImageOriginResult> {

@@ -1,10 +1,9 @@
 import { drizzle } from 'drizzle-orm/node-postgres';
 
-import env from '../env.ts';
 import { appRelations } from './schema/index.ts';
 
-export type Database = typeof db;
+export type Database = ReturnType<typeof createDatabase>;
 
-const db = drizzle<typeof appRelations>(env.DATABASE_URL, { relations: appRelations, logger: env.DEBUG });
-
-export default db;
+export function createDatabase(options: { url: string; debug?: boolean }) {
+  return drizzle<typeof appRelations>(options.url, { relations: appRelations, logger: options.debug ?? false });
+}

@@ -1,9 +1,11 @@
 import { sql } from 'drizzle-orm';
+import { Context } from 'hono';
 import { ok } from 'neverthrow';
 
-import { createDatabaseOnlyContext } from '../../context.ts';
+import type { HonoEnvironment } from '../../context.ts';
 import type { Database } from '../../db/index.ts';
 import { exchangeRate } from '../../db/schema/forex.ts';
+import { PostgresForexRepository } from '../../persistence/postgres/forex.ts';
 import { integrationTest } from '../../tests/fixtures.ts';
 import { createTestUser } from '../../tests/utils.ts';
 import { EcbForexClient } from '../client.ts';
@@ -15,7 +17,6 @@ import {
   ForexWriteFailed,
 } from '../errors.ts';
 import { ExchangeRatesReadFailed } from '../exceptions.ts';
-import { ForexRepository } from '../repository.ts';
 import { LATEST_SNAPSHOT_ROUTE_PATH } from '../routes/latest-snapshot.ts';
 import { ForexService } from '../service.ts';
 
@@ -264,8 +265,8 @@ integrationTest('captures database read and write failures in repository results
 });
 
 function createCollector(db: Database, fetchFeed: typeof fetch) {
-  const c = createDatabaseOnlyContext(db);
-  const repository = new ForexRepository(c);
+  const c = new Context<HonoEnvironment>(new Request('http://localhost'));
+  const repository = new PostgresForexRepository(db);
   c.set('forexRepository', repository);
   c.set('forexClient', new EcbForexClient({ fetch: fetchFeed }));
 
