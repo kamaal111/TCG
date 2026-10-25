@@ -1,55 +1,58 @@
-[
-  {
-    "label": "just: dev-server",
-    "command": "just",
-    "args": ["dc-exec", "just dev-server"]
-  },
-  {
-    "label": "just: download spec",
-    "command": "just",
-    "args": ["dc-exec", "just download-spec"],
-    "new_tab": false
-  },
-  {
-    "label": "just: ready",
-    "command": "just",
-    "args": ["dc-ready"],
-    "new_tab": false
-  },
-  {
-    "label": "just: ready server",
-    "command": "just",
-    "args": ["dc-exec", "just ready-server"],
-    "new_tab": false
-  },
-  {
-    "label": "just: test",
-    "command": "just",
-    "args": ["dc-test"],
-    "new_tab": false
-  },
-  {
-    "label": "just: test app",
-    "command": "just",
-    "args": ["test-app"],
-    "new_tab": false
-  },
-  {
-    "label": "just: test server",
-    "command": "just",
-    "args": ["dc-exec", "just test-server"],
-    "new_tab": false
-  },
-  {
-    "label": "just: quality",
-    "command": "just",
-    "args": ["dc-exec", "just quality"],
-    "new_tab": false
-  },
-  {
-    "label": "just: format",
-    "command": "just",
-    "args": ["dc-exec", "just format"],
-    "new_tab": false
-  }
-]
+{
+  "$schema": "https://raw.githubusercontent.com/kamaal111/herdrpp/main/schemas/tasks.schema.json",
+  "tasks": [
+    {
+      "label": "just: dev-server",
+      "command": "just",
+      "args": ["dc-exec", "just dev-server"]
+    },
+    {
+      "label": "just: download spec",
+      "command": "just",
+      "args": ["dc-exec", "just download-spec"],
+      "new_tab": false
+    },
+    {
+      "label": "just: ready",
+      "command": "just",
+      "args": ["dc-ready"],
+      "new_tab": false
+    },
+    {
+      "label": "just: ready server",
+      "command": "just",
+      "args": ["dc-exec", "just ready-server"],
+      "new_tab": false
+    },
+    {
+      "label": "just: test",
+      "command": "just",
+      "args": ["dc-test"],
+      "new_tab": false
+    },
+    {
+      "label": "just: test app",
+      "command": "just",
+      "args": ["test-app"],
+      "new_tab": false
+    },
+    {
+      "label": "just: test server",
+      "command": "just",
+      "args": ["dc-exec", "just test-server"],
+      "new_tab": false
+    },
+    {
+      "label": "just: quality",
+      "command": "just",
+      "args": ["dc-exec", "just quality"],
+      "new_tab": false
+    },
+    {
+      "label": "just: format",
+      "command": "just",
+      "args": ["dc-exec", "just format"],
+      "new_tab": false
+    }
+  ]
+}
