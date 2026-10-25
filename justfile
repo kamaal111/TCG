@@ -49,6 +49,8 @@ alias dc-rebuild := devcontainer-rebuild
 alias dc-sh := devcontainer-shell
 alias dc-exec := devcontainer-exec
 alias dc-rm := devcontainer-delete
+alias dc-ready := devcontainer-ready
+alias dc-test := devcontainer-test
 alias devcontainer-rm := devcontainer-delete
 
 # List available commands
@@ -171,6 +173,10 @@ download-spec:
 [parallel]
 ready: quality test
 
+# Run all verification checks with devcontainers
+[parallel]
+devcontainer-ready: (devcontainer-exec "just quality") devcontainer-test
+
 # Run all heavy verification checks
 [parallel]
 heavy: quality test-heavy
@@ -186,6 +192,10 @@ ready-server: quality-server test-server test-server-image
 # Run tests
 [parallel]
 test: test-server test-server-image test-app test-scripts
+
+# Run tests in devcontainer
+[parallel]
+devcontainer-test: (devcontainer-exec "just test-server") test-server-image test-app (devcontainer-exec "just test-scripts")
 
 # Run heavy tests
 test-heavy: test
