@@ -48,6 +48,14 @@ export default defineConfig({
       },
     ],
     'no-restricted-imports': ['error', { paths: [vitestGlobalImports], patterns: [nodeDefaultImports] }],
+    'no-restricted-properties': [
+      'error',
+      {
+        object: 'Object',
+        property: 'assign',
+        message: 'Use explicit typed assignments or object spread instead of Object.assign.',
+      },
+    ],
     'vitest/no-standalone-expect': ['error', { additionalTestBlockFunctions: ['integrationTest'] }],
   },
   overrides: [

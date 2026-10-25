@@ -570,7 +570,9 @@ export class PostgresCardRepository implements CardRepository {
         const row = updated.get(batch.id);
 
         if (row != null) {
-          Object.assign(batch, row);
+          batch.purchasePrice = row.purchasePrice;
+          batch.currency = row.currency;
+          batch.automaticPriceDate = row.automaticPriceDate;
         }
       }
     }
