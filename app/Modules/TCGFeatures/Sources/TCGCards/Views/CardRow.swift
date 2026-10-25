@@ -54,7 +54,8 @@ struct CardRow: View {
                             .font(.subheadline.weight(.semibold).monospacedDigit())
                             .foregroundStyle(change > 0 ? .green : .red)
                         Text("vs. purchase · NM market", bundle: .module)
-                            .font(.caption2).foregroundStyle(.secondary)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
                     }
                     .accessibilityElement(children: .ignore)
                     .accessibilityLabel(
@@ -71,6 +72,6 @@ struct CardRow: View {
     }
 
     private var amountOfCards: Int {
-        cardWithPrice.card.quantities.sum(by: \.quantity)
+        cardWithPrice.card.totalQuantity
     }
 }

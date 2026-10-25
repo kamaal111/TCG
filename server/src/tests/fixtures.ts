@@ -6,7 +6,7 @@ import App from '../runtime/node/app.ts';
 
 export const integrationTest = test
   .extend('_fixturesSetup', async ({ task: _task }, { onCleanup }) => {
-    const setup = await createTestDatabase();
+    const setup = await createTestDatabase('./drizzle');
     const pricingClient = new StaticScrydexClient();
     const storageClient = await createTestObjectStorage();
 

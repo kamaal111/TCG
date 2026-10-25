@@ -16,7 +16,8 @@ struct TCGCSVImportIntroduction: View {
                 Text(
                     "You’ll review every card, correct issues, and edit or remove cards before importing. Matching IDs update cards and replace their purchase history in your account.",
                     bundle: .module
-                ).foregroundStyle(.secondary)
+                )
+                .foregroundStyle(.secondary)
                 Button(action: onDownloadTemplate) {
                     Label {
                         Text("Download CSV Template", bundle: .module)
@@ -30,15 +31,17 @@ struct TCGCSVImportIntroduction: View {
                     } icon: {
                         Image(systemName: "doc")
                     }
-                }.buttonStyle(.borderedProminent)
-                Spacer(minLength: 0)
-            }.padding(24)
-                .navigationTitle(Text("Import Cards", bundle: .module))
-                .toolbar {
-                    ToolbarItem(placement: .cancellationAction) {
-                        Button(action: onClose) { Text("Close", bundle: .module) }
-                    }
                 }
+                .buttonStyle(.borderedProminent)
+                Spacer(minLength: 0)
+            }
+            .padding(24)
+            .navigationTitle(Text("Import Cards", bundle: .module))
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(action: onClose) { Text("Close", bundle: .module) }
+                }
+            }
         }
         #if os(macOS)
             .frame(width: 500, height: 360)

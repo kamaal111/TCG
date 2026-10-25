@@ -69,6 +69,7 @@ describe('iOS snapshot recipes', () => {
     expect(args.filter(argument => argument.startsWith('-only-testing:'))).toEqual([
       '-only-testing:TCGCardsTests/ScreenSnapshotSettlingTests',
       '-only-testing:TCGCardsTests/TCGCardsListScreenSnapshotTests',
+      '-only-testing:TCGCardsTests/TCGCollectionsSnapshotTests',
       '-only-testing:TCGCardsTests/TCGCardFormScreenSnapshotTests',
       '-only-testing:TCGCardsTests/TCGCurrencyAmountSnapshotTests',
       '-only-testing:TCGCardsTests/TCGCardDetailScreenSnapshotTests',

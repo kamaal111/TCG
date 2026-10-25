@@ -12,6 +12,7 @@ import TCGUtils
 import UniformTypeIdentifiers
 
 public struct TCGSettingsScreen: View {
+    @Environment(\.tcgCollections) private var collections
     @Environment(\.tcgCurrency) private var currencyState
     @Environment(KamaalAuth.self) private var auth
     #if os(macOS)
@@ -85,6 +86,13 @@ public struct TCGSettingsScreen: View {
                         "Used throughout the app. You can choose a different currency for each purchase.",
                         bundle: .module
                     )
+                }
+            }
+            if collections != nil {
+                Section {
+                    CollectionTransferControls()
+                } header: {
+                    Text("Collections and layouts", bundle: .module)
                 }
             }
             if exportAction != nil && templateAction != nil && importAction != nil {

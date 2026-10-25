@@ -1,12 +1,14 @@
 import { z } from 'zod';
 
-import { CardPurchaseSchema, CardCoreFieldsSchema, CardIdSchema } from './fields.ts';
+import { CardPurchaseSchema, CardCoreFieldsSchema } from './fields.ts';
 import { OwnedCardPriceSchema } from '../../card-pricing/schemas/responses.ts';
 import { CurrencySchema } from '../../forex/currencies.ts';
-import { ApiCommonDatetime } from '../../schemas/common.ts';
+import { ApiCommonDatetime, ApiCountSchema, UuidSchema } from '../../schemas/common.ts';
 
 export const CardSchema = CardCoreFieldsSchema.extend({
-  id: CardIdSchema.meta({
+  collection_id: UuidSchema.nullish(),
+  allocation_adjustments: ApiCountSchema.optional(),
+  id: UuidSchema.meta({
     description: 'Unique card entry identifier',
     example: '550e8400-e29b-41d4-a716-446655440000',
   }),
@@ -111,8 +113,8 @@ export type CardsListResponse = z.infer<typeof CardsListResponseSchema>;
 
 export const DeleteCardsResponseSchema = z
   .object({
-    deleted_ids: z.array(CardIdSchema),
-    not_found_ids: z.array(CardIdSchema),
+    deleted_ids: z.array(UuidSchema),
+    not_found_ids: z.array(UuidSchema),
   })
   .meta({ $id: 'DeleteCardsResponse', title: 'Delete Cards Response' });
 
@@ -157,17 +159,16 @@ export const ExportCardsResponseSchema = z
 
 export const ImportCardsResponseSchema = z
   .object({
-    imported_count: z.number().int().nonnegative().meta({ description: 'Number of newly imported cards', example: 1 }),
-    updated_count: z
-      .number()
-      .int()
-      .nonnegative()
-      .meta({ description: 'Number of changed owned cards replaced, including their complete purchases', example: 1 }),
-    skipped_count: z
-      .number()
-      .int()
-      .nonnegative()
-      .meta({ description: 'Number of unchanged cards or repeated input identifiers skipped', example: 0 }),
+    allocation_adjustments: ApiCountSchema.optional(),
+    imported_count: ApiCountSchema.meta({ description: 'Number of newly imported cards', example: 1 }),
+    updated_count: ApiCountSchema.meta({
+      description: 'Number of changed owned cards replaced, including their complete purchases',
+      example: 1,
+    }),
+    skipped_count: ApiCountSchema.meta({
+      description: 'Number of unchanged cards or repeated input identifiers skipped',
+      example: 0,
+    }),
   })
   .meta({
     $id: 'ImportCardsResponse',

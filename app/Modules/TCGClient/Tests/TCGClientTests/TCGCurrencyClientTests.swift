@@ -79,6 +79,7 @@ struct TCGCurrencyClientTests {
             logger: KamaalLogger(from: TCGCurrencyClientImpl.self, holder: holder)
         )
     }
+
     @Test
     func `Sends and maps the preferred currency update`() async throws {
         let transport = CurrencyTransport(status: .ok, json: Self.session)

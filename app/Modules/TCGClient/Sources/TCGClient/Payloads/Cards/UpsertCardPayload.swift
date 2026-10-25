@@ -5,7 +5,10 @@
 //  Created by Kamaal M Farah on 7/20/26.
 //
 
+import Foundation
+
 public struct UpsertCardPayload: Codable, Equatable, Sendable {
+    public var collectionID: UUID?
     public let game: ClientCardGame
     public let name: String
     public let setName: String
@@ -19,8 +22,10 @@ public struct UpsertCardPayload: Codable, Equatable, Sendable {
         setName: String,
         cardNumber: String,
         notes: String?,
-        purchases: [CardPurchase]
+        purchases: [CardPurchase],
+        collectionID: UUID?
     ) {
+        self.collectionID = collectionID
         self.game = game
         self.name = name
         self.setName = setName
@@ -30,6 +35,7 @@ public struct UpsertCardPayload: Codable, Equatable, Sendable {
     }
 
     private enum CodingKeys: String, CodingKey {
+        case collectionID = "collection_id"
         case game
         case name
         case notes

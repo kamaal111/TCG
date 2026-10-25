@@ -70,7 +70,8 @@ struct TCGPricingClientTests {
     func `Serializes a partial language selection`(language: ClientCardLanguage) async throws {
         let transport = PricingRequestTransport(status: .ok, body: searchJSON)
         let result = try await makeClient(transport: transport).pricing
-            .search(game: .pokemon, query: "Giratina", languages: [language]).get()
+            .search(game: .pokemon, query: "Giratina", languages: [language])
+            .get()
         let request = try #require(await transport.request)
 
         #expect(request.path == "/app-api/pricing/search?languages=\(language.rawValue)&game=pokemon&query=Giratina")
@@ -81,7 +82,8 @@ struct TCGPricingClientTests {
     func `Omits unrestricted language selections`(languages: Set<ClientCardLanguage>) async throws {
         let transport = PricingRequestTransport(status: .ok, body: searchJSON)
         let result = try await makeClient(transport: transport).pricing
-            .search(game: .pokemon, query: "Giratina", languages: languages).get()
+            .search(game: .pokemon, query: "Giratina", languages: languages)
+            .get()
         let request = try #require(await transport.request)
 
         #expect(request.path == "/app-api/pricing/search?game=pokemon&query=Giratina")
@@ -92,7 +94,8 @@ struct TCGPricingClientTests {
     func `Selecting the only One Piece language is unrestricted`() async throws {
         let transport = PricingRequestTransport(status: .ok, body: searchJSON)
         let result = try await makeClient(transport: transport).pricing
-            .search(game: .onePiece, query: "Nami", languages: [.english]).get()
+            .search(game: .onePiece, query: "Nami", languages: [.english])
+            .get()
         let request = try #require(await transport.request)
 
         #expect(request.path == "/app-api/pricing/search?game=one_piece&query=Nami")
@@ -102,10 +105,11 @@ struct TCGPricingClientTests {
     @Test
     func `Search decodes responses without set metadata`() async throws {
         let body = Data(
-            String(decoding: searchJSON, as: UTF8.self).replacingOccurrences(
-                of: "\"set_name\": \"Crown Zenith\",",
-                with: ""
-            ).utf8
+            String(decoding: searchJSON, as: UTF8.self)
+                .replacingOccurrences(
+                    of: "\"set_name\": \"Crown Zenith\",",
+                    with: ""
+                ).utf8
         )
         let transport = PricingRequestTransport(status: .ok, body: body)
         let result = try await makeClient(transport: transport).pricing.search(game: .pokemon, query: "Giratina").get()

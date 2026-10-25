@@ -14,7 +14,8 @@ struct CSVImportCompletionView: View {
             } icon: {
                 Image(systemName: "checkmark.circle.fill")
             }
-            .font(.title2).foregroundStyle(.green)
+            .font(.title2)
+            .foregroundStyle(.green)
             Text("Cards imported: \(completion.result.importedCount)", bundle: .module)
             Text("Cards updated: \(completion.result.updatedCount)", bundle: .module)
             Text("Unchanged cards skipped: \(completion.result.skippedCount)", bundle: .module)
@@ -27,8 +28,7 @@ struct CSVImportCompletionView: View {
                 )
                 Button {
                     Task {
-                        let result = await collection.retryImportRefresh()
-                        if result { model.completion = .init(result: completion.result, needsRefresh: false) }
+                        await retryRefresh()
                     }
                 } label: {
                     Text("Retry Refresh", bundle: .module)
@@ -38,8 +38,13 @@ struct CSVImportCompletionView: View {
                 onDone()
             } label: {
                 Text("Done", bundle: .module)
-            }.buttonStyle(.borderedProminent)
+            }
+            .buttonStyle(.borderedProminent)
         }
     }
 
+    private func retryRefresh() async {
+        let refreshed = await collection.retryImportRefresh()
+        if refreshed { model.completion = .init(result: completion.result, needsRefresh: false) }
+    }
 }

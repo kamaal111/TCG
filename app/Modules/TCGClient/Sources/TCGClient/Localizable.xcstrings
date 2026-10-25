@@ -1,6 +1,15 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "Another collection operation is in progress. Please try again shortly." : {
+
+    },
+    "Check the collection details and try again." : {
+
+    },
+    "Couldn’t save or load your collection. Please try again." : {
+
+    },
     "Damaged" : {
 
     },
@@ -28,10 +37,25 @@
     "Price is stable" : {
 
     },
+    "Sign in again to manage your collections." : {
+
+    },
+    "The collection operation took too long. Please try again." : {
+
+    },
+    "This collection or card is no longer available." : {
+
+    },
+    "This collection request exceeds the server limits. Ask your server administrator to increase them." : {
+
+    },
     "Trending down" : {
 
     },
     "Trending up" : {
+
+    },
+    "Your collection changed or there are not enough unplaced copies. Refresh and try again." : {
 
     }
   },

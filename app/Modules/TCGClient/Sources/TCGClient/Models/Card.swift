@@ -56,7 +56,9 @@ public struct CardConditionQuantity: Codable, Hashable, Sendable {
 }
 
 public struct Card: Codable, Hashable, Identifiable, Sendable {
-    public let id: String
+    public let id: UUID
+    public let collectionID: UUID?
+    public let allocationAdjustments: Int?
     public let game: ClientCardGame
     public let name: String
     public let setName: String
@@ -68,8 +70,15 @@ public struct Card: Codable, Hashable, Identifiable, Sendable {
     public let createdAt: Date
     public let updatedAt: Date
 
+    /// Searches the name, set, and printed number using localized substring matching.
+    public func matchesSearch(_ query: String) -> Bool {
+        name.localizedStandardContains(query)
+            || setName.localizedStandardContains(query)
+            || cardNumber.localizedStandardContains(query)
+    }
+
     public init(
-        id: String,
+        id: UUID,
         game: ClientCardGame,
         name: String,
         setName: String,
@@ -79,8 +88,12 @@ public struct Card: Codable, Hashable, Identifiable, Sendable {
         updatedAt: Date,
         purchases: [CardPurchase] = [],
         purchasePriceChangePercent: Double? = nil,
-        displayCurrency: Currency? = nil
+        displayCurrency: Currency? = nil,
+        collectionID: UUID?,
+        allocationAdjustments: Int?
     ) {
+        self.collectionID = collectionID
+        self.allocationAdjustments = allocationAdjustments
         self.id = id
         self.game = game
         self.name = name
@@ -94,6 +107,8 @@ public struct Card: Codable, Hashable, Identifiable, Sendable {
         self.updatedAt = updatedAt
     }
 
+    public var totalQuantity: Int { purchases.reduce(0) { $0 + $1.quantity } }
+
     public var quantities: [CardConditionQuantity] {
         let totals = CardConditionQuantity.totals(
             purchases.map { CardConditionQuantity(condition: $0.condition, quantity: $0.quantity) }
@@ -105,6 +120,8 @@ public struct Card: Codable, Hashable, Identifiable, Sendable {
     }
 
     private enum CodingKeys: String, CodingKey {
+        case collectionID = "collection_id"
+        case allocationAdjustments = "allocation_adjustments"
         case id
         case game
         case name

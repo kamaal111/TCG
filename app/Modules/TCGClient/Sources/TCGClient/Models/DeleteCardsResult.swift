@@ -1,8 +1,10 @@
-public struct DeleteCardsResult: Equatable, Sendable {
-    public let deletedIDs: [String]
-    public let notFoundIDs: [String]
+import Foundation
 
-    public init(deletedIDs: [String], notFoundIDs: [String]) {
+public struct DeleteCardsResult: Equatable, Sendable {
+    public let deletedIDs: [UUID]
+    public let notFoundIDs: [UUID]
+
+    public init(deletedIDs: [UUID], notFoundIDs: [UUID]) {
         self.deletedIDs = deletedIDs
         self.notFoundIDs = notFoundIDs
     }

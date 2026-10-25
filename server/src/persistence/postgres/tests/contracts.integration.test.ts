@@ -8,7 +8,7 @@ import { createTestDatabase, createTestUser } from '../../../tests/utils.ts';
 import { createPostgresPersistence } from '../index.ts';
 
 definePersistenceContracts('PostgreSQL and S3', async () => {
-  const database = await createTestDatabase();
+  const database = await createTestDatabase('./drizzle');
   const storage = await createTestObjectStorage();
   const persistence = createPostgresPersistence(database.db, env.PRICING_LOCK_TIMEOUT_MS);
   const app = new NodeApp({ db: database.db, storageClient: storage }).app;

@@ -20,7 +20,8 @@ struct CSVImportReviewContent: View {
             } icon: {
                 Image(systemName: "exclamationmark.triangle.fill")
             }
-            .font(.headline).foregroundStyle(.red)
+            .font(.headline)
+            .foregroundStyle(.red)
             Text(error).textSelection(.enabled)
         } else {
             Text(
@@ -55,7 +56,8 @@ struct CSVImportReviewContent: View {
                         remove: { model.removeCard(id: card.id) },
                         editRow: { actions.editRow($0, card.id) }
                     )
-                ).disabled(model.isSubmitting)
+                )
+                .disabled(model.isSubmitting)
             }
             if let error = model.submissionError { Text(error).foregroundStyle(.red).textSelection(.enabled) }
             Button {
@@ -66,13 +68,17 @@ struct CSVImportReviewContent: View {
                 } else {
                     Text("Import Cards (\(model.selectedCards.count))", bundle: .module)
                 }
-            }.buttonStyle(.borderedProminent).disabled(!model.canImport)
+            }
+            .buttonStyle(.borderedProminent)
+            .disabled(!model.canImport)
             Text(
                 "Matching IDs replace cards and their complete purchase history in your collection. Unchanged cards and excluded rows are skipped.",
                 bundle: .module
-            ).font(
+            )
+            .font(
                 .caption
-            ).foregroundStyle(.secondary)
+            )
+            .foregroundStyle(.secondary)
         }
         VStack(alignment: .leading, spacing: 12) {
             Button {
@@ -85,6 +91,7 @@ struct CSVImportReviewContent: View {
             } label: {
                 Text("Choose Another File…", bundle: .module)
             }
-        }.disabled(model.isSubmitting)
+        }
+        .disabled(model.isSubmitting)
     }
 }

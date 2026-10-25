@@ -1,9 +1,8 @@
 import { z } from 'zod';
 
 import { CurrencySchema, NullableCurrencySchema } from '../../forex/currencies.ts';
+import { UuidSchema } from '../../schemas/common.ts';
 import { CARD_CONDITIONS, CARD_GAMES, MAX_COPIES_PER_CONDITION } from '../types.ts';
-
-export const CardIdSchema = z.uuid();
 
 export const CardCoreFieldsSchema = z.object({
   game: z.enum(CARD_GAMES).meta({ description: 'Trading card game', example: 'one_piece' }),
@@ -38,7 +37,7 @@ export const PurchaseAmountSchema = z
   });
 
 const CardPurchaseFieldsSchema = z.object({
-  id: CardIdSchema.optional(),
+  id: UuidSchema.optional(),
   condition: CardConditionQuantitySchema.shape.condition,
   quantity: CardConditionQuantitySchema.shape.quantity,
   purchase_price: PurchaseAmountSchema.nullable(),
@@ -54,7 +53,7 @@ export const CardPurchaseInputSchema = CardPurchaseFieldsSchema.refine(
 ).meta({ $id: 'CardPurchaseInput', title: 'Card Purchase Input' });
 
 export const CardPurchaseSchema = CardPurchaseFieldsSchema.extend({
-  id: CardIdSchema,
+  id: UuidSchema,
   automatic_price_date: z.string().nullable().meta({
     description: 'Market pricing day used to automatically fill the purchase price',
   }),

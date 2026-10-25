@@ -22,9 +22,21 @@ struct TCGCardDetailScreenSnapshotTests {
             createdAt: source.createdAt,
             updatedAt: source.updatedAt,
             purchases: [
-                .init(id: "batch-1", condition: .nearMint, quantity: 2, purchasePrice: 2, currency: .usd),
-                .init(id: "batch-2", condition: .played, quantity: 1),
-            ]
+                .init(
+                    id: UUID(uuid: (0, 0, 0, 0, 0, 0, 64, 0, 128, 0, 0, 0, 0, 0, 1, 1)),
+                    condition: .nearMint,
+                    quantity: 2,
+                    purchasePrice: 2,
+                    currency: .usd
+                ),
+                .init(
+                    id: UUID(uuid: (0, 0, 0, 0, 0, 0, 64, 0, 128, 0, 0, 0, 0, 0, 1, 2)),
+                    condition: .played,
+                    quantity: 1
+                ),
+            ],
+            collectionID: nil,
+            allocationAdjustments: nil
         )
         let model = TCGCardDetailScreenModel(card: .init(card: card, price: PreviewTCGCardsClient.price(for: card)))
         #expect(model.card.card.purchases.count == 2)
@@ -57,7 +69,7 @@ struct TCGCardDetailScreenSnapshotTests {
         let model = makeModel()
         model.edit()
         #expect(model.editor != nil)
-        await assertScreenSnapshot(testName: #function) { makeScreen(model) }
+        await assertScreenSnapshot(testName: #function) { makeScreen(model, isEditingCollection: true) }
     }
 
     @Test
@@ -68,7 +80,13 @@ struct TCGCardDetailScreenSnapshotTests {
         editor.values.name = ""
         await model.save(using: TCGCards(client: .preview(cardsOutcome: .empty)))
         #expect(editor.fieldErrors[.name] != nil)
-        await assertScreenSnapshot(testName: #function) { makeScreen(model) }
+        await assertScreenSnapshot(testName: #function) { makeScreen(model, isEditingCollection: true) }
+    }
+
+    @Test func `Renders card editing access only in collection edit mode`() async {
+        let model = makeModel()
+        #expect(model.editor == nil)
+        await assertScreenSnapshot(testName: #function) { makeScreen(model, isEditingCollection: true) }
     }
 
     private func makeModel(status: OwnedCardPriceStatus = .priced) -> TCGCardDetailScreenModel {
@@ -78,8 +96,9 @@ struct TCGCardDetailScreenSnapshotTests {
         return .init(card: .init(card: card, price: price))
     }
 
-    private func makeScreen(_ model: TCGCardDetailScreenModel) -> some View {
+    private func makeScreen(_ model: TCGCardDetailScreenModel, isEditingCollection: Bool = false) -> some View {
         NavigationStack { TCGCardDetailScreen(model: model) }
+            .environment(\.isEditingCollection, isEditingCollection)
             .environment(\.timeZone, TimeZone(secondsFromGMT: 0)!)
             .environment(TCGCards(client: .preview(cardsOutcome: .empty)))
             .cardImageLoader(PreviewCardImageLoader(outcome: .success))

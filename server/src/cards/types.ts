@@ -13,6 +13,8 @@ export type CardGame = (typeof CARD_GAMES)[number];
 export interface OwnedCard {
   id: string;
   importSourceId: string | null;
+  collectionId?: string | null;
+  allocationAdjustments?: number;
   userId: string;
   game: CardGame;
   name: string;

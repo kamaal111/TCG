@@ -17,4 +17,5 @@ enum TCGCardsValidationField: String, Hashable, Sendable {
     case quantities
     case purchases
     case notes
+    case collection = "collection_id"
 }

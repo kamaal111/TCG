@@ -19,7 +19,7 @@ public struct PurchaseDisplayPrice: Codable, Hashable, Sendable {
 
 /// A group of copies bought at one price per card. A nil price is awaiting market backfill.
 public struct CardPurchase: Codable, Hashable, Sendable {
-    public let id: String?
+    public let id: UUID?
     public let condition: CardCondition
     public let quantity: Int
     public let purchasePrice: Decimal?
@@ -28,7 +28,7 @@ public struct CardPurchase: Codable, Hashable, Sendable {
     public let displayPrice: PurchaseDisplayPrice?
 
     public init(
-        id: String? = nil,
+        id: UUID? = nil,
         condition: CardCondition,
         quantity: Int,
         purchasePrice: Decimal? = nil,

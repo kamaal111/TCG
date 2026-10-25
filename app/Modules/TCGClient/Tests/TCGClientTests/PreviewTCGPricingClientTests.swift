@@ -12,7 +12,8 @@ struct PreviewTCGPricingClientTests {
     @Test
     func `Japanese selection excludes English preview cards`() async throws {
         let result = try await PreviewTCGPricingClient(outcome: .success)
-            .search(game: .pokemon, query: "Giratina", languages: [.japanese]).get()
+            .search(game: .pokemon, query: "Giratina", languages: [.japanese])
+            .get()
 
         #expect(result.matches.isEmpty)
     }
@@ -20,7 +21,8 @@ struct PreviewTCGPricingClientTests {
     @Test
     func `Complete selection includes English preview cards`() async throws {
         let result = try await PreviewTCGPricingClient(outcome: .success)
-            .search(game: .pokemon, query: "Giratina", languages: [.english, .japanese]).get()
+            .search(game: .pokemon, query: "Giratina", languages: [.english, .japanese])
+            .get()
 
         #expect(result.matches == [PreviewTCGPricingClient.samplePricedCards[1]])
     }

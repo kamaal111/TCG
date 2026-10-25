@@ -15,9 +15,11 @@ struct CSVImportCardReviewView: View {
         VStack(alignment: .leading, spacing: 12) {
             Text(card.name.isEmpty ? String(localized: "Unnamed card", bundle: .module) : card.name).font(.headline)
             if let first = card.rows.first {
-                Text(verbatim: "\(first[.setName]) · \(first[.cardNumber])").font(.subheadline).foregroundStyle(
-                    .secondary
-                )
+                Text(verbatim: "\(first[.setName]) · \(first[.cardNumber])")
+                    .font(.subheadline)
+                    .foregroundStyle(
+                        .secondary
+                    )
             }
             HStack {
                 Button {
@@ -33,11 +35,12 @@ struct CSVImportCardReviewView: View {
                 }
             }
             ForEach(card.rows) { row in
-                let issues = issues(for: row, in: card)
-                CSVImportRowReviewView(row: row, issues: issues) { actions.editRow(row) }
+                CSVImportRowReviewView(row: row, issues: issues(for: row, in: card)) { actions.editRow(row) }
                 if row.id != card.rows.last?.id { Divider() }
             }
-        }.padding(16).background(.quaternary, in: RoundedRectangle(cornerRadius: 12))
+        }
+        .padding(16)
+        .background(.quaternary, in: RoundedRectangle(cornerRadius: 12))
     }
 
     private func issues(for row: CSVImportRow, in card: CSVImportCard) -> [CSVImportIssue] {

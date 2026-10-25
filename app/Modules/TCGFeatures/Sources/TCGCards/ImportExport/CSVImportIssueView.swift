@@ -5,10 +5,13 @@ struct CSVImportIssueView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 3) {
-            Text("\(issue.column.rawValue): ‘\(issue.value)’", bundle: .module).font(
-                .subheadline.weight(.semibold)
-            )
+            Text("\(issue.column.rawValue): ‘\(issue.value)’", bundle: .module)
+                .font(
+                    .subheadline.weight(.semibold)
+                )
             Text(issue.explanation).font(.subheadline)
-        }.foregroundStyle(.red).textSelection(.enabled)
+        }
+        .foregroundStyle(.red)
+        .textSelection(.enabled)
     }
 }

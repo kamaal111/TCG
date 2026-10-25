@@ -17,6 +17,7 @@ import { CardPricingService } from './card-pricing/service.ts';
 import type { CardImportProgress } from './cards/logging.ts';
 import { cardsLogger } from './cards/logging.ts';
 import type { CardRepository } from './cards/repository.ts';
+import type { CollectionRepository } from './collections/repository.ts';
 import type { ApplicationConfig } from './config.ts';
 import type { ForexClient } from './forex/client.ts';
 import type { Currency } from './forex/currencies.ts';
@@ -43,6 +44,7 @@ interface RepositoryVariables {
   forexRepository: ForexRepository;
   cardPricingRepository: CardPricingRepository;
   cardRepository: CardRepository;
+  collectionRepository: CollectionRepository;
   cardImageRepository: CardImageRepository;
 }
 
@@ -107,6 +109,7 @@ export function injectRequestContext({
     c.set('cardPricingRepository', repositories.cardPricingRepository);
     c.set('userPreferencesRepository', repositories.userPreferencesRepository);
     c.set('cardRepository', repositories.cardRepository);
+    c.set('collectionRepository', repositories.collectionRepository);
     c.set('forexRepository', persistence.forexRepository);
     c.set('cardImageRepository', persistence.cardImageRepository);
     c.set('forexService', new ForexService(c));

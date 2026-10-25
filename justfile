@@ -183,7 +183,7 @@ heavy: quality test-heavy
 
 # Run all verification checks for app
 [parallel]
-ready-app: quality-app test-app test-scripts
+ready-app: quality-app test-app test-scripts test-swift-member-spacing
 
 # Run all verification checks for server
 [parallel]
@@ -253,6 +253,7 @@ test-snapshots-macos:
         -destination "platform=macOS" \
         -only-testing:TCGCardsTests/ScreenSnapshotSettlingTests \
         -only-testing:TCGCardsTests/TCGCardsListScreenSnapshotTests \
+        -only-testing:TCGCardsTests/TCGCollectionsSnapshotTests \
         -only-testing:TCGCardsTests/TCGCardFormScreenSnapshotTests \
         -only-testing:TCGCardsTests/TCGCurrencyAmountSnapshotTests \
         -only-testing:TCGCardsTests/TCGCardDetailScreenSnapshotTests \
@@ -296,6 +297,7 @@ _snapshots-ios action *args:
         -destination "{{ APP_IOS_TEST_DESTINATION }}" \
         -only-testing:TCGCardsTests/ScreenSnapshotSettlingTests \
         -only-testing:TCGCardsTests/TCGCardsListScreenSnapshotTests \
+        -only-testing:TCGCardsTests/TCGCollectionsSnapshotTests \
         -only-testing:TCGCardsTests/TCGCardFormScreenSnapshotTests \
         -only-testing:TCGCardsTests/TCGCurrencyAmountSnapshotTests \
         -only-testing:TCGCardsTests/TCGCardDetailScreenSnapshotTests \
@@ -398,7 +400,15 @@ typecheck-scripts:
     {{ PNX }} tsc -p tsconfig.scripts.json
 
 # Lint the project
-lint: lint-js
+lint: lint-js lint-app
+
+# Check Swift member spacing and multiline call chains
+lint-app:
+    swift run --package-path app/Tools/SwiftMemberSpacing swift-member-spacing app
+
+# Test the Swift spacing checker
+test-swift-member-spacing:
+    swift test --package-path app/Tools/SwiftMemberSpacing
 
 # Lint js code
 lint-js:
@@ -437,7 +447,7 @@ format-check-js:
 
 # Check app code formatting
 [working-directory("app")]
-format-check-app:
+format-check-app: lint-app
     swift format lint --strict -r .
 
 # Format code

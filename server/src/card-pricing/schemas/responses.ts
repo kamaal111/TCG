@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 import { CARD_GAMES } from '../../cards/types.ts';
 import { CurrencySchema } from '../../forex/currencies.ts';
-import { ApiCommonDatetime } from '../../schemas/common.ts';
+import { ApiCommonDatetime, UuidSchema } from '../../schemas/common.ts';
 
 export const PRICE_HEADLINE_METRICS = { LOWEST_NEAR_MINT: 'lowest_near_mint' } as const;
 
@@ -81,7 +81,7 @@ export const PricedCardDisplaySchema = z
 
 export const PricedCardSchema = z
   .object({
-    id: z.uuid().meta({
+    id: UuidSchema.meta({
       description: 'Stable identifier for this priced-card record',
       example: '550e8400-e29b-41d4-a716-446655440000',
     }),
@@ -146,7 +146,7 @@ export const PricingSearchResponseSchema = z
 
 export const OwnedCardPriceSchema = z
   .object({
-    card_id: z.uuid().meta({
+    card_id: UuidSchema.meta({
       description: 'Owned card identifier',
       example: '550e8400-e29b-41d4-a716-446655440000',
     }),

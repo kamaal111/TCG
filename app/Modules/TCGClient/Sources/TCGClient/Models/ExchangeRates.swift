@@ -25,9 +25,11 @@ public struct ExchangeRates: Codable, Equatable, Sendable {
 
 public struct CurrencyPreferencePayload: Codable, Equatable, Sendable {
     public let preferredCurrency: Currency
+
     public init(preferredCurrency: Currency) {
         self.preferredCurrency = preferredCurrency
     }
+
     enum CodingKeys: String, CodingKey {
         case preferredCurrency = "preferred_currency"
     }

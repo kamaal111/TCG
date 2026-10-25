@@ -146,7 +146,15 @@ function storageOptions() {
 export function createNodeApplication(overrides: AppOverrides = {}) {
   initializeNodeLogging();
   const config = overrides.config ?? ApplicationConfigSchema.parse(env);
-  const db = overrides.db ?? createDatabase({ url: env.DATABASE_URL, debug: env.DEBUG });
+
+  const db =
+    overrides.db ??
+    createDatabase({
+      url: env.DATABASE_URL,
+      debug: env.DEBUG,
+      connectionTimeoutMs: config.DATABASE_CONNECTION_TIMEOUT_MS,
+    });
+
   const auth = createAuth(db, config, env.BETTER_AUTH_SECRET);
   const persistence = createPostgresPersistence(db, config.PRICING_LOCK_TIMEOUT_MS, config);
   const forexClient = overrides.forexClient ?? new EcbForexClient();

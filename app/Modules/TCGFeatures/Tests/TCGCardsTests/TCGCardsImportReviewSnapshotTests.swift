@@ -32,7 +32,15 @@ struct TCGCardsImportReviewSnapshotTests {
     @Test
     func `Renders import completion counts`() async {
         let model = TCGCardsImportReviewModel(filename: "my-cards.csv", cards: [CardsCSVFixtures.draft])
-        model.completion = .init(result: .init(importedCount: 1, updatedCount: 3, skippedCount: 2), needsRefresh: false)
+        model.completion = .init(
+            result: .init(
+                importedCount: 1,
+                updatedCount: 3,
+                skippedCount: 2,
+                allocationAdjustments: nil
+            ),
+            needsRefresh: false
+        )
         #expect(model.completion?.result.importedCount == 1)
         await assertScreenSnapshot(testName: #function) {
             TCGCardsImportReviewScreen(model: model).tcgCards(TCGCards(client: .preview(cardsOutcome: .empty)))
@@ -87,7 +95,8 @@ struct TCGCardsImportReviewSnapshotTests {
             NavigationStack {
                 ScrollView { TCGCardFormFields(model: model, onSubmit: {}) }
                     .navigationTitle(Text("Edit Import Card"))
-            }.tcgCards(TCGCards(client: .preview(cardsOutcome: .empty)))
+            }
+            .tcgCards(TCGCards(client: .preview(cardsOutcome: .empty)))
         }
     }
 }

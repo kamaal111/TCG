@@ -23,6 +23,9 @@ public final class TCGCards {
     private(set) var nextPageError: TCGCardsOperationError?
     private(set) var displayRefreshError: TCGCardsOperationError?
 
+    var allocationAdjustments = 0
+    var onCollectionMutation: (@MainActor () async -> Void)?
+    private(set) var selectedCollection: CardBinderCollection?
     private let client: TCGClient
     private var collectionState = CollectionState()
     private var displayIdentity: TCGCurrency.DisplayIdentity?
@@ -37,6 +40,42 @@ public final class TCGCards {
     }
 
     public static func `default`() -> TCGCards { TCGCards(client: .default()) }
+
+    func selectCollection(_ collection: CardBinderCollection?) async {
+        let changed = selectedCollection?.id != collection?.id
+        selectedCollection = collection
+        if changed || !hasLoadedCurrentCollection {
+            invalidateDisplayPrices()
+            _ = await load(game: nil)
+        }
+    }
+
+    func clearCollectionSelection() {
+        selectedCollection = nil
+        allocationAdjustments = 0
+        invalidateDisplayPrices()
+    }
+
+    func allCardsInSelectedCollection() async -> Result<[CardWithPrice], TCGCardsOperationError> {
+        let identity = selectedCollection?.id
+        var result: [CardWithPrice] = []
+        var cursor: String?
+        var visited: Set<String> = []
+        repeat {
+            guard selectedCollection?.id == identity else { return .failure(.serverUnavailable) }
+            switch await client.cards.listPage(
+                .init(game: nil, setNames: [], cursor: cursor, collectionID: identity, query: nil)
+            ) {
+            case .failure: return .failure(.serverUnavailable)
+            case .success(let page):
+                result.append(contentsOf: page.cards)
+                cursor = page.nextCursor
+                if let cursor { guard visited.insert(cursor).inserted else { return .failure(.serverUnavailable) } }
+            }
+        } while cursor != nil
+        guard selectedCollection?.id == identity else { return .failure(.serverUnavailable) }
+        return .success(result)
+    }
 
     public func resetDisplayPrices() {
         displayIdentity = nil
@@ -68,12 +107,14 @@ public final class TCGCards {
         displayRefreshError = nil
     }
 
-    func load(game: ClientCardGame?, setNames: Set<String> = []) async -> Result<Void, TCGCardsOperationError> {
+    func load(game: ClientCardGame?, setNames: Set<String> = [], query: String? = nil) async -> Result<
+        Void, TCGCardsOperationError
+    > {
         let pageCount =
-            game == collectionState.game && setNames == collectionState.setNames
+            game == collectionState.game && setNames == collectionState.setNames && query == collectionState.query
             ? max(1, collectionState.pageCount) : 1
 
-        return await loadCollection(.init(game: game, setNames: setNames, pageCount: pageCount))
+        return await loadCollection(.init(game: game, setNames: setNames, query: query, pageCount: pageCount))
     }
 
     func loadNextPage() async -> Result<Void, TCGCardsOperationError> {
@@ -109,6 +150,7 @@ public final class TCGCards {
         collectionState = CollectionState(
             game: request.game,
             setNames: request.setNames,
+            query: request.query,
             generation: collectionState.generation + 1,
             status: .loading,
             pageCount: request.pageCount
@@ -148,9 +190,13 @@ public final class TCGCards {
         guard !Task.isCancelled else { return .success(false) }
 
         let result = await client.cards.listPage(
-            game: collectionState.game,
-            setNames: collectionState.setNames,
-            cursor: pages.nextCursor
+            .init(
+                game: collectionState.game,
+                setNames: collectionState.setNames,
+                cursor: pages.nextCursor,
+                collectionID: selectedCollection?.id,
+                query: collectionState.query
+            )
         )
 
         guard generation == collectionState.generation else { return .success(false) }
@@ -190,36 +236,46 @@ public final class TCGCards {
         let result = await client.cards.create(with: values.payload)
             .map { card in if displayIdentity == identity { insertCard(card) } }
             .mapError(mapCreateError)
-        if case .success = result { await refresh() }
+        if case .success = result {
+            await refresh()
+            await onCollectionMutation?()
+        }
         return result
     }
 
-    func updateCard(id: String, values: CardFormValues) async -> Result<CardWithPrice, TCGCardsOperationError> {
+    func updateCard(id: UUID, values: CardFormValues) async -> Result<CardWithPrice, TCGCardsOperationError> {
         let identity = displayIdentity
         let result = await client.cards.update(id: id, with: values.payload)
             .map { card in
-                if displayIdentity == identity { replaceCard(card, id: id) }
+                if displayIdentity == identity {
+                    replaceCard(card, id: id)
+                    allocationAdjustments = card.card.allocationAdjustments ?? 0
+                }
                 return card
             }
             .mapError(mapUpdateError)
-        if case .success = result { await refresh() }
+        if case .success = result {
+            await refresh()
+            await onCollectionMutation?()
+        }
         return result
     }
 
-    func deleteCard(id: String) async -> Result<Void, TCGCardsOperationError> {
-        await performDeletion(ids: [id]).flatMap { result in
-            result.deletedIDs.contains(id) ? .success(()) : .failure(.notFound)
-        }
+    func deleteCard(id: UUID) async -> Result<Void, TCGCardsOperationError> {
+        await performDeletion(ids: [id])
+            .flatMap { result in
+                result.deletedIDs.contains(id) ? .success(()) : .failure(.notFound)
+            }
     }
 
-    func deleteCards(ids: [String]) async -> [TCGCardsOperationError] {
+    func deleteCards(ids: [UUID]) async -> [TCGCardsOperationError] {
         switch await performDeletion(ids: ids) {
         case .success(let result): result.notFoundIDs.map { _ in .notFound }
         case .failure(let error): [error]
         }
     }
 
-    private func performDeletion(ids: [String]) async -> Result<DeleteCardsResult, TCGCardsOperationError> {
+    private func performDeletion(ids: [UUID]) async -> Result<DeleteCardsResult, TCGCardsOperationError> {
         guard !ids.isEmpty else { return .success(DeleteCardsResult(deletedIDs: [], notFoundIDs: [])) }
         switch await client.cards.delete(ids: ids) {
         case .success(let result):
@@ -228,6 +284,7 @@ public final class TCGCards {
                 setCards(cards.filter { !deletedIDs.contains($0.card.id) })
                 if collectionState.status == .loaded { collectionState.status = .idle }
                 await refresh()
+                await onCollectionMutation?()
             }
             return .success(result)
         case .failure:
@@ -253,6 +310,8 @@ public final class TCGCards {
         switch await client.cards.importCards(payload) {
         case .failure(let error): return .failure(error)
         case .success(let result):
+            allocationAdjustments = result.allocationAdjustments ?? 0
+            await onCollectionMutation?()
             let refresh = await refreshCollection()
             return .success(.init(result: result, needsRefresh: (try? refresh.get()) == nil))
         }
@@ -276,6 +335,7 @@ public final class TCGCards {
             .init(
                 game: collectionState.game,
                 setNames: collectionState.setNames,
+                query: collectionState.query,
                 pageCount: max(1, collectionState.pageCount)
             )
         )
@@ -283,7 +343,9 @@ public final class TCGCards {
 
     private func setCards(_ cards: [CardWithPrice]) {
         self.cards = cards.filter {
-            (collectionState.game == nil || $0.card.game == collectionState.game)
+            (selectedCollection == nil
+                || $0.card.collectionID == (selectedCollection?.isUnfiled == true ? nil : selectedCollection?.id))
+                && (collectionState.game == nil || $0.card.game == collectionState.game)
                 && (collectionState.setNames.isEmpty || collectionState.setNames.contains($0.card.setName))
         }
     }
@@ -292,13 +354,14 @@ public final class TCGCards {
         setCards(cards.prepended(card))
     }
 
-    private func replaceCard(_ card: CardWithPrice, id: String) {
+    private func replaceCard(_ card: CardWithPrice, id: UUID) {
         setCards(cards.map { $0.card.id == id ? card : $0 })
     }
 
     private struct CollectionState {
         var game: ClientCardGame?
         var setNames: Set<String> = []
+        var query: String?
         var generation = 0
         var status: Status = .idle
         var nextCursor: String?
@@ -319,7 +382,7 @@ public final class TCGCards {
         var visitedCursors: Set<String>
         var pageCount: Int
 
-        private var cardIDs: Set<String>
+        private var cardIDs: Set<UUID>
 
         init(cards: [CardWithPrice] = [], state: CollectionState = .init()) {
             self.cards = cards
@@ -346,6 +409,7 @@ public final class TCGCards {
     private struct CollectionRequest {
         let game: ClientCardGame?
         let setNames: Set<String>
+        let query: String?
         let pageCount: Int
     }
 
@@ -368,7 +432,14 @@ public final class TCGCards {
         issues.compactMap { issue in
             guard let path = issue.path.first else { return nil }
             guard let field = TCGCardsValidationField(rawValue: path) else { return nil }
-            return .init(field: field, message: issue.message)
+            let message =
+                issue.code == "binder_full"
+                ? String(
+                    localized: "This binder is full. Choose another collection or increase its page dimensions.",
+                    bundle: .module
+                )
+                : issue.message
+            return .init(field: field, message: message)
         }
     }
 }

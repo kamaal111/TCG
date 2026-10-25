@@ -113,7 +113,8 @@ public struct CardDetailContent<Supplemental: View>: View {
                             Text("Last fetched", bundle: .module)
                         }
                     }
-                    .font(.footnote).foregroundStyle(.secondary)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
                 }
             }
             .textSelection(.enabled)

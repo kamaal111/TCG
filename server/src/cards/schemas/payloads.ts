@@ -1,12 +1,15 @@
 import { z } from 'zod';
 
-import { CardPurchaseInputSchema, CardCoreFieldsSchema, CardIdSchema, CardPurchaseSchema } from './fields.ts';
+import { IMPORT_CARD_EXAMPLE } from './examples.ts';
+import { CardPurchaseInputSchema, CardCoreFieldsSchema, CardPurchaseSchema } from './fields.ts';
+import { UuidSchema } from '../../schemas/common.ts';
 import { CARD_CONDITIONS, MAX_COPIES_PER_CONDITION } from '../types.ts';
 import { purchaseQuantities } from '../utils/quantities.ts';
 
 const MAX_CONDITIONS = CARD_CONDITIONS.length;
 
 const CardInputSchema = CardCoreFieldsSchema.extend({
+  collection_id: UuidSchema.nullish(),
   notes: z
     .string()
     .trim()
@@ -61,12 +64,12 @@ export type UpsertCard = z.infer<typeof UpsertCardSchema>;
 
 export const DeleteCardsSchema = z
   .object({
-    card_ids: z.array(CardIdSchema).meta({ description: 'Card entries to delete; duplicates are ignored' }),
+    card_ids: z.array(UuidSchema).meta({ description: 'Card entries to delete; duplicates are ignored' }),
   })
   .meta({ $id: 'DeleteCards', title: 'Delete Cards' });
 
 export const ImportCardSchema = CardInputSchema.extend({
-  id: CardIdSchema.meta({
+  id: UuidSchema.meta({
     description: 'Source card identifier used to create or replace cards owned by the importing account',
     example: '550e8400-e29b-41d4-a716-446655440000',
   }),
@@ -120,26 +123,7 @@ export const ImportCardSchema = CardInputSchema.extend({
     $id: 'ImportCard',
     title: 'Import Card',
     description: 'An owned card from a backup, preserving source identity, timestamps, and purchase history',
-    example: {
-      id: '550e8400-e29b-41d4-a716-446655440000',
-      game: 'one_piece',
-      name: 'Monkey D. Luffy',
-      set_name: 'Romance Dawn',
-      card_number: 'OP01-003',
-      notes: 'Alternate art',
-      created_at: '2026-07-20T10:30:00.000Z',
-      updated_at: '2026-07-20T10:30:00.000Z',
-      purchases: [
-        {
-          id: '550e8400-e29b-41d4-a716-446655440001',
-          condition: 'near_mint',
-          quantity: 2,
-          purchase_price: '2.50',
-          currency: 'USD',
-          automatic_price_date: '2026-07-20',
-        },
-      ],
-    },
+    example: IMPORT_CARD_EXAMPLE,
   });
 
 export const ImportCardsSchema = z
@@ -153,30 +137,7 @@ export const ImportCardsSchema = z
     $id: 'ImportCards',
     title: 'Import Cards',
     description: "A collection backup to import into the authenticated user's account",
-    example: {
-      cards: [
-        {
-          id: '550e8400-e29b-41d4-a716-446655440000',
-          game: 'one_piece',
-          name: 'Monkey D. Luffy',
-          set_name: 'Romance Dawn',
-          card_number: 'OP01-003',
-          notes: 'Alternate art',
-          created_at: '2026-07-20T10:30:00.000Z',
-          updated_at: '2026-07-20T10:30:00.000Z',
-          purchases: [
-            {
-              id: '550e8400-e29b-41d4-a716-446655440001',
-              condition: 'near_mint',
-              quantity: 2,
-              purchase_price: '2.50',
-              currency: 'USD',
-              automatic_price_date: '2026-07-20',
-            },
-          ],
-        },
-      ],
-    },
+    example: { cards: [IMPORT_CARD_EXAMPLE] },
   });
 
 export type ImportCard = z.infer<typeof ImportCardSchema>;

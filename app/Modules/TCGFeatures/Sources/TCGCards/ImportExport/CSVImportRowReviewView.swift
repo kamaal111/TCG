@@ -28,7 +28,8 @@ struct CSVImportRowReviewView: View {
                 } else {
                     Text("Correct Row", bundle: .module)
                 }
-            }.accessibilityLabel(Text("Edit purchase at row \(row.id)", bundle: .module))
+            }
+            .accessibilityLabel(Text("Edit purchase at row \(row.id)", bundle: .module))
             ForEach(issues) { issue in
                 CSVImportIssueView(issue: issue)
             }

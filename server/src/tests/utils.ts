@@ -1,9 +1,8 @@
 import crypto from 'node:crypto';
 
-import { drizzle } from 'drizzle-orm/node-postgres';
 import { migrate } from 'drizzle-orm/node-postgres/migrator';
 import type { Hono } from 'hono';
-import { Client, Pool } from 'pg';
+import { Client } from 'pg';
 import { inject } from 'vitest';
 
 import { trackPoolShutdown } from './pool-shutdown.ts';
@@ -11,10 +10,12 @@ import { SIGN_UP_ROUTE_PATH } from '../auth/constants.ts';
 import { CONTENTFUL_STATUS_CODES } from '../constants/http.ts';
 import { MIME_TYPES } from '../constants/request.ts';
 import type { HonoEnvironment } from '../context.ts';
-import type { Database } from '../db/index.ts';
-import { appRelations } from '../db/schema/index.ts';
+import { createDatabase, type Database } from '../db/index.ts';
+import env from '../env.ts';
 
-export const createTestDatabase = async (): Promise<{
+export const createTestDatabase = async (
+  migrationsFolder: string,
+): Promise<{
   db: Database;
   connectionString: string;
   cleanup: () => Promise<void>;
@@ -28,11 +29,15 @@ export const createTestDatabase = async (): Promise<{
 
   const testDbUrl = new URL(baseDatabaseUrl);
   testDbUrl.pathname = `/${dbName}`;
-  const pool = new Pool({ connectionString: testDbUrl.toString() });
-  const closePool = trackPoolShutdown(pool);
-  const testDb = drizzle<typeof appRelations>({ client: pool, relations: appRelations });
 
-  await migrate(testDb, { migrationsFolder: './drizzle' });
+  const testDb = createDatabase({
+    url: testDbUrl.toString(),
+    connectionTimeoutMs: env.DATABASE_CONNECTION_TIMEOUT_MS,
+  });
+
+  const closePool = trackPoolShutdown(testDb.$client);
+
+  await migrate(testDb, { migrationsFolder });
 
   const cleanup = async () => {
     await closePool();

@@ -154,7 +154,7 @@ struct TCGCardDetailScreenModelTests {
         #expect(model.presentedImageURL == card.price.price?.imageURL)
         model.presentedImageURL = nil
         let route = try #require(model.presentedForm)
-        #expect(route.id == card.card.id)
+        #expect(route.id == .detail(card.card.id))
     }
 
     @Test

@@ -164,7 +164,7 @@ struct CardsCSVTests {
         let card = try #require(CardsCSV.makeCard(.init(id: UUID(), rows: [row]), now: CardsCSVFixtures.date))
         let payload = ImportCardPayload(card: card)
         #expect(card.createdAt == CardsCSVFixtures.date)
-        #expect(UUID(uuidString: try #require(payload.purchases.first).id) != nil)
+        #expect(try #require(payload.purchases.first).id == #require(card.purchases.first?.id))
     }
 }
 
@@ -176,7 +176,7 @@ enum CardsCSVFixtures {
 
     static let date = Date(timeIntervalSince1970: 1_784_543_400)
     static let card = Card(
-        id: "550e8400-e29b-41d4-a716-446655440000",
+        id: UUID(uuid: (85, 14, 132, 0, 226, 155, 65, 212, 167, 22, 68, 102, 85, 68, 0, 0)),
         game: .onePiece,
         name: "Monkey D. Luffy",
         setName: "Romance Dawn",
@@ -186,15 +186,21 @@ enum CardsCSVFixtures {
         updatedAt: date,
         purchases: [
             .init(
-                id: "550e8400-e29b-41d4-a716-446655440001",
+                id: UUID(uuid: (85, 14, 132, 0, 226, 155, 65, 212, 167, 22, 68, 102, 85, 68, 0, 1)),
                 condition: .nearMint,
                 quantity: 2,
                 purchasePrice: Decimal(string: "2.50"),
                 currency: .usd,
                 automaticPriceDate: "2026-07-20"
             ),
-            .init(id: "550e8400-e29b-41d4-a716-446655440002", condition: .played, quantity: 1),
-        ]
+            .init(
+                id: UUID(uuid: (85, 14, 132, 0, 226, 155, 65, 212, 167, 22, 68, 102, 85, 68, 0, 2)),
+                condition: .played,
+                quantity: 1
+            ),
+        ],
+        collectionID: nil,
+        allocationAdjustments: nil
     )
     static var rows: [CSVImportRow] {
         card.purchases.enumerated().map { CardsCSV.row(card: card, purchase: $0.element, line: $0.offset + 2) }

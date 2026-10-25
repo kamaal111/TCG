@@ -9,6 +9,7 @@
 - Never invoke iOS `xcodebuild` tests directly. Use `just test-app-ios` or `just test-snapshots-ios`; these recipes serialize access to the shared CoreSimulator device across agents.
 - Agents must run recipes that include iOS simulator tests outside any filesystem sandbox. The simulator wrapper intentionally fails before launching CoreSimulator when the required access is unavailable.
 - For TCG Swift-client endpoint work, use the repository-local `tcg-client-endpoint` skill alongside the relevant Kamaal Super Mind skills.
+- Never add more than one database migration per PR. Consolidate all schema and data changes into one migration with its matching snapshot, based on the target branch.
 - Before adding or changing a server log line, read `server/docs/logging.md`; events and fields are declared per domain and enforced by the type checker.
 - Use domain-specific error types for neverthrow `Result` and `ResultAsync` failures; do not expose generic `Error` as their failure type. Errors returned to API users must use custom errors extending `APIException`. Keep unknown failures at capture boundaries and map them into the domain error contract.
 - All application-defined error classes must inherit from a base in `server/src/exceptions/index.ts`; add missing status bases there. Do not extend or construct generic errors in production code. Repositories may construct shared exceptions without HTTP context; the HTTP handler adds the request ID. Keep diagnostic details in causes or diagnostic messages and use safe response messages.

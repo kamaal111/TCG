@@ -162,6 +162,49 @@ struct TCGCardFormScreenModelTests {
         return model
     }
 
+    @Test func `A full binder keeps the card draft and shows a collection field error`() async throws {
+        let transport = CSVImportTransport(
+            status: .badRequest,
+            response: """
+                {"message":"Invalid validation","code":"INVALID_PAYLOAD","context":{"validations":[
+                    {"code":"binder_full","path":["collection_id"],"message":"Server fallback"}
+                ]}}
+                """
+        )
+        let model = TCGCardFormScreenModel(mode: .add, initialValues: validValues)
+        let original = model.values
+        let cards = TCGCards(client: try makeClient(transport: transport))
+        #expect(!(await model.submit(using: cards)))
+        #expect(model.values == original)
+        #expect(
+            model.fieldErrors[.collection]
+                == "This binder is full. Choose another collection or increase its page dimensions."
+        )
+        #expect(!model.isSubmitting)
+    }
+
+    @Test func `Failed collection creation preserves the card draft and presents no browser error`() async throws {
+        let transport = CSVImportTransport(
+            status: .serviceUnavailable,
+            response: """
+                {"message":"Unavailable","code":"UNAVAILABLE"}
+                """
+        )
+        let collections = TCGCollections(client: try makeClient(transport: transport), defaults: nil)
+        let model = TCGCardFormScreenModel(
+            mode: .add,
+            initialValues: .init(pricedCard: PreviewTCGPricingClient.samplePricedCards[0])
+        )
+        let original = model.values
+        await #expect(throws: CollectionsError.unavailable) {
+            try await model.createCollection(name: "Favorites", using: collections).get()
+        }
+        #expect(model.values == original)
+        #expect(collections.collections.isEmpty)
+        #expect(collections.error == nil)
+        #expect(!collections.isWorking)
+    }
+
     @Test(arguments: [
         ("10", "1.9", "5.263158"),
         ("5.13640806895938860748244912467786368", "1", "5.136408"),
@@ -645,12 +688,12 @@ private actor PurchaseSaveTransport: ClientTransport {
         if let body { requestBody = try await Data(collecting: body, upTo: 1_000_000) }
         let response = """
             {
-              "id":"saved-card","game":"one_piece","name":"Monkey D. Luffy",
+              "id":"00000000-0000-4000-8000-000000000072","game":"one_piece","name":"Monkey D. Luffy",
               "set_name":"Romance Dawn","card_number":"OP01-003","notes":null,
               "created_at":"2026-10-16T10:00:00.000Z","updated_at":"2026-10-16T10:00:00.000Z",
-              "purchases":[{"id":"saved-purchase","condition":"near_mint","quantity":2,
+              "purchases":[{"id":"00000000-0000-4000-8000-000000000073","condition":"near_mint","quantity":2,
                 "purchase_price":"5.263158","currency":"EUR","automatic_price_date":null}],
-              "purchase_price_change_percent":null,"price":{"card_id":"saved-card","status":"no_price"}
+              "purchase_price_change_percent":null,"price":{"card_id":"00000000-0000-4000-8000-000000000072","status":"no_price"}
             }
             """
         return (HTTPResponse(status: .created, headerFields: [.contentType: "application/json"]), HTTPBody(response))

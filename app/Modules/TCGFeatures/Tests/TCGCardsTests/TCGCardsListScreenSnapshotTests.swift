@@ -20,8 +20,10 @@ struct TCGCardsListScreenSnapshotTests {
     @Test
     func `Renders purchase gains losses and stable cards`() async {
         let samples = [
-            purchaseCard(id: "gain", change: 25), purchaseCard(id: "loss", change: -25),
-            purchaseCard(id: "stable", change: 0), purchaseCard(id: "unknown", change: nil),
+            purchaseCard(id: CardsTestIDs.primary, change: 25),
+            purchaseCard(id: CardsTestIDs.secondary, change: -25),
+            purchaseCard(id: CardsTestIDs.third, change: 0),
+            purchaseCard(id: CardsTestIDs.fourth, change: nil),
         ]
         let feature = TCGCards(client: .preview(cardsOutcome: .success(cards: samples)))
         let model = TCGCardsListScreenModel(preferences: nil)
@@ -44,7 +46,7 @@ struct TCGCardsListScreenSnapshotTests {
         }
     }
 
-    private func purchaseCard(id: String, change: Double?) -> Card {
+    private func purchaseCard(id: UUID, change: Double?) -> Card {
         let source = PreviewTCGCardsClient.sampleCards[0]
         return Card(
             id: id,
@@ -56,7 +58,9 @@ struct TCGCardsListScreenSnapshotTests {
             createdAt: source.createdAt,
             updatedAt: source.updatedAt,
             purchases: source.purchases,
-            purchasePriceChangePercent: change
+            purchasePriceChangePercent: change,
+            collectionID: nil,
+            allocationAdjustments: nil
         )
     }
 
@@ -155,15 +159,26 @@ struct TCGCardsListScreenSnapshotTests {
         await assertScreenSnapshot(testName: #function) { makeScreen(feature: feature, model: model) }
     }
 
-    private func makeUnavailableFeature(allUnavailable: Bool) -> TCGCards {
-        let cards = PreviewTCGCardsClient.sampleCards.enumerated().map { index, card in
-            CardWithPrice(
-                card: card,
-                price: allUnavailable || index == 0
-                    ? OwnedCardPrice(cardId: card.id, status: .unavailable)
-                    : PreviewTCGCardsClient.price(for: card)
-            )
+    @Test func `Renders list editing controls with filters`() async {
+        let feature = TCGCards(client: .preview())
+        let model = TCGCardsListScreenModel(preferences: nil)
+        await model.load(using: feature)
+        #expect(!feature.cards.isEmpty)
+        await assertScreenSnapshot(testName: #function) {
+            makeScreen(feature: feature, model: model).environment(\.isEditingCollection, true)
         }
+    }
+
+    private func makeUnavailableFeature(allUnavailable: Bool) -> TCGCards {
+        let cards = PreviewTCGCardsClient.sampleCards.enumerated()
+            .map { index, card in
+                CardWithPrice(
+                    card: card,
+                    price: allUnavailable || index == 0
+                        ? OwnedCardPrice(cardId: card.id, status: .unavailable)
+                        : PreviewTCGCardsClient.price(for: card)
+                )
+            }
         return TCGCards(client: .preview(cardsOutcome: .successWithPrices(cards)))
     }
 

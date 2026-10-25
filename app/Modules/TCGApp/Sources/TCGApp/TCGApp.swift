@@ -24,6 +24,7 @@ public struct TCGScene: Scene {
     @State private var currencyState = TCGCurrency()
     @Environment(\.scenePhase) private var scenePhase
     @State private var cards = TCGCards.default()
+    @State private var collections = TCGCollections(client: .default(), defaults: .standard)
     @State private var search = TCGSearch.default()
 
     public init() {}
@@ -31,8 +32,14 @@ public struct TCGScene: Scene {
     public var body: some Scene {
         WindowGroup {
             TabView {
-                NavigationStack { TCGCardsListScreen() }
-                    .tabItem { Label("Collection", systemImage: "square.stack") }
+                TCGCollectionsScreen()
+                    .tabItem {
+                        Label {
+                            Text("Collections", bundle: .module)
+                        } icon: {
+                            Image(systemName: "square.stack")
+                        }
+                    }
 
                 TCGSearchTab()
                     .tabItem { Label("Search", systemImage: "magnifyingglass") }
@@ -44,9 +51,11 @@ public struct TCGScene: Scene {
             }
             .environment(\.tcgCurrency, currencyState)
             .tcgCards(cards)
+            .environment(\.tcgCollections, collections)
             .tcgSearch(search)
             .kamaalAuth(auth)
             .task { await currencyState.trackSession(auth) }
+            .task { await collections.trackSession(auth, cards: cards) }
             .task(id: DisplayRefreshIdentity(display: currencyState.displayIdentity, isLoggedIn: auth.isLoggedIn)) {
                 guard auth.isLoggedIn else {
                     cards.resetDisplayPrices()
@@ -64,6 +73,8 @@ public struct TCGScene: Scene {
         #if os(macOS)
             Settings {
                 TCGAppSettings(cards: cards)
+                    .tcgCards(cards)
+                    .environment(\.tcgCollections, collections)
                     .environment(auth)
                     .environment(\.tcgCurrency, currencyState)
                     .frame(width: 450)

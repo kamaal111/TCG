@@ -7,6 +7,29 @@ currently declares iOS 18.6 and macOS 27 minimums, while the reusable packages d
 macOS 15 minimums. All packages use Swift tools version 6.4. Use an Xcode toolchain
 that supports that version and the configured app SDKs.
 
+## Swift spacing
+
+Run `just lint-app` to check spacing around Swift initializers and methods. Each
+must be separated from adjacent members by a blank line, including one-line
+declarations. Consecutive properties may remain grouped. Keep documentation
+comments and attributes attached to their declaration, with the blank line before
+that block. Correct missing spacing manually; `just format-app` does not insert it.
+
+Multiline call chains also require each chained call on its own line, including
+SwiftUI modifiers following a button's trailing closures. For example, put
+`.disabled(...)` and `.accessibilityLabel(...)` on separate lines. Entirely
+single-line expressions such as `Text("Page").tag(index)` may remain compact.
+
+SwiftUI `var body: some View` implementations must not contain standalone local
+`let` or `var` declarations, including inside nested builder closures. Use computed
+properties for values derived from view state, or helpers for calculations that
+depend on geometry or closure arguments. Conditional bindings such as `if let`
+remain allowed.
+
+The syntax check runs automatically through `just lint`, `just format-check-app`,
+`just quality`, and app CI. Run `just test-swift-member-spacing` for its regression
+tests; these also run through `just ready-app`.
+
 ## Run the app
 
 Start the local API with `just dev-server` from the repository root, then:
@@ -345,3 +368,42 @@ Request IDs remain a server concern. App logs do not generate, send, or carry
 them. Server request and domain logs use the existing `tcg-request-id` convention;
 see [server logging](../server/docs/logging.md#currency-workflows).
 Logs establish workflow state, while visual formatting still needs UI review.
+
+## Collections and binders
+
+UUID-backed card, purchase, collection, and page identities use `UUID` throughout
+the Swift models and state. String conversion happens at HTTP, CSV, and local
+preference boundaries. Malformed UUIDs in API responses are rejected.
+
+Collections use the iPhone collection menu or the Mac sidebar. The last open
+collection or All cards is remembered locally for each signed-in account.
+All cards searches across every collection by card name, set name, or card
+number, using server-side filtering and pagination. Unfiled is hidden from
+collection navigation but remains the destination for existing entries and cards
+without a named collection. Deleting a named collection moves its entries to
+Unfiled without removing purchase history.
+
+List or Binder is remembered locally for each collection and signed-in account,
+including after restarting the app. Switching is immediate and makes no update request. The choice is not stored
+in the database or backups. Page dimensions have independent Columns and Rows
+fields: 1 × 4 is one column and four rows. Resizing previews retained
+positions and overflow pages before saving. Empty pages and slots are preserved;
+switching to List keeps the binder arrangement. When two pages fit at the
+current zoom, Binder shows them side by side; narrower windows or larger zoom
+show one page. Navigation advances by the visible spread, and the page picker
+can focus either page for deletion. Only visible populated pages request card
+data.
+
+A slot allocates copies from one owned entry. Four copies can occupy one slot
+with quantity three and another with quantity one. Choose an empty slot to place
+unassigned copies using the searchable image picker, or add an empty page, while
+browsing. Edit collection is reserved for arranging occupied slots, removing
+pages, changing dimensions, renaming, and deleting the collection. Reducing ownership trims
+later slots and reports the adjustment. Moving
+an entry to another collection clears its old placements.
+
+Settings → Collections and layouts exports one, several, or all collections to
+one versioned JSON file containing cards, purchases, dimensions, and layouts.
+Import previews additions, updates, and moves, then merges the complete file
+atomically. Repeated imports match source identities without creating duplicates.
+Legacy card CSV import/export remains available; CSV does not contain layouts.

@@ -139,9 +139,10 @@ struct TCGAuthClientTests {
     @Test
     func `Should refresh the token before authenticated requests when the session needs an update`() async throws {
         let credentialsStore = try CredentialsStoreSpy(
-            initialData: JSONEncoder().encode(
-                makeCredentials(expiryDate: .distantFuture, lastSessionUpdate: .distantPast)
-            )
+            initialData: JSONEncoder()
+                .encode(
+                    makeCredentials(expiryDate: .distantFuture, lastSessionUpdate: .distantPast)
+                )
         )
         let transport = try RequestTransport.refreshThenSignUp()
         let client = TCGClient.default(
@@ -161,9 +162,10 @@ struct TCGAuthClientTests {
     @Test
     func `Should refresh the token before authenticated requests when the token will expire soon`() async throws {
         let credentialsStore = try CredentialsStoreSpy(
-            initialData: JSONEncoder().encode(
-                makeCredentials(expiryDate: .now.addingTimeInterval(3599))
-            )
+            initialData: JSONEncoder()
+                .encode(
+                    makeCredentials(expiryDate: .now.addingTimeInterval(3599))
+                )
         )
         let transport = try RequestTransport.refreshThenSignUp()
         let client = TCGClient.default(
@@ -442,9 +444,10 @@ struct TCGAuthClientTests {
     @Test
     func `Should delete expired credentials before requesting a session without authorization`() async throws {
         let credentialsStore = try CredentialsStoreSpy(
-            initialData: JSONEncoder().encode(
-                makeCredentials(expiryDate: .distantPast, sessionExpiryDate: .distantPast)
-            )
+            initialData: JSONEncoder()
+                .encode(
+                    makeCredentials(expiryDate: .distantPast, sessionExpiryDate: .distantPast)
+                )
         )
         let transport = RequestTransport.notFound()
         let client = TCGClient.default(
@@ -636,13 +639,14 @@ struct TCGAuthClientTests {
     @Test
     func `Should stay signed in when the session update age has elapsed`() async throws {
         let credentialsStore = try CredentialsStoreSpy(
-            initialData: JSONEncoder().encode(
-                makeCredentials(
-                    expiryDate: .now.addingTimeInterval(6 * 24 * 60 * 60),
-                    sessionUpdateAge: 24 * 60 * 60,
-                    lastSessionUpdate: .now.addingTimeInterval(-25 * 60 * 60)
+            initialData: JSONEncoder()
+                .encode(
+                    makeCredentials(
+                        expiryDate: .now.addingTimeInterval(6 * 24 * 60 * 60),
+                        sessionUpdateAge: 24 * 60 * 60,
+                        lastSessionUpdate: .now.addingTimeInterval(-25 * 60 * 60)
+                    )
                 )
-            )
         )
         let transport = try RequestTransport.serverLike()
         let client = TCGClient.default(
@@ -663,9 +667,10 @@ struct TCGAuthClientTests {
     @Test
     func `Should refresh an expired authentication token while the session remains live`() async throws {
         let credentialsStore = try CredentialsStoreSpy(
-            initialData: JSONEncoder().encode(
-                makeCredentials(expiryDate: .distantPast, sessionExpiryDate: .distantFuture)
-            )
+            initialData: JSONEncoder()
+                .encode(
+                    makeCredentials(expiryDate: .distantPast, sessionExpiryDate: .distantFuture)
+                )
         )
         let transport = try RequestTransport.serverLike()
         let client = TCGClient.default(

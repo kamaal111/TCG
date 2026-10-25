@@ -247,3 +247,13 @@ commit failures. Validation rejected before processing has no successful import 
 `validation_issue_codes`, and `validation_issue_messages` arrays, plus
 `validation_issue_count`. Paths use dotted string segments, including array indexes;
 messages explain the rule violated without including raw field values or request bodies.
+
+## Collection workflows
+
+`collections.create`, `collections.update`, `collections.layout`, and `collections.delete`
+record committed mutations with `collection_id`. `collections.export` and
+`collections.import` record completed backups with `result_count` (collections).
+The accessor is `collectionsLogger(c)` in `server/src/collections/logging.ts`.
+Export success is emitted only after the stream closes successfully. Interrupted exports emit
+`collections.export` with `outcome: failure`; the HTTP status may already be 200.
+No names, card contents, or backup bodies are logged. Other failures use request lifecycle events.

@@ -4,7 +4,7 @@ import { inject } from 'vitest';
 import { createTestDatabase } from './utils.ts';
 
 test('closes every pooled client before removing its temporary database', async () => {
-  const { db, connectionString, cleanup } = await createTestDatabase();
+  const { db, connectionString, cleanup } = await createTestDatabase('./drizzle');
   const first = await db.$client.connect();
   const second = await db.$client.connect();
   const ended = vi.fn<() => void>();

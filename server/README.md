@@ -89,3 +89,55 @@ the resolved currency. Accounts without a saved preference use
 `DEFAULT_PREFERRED_CURRENCY` from `.env` (USD when unset). It must be a supported
 ECB currency code. The app can then initialize their supported device-region
 currency.
+
+## Database connections
+
+`DATABASE_CONNECTION_TIMEOUT_MS` defaults to 2,000 ms and bounds both new
+connections and waits for an available pooled connection. The PostgreSQL driver
+removes expired waiters from its queue. Query and transaction deadlines remain
+separate settings.
+
+## Collection processing limits
+
+Collection request budgets are configurable through these environment variables:
+
+| Variable                          |   Default |
+| --------------------------------- | --------: |
+| `COLLECTION_MAX_BODY_BYTES`       | 8,388,608 |
+| `COLLECTION_MAX_COLLECTIONS`      |       500 |
+| `COLLECTION_MAX_CARDS`            |     5,000 |
+| `COLLECTION_MAX_PAGES`            |     2,000 |
+| `COLLECTION_MAX_SLOTS`            |    25,000 |
+| `COLLECTION_MAX_PURCHASES`        |    25,000 |
+| `COLLECTION_BODY_TIMEOUT_MS`      |    30,000 |
+| `COLLECTION_OPERATION_TIMEOUT_MS` |   120,000 |
+| `COLLECTION_STATEMENT_TIMEOUT_MS` |    10,000 |
+| `COLLECTION_LOCK_TIMEOUT_MS`      |     2,000 |
+| `COLLECTION_CONCURRENCY`          |         4 |
+
+Binder dimensions must each be between 1 and 20, allowing at most 400 slots
+per page. Rectangular layouts such as 1 by 4 are supported.
+Adding a card or moving it to another collection places all its copies in the
+first empty slot, scanning pages in order and slots row by row. A new page is
+created when necessary, up to `COLLECTION_MAX_PAGES`. If the binder is full at
+that limit, the card change is rejected without saving partial data. Existing
+gaps are preserved when editing a card in its current collection, and backup
+imports retain their explicit layouts.
+
+Counts apply to submitted data, including empty pages, across the entire request.
+The collection count also limits explicit export IDs. Export all collections by
+omitting `collection_ids`; full exports have no count or output-size cap. They are
+streamed in bounded batches and remain subject to the operation deadline.
+The stream sends its prefix immediately, then combines small fragments into
+64 KiB buffers while preserving backpressure and cancellation.
+An exported backup can exceed the import budgets; increase the importing server's
+limits to restore it. Keep policy settings consistent across replicas sharing a database.
+
+Layout saves, previews, imports, and exports share one PostgreSQL-backed operation
+permit per account and four deployment-wide permits by default. Busy requests
+return 429 (account) or 503 (deployment) with `Retry-After: 1`. Request budget
+violations return 413, slow uploads return 408, and database deadlines return 503.
+Database timeouts apply locally to collection transactions and PostgreSQL releases
+permits on commit, rollback, or connection termination. Use PostgreSQL 18 or newer
+for the transaction deadline. Interrupted exports terminate the response stream;
+clients must reject incomplete JSON rather than save a partial backup.
