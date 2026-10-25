@@ -1,0 +1,1 @@
+export const COLLECTION_BATCH_SIZE = 500;

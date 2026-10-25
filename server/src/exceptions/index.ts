@@ -47,7 +47,7 @@ export class APIException<TContext = unknown> extends HTTPException {
 }
 
 export class InvalidPayload<TContext = unknown> extends APIException<TContext> {
-  constructor(c: ExceptionContext, options?: { message?: string; context?: TContext }) {
+  constructor(c: ExceptionContext | undefined, options?: { message?: string; context?: TContext }) {
     super(c, CONTENTFUL_STATUS_CODES.BAD_REQUEST, {
       message: options?.message ?? 'Invalid payload',
       code: 'INVALID_PAYLOAD',
@@ -59,7 +59,7 @@ export class InvalidPayload<TContext = unknown> extends APIException<TContext> {
 export class InvalidValidation extends InvalidPayload<{
   validations: { code: string; path: string[]; message: string }[];
 }> {
-  constructor(c: ExceptionContext, validations: readonly StandardSchemaV1.Issue[]) {
+  constructor(c: ExceptionContext | undefined, validations: readonly StandardSchemaV1.Issue[]) {
     super(c, {
       context: {
         validations: validations.map(issue => ({
@@ -93,7 +93,10 @@ export class NotFound extends APIException {
 }
 
 export class ServiceUnavailable extends APIException {
-  constructor(c: ExceptionContext, options: { message: string; code: string; headers?: Headers }) {
+  constructor(
+    c: ExceptionContext | undefined,
+    options: { message: string; code: string; headers?: Headers; cause?: unknown },
+  ) {
     super(c, CONTENTFUL_STATUS_CODES.SERVICE_UNAVAILABLE, options);
   }
 }
@@ -106,5 +109,29 @@ export class InternalServerError extends APIException {
       cause: options?.cause,
       diagnosticMessage: options?.diagnosticMessage,
     });
+  }
+}
+
+export class Conflict extends APIException {
+  constructor(options: { message: string; code: string }) {
+    super(undefined, CONTENTFUL_STATUS_CODES.CONFLICT, options);
+  }
+}
+
+export class PayloadTooLarge extends APIException {
+  constructor(c: ExceptionContext | undefined, options: { message: string; code: string }) {
+    super(c, CONTENTFUL_STATUS_CODES.PAYLOAD_TOO_LARGE, options);
+  }
+}
+
+export class RequestTimeout extends APIException {
+  constructor(c: ExceptionContext | undefined, options: { message: string; code: string }) {
+    super(c, CONTENTFUL_STATUS_CODES.REQUEST_TIMEOUT, options);
+  }
+}
+
+export class TooManyRequests extends APIException {
+  constructor(c: ExceptionContext | undefined, options: { message: string; code: string; headers?: Headers }) {
+    super(c, CONTENTFUL_STATUS_CODES.TOO_MANY_REQUESTS, options);
   }
 }

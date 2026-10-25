@@ -16,6 +16,7 @@ private let logger = KamaalLogger(from: TCGClient.self)
 public struct TCGClient: Sendable {
     public let currency: TCGCurrencyClient
     public let auth: KamaalAuthClient
+    public let collections: TCGCollectionsClient
     public let cards: TCGCardsClient
     public let pricing: TCGPricingClient
 
@@ -26,6 +27,7 @@ public struct TCGClient: Sendable {
         currency: TCGCurrencyClient,
         auth: KamaalAuthClient,
         cards: TCGCardsClient,
+        collections: TCGCollectionsClient,
         pricing: TCGPricingClient,
         credentialsKeychainKey: String,
         credentialsStore: CredentialsStore
@@ -33,6 +35,7 @@ public struct TCGClient: Sendable {
         self.currency = currency
         self.auth = auth
         self.cards = cards
+        self.collections = collections
         self.pricing = pricing
         self.credentialsKeychainKey = credentialsKeychainKey
         self.credentialsStore = credentialsStore
@@ -116,6 +119,7 @@ public struct TCGClient: Sendable {
             currency: PreviewTCGCurrencyClient(),
             auth: auth,
             cards: cards,
+            collections: PreviewTCGCollectionsClient(),
             pricing: pricing,
             credentialsKeychainKey: credentialsKeychainKey,
             credentialsStore: credentialsStore
@@ -170,6 +174,7 @@ public struct TCGClient: Sendable {
             currency: TCGCurrencyClientImpl(client: client),
             auth: auth,
             cards: cards,
+            collections: TCGCollectionsClientImpl(client: client),
             pricing: pricing,
             credentialsKeychainKey: credentialsKeychainKey,
             credentialsStore: credentialsStore

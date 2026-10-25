@@ -1,14 +1,18 @@
 import { toError } from '../utils/results.ts';
 import type { GetRecordValues } from '../utils/type-utils.ts';
 
-const POSTGRES_ERROR_CODES = { '55P03': 'lock_not_available' } as const;
+const POSTGRES_ERROR_CODES = {
+  '55P03': 'lock_not_available',
+  '57014': 'query_canceled',
+  '25P04': 'transaction_timeout',
+} as const;
 
 type PostgresErrorCode = GetRecordValues<typeof POSTGRES_ERROR_CODES>;
 
 export function classifyPostgresError(error: Error): PostgresErrorCode | undefined {
   const code = postgresErrorCode(error);
 
-  if (code === '55P03') {
+  if (code === '55P03' || code === '57014' || code === '25P04') {
     return POSTGRES_ERROR_CODES[code];
   }
 

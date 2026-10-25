@@ -5,6 +5,7 @@ import { Client } from 'pg';
 import { createCardRequest, sessionHeaders, validCardPayload } from './utils.ts';
 import { StaticScrydexClient } from '../../card-pricing/scrydex/static-client.ts';
 import { todayUTC } from '../../card-pricing/utils/query.ts';
+import { CollectionSchema } from '../../collections/schemas/responses.ts';
 import { CONTENTFUL_STATUS_CODES } from '../../constants/http.ts';
 import { card } from '../../db/schema/cards.ts';
 import { appRelations } from '../../db/schema/index.ts';
@@ -17,6 +18,61 @@ import { CardSchema } from '../schemas/responses.ts';
 import { CardsListResponseSchema } from '../schemas/responses.ts';
 
 describe('List cards integration', () => {
+  integrationTest(
+    'searches across collections with owned paginated results and literal wildcard characters',
+    async ({ app, db }) => {
+      const owner = await createTestUser(app, db);
+      const other = await createTestUser(app, db);
+      const headers = sessionHeaders(owner.sessionToken);
+
+      const created = await app.request('/app-api/collections', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ name: 'Favorites' }),
+      });
+
+      expect(created.status).toBe(201);
+      const collection = CollectionSchema.parse(await created.json());
+      const unfiled = CardSchema.parse(await (await createCardRequest(app, owner.sessionToken)).json());
+
+      const filed = CardSchema.parse(
+        await (
+          await createCardRequest(app, owner.sessionToken, {
+            ...validCardPayload,
+            collection_id: collection.id,
+            card_number: '50%_Luffy',
+          })
+        ).json(),
+      );
+
+      await createCardRequest(app, other.sessionToken);
+      const first = await app.request(`${LIST_CARDS_ROUTE_PATH}?query=lUfFy&limit=1`, { headers });
+      expect(first.status).toBe(200);
+      const page = CardsListResponseSchema.parse(await first.json());
+      expect(page.cards.map(card => card.id)).toEqual([filed.id]);
+      expect(page.next_cursor).toEqual(expect.any(String));
+
+      const next = await app.request(`${LIST_CARDS_ROUTE_PATH}?query=lUfFy&limit=1&cursor=${page.next_cursor}`, {
+        headers,
+      });
+
+      expect(next.status).toBe(200);
+      const last = CardsListResponseSchema.parse(await next.json());
+      expect(last.cards.map(card => card.id)).toEqual([unfiled.id]);
+      expect(last.next_cursor).toBeNull();
+      const literal = await app.request(`${LIST_CARDS_ROUTE_PATH}?query=${encodeURIComponent('%_')}`, { headers });
+      expect(literal.status).toBe(200);
+      expect(CardsListResponseSchema.parse(await literal.json()).cards.map(card => card.id)).toEqual([filed.id]);
+
+      const scoped = await app.request(`${LIST_CARDS_ROUTE_PATH}?query=dawn&collection_id=${collection.id}`, {
+        headers,
+      });
+
+      expect(scoped.status).toBe(200);
+      expect(CardsListResponseSchema.parse(await scoped.json()).cards.map(card => card.id)).toEqual([filed.id]);
+    },
+  );
+
   integrationTest('requires an authenticated session', async ({ app }) => {
     const response = await app.request(LIST_CARDS_ROUTE_PATH);
     expect(await expectErrorResponse(response, CONTENTFUL_STATUS_CODES.UNAUTHORIZED)).toMatchObject({

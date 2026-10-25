@@ -44,9 +44,10 @@ final class TCGCardsImportReviewModel {
     var selectedPurchaseCount: Int { selectedCards.reduce(0) { $0 + $1.purchases.count } }
 
     var invalidRowCount: Int {
-        cards.filter(\.isIncluded).reduce(0) { count, card in
-            count + card.rows.filter { !CardsCSV.issues(for: $0).isEmpty || !$0.isIncluded }.count
-        }
+        cards.filter(\.isIncluded)
+            .reduce(0) { count, card in
+                count + card.rows.filter { !CardsCSV.issues(for: $0).isEmpty || !$0.isIncluded }.count
+            }
     }
 
     var excludedRowCount: Int { removedRowCount + cards.reduce(0) { $0 + $1.rows.filter { !$0.isIncluded }.count } }
@@ -100,20 +101,23 @@ final class TCGCardsImportReviewModel {
             notes: payload.notes,
             createdAt: original.createdAt,
             updatedAt: original.updatedAt,
-            purchases: purchases
+            purchases: purchases,
+            collectionID: original.collectionID,
+            allocationAdjustments: nil
         )
         let oldRows = cards[index].rows
         let includedRows = oldRows.filter(\.isIncluded)
-        let newRows = purchases.enumerated().map { offset, purchase in
-            let line: Int
-            if offset < includedRows.count {
-                line = includedRows[offset].id
-            } else {
-                line = nextRowID
-                nextRowID += 1
+        let newRows = purchases.enumerated()
+            .map { offset, purchase in
+                let line: Int
+                if offset < includedRows.count {
+                    line = includedRows[offset].id
+                } else {
+                    line = nextRowID
+                    nextRowID += 1
+                }
+                return CardsCSV.row(card: edited, purchase: purchase, line: line)
             }
-            return CardsCSV.row(card: edited, purchase: purchase, line: line)
-        }
         cards[index].rows = newRows + oldRows.filter { !$0.isIncluded }
         hasEdits = true
     }

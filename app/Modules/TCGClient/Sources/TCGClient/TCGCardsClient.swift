@@ -6,20 +6,26 @@
 //
 
 import Foundation
+import HTTPTypes
 import KamaalLogger
 import OpenAPIRuntime
 import TCGUtils
 
 public protocol TCGCardsClient: Sendable {
     func exportCards() async -> Result<[Card], CardBackupErrors>
+
     func importCards(_ payload: ImportCardsPayload) async -> Result<ImportCardsResult, CardBackupErrors>
+
     /// Matches any selected set name exactly; an empty selection includes all sets.
-    func listPage(game: ClientCardGame?, setNames: Set<String>, cursor: String?) async -> Result<
+    func listPage(_ query: ListCardsQuery) async -> Result<
         CardCollectionPage, ListCardsErrors
     >
+
     func create(with payload: UpsertCardPayload) async -> Result<CardWithPrice, CreateCardErrors>
-    func update(id: String, with payload: UpsertCardPayload) async -> Result<CardWithPrice, UpdateCardErrors>
-    func delete(ids: [String]) async -> Result<DeleteCardsResult, DeleteCardsErrors>
+
+    func update(id: UUID, with payload: UpsertCardPayload) async -> Result<CardWithPrice, UpdateCardErrors>
+
+    func delete(ids: [UUID]) async -> Result<DeleteCardsResult, DeleteCardsErrors>
 }
 
 private let logger = KamaalLogger(from: TCGCardsClientImpl.self)
@@ -35,24 +41,38 @@ struct TCGCardsClientImpl: TCGCardsClient {
         var cards: [Card] = []
         var cursor: String?
         var visitedCursors: Set<String> = []
-        var cardIDs: Set<String> = []
+        var cardIDs: Set<UUID> = []
 
         repeat {
-            guard !Task.isCancelled else { return .failure(.unknown(status: 503)) }
+            guard !Task.isCancelled else {
+                return .failure(.unknown(status: HTTPResponse.Status.serviceUnavailable.code))
+            }
 
             do {
                 switch try await client.getAppApiCardsExport(query: .init(cursor: cursor)) {
                 case .ok(let response):
                     let page = try response.body.json
-                    guard !Task.isCancelled else { return .failure(.unknown(status: 503)) }
-
-                    if let next = page.nextCursor {
-                        guard !next.isEmpty else { return .failure(.unknown(status: 503)) }
-                        guard !page.cards.isEmpty else { return .failure(.unknown(status: 503)) }
-                        guard visitedCursors.insert(next).inserted else { return .failure(.unknown(status: 503)) }
+                    guard !Task.isCancelled else {
+                        return .failure(.unknown(status: HTTPResponse.Status.serviceUnavailable.code))
                     }
 
-                    cards.append(contentsOf: page.cards.map(Self.makeCard).filter { cardIDs.insert($0.id).inserted })
+                    if let next = page.nextCursor {
+                        guard !next.isEmpty else {
+                            return .failure(.unknown(status: HTTPResponse.Status.serviceUnavailable.code))
+                        }
+                        guard !page.cards.isEmpty else {
+                            return .failure(.unknown(status: HTTPResponse.Status.serviceUnavailable.code))
+                        }
+                        guard visitedCursors.insert(next).inserted else {
+                            return .failure(.unknown(status: HTTPResponse.Status.serviceUnavailable.code))
+                        }
+                    }
+
+                    switch ResultMapping.map(page.cards, transform: Self.makeCard) {
+                    case .success(let mapped):
+                        cards.append(contentsOf: mapped.filter { cardIDs.insert($0.id).inserted })
+                    case .failure: return .failure(.unknown(status: HTTPResponse.Status.serviceUnavailable.code))
+                    }
                     cursor = page.nextCursor
                 case .badRequest(let response):
                     return .failure(
@@ -68,7 +88,7 @@ struct TCGCardsClientImpl: TCGCardsClient {
                     return .failure(.unknown(status: status))
                 }
             } catch {
-                return .failure(.unknown(status: 503))
+                return .failure(.unknown(status: HTTPResponse.Status.serviceUnavailable.code))
             }
         } while cursor != nil
 
@@ -76,7 +96,7 @@ struct TCGCardsClientImpl: TCGCardsClient {
     }
 
     func importCards(_ payload: ImportCardsPayload) async -> Result<ImportCardsResult, CardBackupErrors> {
-        let attemptID = UUID().uuidString
+        let attemptID = UUID()
         logger.info("event=cards.import.submission; attempt_id=\(attemptID); card_count=\(payload.cards.count)")
 
         do {
@@ -92,7 +112,8 @@ struct TCGCardsClientImpl: TCGCardsClient {
                     .init(
                         importedCount: result.importedCount,
                         updatedCount: result.updatedCount,
-                        skippedCount: result.skippedCount
+                        skippedCount: result.skippedCount,
+                        allocationAdjustments: result.allocationAdjustments
                     )
                 )
             case .badRequest(let response):
@@ -157,20 +178,22 @@ struct TCGCardsClientImpl: TCGCardsClient {
         }
     }
 
-    func listPage(game: ClientCardGame?, setNames: Set<String>, cursor: String?) async -> Result<
+    func listPage(_ query: ListCardsQuery) async -> Result<
         CardCollectionPage, ListCardsErrors
     > {
         let response: Operations.GetAppApiCards.Output
         do {
             response = try await client.getAppApiCards(
                 query: .init(
-                    cursor: cursor,
-                    game: game.map(Self.makeListGame),
-                    setName: setNames.isEmpty ? nil : setNames.sorted()
+                    cursor: query.cursor,
+                    collectionId: query.collectionID.map(UUIDCoding.encode),
+                    query: query.query,
+                    game: query.game.map(Self.makeListGame),
+                    setName: query.setNames.isEmpty ? nil : query.setNames.sorted()
                 )
             )
         } catch {
-            return .failure(.unknown(status: 503, payload: nil, cause: error))
+            return .failure(.unknown(status: HTTPResponse.Status.serviceUnavailable.code, payload: nil, cause: error))
         }
 
         switch response {
@@ -178,21 +201,31 @@ struct TCGCardsClientImpl: TCGCardsClient {
             do {
                 let collection = try response.body.json
                 if let next = collection.nextCursor {
-                    guard !next.isEmpty else { return .failure(.unknown(status: 503, payload: nil, cause: nil)) }
+                    guard !next.isEmpty else {
+                        return .failure(
+                            .unknown(status: HTTPResponse.Status.serviceUnavailable.code, payload: nil, cause: nil)
+                        )
+                    }
                     guard !collection.cards.isEmpty else {
-                        return .failure(.unknown(status: 503, payload: nil, cause: nil))
+                        return .failure(
+                            .unknown(status: HTTPResponse.Status.serviceUnavailable.code, payload: nil, cause: nil)
+                        )
                     }
                 }
 
-                return .success(
-                    CardCollectionPage(
-                        cards: collection.cards.map(Self.makeCardWithPrice),
-                        availableSetNames: Set(collection.availableSetNames),
-                        nextCursor: collection.nextCursor
-                    )
-                )
+                return ResultMapping.map(collection.cards, transform: Self.makeCardWithPrice)
+                    .map { cards in
+                        CardCollectionPage(
+                            cards: cards,
+                            availableSetNames: Set(collection.availableSetNames),
+                            nextCursor: collection.nextCursor
+                        )
+                    }
+                    .mapError { .unknown(status: HTTPResponse.Status.serviceUnavailable.code, payload: nil, cause: $0) }
             } catch {
-                return .failure(.unknown(status: 503, payload: nil, cause: error))
+                return .failure(
+                    .unknown(status: HTTPResponse.Status.serviceUnavailable.code, payload: nil, cause: error)
+                )
             }
         case .unauthorized:
             return .failure(.unauthorized)
@@ -212,15 +245,18 @@ struct TCGCardsClientImpl: TCGCardsClient {
         do {
             response = try await client.postAppApiCards(body: .json(Self.makeGeneratedPayload(payload)))
         } catch {
-            return .failure(.unknown(status: 503, payload: nil, cause: error))
+            return .failure(.unknown(status: HTTPResponse.Status.serviceUnavailable.code, payload: nil, cause: error))
         }
 
         switch response {
         case .created(let response):
             do {
-                return .success(Self.makeCardWithPrice(try response.body.json))
+                return Self.makeCardWithPrice(try response.body.json)
+                    .mapError { .unknown(status: HTTPResponse.Status.serviceUnavailable.code, payload: nil, cause: $0) }
             } catch {
-                return .failure(.unknown(status: 503, payload: nil, cause: error))
+                return .failure(
+                    .unknown(status: HTTPResponse.Status.serviceUnavailable.code, payload: nil, cause: error)
+                )
             }
         case .badRequest(let response):
             return .failure(
@@ -235,23 +271,26 @@ struct TCGCardsClientImpl: TCGCardsClient {
         }
     }
 
-    func update(id: String, with payload: UpsertCardPayload) async -> Result<CardWithPrice, UpdateCardErrors> {
+    func update(id: UUID, with payload: UpsertCardPayload) async -> Result<CardWithPrice, UpdateCardErrors> {
         let response: Operations.PutAppApiCardsCardId.Output
         do {
             response = try await client.putAppApiCardsCardId(
-                path: .init(cardId: id),
+                path: .init(cardId: UUIDCoding.encode(id)),
                 body: .json(Self.makeGeneratedPayload(payload))
             )
         } catch {
-            return .failure(.unknown(status: 503, payload: nil, cause: error))
+            return .failure(.unknown(status: HTTPResponse.Status.serviceUnavailable.code, payload: nil, cause: error))
         }
 
         switch response {
         case .ok(let response):
             do {
-                return .success(Self.makeCardWithPrice(try response.body.json))
+                return Self.makeCardWithPrice(try response.body.json)
+                    .mapError { .unknown(status: HTTPResponse.Status.serviceUnavailable.code, payload: nil, cause: $0) }
             } catch {
-                return .failure(.unknown(status: 503, payload: nil, cause: error))
+                return .failure(
+                    .unknown(status: HTTPResponse.Status.serviceUnavailable.code, payload: nil, cause: error)
+                )
             }
         case .badRequest(let response):
             return .failure(
@@ -268,22 +307,33 @@ struct TCGCardsClientImpl: TCGCardsClient {
         }
     }
 
-    func delete(ids: [String]) async -> Result<DeleteCardsResult, DeleteCardsErrors> {
+    func delete(ids: [UUID]) async -> Result<DeleteCardsResult, DeleteCardsErrors> {
         let payload = DeleteCardsPayload(cardIDs: ids)
         let response: Operations.DeleteAppApiCards.Output
         do {
-            response = try await client.deleteAppApiCards(body: .json(.init(cardIds: payload.cardIDs)))
+            response = try await client.deleteAppApiCards(
+                body: .json(.init(cardIds: payload.cardIDs.map(UUIDCoding.encode)))
+            )
         } catch {
-            return .failure(.unknown(status: 503, payload: nil, cause: error))
+            return .failure(.unknown(status: HTTPResponse.Status.serviceUnavailable.code, payload: nil, cause: error))
         }
 
         switch response {
         case .ok(let response):
             do {
                 let result = try response.body.json
-                return .success(DeleteCardsResult(deletedIDs: result.deletedIds, notFoundIDs: result.notFoundIds))
+                return ResultMapping.map(result.deletedIds, transform: UUIDCoding.decode)
+                    .flatMap { deletedIDs in
+                        ResultMapping.map(result.notFoundIds, transform: UUIDCoding.decode)
+                            .map { notFoundIDs in
+                                DeleteCardsResult(deletedIDs: deletedIDs, notFoundIDs: notFoundIDs)
+                            }
+                    }
+                    .mapError { .unknown(status: HTTPResponse.Status.serviceUnavailable.code, payload: nil, cause: $0) }
             } catch {
-                return .failure(.unknown(status: 503, payload: nil, cause: error))
+                return .failure(
+                    .unknown(status: HTTPResponse.Status.serviceUnavailable.code, payload: nil, cause: error)
+                )
             }
         case .badRequest(let response):
             return .failure(
@@ -296,24 +346,25 @@ struct TCGCardsClientImpl: TCGCardsClient {
         }
     }
 
-    private static func makeGeneratedImportCard(_ card: ImportCardPayload) -> Components.Schemas.ImportCard {
+    static func makeGeneratedImportCard(_ card: ImportCardPayload) -> Components.Schemas.ImportCard {
         .init(
             game: makeImportGame(card.game),
             name: card.name,
             setName: card.setName,
             cardNumber: card.cardNumber,
+            collectionId: card.collectionID.map(UUIDCoding.encode),
             notes: card.notes,
             purchases: card.purchases.map { purchase in
                 .init(
-                    id: purchase.id,
+                    id: UUIDCoding.encode(purchase.id),
                     condition: makeImportCondition(purchase.condition),
                     quantity: purchase.quantity,
                     purchasePrice: purchase.purchasePrice,
-                    currency: purchase.currency.map(makeGeneratedPurchaseCurrency),
+                    currency: purchase.currency.map(PricedCardMapper.generatedNullableCurrency),
                     automaticPriceDate: purchase.automaticPriceDate
                 )
             },
-            id: card.id,
+            id: UUIDCoding.encode(card.id),
             createdAt: card.createdAt,
             updatedAt: card.updatedAt
         )
@@ -339,49 +390,13 @@ struct TCGCardsClientImpl: TCGCardsClient {
         }
     }
 
-    private static func makeGeneratedPurchaseCurrency(
-        _ currency: Currency
-    ) -> Components.Schemas.NullableCurrency {
-        switch currency {
-        case .eur: .eur
-        case .usd: .usd
-        case .jpy: .jpy
-        case .czk: .czk
-        case .dkk: .dkk
-        case .gbp: .gbp
-        case .huf: .huf
-        case .pln: .pln
-        case .ron: .ron
-        case .sek: .sek
-        case .chf: .chf
-        case .isk: .isk
-        case .nok: .nok
-        case .try: ._try
-        case .aud: .aud
-        case .brl: .brl
-        case .cad: .cad
-        case .cny: .cny
-        case .hkd: .hkd
-        case .idr: .idr
-        case .ils: .ils
-        case .inr: .inr
-        case .krw: .krw
-        case .mxn: .mxn
-        case .myr: .myr
-        case .nzd: .nzd
-        case .php: .php
-        case .sgd: .sgd
-        case .thb: .thb
-        case .zar: .zar
-        }
-    }
-
     private static func makeGeneratedPayload(_ payload: UpsertCardPayload) -> Components.Schemas.UpsertCard {
         .init(
             game: makeGeneratedGame(payload.game),
             name: payload.name,
             setName: payload.setName,
             cardNumber: payload.cardNumber,
+            collectionId: payload.collectionID.map(UUIDCoding.encode),
             notes: payload.notes,
             purchases: payload.purchases.map(Self.makeGeneratedBatch)
         )
@@ -394,59 +409,79 @@ struct TCGCardsClientImpl: TCGCardsClient {
         }
     }
 
-    private static func makeCardWithPrice(_ cardWithPrice: Components.Schemas.CardWithPrice) -> CardWithPrice {
-        CardWithPrice(
-            card: makeCard(cardWithPrice.value1),
-            price: PricedCardMapper.makeOwnedPrice(cardWithPrice.value2.price)
-        )
+    static func makeCardWithPrice(
+        _ cardWithPrice: Components.Schemas.CardWithPrice
+    ) -> Result<CardWithPrice, UUIDCodingError> {
+        makeCard(cardWithPrice.value1)
+            .flatMap { card in
+                PricedCardMapper.makeOwnedPrice(cardWithPrice.value2.price)
+                    .map { price in
+                        CardWithPrice(card: card, price: price)
+                    }
+            }
     }
 
-    private static func makeCard(_ card: Components.Schemas.Card) -> Card {
-        Card(
-            id: card.id,
-            game: makeGame(card.game),
-            name: card.name,
-            setName: card.setName,
-            cardNumber: card.cardNumber,
-            notes: card.notes,
-            createdAt: card.createdAt,
-            updatedAt: card.updatedAt,
-            purchases: card.purchases.map(Self.makeBatch),
-            purchasePriceChangePercent: card.purchasePriceChangePercent,
-            displayCurrency: card.displayCurrency.map(PricedCardMapper.makeCurrency)
-        )
+    private static func makeCard(_ card: Components.Schemas.Card) -> Result<Card, UUIDCodingError> {
+        UUIDCoding.decode(card.id)
+            .flatMap { id in
+                UUIDCoding.decode(card.collectionId)
+                    .flatMap { collectionID in
+                        ResultMapping.map(card.purchases, transform: Self.makeBatch)
+                            .map { purchases in
+                                Card(
+                                    id: id,
+                                    game: makeGame(card.game),
+                                    name: card.name,
+                                    setName: card.setName,
+                                    cardNumber: card.cardNumber,
+                                    notes: card.notes,
+                                    createdAt: card.createdAt,
+                                    updatedAt: card.updatedAt,
+                                    purchases: purchases,
+                                    purchasePriceChangePercent: card.purchasePriceChangePercent,
+                                    displayCurrency: card.displayCurrency.map(PricedCardMapper.makeCurrency),
+                                    collectionID: collectionID,
+                                    allocationAdjustments: card.allocationAdjustments
+                                )
+                            }
+                    }
+            }
     }
 
     private static func makeGeneratedBatch(_ batch: CardPurchase) -> Components.Schemas.CardPurchaseInput {
         .init(
-            id: batch.id,
+            id: batch.id.map(UUIDCoding.encode),
             condition: makeGeneratedCondition(batch.condition),
             quantity: batch.quantity,
             purchasePrice: batch.purchasePrice.map { NSDecimalNumber(decimal: $0).stringValue },
-            currency: batch.currency.map(makeGeneratedPurchaseCurrency)
+            currency: batch.currency.map(PricedCardMapper.generatedNullableCurrency)
         )
     }
 
-    private static func makeBatch(_ batch: Components.Schemas.CardPurchase) -> CardPurchase {
-        CardPurchase(
-            id: batch.id,
-            condition: makeCondition(batch.condition),
-            quantity: batch.quantity,
-            purchasePrice: batch.purchasePrice.flatMap {
-                Decimal(string: $0, locale: TCGLocales.decimal)
-            },
-            currency: batch.currency.flatMap { Currency(rawValue: $0.rawValue) },
-            automaticPriceDate: batch.automaticPriceDate,
-            displayPrice: batch.displayPrice.flatMap { display in
-                Decimal(string: display.amount, locale: TCGLocales.decimal).map {
-                    PurchaseDisplayPrice(
-                        amount: $0,
-                        currency: PricedCardMapper.makeCurrency(display.currency),
-                        conversionUnavailable: display.conversionUnavailable
-                    )
-                }
+    private static func makeBatch(_ batch: Components.Schemas.CardPurchase) -> Result<CardPurchase, UUIDCodingError> {
+        UUIDCoding.decode(batch.id)
+            .map { id in
+                CardPurchase(
+                    id: id,
+                    condition: makeCondition(batch.condition),
+                    quantity: batch.quantity,
+                    purchasePrice: batch.purchasePrice.flatMap {
+                        Decimal(string: $0, locale: TCGLocales.decimal)
+                    },
+                    currency: batch.currency.flatMap(PricedCardMapper.makeCurrency),
+                    automaticPriceDate: batch.automaticPriceDate,
+                    displayPrice: batch.displayPrice.flatMap { display in
+                        Decimal(string: display.amount, locale: TCGLocales.decimal)
+                            .map {
+                                PurchaseDisplayPrice(
+                                    amount: $0,
+                                    currency: PricedCardMapper.makeCurrency(display.currency),
+                                    conversionUnavailable: display.conversionUnavailable
+                                )
+                            }
+                    }
+                )
             }
-        )
     }
 
     private static func makeGeneratedCondition(

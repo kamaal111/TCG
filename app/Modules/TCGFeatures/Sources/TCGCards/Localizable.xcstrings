@@ -31,7 +31,68 @@
         }
       }
     },
+    "%lld" : {
+
+    },
+    "%lld card entries" : {
+
+    },
+    "%lld columns × %lld rows" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld columns × %2$lld rows"
+          }
+        }
+      }
+    },
+    "%lld copies available for this slot" : {
+
+    },
+    "%lld pages → %lld pages" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld pages → %2$lld pages"
+          }
+        }
+      }
+    },
+    "%lld placed copies were removed from later slots to match the quantity you own." : {
+
+    },
+    "%lld unplaced" : {
+
+    },
+    "%lld × %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld × %2$lld"
+          }
+        }
+      }
+    },
+    "%lld × %lld · Pages: %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld × %2$lld · Pages: %3$lld"
+          }
+        }
+      }
+    },
     "Add" : {
+
+    },
+    "Add an empty page" : {
+
+    },
+    "Add an empty page to start arranging cards." : {
 
     },
     "Add at least one card quantity." : {
@@ -46,13 +107,22 @@
     "Add your first card to start your collection." : {
 
     },
+    "All cards" : {
+
+    },
     "All games" : {
+
+    },
+    "Apply layout" : {
 
     },
     "Average near-mint market price changed %@ since purchase" : {
 
     },
     "Batch total" : {
+
+    },
+    "Binder" : {
 
     },
     "Cancel" : {
@@ -80,10 +150,28 @@
     "Cards removed during review: %lld" : {
 
     },
+    "Cards that no longer fit will move to extra pages. Your cards and purchases will be kept." : {
+
+    },
+    "Cards to add" : {
+
+    },
+    "Cards to move" : {
+
+    },
+    "Cards to update" : {
+
+    },
     "Cards updated: %lld" : {
 
     },
+    "Change page dimensions?" : {
+
+    },
     "Change your filters to see more cards." : {
+
+    },
+    "Choose %@" : {
 
     },
     "Choose Another File" : {
@@ -92,13 +180,49 @@
     "Choose Another File…" : {
 
     },
+    "Choose a card" : {
+
+    },
+    "Choose a collection" : {
+
+    },
     "Choose another file and discard these edits?" : {
+
+    },
+    "Choose between 1 and %lld columns and rows. Cards that no longer fit move to extra pages; gaps are preserved." : {
+
+    },
+    "Clear slot" : {
 
     },
     "Close" : {
 
     },
+    "Collection" : {
+
+    },
     "Collection error" : {
+
+    },
+    "Collection options" : {
+
+    },
+    "Collection transfer" : {
+
+    },
+    "Collection unavailable" : {
+
+    },
+    "Collection view" : {
+
+    },
+    "Collections" : {
+
+    },
+    "Columns" : {
+
+    },
+    "Copies in this slot: %lld" : {
 
     },
     "Correct CSV Row" : {
@@ -116,10 +240,28 @@
     "Couldn’t load price" : {
 
     },
+    "Create collection" : {
+
+    },
     "Currency" : {
 
     },
     "Delete" : {
+
+    },
+    "Delete collection" : {
+
+    },
+    "Delete page" : {
+
+    },
+    "Delete page %lld" : {
+
+    },
+    "Delete this collection? Its cards will move to Unfiled." : {
+
+    },
+    "Delete this page? Its cards will become unplaced." : {
 
     },
     "Details for %@" : {
@@ -137,6 +279,9 @@
     "Discard import edits?" : {
 
     },
+    "Dismiss" : {
+
+    },
     "Done" : {
 
     },
@@ -147,6 +292,9 @@
 
     },
     "Each quantity must be between 0 and 999." : {
+
+    },
+    "Each selected collection includes its cards, purchases, layout, and empty pages." : {
 
     },
     "Edit" : {
@@ -164,7 +312,16 @@
     "Edit card" : {
 
     },
+    "Edit collection" : {
+
+    },
     "Edit purchase at row %lld" : {
+
+    },
+    "Edit slot contents" : {
+
+    },
+    "Empty page" : {
 
     },
     "Enter a UUID card ID, such as 550e8400-e29b-41d4-a716-446655440000. Use the same ID for every purchase of this card." : {
@@ -209,6 +366,12 @@
     "Explore image of %@" : {
 
     },
+    "Export" : {
+
+    },
+    "Export collections" : {
+
+    },
     "Game" : {
 
     },
@@ -221,6 +384,22 @@
     "Import Complete" : {
 
     },
+    "Import collections" : {
+
+    },
+    "Import collections and cards" : {
+
+    },
+    "Imported %lld collections and %lld new cards; updated %lld cards." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Imported %1$lld collections and %2$lld new cards; updated %3$lld cards."
+          }
+        }
+      }
+    },
     "Include this purchase" : {
 
     },
@@ -228,6 +407,21 @@
 
     },
     "Keep Editing" : {
+
+    },
+    "Keep current layout" : {
+
+    },
+    "Keep editing" : {
+
+    },
+    "Large backups may require increased server limits to import." : {
+
+    },
+    "Layouts to restore" : {
+
+    },
+    "List" : {
 
     },
     "Loading more cards…" : {
@@ -242,10 +436,19 @@
     "Monkey D. Luffy" : {
 
     },
-    "My collection" : {
+    "Name" : {
 
     },
-    "Name" : {
+    "New collection" : {
+
+    },
+    "New collections" : {
+
+    },
+    "New collection…" : {
+
+    },
+    "Next page" : {
 
     },
     "No cards" : {
@@ -254,16 +457,25 @@
     "No matching cards" : {
 
     },
+    "No pages" : {
+
+    },
     "No price" : {
 
     },
     "No purchase price" : {
 
     },
+    "No unplaced copies available. Clear another slot or add cards to this collection." : {
+
+    },
     "Notes" : {
 
     },
     "Notes must contain at most 2000 characters." : {
+
+    },
+    "OK" : {
 
     },
     "OP01-003" : {
@@ -275,7 +487,44 @@
     "Optional price" : {
 
     },
+    "Page" : {
+
+    },
+    "Page %lld" : {
+
+    },
+    "Page dimensions" : {
+
+    },
+    "Page dimensions…" : {
+
+    },
+    "Pages %lld–%lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Pages %1$lld–%2$lld"
+          }
+        }
+      }
+    },
+    "Place cards in this slot" : {
+
+    },
     "Please correct the highlighted fields." : {
+
+    },
+    "Preview" : {
+
+    },
+    "Preview layout" : {
+
+    },
+    "Previous page" : {
+
+    },
+    "Previously exported or imported items are updated, including their layouts. Other cards and collections are kept. Empty pages and slot quantities are restored too." : {
 
     },
     "Pricing" : {
@@ -309,16 +558,31 @@
     "Quantity: %lld" : {
 
     },
+    "Refresh" : {
+
+    },
     "Remove" : {
 
     },
     "Remove purchase batch" : {
 
     },
+    "Rename collection" : {
+
+    },
+    "Restore these collections" : {
+
+    },
+    "Retry" : {
+
+    },
     "Retry Refresh" : {
 
     },
     "Review Import" : {
+
+    },
+    "Review backup" : {
 
     },
     "Review, edit, or remove cards before importing. Your collection won’t change until you confirm." : {
@@ -357,16 +621,48 @@
         }
       }
     },
+    "Row %lld, column %lld, %lld copies" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Row %1$lld, column %2$lld, %3$lld copies"
+          }
+        }
+      }
+    },
+    "Row %lld, column %lld: ×%lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Row %1$lld, column %2$lld: ×%3$lld"
+          }
+        }
+      }
+    },
+    "Rows" : {
+
+    },
     "Save" : {
 
     },
     "Save Changes" : {
 
     },
+    "Search cards" : {
+
+    },
+    "Select all" : {
+
+    },
     "Set name" : {
 
     },
     "Shorten the notes to 2000 characters or fewer." : {
+
+    },
+    "Slot contents" : {
 
     },
     "Some column names appear more than once. Keep one of each column, using the CSV template as a guide." : {
@@ -378,6 +674,15 @@
     "The CSV structure breaks at row %lld. Close quoted fields and double any quotes inside them, or save the file again as CSV from your spreadsheet app." : {
 
     },
+    "The backup couldn’t be opened. Choose a complete collection backup and try again." : {
+
+    },
+    "The backup couldn’t be prepared. Please try again." : {
+
+    },
+    "The backup couldn’t be saved. Please try again." : {
+
+    },
     "The server is unavailable. Please try again." : {
 
     },
@@ -385,6 +690,12 @@
 
     },
     "This CSV has no cards. Add your cards to the template, then choose the file again." : {
+
+    },
+    "This backup version is not supported." : {
+
+    },
+    "This binder is full. Choose another collection or increase its page dimensions." : {
 
     },
     "This card is no longer in your collection." : {
@@ -403,6 +714,9 @@
 
     },
     "Unchanged cards skipped: %lld" : {
+
+    },
+    "Unfiled" : {
 
     },
     "Unnamed card" : {
@@ -433,6 +747,9 @@
 
     },
     "Your session expired. Sign in again, then retry. Your import edits are still here." : {
+
+    },
+    "Zoom" : {
 
     },
     "vs. purchase · NM market" : {

@@ -31,43 +31,26 @@ public struct CardImageExplorer: View {
             .padding()
 
             GeometryReader { geometry in
-                let current = effectiveZoom(viewport: geometry.size, artwork: artworkSize)
-                CardArtworkView(
-                    url: url,
-                    onLoad: { isLoaded = $0 },
-                    onSizeChange: { size in
-                        artworkSize = size
-                        zoom.pan(to: zoom.offset, viewport: viewport, artwork: size)
-                    }
-                )
-                .frame(width: geometry.size.width, height: geometry.size.height)
-                .scaleEffect(current.scale)
-                .offset(current.offset)
-                .frame(width: geometry.size.width, height: geometry.size.height)
-                .contentShape(Rectangle())
-                .clipped()
-                .gesture(magnify(viewport: geometry.size, artwork: artworkSize), including: isLoaded ? .all : .none)
-                .simultaneousGesture(
-                    drag(viewport: geometry.size, artwork: artworkSize),
-                    including: isLoaded ? .all : .none
-                )
-                .onTapGesture(count: 2) {
-                    guard isLoaded else { return }
-                    zoom.setScale(zoom.scale > 1 ? 1 : 2, viewport: geometry.size, artwork: artworkSize)
-                }
-                .onChange(of: geometry.size, initial: true) { _, size in
-                    viewport = size
-                    zoom.reset()
-                }
-                .accessibilityLabel(Text("Card image", bundle: .module))
-
+                artwork(in: geometry)
             }
             CardImageExplorerControls(
                 scale: zoom.scale,
                 isLoaded: isLoaded,
                 actions: .init(
-                    zoomOut: { zoom.setScale(zoom.scale / 1.5, viewport: viewport, artwork: artworkSize) },
-                    zoomIn: { zoom.setScale(zoom.scale * 1.5, viewport: viewport, artwork: artworkSize) },
+                    zoomOut: {
+                        zoom.setScale(
+                            zoom.scale / CardImageZoom.controlStepFactor,
+                            viewport: viewport,
+                            artwork: artworkSize
+                        )
+                    },
+                    zoomIn: {
+                        zoom.setScale(
+                            zoom.scale * CardImageZoom.controlStepFactor,
+                            viewport: viewport,
+                            artwork: artworkSize
+                        )
+                    },
                     reset: { zoom.reset() }
                 )
             )
@@ -77,6 +60,42 @@ public struct CardImageExplorer: View {
         #if os(macOS)
             .frame(minWidth: 640, idealWidth: 900, minHeight: 560, idealHeight: 760)
         #endif
+    }
+
+    private func artwork(in geometry: GeometryProxy) -> some View {
+        let current = effectiveZoom(viewport: geometry.size, artwork: artworkSize)
+        return CardArtworkView(
+            url: url,
+            onLoad: { isLoaded = $0 },
+            onSizeChange: { size in
+                artworkSize = size
+                zoom.pan(to: zoom.offset, viewport: viewport, artwork: size)
+            }
+        )
+        .frame(width: geometry.size.width, height: geometry.size.height)
+        .scaleEffect(current.scale)
+        .offset(current.offset)
+        .frame(width: geometry.size.width, height: geometry.size.height)
+        .contentShape(Rectangle())
+        .clipped()
+        .gesture(magnify(viewport: geometry.size, artwork: artworkSize), including: isLoaded ? .all : .none)
+        .simultaneousGesture(
+            drag(viewport: geometry.size, artwork: artworkSize),
+            including: isLoaded ? .all : .none
+        )
+        .onTapGesture(count: 2) {
+            guard isLoaded else { return }
+            zoom.setScale(
+                zoom.scale > CardImageZoom.minimumScale ? CardImageZoom.minimumScale : CardImageZoom.doubleTapScale,
+                viewport: geometry.size,
+                artwork: artworkSize
+            )
+        }
+        .onChange(of: geometry.size, initial: true) { _, size in
+            viewport = size
+            zoom.reset()
+        }
+        .accessibilityLabel(Text("Card image", bundle: .module))
     }
 
     private func effectiveZoom(viewport: CGSize, artwork: CGSize) -> CardImageZoom {

@@ -1,11 +1,16 @@
 import SwiftUI
 
 struct CardImageZoom {
-    private(set) var scale: CGFloat = 1
+    static let minimumScale: CGFloat = 1
+    static let maximumScale: CGFloat = 6
+    static let controlStepFactor: CGFloat = 1.5
+    static let doubleTapScale: CGFloat = 2
+
+    private(set) var scale: CGFloat = CardImageZoom.minimumScale
     private(set) var offset: CGSize = .zero
 
     mutating func setScale(_ value: CGFloat, viewport: CGSize, artwork: CGSize) {
-        scale = min(max(value, 1), 6)
+        scale = min(max(value, Self.minimumScale), Self.maximumScale)
         pan(to: offset, viewport: viewport, artwork: artwork)
     }
 
@@ -19,7 +24,7 @@ struct CardImageZoom {
     }
 
     mutating func reset() {
-        scale = 1
+        scale = Self.minimumScale
         offset = .zero
     }
 }

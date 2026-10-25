@@ -11,6 +11,7 @@ import TCGDesignSystem
 import TCGModels
 
 public struct TCGCardsListScreen: View {
+    @Environment(\.isEditingCollection) private var isEditingCollection
     @Environment(TCGCards.self) private var cardCollection
 
     @State private var model: TCGCardsListScreenModel
@@ -26,13 +27,19 @@ public struct TCGCardsListScreen: View {
     public var body: some View {
         content
             .overlay { if cardCollection.isLoading { ProgressView() } }
-            .navigationTitle("My collection")
+            .navigationTitle(collectionTitle)
+            .searchable(text: $model.query, prompt: Text("Search cards", bundle: .module))
             .toolbar {
                 Button {
                     model.presentedForm = .add
                 } label: {
-                    Label("Add card", systemImage: "plus")
+                    Label {
+                        Text("Add card", bundle: .module)
+                    } icon: {
+                        Image(systemName: "plus")
+                    }
                 }
+                .help(Text("Add card", bundle: .module))
             }
             .sheet(item: $model.presentedForm) { route in
                 NavigationStack {
@@ -50,6 +57,21 @@ public struct TCGCardsListScreen: View {
             .onChange(of: cardCollection.displayRefreshError) { _, error in
                 if let error { model.show(error) }
             }
+    }
+
+    private var deleteCards: ((IndexSet) -> Void)? {
+        guard isEditingCollection else { return nil }
+        return { offsets in
+            guard isEditingCollection else { return }
+            Task { await model.delete(at: offsets, using: cardCollection) }
+        }
+    }
+
+    private var collectionTitle: String {
+        guard let collection = cardCollection.selectedCollection else {
+            return String(localized: "All cards", bundle: .module)
+        }
+        return collection.isUnfiled ? String(localized: "Unfiled", bundle: .module) : collection.name
     }
 
     @ViewBuilder
@@ -72,9 +94,7 @@ public struct TCGCardsListScreen: View {
                     emptyCollection
                 } else {
                     cardRows
-                        .onDelete { offsets in
-                            Task { await model.delete(at: offsets, using: cardCollection) }
-                        }
+                        .onDelete(perform: deleteCards)
                     paginationFooter
                         .listRowSeparator(.hidden)
                 }
@@ -141,8 +161,11 @@ public struct TCGCardsListScreen: View {
                         .padding(12)
                         .background(.background.secondary, in: RoundedRectangle(cornerRadius: 12))
                         .contextMenu {
-                            Button("Delete", systemImage: "trash", role: .destructive) {
-                                Task { await model.delete(cardWithPrice.card, using: cardCollection) }
+                            if isEditingCollection {
+                                Button("Delete", systemImage: "trash", role: .destructive) {
+                                    guard isEditingCollection else { return }
+                                    Task { await model.delete(cardWithPrice.card, using: cardCollection) }
+                                }
                             }
                         }
                     #endif
@@ -159,7 +182,7 @@ public struct TCGCardsListScreen: View {
 
     @ViewBuilder
     private var emptyCollection: some View {
-        if model.gameFilter != nil || !model.setNames.isEmpty {
+        if model.gameFilter != nil || !model.setNames.isEmpty || model.filters.searchQuery != nil {
             ContentUnavailableView {
                 Label {
                     Text("No matching cards", bundle: .module)
@@ -179,11 +202,18 @@ public struct TCGCardsListScreen: View {
     }
 
     private func cardButton(for cardWithPrice: CardWithPrice) -> some View {
-        CardRow(
-            cardWithPrice: cardWithPrice,
-            showDetails: { model.showDetails(of: cardWithPrice) },
-            exploreImage: { model.exploreImage(of: cardWithPrice) }
-        )
+        VStack(alignment: .leading) {
+            CardRow(
+                cardWithPrice: cardWithPrice,
+                showDetails: { model.showDetails(of: cardWithPrice) },
+                exploreImage: { model.exploreImage(of: cardWithPrice) }
+            )
+            if let collection = cardCollection.selectedCollection {
+                let total = cardWithPrice.card.totalQuantity
+                let unplaced = max(0, total - collection.allocatedCopies(of: cardWithPrice.card.id))
+                Text("\(unplaced) unplaced", bundle: .module).font(.caption).foregroundStyle(.secondary)
+            }
+        }
     }
 
 }

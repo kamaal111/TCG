@@ -40,7 +40,7 @@ struct TCGCardsListScreenModelTests {
         #expect(restored.setNames == ["Base Set"])
         let feature = TCGCards(client: .preview(cardsOutcome: .success(cards: PreviewTCGCardsClient.sampleCards)))
         await restored.resumeLoadIfNeeded(using: feature)
-        #expect(feature.cards.map(\.card.id) == ["preview-card-2"])
+        #expect(feature.cards.map(\.card.id) == [CardsTestIDs.secondary])
     }
 
     @Test
@@ -164,7 +164,7 @@ struct TCGCardsListScreenModelTests {
         let model = TCGCardsListScreenModel(preferences: nil)
         model.setNames = ["Base Set"]
         await model.load(using: feature)
-        #expect(feature.cards.map(\.card.id) == ["preview-card-2"])
+        #expect(feature.cards.map(\.card.id) == [CardsTestIDs.secondary])
         #expect(model.availableSetNames(using: feature) == ["Base Set", "Romance Dawn"])
 
         model.setNames.insert("Romance Dawn")
@@ -180,7 +180,7 @@ struct TCGCardsListScreenModelTests {
 
         model.setNames = []
         await model.load(using: feature)
-        #expect(feature.cards.map(\.card.id) == ["preview-card-2"])
+        #expect(feature.cards.map(\.card.id) == [CardsTestIDs.secondary])
     }
 
     @Test
@@ -198,7 +198,7 @@ struct TCGCardsListScreenModelTests {
         #expect(model.availableSetNames(using: feature) == ["Base Set", "Romance Dawn"])
         model.setNames = []
         await model.load(using: feature)
-        #expect(feature.cards.map(\.card.id) == ["preview-card-1"])
+        #expect(feature.cards.map(\.card.id) == [CardsTestIDs.primary])
     }
 
     @Test
@@ -226,7 +226,7 @@ struct TCGCardsListScreenModelTests {
 
         try await feature.addCard(values).get()
 
-        #expect(feature.cards.map(\.card.id) == ["preview-card-2"])
+        #expect(feature.cards.map(\.card.id) == [CardsTestIDs.secondary])
         #expect(feature.availableSetNames == ["Base Set", "Crown Zenith"])
     }
 

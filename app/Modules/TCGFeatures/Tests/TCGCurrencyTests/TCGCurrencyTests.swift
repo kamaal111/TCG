@@ -93,6 +93,7 @@ struct TCGCurrencyTests {
         #expect(logs.allSatisfy { !$0.message.contains("event=currency.preference.applied") })
         #expect(state.preferenceLoaded == false)
     }
+
     @Test
     func `Converts using the same daily snapshot and preserves same currency without rates`() throws {
         let rates = ExchangeRates(date: "2026-10-16", rates: ["EUR": 1, "USD": 1.25, "JPY": 150])
@@ -243,7 +244,9 @@ private actor PreferenceTransport: ClientTransport {
     private let initiallyExplicit: Bool
     private var selected: Currency = .usd
     private var failRates = false
+
     func rejectRates() { failRates = true }
+
     private var failUpdates = false
     private var holdsUpdates = false
     private var updateStarted = false
@@ -251,16 +254,19 @@ private actor PreferenceTransport: ClientTransport {
     private var updateWaiter: CheckedContinuation<Void, Never>?
 
     func holdUpdates() { holdsUpdates = true }
+
     func waitForUpdate() async {
         if updateStarted { return }
         await withCheckedContinuation { updateWaiter = $0 }
     }
+
     func releaseUpdate() {
         updateGate?.resume()
         updateGate = nil
     }
 
     init(explicit: Bool) { initiallyExplicit = explicit }
+
     func rejectUpdates() { failUpdates = true }
 
     func send(_ request: HTTPRequest, body: HTTPBody?, baseURL: URL, operationID: String) async throws -> (

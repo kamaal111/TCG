@@ -34,22 +34,26 @@ public struct CardArtworkView: View {
     public var body: some View {
         content
             .task(id: LoadRequest(url: url, attempt: attempt)) {
-                onLoad(false)
-                guard let url else {
-                    phase = .missingURL
-                    return
-                }
-                if let image = loader.cachedImage(for: url) {
-                    phase = .loaded(image)
-                    onLoad(true)
-                    return
-                }
-                phase = .loading
-                let image = await loader.image(for: url)
-                guard !Task.isCancelled else { return }
-                phase = image.map(LoadPhase.loaded) ?? .failed
-                onLoad(image != nil)
+                await loadImage()
             }
+    }
+
+    private func loadImage() async {
+        onLoad(false)
+        guard let url else {
+            phase = .missingURL
+            return
+        }
+        if let image = loader.cachedImage(for: url) {
+            phase = .loaded(image)
+            onLoad(true)
+            return
+        }
+        phase = .loading
+        let image = await loader.image(for: url)
+        guard !Task.isCancelled else { return }
+        phase = image.map(LoadPhase.loaded) ?? .failed
+        onLoad(image != nil)
     }
 
     @ViewBuilder
@@ -62,6 +66,7 @@ public struct CardArtworkView: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(Text("Explore image", bundle: .module))
+                .help(Text("Explore image", bundle: .module))
             } else {
                 artwork(image)
             }
@@ -119,8 +124,11 @@ public struct CardArtworkView: View {
     }
 
     private func placeholder(_ symbol: String, color: Color) -> some View {
-        Image(systemName: symbol).resizable().scaledToFit()
-            .padding(symbol == "hourglass" ? 15 : 10).foregroundStyle(color)
+        Image(systemName: symbol)
+            .resizable()
+            .scaledToFit()
+            .padding(symbol == "hourglass" ? 15 : 10)
+            .foregroundStyle(color)
     }
 
     private enum LoadPhase {

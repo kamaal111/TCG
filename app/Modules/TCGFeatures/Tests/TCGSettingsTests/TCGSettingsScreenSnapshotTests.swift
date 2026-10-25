@@ -41,7 +41,8 @@ struct TCGSettingsScreenSnapshotTests {
                     onDownloadTemplate: { .success(URL(fileURLWithPath: "/tmp/cards-template.csv")) },
                     onImport: { _ in }
                 )
-            }.environment(auth)
+            }
+            .environment(auth)
         }
     }
 

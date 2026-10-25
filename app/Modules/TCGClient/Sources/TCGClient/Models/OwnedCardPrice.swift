@@ -13,11 +13,11 @@ public enum OwnedCardPriceStatus: String, Codable, Hashable, Sendable {
 }
 
 public struct OwnedCardPrice: Codable, Hashable, Sendable {
-    public let cardId: String
+    public let cardId: UUID
     public let status: OwnedCardPriceStatus
     public let price: PricedCard?
 
-    public init(cardId: String, status: OwnedCardPriceStatus, price: PricedCard? = nil) {
+    public init(cardId: UUID, status: OwnedCardPriceStatus, price: PricedCard? = nil) {
         self.cardId = cardId
         self.status = status
         self.price = price

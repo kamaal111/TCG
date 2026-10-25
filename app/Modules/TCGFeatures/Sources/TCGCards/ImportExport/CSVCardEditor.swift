@@ -22,16 +22,17 @@ struct CSVCardEditor: View {
                         dismiss()
                     }
                 }
-            }.navigationTitle(Text("Edit Import Card", bundle: .module))
-                .toolbar {
-                    ToolbarItem(placement: .cancellationAction) {
-                        Button {
-                            dismiss()
-                        } label: {
-                            Text("Cancel", bundle: .module)
-                        }
+            }
+            .navigationTitle(Text("Edit Import Card", bundle: .module))
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button {
+                        dismiss()
+                    } label: {
+                        Text("Cancel", bundle: .module)
                     }
                 }
+            }
         }
         #if os(macOS)
             .frame(width: 600, height: 650)

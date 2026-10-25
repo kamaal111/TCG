@@ -21,6 +21,7 @@ catalog:
   '@kamaalio/kamaal': '~0.13.0'
   '@kamaalio/kamaal-auth-core': '~0.0.15'
   '@kamaalio/kamaal-auth-hono': '~0.0.15'
+  '@oxlint/plugins': 1.87.0
   '@standard-schema/spec': '^1.1.0'
   '@stylistic/eslint-plugin': 5.10.0
   '@types/node': '^26.6.4'

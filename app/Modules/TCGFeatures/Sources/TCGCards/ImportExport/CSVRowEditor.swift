@@ -39,25 +39,26 @@ struct CSVRowEditor: View {
                     }
                 }
                 Toggle(isOn: $row.isIncluded) { Text("Include this purchase", bundle: .module) }
-            }.formStyle(.grouped)
-                .navigationTitle(Text("Correct CSV Row", bundle: .module))
-                .toolbar {
-                    ToolbarItem(placement: .cancellationAction) {
-                        Button {
-                            dismiss()
-                        } label: {
-                            Text("Cancel", bundle: .module)
-                        }
-                    }
-                    ToolbarItem(placement: .confirmationAction) {
-                        Button {
-                            onSave(row)
-                            dismiss()
-                        } label: {
-                            Text("Save Changes", bundle: .module)
-                        }
+            }
+            .formStyle(.grouped)
+            .navigationTitle(Text("Correct CSV Row", bundle: .module))
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button {
+                        dismiss()
+                    } label: {
+                        Text("Cancel", bundle: .module)
                     }
                 }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button {
+                        onSave(row)
+                        dismiss()
+                    } label: {
+                        Text("Save Changes", bundle: .module)
+                    }
+                }
+            }
         }
         #if os(macOS)
             .frame(width: 550, height: 650)

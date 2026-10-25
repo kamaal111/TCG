@@ -5,6 +5,7 @@ import TCGDesignSystem
 import TCGModels
 
 struct TCGCardFormFields: View {
+    @Environment(\.tcgCollections) private var collections
     @Environment(\.tcgCurrency) private var currencyState
     @Environment(TCGCards.self) private var cards
     @FocusState private var focusedPricingField: PricingField?
@@ -17,6 +18,9 @@ struct TCGCardFormFields: View {
 
     var body: some View {
         VStack(spacing: 18) {
+            if model.canChooseCollection, let collections {
+                CardCollectionField(model: model, collections: collections)
+            }
             TCGGamePicker(selection: gameSelection)
 
             TCGFormField(label: "Name", error: model.fieldErrors[.name]) {
@@ -48,7 +52,9 @@ struct TCGCardFormFields: View {
                                 } icon: {
                                     Image(systemName: "plus")
                                 }
-                            }.buttonStyle(.borderless)
+                            }
+                            .buttonStyle(.borderless)
+                            .help(Text("Add batch", bundle: .module))
                         }
                         ForEach($model.values.batches) { $batch in
                             if batch.condition == condition {
@@ -65,13 +71,14 @@ struct TCGCardFormFields: View {
                 if case .draft = model.mode {
                 } else {
                     Text("Purchase defaults use today's average near-mint market price.", bundle: .module)
-                        .font(.caption).foregroundStyle(.secondary)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
                 if let error = model.fieldErrors[.purchases] {
-                    Text(error).font(.caption).foregroundStyle(.red)
+                    TCGInlineError(error).font(.caption)
                 }
                 if let error = model.fieldErrors[.quantities] {
-                    Text(error).font(.caption).foregroundStyle(.red)
+                    TCGInlineError(error).font(.caption)
                 }
             }
 
@@ -84,7 +91,7 @@ struct TCGCardFormFields: View {
                 onSubmit()
             }
             if let toast = model.toast {
-                Text(toast).font(.caption).foregroundStyle(.red)
+                TCGInlineError(toast).font(.caption)
             }
         }
         .frame(maxWidth: 520)

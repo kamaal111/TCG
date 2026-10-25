@@ -35,9 +35,10 @@ const vitestGlobalImports = {
 
 export default defineConfig({
   extends: [kamaalOxlintConfig],
-  jsPlugins: ['@stylistic/eslint-plugin'],
+  jsPlugins: ['@stylistic/eslint-plugin', './scripts/oxlint-prefer-nullish.ts'],
   ignorePatterns: ['**/dist/**', '**/node_modules/**', '**/*.swift'],
   rules: {
+    'tcg-zod/prefer-nullish': 'error',
     '@stylistic/lines-between-class-members': [
       'error',
       {

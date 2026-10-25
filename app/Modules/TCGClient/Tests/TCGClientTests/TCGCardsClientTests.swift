@@ -15,18 +15,43 @@ import Testing
 
 @Suite("TCGClient Cards Tests")
 struct TCGCardsClientTests {
+    @Test(arguments: ["id", "collection_id", "purchase_id", "price_card_id"])
+    func `Rejects malformed UUID identities from API responses`(field: String) async throws {
+        var wire = try #require(JSONSerialization.jsonObject(with: cardJSON) as? [String: Any])
+        switch field {
+        case "purchase_id":
+            var purchases = try #require(wire["purchases"] as? [[String: Any]])
+            purchases[0]["id"] = "not-a-uuid"
+            wire["purchases"] = purchases
+        case "price_card_id":
+            var price = try #require(wire["price"] as? [String: Any])
+            price["card_id"] = "not-a-uuid"
+            wire["price"] = price
+        default:
+            wire[field] = "not-a-uuid"
+        }
+        let transport = CardsRequestTransport(status: .created, body: try JSONSerialization.data(withJSONObject: wire))
+        let result = await makeClient(transport: transport).cards.create(with: payload)
+        guard case .failure(.unknown(let status, _, let cause)) = result else {
+            Issue.record("A malformed UUID response must fail instead of creating a card.")
+            return
+        }
+        #expect(status == 503)
+        #expect(cause as? UUIDCodingError == .invalidUUID("not-a-uuid"))
+    }
+
     @Test
     func `Purchase display amounts do not replace original travel costs in save requests`() async throws {
         let body = Data(
             """
-            {"id":"travel-card","game":"one_piece","name":"Luffy","set_name":"Romance Dawn",
+            {"id":"00000000-0000-4000-8000-000000000080","game":"one_piece","name":"Luffy","set_name":"Romance Dawn",
              "card_number":"OP01-003","notes":null,"display_currency":"EUR",
              "created_at":"2026-10-16T10:00:00.000Z","updated_at":"2026-10-16T10:00:00.000Z",
              "purchase_price_change_percent":null,
-             "purchases":[{"id":"purchase","condition":"near_mint","quantity":2,
+             "purchases":[{"id":"00000000-0000-4000-8000-000000000081","condition":"near_mint","quantity":2,
                "purchase_price":"1500.000000","currency":"JPY","automatic_price_date":null,
                "display_price":{"amount":"10.000000","currency":"EUR","conversion_unavailable":false}}],
-             "price":{"card_id":"travel-card","status":"no_price"}}
+             "price":{"card_id":"00000000-0000-4000-8000-000000000080","status":"no_price"}}
             """.utf8
         )
         let transport = CardsRequestTransport(status: .created, body: body)
@@ -36,7 +61,8 @@ struct TCGCardsClientTests {
             setName: "Romance Dawn",
             cardNumber: "OP01-003",
             notes: nil,
-            purchases: [.init(condition: .nearMint, quantity: 2, purchasePrice: 1500, currency: .jpy)]
+            purchases: [.init(condition: .nearMint, quantity: 2, purchasePrice: 1500, currency: .jpy)],
+            collectionID: nil
         )
         let client = makeClient(transport: transport)
         let result = try await client.cards.create(with: input).get()
@@ -76,7 +102,7 @@ struct TCGCardsClientTests {
             )
         )
         let source = Card(
-            id: "550e8400-e29b-41d4-a716-446655440000",
+            id: UUID(uuid: (85, 14, 132, 0, 226, 155, 65, 212, 167, 22, 68, 102, 85, 68, 0, 0)),
             game: expectedCard.game,
             name: expectedCard.name,
             setName: expectedCard.setName,
@@ -86,14 +112,16 @@ struct TCGCardsClientTests {
             updatedAt: expectedCard.updatedAt,
             purchases: [
                 .init(
-                    id: "550e8400-e29b-41d4-a716-446655440001",
+                    id: UUID(uuid: (85, 14, 132, 0, 226, 155, 65, 212, 167, 22, 68, 102, 85, 68, 0, 1)),
                     condition: .nearMint,
                     quantity: 2,
                     purchasePrice: Decimal(string: "3.123456"),
                     currency: currency,
                     automaticPriceDate: "2026-07-20"
                 )
-            ]
+            ],
+            collectionID: nil,
+            allocationAdjustments: nil
         )
         let input = ImportCardsPayload(cards: [.init(card: source)])
         let result = try await makeClient(transport: transport).cards.importCards(input).get()
@@ -112,7 +140,15 @@ struct TCGCardsClientTests {
         #expect(request.path == "/app-api/cards/import")
         #expect(request.operationID == "post/app-api/cards/import")
         #expect(decoded == input)
-        #expect(result == .init(importedCount: 1, updatedCount: 0, skippedCount: 0))
+        #expect(
+            result
+                == .init(
+                    importedCount: 1,
+                    updatedCount: 0,
+                    skippedCount: 0,
+                    allocationAdjustments: nil
+                )
+        )
     }
 
     @Test
@@ -224,8 +260,16 @@ struct TCGCardsClientTests {
     @Test
     func `Lists cards through the generated operation`() async throws {
         let transport = CardsRequestTransport(status: .ok, body: cardsListJSON)
-        let cards = try await makeClient(transport: transport).cards.listPage(game: .pokemon, setNames: [], cursor: nil)
-            .get().cards
+        let cards = try await makeClient(transport: transport).cards.listPage(
+            .init(
+                game: .pokemon,
+                setNames: [],
+                cursor: nil,
+                collectionID: nil,
+                query: nil
+            )
+        )
+        .get().cards
         let request = try #require(await transport.request)
 
         #expect(request.method == .get)
@@ -235,13 +279,32 @@ struct TCGCardsClientTests {
     }
 
     @Test
+    func `Searches owned cards through the generated query parameter`() async throws {
+        let transport = CardsRequestTransport(status: .ok, body: cardsListJSON)
+        let page = try await makeClient(transport: transport).cards.listPage(
+            .init(game: nil, setNames: [], cursor: nil, collectionID: nil, query: "Luffy %_")
+        )
+        .get()
+        let request = try #require(await transport.request)
+        let path = try #require(request.path)
+        let components = try #require(URLComponents(string: "https://example.com\(path)"))
+        #expect(components.queryItems == [URLQueryItem(name: "query", value: "Luffy %_")])
+        #expect(page.cards.map(\.card.id) == [expectedCard.id])
+    }
+
+    @Test
     func `Lists repeated sets with encoded names and complete set choices`() async throws {
         let transport = CardsRequestTransport(status: .ok, body: cardsListJSON)
         let collection = try await makeClient(transport: transport).cards.listPage(
-            game: .pokemon,
-            setNames: ["Base Set", "Special, Set & + 日本語"],
-            cursor: nil
-        ).get()
+            .init(
+                game: .pokemon,
+                setNames: ["Base Set", "Special, Set & + 日本語"],
+                cursor: nil,
+                collectionID: nil,
+                query: nil
+            )
+        )
+        .get()
         let request = try #require(await transport.request)
         let path = try #require(request.path)
         let url = try #require(URLComponents(string: "https://example.com\(path)"))
@@ -256,8 +319,16 @@ struct TCGCardsClientTests {
     @Test
     func `Empty set selection omits the query parameter`() async throws {
         let transport = CardsRequestTransport(status: .ok, body: cardsListJSON)
-        let collection = try await makeClient(transport: transport).cards.listPage(game: nil, setNames: [], cursor: nil)
-            .get()
+        let collection = try await makeClient(transport: transport).cards.listPage(
+            .init(
+                game: nil,
+                setNames: [],
+                cursor: nil,
+                collectionID: nil,
+                query: nil
+            )
+        )
+        .get()
 
         #expect(await transport.request?.path == "/app-api/cards")
         #expect(collection.availableSetNames == ["Base Set", "Crown Zenith"])
@@ -267,7 +338,16 @@ struct TCGCardsClientTests {
     func `Preserves list validation failures as status 400`() async {
         let transport = CardsRequestTransport(status: .badRequest, body: validationJSON)
         await #expect(throws: ListCardsErrors.unknown(status: 400, payload: nil, cause: nil)) {
-            try await makeClient(transport: transport).cards.listPage(game: nil, setNames: [""], cursor: nil).get()
+            try await makeClient(transport: transport).cards.listPage(
+                .init(
+                    game: nil,
+                    setNames: [""],
+                    cursor: nil,
+                    collectionID: nil,
+                    query: nil
+                )
+            )
+            .get()
         }
     }
 
@@ -275,15 +355,31 @@ struct TCGCardsClientTests {
     func `Maps unavailable list pricing`() async {
         let transport = CardsRequestTransport(status: .serviceUnavailable, body: errorJSON(code: "UNAVAILABLE"))
         await #expect(throws: ListCardsErrors.unavailable) {
-            try await makeClient(transport: transport).cards.listPage(game: nil, setNames: ["Base Set"], cursor: nil)
-                .get()
+            try await makeClient(transport: transport).cards.listPage(
+                .init(
+                    game: nil,
+                    setNames: ["Base Set"],
+                    cursor: nil,
+                    collectionID: nil,
+                    query: nil
+                )
+            )
+            .get()
         }
     }
 
     @Test
     func `Maps a missing list session to unauthorized`() async {
         let transport = CardsRequestTransport(status: .unauthorized, body: errorJSON(code: "SESSION_NOT_FOUND"))
-        let result = await makeClient(transport: transport).cards.listPage(game: nil, setNames: [], cursor: nil)
+        let result = await makeClient(transport: transport).cards.listPage(
+            .init(
+                game: nil,
+                setNames: [],
+                cursor: nil,
+                collectionID: nil,
+                query: nil
+            )
+        )
 
         #expect(throws: ListCardsErrors.unauthorized) { try result.get() }
     }
@@ -291,7 +387,15 @@ struct TCGCardsClientTests {
     @Test
     func `Preserves undocumented list statuses`() async {
         let transport = CardsRequestTransport(status: .init(code: 418), body: Data("{}".utf8))
-        let result = await makeClient(transport: transport).cards.listPage(game: nil, setNames: [], cursor: nil)
+        let result = await makeClient(transport: transport).cards.listPage(
+            .init(
+                game: nil,
+                setNames: [],
+                cursor: nil,
+                collectionID: nil,
+                query: nil
+            )
+        )
 
         await #expect(throws: ListCardsErrors.unknown(status: 418, payload: nil, cause: nil)) {
             try result.get()
@@ -327,11 +431,15 @@ struct TCGCardsClientTests {
     @Test
     func `Updates a card and encodes the path identifier`() async throws {
         let transport = CardsRequestTransport(status: .ok, body: cardJSON)
-        let card = try await makeClient(transport: transport).cards.update(id: "card-id", with: payload).get()
+        let card = try await makeClient(transport: transport).cards.update(
+            id: ClientTestIDs.responseCard,
+            with: payload
+        )
+        .get()
         let request = try #require(await transport.request)
 
         #expect(request.method == .put)
-        #expect(request.path == "/app-api/cards/card-id")
+        #expect(request.path == "/app-api/cards/00000000-0000-4000-8000-000000000010")
         #expect(request.operationID == "put/app-api/cards/{cardId}")
         #expect(card.card == expectedCard)
         #expect(card.price == expectedPrice)
@@ -343,10 +451,18 @@ struct TCGCardsClientTests {
         let missingSession = CardsRequestTransport(status: .unauthorized, body: errorJSON(code: "SESSION_NOT_FOUND"))
 
         await #expect(throws: UpdateCardErrors.notFound) {
-            try await makeClient(transport: missingCard).cards.update(id: "card-id", with: payload).get()
+            try await makeClient(transport: missingCard).cards.update(
+                id: ClientTestIDs.responseCard,
+                with: payload
+            )
+            .get()
         }
         await #expect(throws: UpdateCardErrors.unauthorized) {
-            try await makeClient(transport: missingSession).cards.update(id: "card-id", with: payload).get()
+            try await makeClient(transport: missingSession).cards.update(
+                id: ClientTestIDs.responseCard,
+                with: payload
+            )
+            .get()
         }
     }
 
@@ -355,7 +471,11 @@ struct TCGCardsClientTests {
         let transport = CardsRequestTransport(status: .badRequest, body: validationJSON)
 
         await #expect(throws: UpdateCardErrors.badRequest(validations: [validationIssue])) {
-            try await makeClient(transport: transport).cards.update(id: "card-id", with: payload).get()
+            try await makeClient(transport: transport).cards.update(
+                id: ClientTestIDs.responseCard,
+                with: payload
+            )
+            .get()
         }
     }
 
@@ -384,12 +504,16 @@ struct TCGCardsClientTests {
 
     @Test
     func `Updates purchases and decodes exact prices`() async throws {
-        let input = try purchasePayload(id: "batch-id")
+        let input = try purchasePayload(id: UUID(uuid: (0, 0, 0, 0, 0, 0, 64, 0, 128, 0, 0, 0, 0, 0, 1, 36)))
         let transport = CardsRequestTransport(status: .ok, body: purchaseCardJSON)
-        let saved = try await makeClient(transport: transport).cards.update(id: "card-id", with: input).get()
+        let saved = try await makeClient(transport: transport).cards.update(
+            id: ClientTestIDs.responseCard,
+            with: input
+        )
+        .get()
         let request = try #require(await transport.request)
         #expect(request.operationID == "put/app-api/cards/{cardId}")
-        try assertPurchasePayload(request, expectedID: "batch-id")
+        try assertPurchasePayload(request, expectedID: UUID(uuid: (0, 0, 0, 0, 0, 0, 64, 0, 128, 0, 0, 0, 0, 0, 1, 36)))
         try assertPurchaseResponse(saved)
     }
 
@@ -399,11 +523,15 @@ struct TCGCardsClientTests {
             status: .ok,
             body: Data(
                 """
-                {"deleted_ids":["first-card"],"not_found_ids":["missing-card"]}
+                {"deleted_ids":["00000000-0000-4000-8000-000000000020"],"not_found_ids":["00000000-0000-4000-8000-000000000022"]}
                 """.utf8
             )
         )
-        let ids = ["first-card", "missing-card", "first-card"]
+        let ids = [
+            ClientTestIDs.purchase,
+            ClientTestIDs.newPurchase,
+            ClientTestIDs.purchase,
+        ]
         let result = try await makeClient(transport: transport).cards.delete(ids: ids).get()
         let request = try #require(await transport.request)
         let body = try #require(request.body)
@@ -412,11 +540,23 @@ struct TCGCardsClientTests {
         #expect(request.path == "/app-api/cards")
         #expect(request.operationID == "delete/app-api/cards")
         #expect(try JSONDecoder().decode(DeleteCardsPayload.self, from: body) == DeleteCardsPayload(cardIDs: ids))
-        #expect(result == DeleteCardsResult(deletedIDs: ["first-card"], notFoundIDs: ["missing-card"]))
+        #expect(
+            result
+                == DeleteCardsResult(
+                    deletedIDs: [ClientTestIDs.purchase],
+                    notFoundIDs: [ClientTestIDs.newPurchase]
+                )
+        )
     }
 
-    @Test(arguments: [[], ["first-card"], ["first-card", "second-card"]])
-    func `Deletion decodes full and empty success`(ids: [String]) async throws {
+    @Test(arguments: [
+        [], [ClientTestIDs.purchase],
+        [
+            ClientTestIDs.purchase,
+            ClientTestIDs.secondPurchase,
+        ],
+    ])
+    func `Deletion decodes full and empty success`(ids: [UUID]) async throws {
         let body = Data(
             """
             {"deleted_ids":\(String(decoding: try JSONEncoder().encode(ids), as: UTF8.self)),"not_found_ids":[]}
@@ -433,7 +573,10 @@ struct TCGCardsClientTests {
     func `Deletion maps validation failures`() async {
         let transport = CardsRequestTransport(status: .badRequest, body: validationJSON)
         await #expect(throws: DeleteCardsErrors.badRequest(validations: [validationIssue])) {
-            try await makeClient(transport: transport).cards.delete(ids: ["invalid"]).get()
+            try await makeClient(transport: transport).cards.delete(ids: [
+                ClientTestIDs.fourth
+            ])
+            .get()
         }
     }
 
@@ -441,7 +584,10 @@ struct TCGCardsClientTests {
     func `Deletion maps missing sessions`() async {
         let transport = CardsRequestTransport(status: .unauthorized, body: errorJSON(code: "SESSION_NOT_FOUND"))
         await #expect(throws: DeleteCardsErrors.unauthorized) {
-            try await makeClient(transport: transport).cards.delete(ids: ["first-card"]).get()
+            try await makeClient(transport: transport).cards.delete(ids: [
+                ClientTestIDs.purchase
+            ])
+            .get()
         }
     }
 
@@ -449,7 +595,10 @@ struct TCGCardsClientTests {
     func `Deletion preserves undocumented failure statuses`() async {
         let transport = CardsRequestTransport(status: .internalServerError, body: Data("{}".utf8))
         await #expect(throws: DeleteCardsErrors.unknown(status: 500, payload: nil, cause: nil)) {
-            try await makeClient(transport: transport).cards.delete(ids: ["first-card"]).get()
+            try await makeClient(transport: transport).cards.delete(ids: [
+                ClientTestIDs.purchase
+            ])
+            .get()
         }
     }
 
@@ -457,7 +606,10 @@ struct TCGCardsClientTests {
     func `Deletion maps malformed responses`() async {
         let transport = CardsRequestTransport(status: .ok, body: Data("{}".utf8))
         await #expect(throws: DeleteCardsErrors.unknown(status: 503, payload: nil, cause: nil)) {
-            try await makeClient(transport: transport).cards.delete(ids: ["first-card"]).get()
+            try await makeClient(transport: transport).cards.delete(ids: [
+                ClientTestIDs.purchase
+            ])
+            .get()
         }
     }
 
@@ -465,11 +617,14 @@ struct TCGCardsClientTests {
     func `Deletion maps transport failures`() async {
         let transport = CardsRequestTransport(status: .ok, body: Data(), fails: true)
         await #expect(throws: DeleteCardsErrors.unknown(status: 503, payload: nil, cause: nil)) {
-            try await makeClient(transport: transport).cards.delete(ids: ["first-card"]).get()
+            try await makeClient(transport: transport).cards.delete(ids: [
+                ClientTestIDs.purchase
+            ])
+            .get()
         }
     }
 
-    private func purchasePayload(id: String?, currency: Currency = .usd) throws -> UpsertCardPayload {
+    private func purchasePayload(id: UUID?, currency: Currency = .usd) throws -> UpsertCardPayload {
         let amount = try #require(Decimal(string: "3.123456"))
         return UpsertCardPayload(
             game: .onePiece,
@@ -479,11 +634,12 @@ struct TCGCardsClientTests {
             notes: nil,
             purchases: [
                 CardPurchase(id: id, condition: .nearMint, quantity: 2, purchasePrice: amount, currency: currency)
-            ]
+            ],
+            collectionID: nil
         )
     }
 
-    private func assertPurchasePayload(_ request: CardsRecordedRequest, expectedID: String?) throws {
+    private func assertPurchasePayload(_ request: CardsRecordedRequest, expectedID: UUID?) throws {
         let body = try #require(request.body)
         let wire = try #require(JSONSerialization.jsonObject(with: body) as? [String: Any])
         #expect(wire["quantities"] == nil)
@@ -491,7 +647,7 @@ struct TCGCardsClientTests {
         let sent = try JSONDecoder().decode(Components.Schemas.UpsertCard.self, from: body)
         #expect(sent.purchases.count == 1)
         let purchase = try #require(sent.purchases.first)
-        #expect(purchase.id == expectedID)
+        #expect(purchase.id == expectedID.map(UUIDCoding.encode))
         #expect(purchase.condition.rawValue == "near_mint")
         #expect(purchase.quantity == 2)
         #expect(purchase.purchasePrice == "3.123456")
@@ -503,7 +659,7 @@ struct TCGCardsClientTests {
         #expect(
             saved.card.purchases == [
                 CardPurchase(
-                    id: "batch-id",
+                    id: UUID(uuid: (0, 0, 0, 0, 0, 0, 64, 0, 128, 0, 0, 0, 0, 0, 1, 36)),
                     condition: .nearMint,
                     quantity: 2,
                     purchasePrice: amount,
@@ -518,11 +674,22 @@ struct TCGCardsClientTests {
     @Test
     func `Export follows every cursor and preserves card order`() async throws {
         let transport = CardsRequestTransport(responses: [
-            .init(status: .ok, body: pageJSON(id: "first", cursor: "page-two")),
-            .init(status: .ok, body: pageJSON(id: "second", cursor: nil)),
+            .init(
+                status: .ok,
+                body: pageJSON(id: ClientTestIDs.pageCard, cursor: "page-two")
+            ),
+            .init(
+                status: .ok,
+                body: pageJSON(id: UUID(uuid: (0, 0, 0, 0, 0, 0, 64, 0, 128, 0, 0, 0, 0, 0, 1, 37)), cursor: nil)
+            ),
         ])
         let cards = try await makeClient(transport: transport).cards.exportCards().get()
-        #expect(cards.map(\.id) == ["first", "second"])
+        #expect(
+            cards.map(\.id) == [
+                ClientTestIDs.pageCard,
+                UUID(uuid: (0, 0, 0, 0, 0, 0, 64, 0, 128, 0, 0, 0, 0, 0, 1, 37)),
+            ]
+        )
         #expect(
             await transport.requests.map(\.path) == ["/app-api/cards/export", "/app-api/cards/export?cursor=page-two"]
         )
@@ -531,7 +698,10 @@ struct TCGCardsClientTests {
     @Test
     func `Export fails when a later page fails instead of returning a partial backup`() async {
         let transport = CardsRequestTransport(responses: [
-            .init(status: .ok, body: pageJSON(id: "first", cursor: "page-two")),
+            .init(
+                status: .ok,
+                body: pageJSON(id: ClientTestIDs.pageCard, cursor: "page-two")
+            ),
             .init(status: .internalServerError, body: errorJSON(code: "INTERNAL_SERVER_ERROR")),
         ])
         await #expect(throws: CardBackupErrors.unknown(status: 500)) {
@@ -543,8 +713,14 @@ struct TCGCardsClientTests {
     @Test
     func `Export rejects a repeating cursor`() async {
         let transport = CardsRequestTransport(responses: [
-            .init(status: .ok, body: pageJSON(id: "first", cursor: "repeated")),
-            .init(status: .ok, body: pageJSON(id: "second", cursor: "repeated")),
+            .init(
+                status: .ok,
+                body: pageJSON(id: ClientTestIDs.pageCard, cursor: "repeated")
+            ),
+            .init(
+                status: .ok,
+                body: pageJSON(id: UUID(uuid: (0, 0, 0, 0, 0, 0, 64, 0, 128, 0, 0, 0, 0, 0, 1, 37)), cursor: "repeated")
+            ),
         ])
         await #expect(throws: CardBackupErrors.unknown(status: 503)) {
             try await makeClient(transport: transport).cards.exportCards().get()
@@ -555,7 +731,15 @@ struct TCGCardsClientTests {
     @Test
     func `Export cancellation stops before requesting the next page`() async {
         let transport = CardsRequestTransport(
-            responses: [.init(status: .ok, body: pageJSON(id: "first", cursor: "page-two"))],
+            responses: [
+                .init(
+                    status: .ok,
+                    body: pageJSON(
+                        id: ClientTestIDs.pageCard,
+                        cursor: "page-two"
+                    )
+                )
+            ],
             cancelAfterResponse: true
         )
         let client = makeClient(transport: transport)
@@ -567,15 +751,22 @@ struct TCGCardsClientTests {
     @Test
     func `Listing a subsequent page preserves filters and complete set choices`() async throws {
         let transport = CardsRequestTransport(responses: [
-            .init(status: .ok, body: pageJSON(id: "second", cursor: nil))
+            .init(
+                status: .ok,
+                body: pageJSON(id: UUID(uuid: (0, 0, 0, 0, 0, 0, 64, 0, 128, 0, 0, 0, 0, 0, 1, 37)), cursor: nil)
+            )
         ])
         let collection = try await makeClient(transport: transport).cards.listPage(
-            game: .pokemon,
-            setNames: ["Base Set"],
-            cursor: "page-two"
+            .init(
+                game: .pokemon,
+                setNames: ["Base Set"],
+                cursor: "page-two",
+                collectionID: nil,
+                query: nil
+            )
         )
         .get()
-        #expect(collection.cards.map(\.card.id) == ["second"])
+        #expect(collection.cards.map(\.card.id) == [UUID(uuid: (0, 0, 0, 0, 0, 0, 64, 0, 128, 0, 0, 0, 0, 0, 1, 37))])
         #expect(collection.availableSetNames == ["Base Set", "Crown Zenith"])
         let paths = await transport.requests.compactMap(\.path)
         #expect(paths.count == 1)
@@ -589,12 +780,23 @@ struct TCGCardsClientTests {
     @Test
     func `Single page listing returns its cursor without fetching ahead`() async throws {
         let transport = CardsRequestTransport(responses: [
-            .init(status: .ok, body: pageJSON(id: "first", cursor: "next"))
+            .init(
+                status: .ok,
+                body: pageJSON(id: ClientTestIDs.pageCard, cursor: "next")
+            )
         ])
-        let page = try await makeClient(transport: transport).cards.listPage(game: nil, setNames: [], cursor: "start")
-            .get()
+        let page = try await makeClient(transport: transport).cards.listPage(
+            .init(
+                game: nil,
+                setNames: [],
+                cursor: "start",
+                collectionID: nil,
+                query: nil
+            )
+        )
+        .get()
         #expect(page.nextCursor == "next")
-        #expect(page.cards.map(\.card.id) == ["first"])
+        #expect(page.cards.map(\.card.id) == [ClientTestIDs.pageCard])
         #expect(page.availableSetNames == ["Base Set", "Crown Zenith"])
         #expect(await transport.requests.map(\.path) == ["/app-api/cards?cursor=start"])
     }
@@ -606,12 +808,25 @@ struct TCGCardsClientTests {
             body: errorJSON(code: "INTERNAL_SERVER_ERROR")
         )
         await #expect(throws: ListCardsErrors.unknown(status: 500, payload: nil, cause: nil)) {
-            try await makeClient(transport: transport).cards.listPage(game: nil, setNames: [], cursor: nil).get()
+            try await makeClient(transport: transport).cards.listPage(
+                .init(
+                    game: nil,
+                    setNames: [],
+                    cursor: nil,
+                    collectionID: nil,
+                    query: nil
+                )
+            )
+            .get()
         }
     }
 
-    private func pageJSON(id: String, cursor: String?) -> Data {
-        let card = String(decoding: cardJSON, as: UTF8.self).replacingOccurrences(of: "card-id", with: id)
+    private func pageJSON(id: UUID, cursor: String?) -> Data {
+        let card = String(decoding: cardJSON, as: UTF8.self)
+            .replacingOccurrences(
+                of: UUIDCoding.encode(expectedCard.id),
+                with: UUIDCoding.encode(id)
+            )
         let nextCursor = cursor.map { "\"\($0)\"" } ?? "null"
         return Data(
             """
@@ -719,11 +934,12 @@ private let payload = UpsertCardPayload(
     setName: "Romance Dawn",
     cardNumber: "OP01-003",
     notes: nil,
-    purchases: [.init(condition: .nearMint, quantity: 2)]
+    purchases: [.init(condition: .nearMint, quantity: 2)],
+    collectionID: nil
 )
 
 private let expectedCard = Card(
-    id: "card-id",
+    id: ClientTestIDs.responseCard,
     game: .onePiece,
     name: "Monkey D. Luffy",
     setName: "Romance Dawn",
@@ -731,19 +947,26 @@ private let expectedCard = Card(
     notes: nil,
     createdAt: Date(timeIntervalSince1970: 1_784_543_400),
     updatedAt: Date(timeIntervalSince1970: 1_784_543_400),
-    purchases: [.init(id: "purchase-id", condition: .nearMint, quantity: 2)]
+    purchases: [
+        .init(id: ClientTestIDs.updatedCard, condition: .nearMint, quantity: 2)
+    ],
+    collectionID: nil,
+    allocationAdjustments: nil
 )
 
-private let expectedPrice = OwnedCardPrice(cardId: "card-id", status: .noPrice)
+private let expectedPrice = OwnedCardPrice(
+    cardId: ClientTestIDs.responseCard,
+    status: .noPrice
+)
 
 private let cardJSON = Data(
     """
     {
-      "id": "card-id", "game": "one_piece", "name": "Monkey D. Luffy",
+      "id": "00000000-0000-4000-8000-000000000010", "game": "one_piece", "name": "Monkey D. Luffy",
       "set_name": "Romance Dawn", "card_number": "OP01-003", "notes": null,
-      "purchases": [{"id":"purchase-id","condition":"near_mint","quantity":2,"purchase_price":null,"currency":null,"automatic_price_date":null}], "purchase_price_change_percent": null,
+      "purchases": [{"id":"00000000-0000-4000-8000-000000000011","condition":"near_mint","quantity":2,"purchase_price":null,"currency":null,"automatic_price_date":null}], "purchase_price_change_percent": null,
       "created_at": "2026-07-20T10:30:00.000Z", "updated_at": "2026-07-20T10:30:00.000Z",
-      "price": {"card_id": "card-id", "status": "no_price"}
+      "price": {"card_id": "00000000-0000-4000-8000-000000000010", "status": "no_price"}
     }
     """.utf8
 )
@@ -775,13 +998,13 @@ private func errorJSON(code: String) -> Data {
 private let purchaseCardJSON = Data(
     """
     {
-      "id": "card-id", "game": "one_piece", "name": "Monkey D. Luffy",
+      "id": "00000000-0000-4000-8000-000000000010", "game": "one_piece", "name": "Monkey D. Luffy",
       "set_name": "Romance Dawn", "card_number": "OP01-003", "notes": null,
-      "purchases": [{"id": "batch-id", "condition": "near_mint", "quantity": 2,
+      "purchases": [{"id": "00000000-0000-4000-8000-000000000124", "condition": "near_mint", "quantity": 2,
         "purchase_price": "3.123456", "currency": "USD", "automatic_price_date": "2026-10-08"}],
       "purchase_price_change_percent": 25,
       "created_at": "2026-07-20T10:30:00.000Z", "updated_at": "2026-07-20T10:30:00.000Z",
-      "price": {"card_id": "card-id", "status": "no_price"}
+      "price": {"card_id": "00000000-0000-4000-8000-000000000010", "status": "no_price"}
     }
     """.utf8
 )

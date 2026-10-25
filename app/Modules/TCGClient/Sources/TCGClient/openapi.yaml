@@ -573,7 +573,11 @@ paths:
         - Cards
   /app-api/cards:
     post:
-      description: Add an owned trading card entry to the authenticated user's collection.
+      description: >-
+        Add an owned trading card entry to the authenticated user's collection
+        and place its copies in the first empty binder slot, creating a page if
+        needed. A full binder returns a collection_id validation issue without
+        saving the card.
       requestBody:
         content:
           application/json:
@@ -642,6 +646,29 @@ paths:
             Opaque next_cursor from the preceding page; omit to start at the
             newest card
           name: cursor
+          in: query
+        - schema:
+            type: string
+            format: uuid
+            description: UUID identifier, normalized to lowercase
+            example: 550e8400-e29b-41d4-a716-446655440000
+          required: false
+          description: UUID identifier, normalized to lowercase
+          name: collection_id
+          in: query
+        - schema:
+            type: string
+            minLength: 1
+            maxLength: 200
+            description: >-
+              Case-insensitive literal substring in card name, set name, or card
+              number; omitted means all cards.
+            example: Luffy
+          required: false
+          description: >-
+            Case-insensitive literal substring in card name, set name, or card
+            number; omitted means all cards.
+          name: query
           in: query
         - schema:
             type: string
@@ -805,6 +832,772 @@ paths:
       summary: Replace an owned card
       tags:
         - Cards
+  /app-api/collections/import-preview:
+    post:
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ImportCollectionBackup'
+      responses:
+        '200':
+          description: Planned import changes
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CollectionBackupPreview'
+        '400':
+          description: Invalid collection input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Resource not found or inaccessible
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '408':
+          description: Request read timeout
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Stale revision or insufficient available copies
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '413':
+          description: Collection request exceeds server limits
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Account collection operation already in progress
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Unexpected failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Collection processing busy or timed out
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearerAuth: []
+      summary: Review a collection backup without importing it
+      tags:
+        - Collections
+  /app-api/collections:
+    get:
+      responses:
+        '200':
+          description: Collections
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CardCollections'
+        '400':
+          description: Invalid collection input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Resource not found or inaccessible
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '408':
+          description: Request read timeout
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Stale revision or insufficient available copies
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '413':
+          description: Collection request exceeds server limits
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Account collection operation already in progress
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Unexpected failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Collection processing busy or timed out
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearerAuth: []
+      summary: List collections
+      tags:
+        - Collections
+    post:
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCollection'
+      responses:
+        '201':
+          description: Created collection
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CardCollection'
+        '400':
+          description: Invalid collection input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Resource not found or inaccessible
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '408':
+          description: Request read timeout
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Stale revision or insufficient available copies
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '413':
+          description: Collection request exceeds server limits
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Account collection operation already in progress
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Unexpected failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Collection processing busy or timed out
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearerAuth: []
+      summary: Create a collection
+      tags:
+        - Collections
+  /app-api/collections/export:
+    post:
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExportCollections'
+      responses:
+        '200':
+          description: Complete backup
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CollectionBackup'
+        '400':
+          description: Invalid collection input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Resource not found or inaccessible
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '408':
+          description: Request read timeout
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Stale revision or insufficient available copies
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '413':
+          description: Collection request exceeds server limits
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Account collection operation already in progress
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Unexpected failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Collection processing busy or timed out
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearerAuth: []
+      summary: Export selected collections or all collections
+      tags:
+        - Collections
+  /app-api/collections/import:
+    post:
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ImportCollectionBackup'
+      responses:
+        '200':
+          description: Import result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImportCollectionBackupResult'
+        '400':
+          description: Invalid collection input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Resource not found or inaccessible
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '408':
+          description: Request read timeout
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Stale revision or insufficient available copies
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '413':
+          description: Collection request exceeds server limits
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Account collection operation already in progress
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Unexpected failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Collection processing busy or timed out
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearerAuth: []
+      summary: Merge a complete collection backup atomically
+      tags:
+        - Collections
+  /app-api/collections/{collectionId}:
+    patch:
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+            description: UUID identifier, normalized to lowercase
+            example: 550e8400-e29b-41d4-a716-446655440000
+          required: true
+          description: UUID identifier, normalized to lowercase
+          name: collectionId
+          in: path
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateCollection'
+      responses:
+        '200':
+          description: Updated collection
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CardCollection'
+        '400':
+          description: Invalid collection input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Resource not found or inaccessible
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '408':
+          description: Request read timeout
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Stale revision or insufficient available copies
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '413':
+          description: Collection request exceeds server limits
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Account collection operation already in progress
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Unexpected failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Collection processing busy or timed out
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearerAuth: []
+      summary: Rename a collection
+      tags:
+        - Collections
+    delete:
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+            description: UUID identifier, normalized to lowercase
+            example: 550e8400-e29b-41d4-a716-446655440000
+          required: true
+          description: UUID identifier, normalized to lowercase
+          name: collectionId
+          in: path
+      responses:
+        '200':
+          description: Deleted collection
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeleteCollectionResult'
+        '400':
+          description: Invalid collection input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Resource not found or inaccessible
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '408':
+          description: Request read timeout
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Stale revision or insufficient available copies
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '413':
+          description: Collection request exceeds server limits
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Account collection operation already in progress
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Unexpected failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Collection processing busy or timed out
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearerAuth: []
+      summary: Delete a collection and move its cards to Unfiled
+      tags:
+        - Collections
+    get:
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+            description: UUID identifier, normalized to lowercase
+            example: 550e8400-e29b-41d4-a716-446655440000
+          required: true
+          description: UUID identifier, normalized to lowercase
+          name: collectionId
+          in: path
+      responses:
+        '200':
+          description: Collection and binder layout
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CardCollection'
+        '400':
+          description: Invalid collection input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Resource not found or inaccessible
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '408':
+          description: Request read timeout
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Stale revision or insufficient available copies
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '413':
+          description: Collection request exceeds server limits
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Account collection operation already in progress
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Unexpected failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Collection processing busy or timed out
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearerAuth: []
+      summary: Get one collection and its binder layout
+      tags:
+        - Collections
+  /app-api/collections/{collectionId}/layout:
+    put:
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+            description: UUID identifier, normalized to lowercase
+            example: 550e8400-e29b-41d4-a716-446655440000
+          required: true
+          description: UUID identifier, normalized to lowercase
+          name: collectionId
+          in: path
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SaveBinderLayout'
+      responses:
+        '200':
+          description: Saved collection
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CardCollection'
+        '400':
+          description: Invalid collection input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Resource not found or inaccessible
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '408':
+          description: Request read timeout
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Stale revision or insufficient available copies
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '413':
+          description: Collection request exceeds server limits
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Account collection operation already in progress
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Unexpected failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Collection processing busy or timed out
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearerAuth: []
+      summary: Replace a binder layout atomically
+      tags:
+        - Collections
+  /app-api/collections/{collectionId}/pages/{pageId}:
+    get:
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+            description: UUID identifier, normalized to lowercase
+            example: 550e8400-e29b-41d4-a716-446655440000
+          required: true
+          description: UUID identifier, normalized to lowercase
+          name: collectionId
+          in: path
+        - schema:
+            type: string
+            format: uuid
+            description: UUID identifier, normalized to lowercase
+            example: 550e8400-e29b-41d4-a716-446655440000
+          required: true
+          description: UUID identifier, normalized to lowercase
+          name: pageId
+          in: path
+      responses:
+        '200':
+          description: Page with card details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BinderPageCards'
+        '400':
+          description: Invalid collection input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Resource not found or inaccessible
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '408':
+          description: Request read timeout
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Stale revision or insufficient available copies
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '413':
+          description: Collection request exceeds server limits
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Account collection operation already in progress
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Unexpected failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Collection processing busy or timed out
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearerAuth: []
+      summary: Get binder page cards
+      tags:
+        - Collections
   /app-api/pricing/search:
     get:
       description: Search cards and return globally cached daily pricing.
@@ -1279,6 +2072,8 @@ components:
         id:
           type: string
           format: uuid
+          description: UUID identifier, normalized to lowercase
+          example: 550e8400-e29b-41d4-a716-446655440000
         condition:
           type: string
           enum:
@@ -1350,6 +2145,17 @@ components:
           maxLength: 50
           description: Card number
           example: OP01-003
+        collection_id:
+          type:
+            - 'null'
+            - string
+          format: uuid
+          description: UUID identifier, normalized to lowercase
+          example: 550e8400-e29b-41d4-a716-446655440000
+        allocation_adjustments:
+          type: integer
+          minimum: 0
+          maximum: 2147483647
         id:
           type: string
           format: uuid
@@ -1415,16 +2221,20 @@ components:
     ImportCardsResponse:
       type: object
       properties:
+        allocation_adjustments:
+          type: integer
+          minimum: 0
+          maximum: 2147483647
         imported_count:
           type: integer
           minimum: 0
-          maximum: 9007199254740991
+          maximum: 2147483647
           description: Number of newly imported cards
           example: 1
         updated_count:
           type: integer
           minimum: 0
-          maximum: 9007199254740991
+          maximum: 2147483647
           description: >-
             Number of changed owned cards replaced, including their complete
             purchases
@@ -1432,7 +2242,7 @@ components:
         skipped_count:
           type: integer
           minimum: 0
-          maximum: 9007199254740991
+          maximum: 2147483647
           description: Number of unchanged cards or repeated input identifiers skipped
           example: 0
       required:
@@ -1504,6 +2314,13 @@ components:
           maxLength: 50
           description: Card number
           example: OP01-003
+        collection_id:
+          type:
+            - 'null'
+            - string
+          format: uuid
+          description: UUID identifier, normalized to lowercase
+          example: 550e8400-e29b-41d4-a716-446655440000
         notes:
           type:
             - 'null'
@@ -1519,6 +2336,8 @@ components:
               id:
                 type: string
                 format: uuid
+                description: UUID identifier, normalized to lowercase
+                example: 550e8400-e29b-41d4-a716-446655440000
               condition:
                 type: string
                 enum:
@@ -1887,6 +2706,13 @@ components:
           maxLength: 50
           description: Card number
           example: OP01-003
+        collection_id:
+          type:
+            - 'null'
+            - string
+          format: uuid
+          description: UUID identifier, normalized to lowercase
+          example: 550e8400-e29b-41d4-a716-446655440000
         notes:
           type: string
           maxLength: 2000
@@ -1927,6 +2753,8 @@ components:
         id:
           type: string
           format: uuid
+          description: UUID identifier, normalized to lowercase
+          example: 550e8400-e29b-41d4-a716-446655440000
         condition:
           type: string
           enum:
@@ -2022,11 +2850,15 @@ components:
           items:
             type: string
             format: uuid
+            description: UUID identifier, normalized to lowercase
+            example: 550e8400-e29b-41d4-a716-446655440000
         not_found_ids:
           type: array
           items:
             type: string
             format: uuid
+            description: UUID identifier, normalized to lowercase
+            example: 550e8400-e29b-41d4-a716-446655440000
       required:
         - deleted_ids
         - not_found_ids
@@ -2039,10 +2871,522 @@ components:
           items:
             type: string
             format: uuid
+            description: UUID identifier, normalized to lowercase
+            example: 550e8400-e29b-41d4-a716-446655440000
           description: Card entries to delete; duplicates are ignored
       required:
         - card_ids
       title: Delete Cards
+    CollectionBackupPreview:
+      type: object
+      properties:
+        new_collection_count:
+          type: integer
+          minimum: 0
+          maximum: 2147483647
+        updated_collection_count:
+          type: integer
+          minimum: 0
+          maximum: 2147483647
+        new_card_count:
+          type: integer
+          minimum: 0
+          maximum: 2147483647
+        updated_card_count:
+          type: integer
+          minimum: 0
+          maximum: 2147483647
+        moved_card_count:
+          type: integer
+          minimum: 0
+          maximum: 2147483647
+      required:
+        - new_collection_count
+        - updated_collection_count
+        - new_card_count
+        - updated_card_count
+        - moved_card_count
+      title: Collection Backup Preview
+      description: >-
+        Projected collection, card, and membership changes without persisting
+        the backup
+      example:
+        new_collection_count: 1
+        updated_collection_count: 0
+        new_card_count: 1
+        updated_card_count: 0
+        moved_card_count: 0
+    ImportCollectionBackup:
+      type: object
+      properties:
+        version:
+          type: number
+          enum:
+            - 1
+        collections:
+          type: array
+          items:
+            $ref: '#/components/schemas/CardCollection'
+          maxItems: 500
+        cards:
+          type: array
+          items:
+            $ref: '#/components/schemas/CollectionBackupCard'
+          maxItems: 5000
+      required:
+        - version
+        - collections
+        - cards
+      title: Import Collection Backup
+      description: >-
+        A complete backup to preview or merge, subject to the configured request
+        and collection budgets
+      example:
+        version: 1
+        collections:
+          - id: 550e8400-e29b-41d4-a716-446655440010
+            name: Favorites
+            is_unfiled: false
+            revision: 0
+            columns: 1
+            rows: 4
+            pages:
+              - id: 550e8400-e29b-41d4-a716-446655440020
+                slots:
+                  - row: 1
+                    column: 1
+                    card_id: 550e8400-e29b-41d4-a716-446655440000
+                    quantity: 2
+        cards:
+          - id: 550e8400-e29b-41d4-a716-446655440000
+            game: one_piece
+            name: Monkey D. Luffy
+            set_name: Romance Dawn
+            card_number: OP01-003
+            notes: Alternate art
+            created_at: '2026-07-20T10:30:00.000Z'
+            updated_at: '2026-07-20T10:30:00.000Z'
+            purchases:
+              - id: 550e8400-e29b-41d4-a716-446655440001
+                condition: near_mint
+                quantity: 2
+                purchase_price: '2.50'
+                currency: USD
+                automatic_price_date: '2026-07-20'
+            collection_id: 550e8400-e29b-41d4-a716-446655440010
+    CardCollectionSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: UUID identifier, normalized to lowercase
+          example: 550e8400-e29b-41d4-a716-446655440000
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        is_unfiled:
+          type: boolean
+        revision:
+          type: integer
+          minimum: 0
+          maximum: 2147483647
+          description: >-
+            Current collection revision; send this value when renaming or
+            replacing a layout to detect stale edits
+          example: 0
+      required:
+        - id
+        - name
+        - is_unfiled
+        - revision
+      title: Card Collection Summary
+      description: >-
+        Collection identity, name, Unfiled status, and revision without loading
+        its binder layout
+      example:
+        id: 550e8400-e29b-41d4-a716-446655440010
+        name: Favorites
+        is_unfiled: false
+        revision: 0
+    BinderSlot:
+      type: object
+      properties:
+        row:
+          type: integer
+          maximum: 20
+          exclusiveMinimum: 0
+        column:
+          type: integer
+          maximum: 20
+          exclusiveMinimum: 0
+        card_id:
+          type: string
+          format: uuid
+          description: UUID identifier, normalized to lowercase
+          example: 550e8400-e29b-41d4-a716-446655440000
+        quantity:
+          type: integer
+          maximum: 5994
+          exclusiveMinimum: 0
+      required:
+        - row
+        - column
+        - card_id
+        - quantity
+      title: Binder Slot
+      description: >-
+        Copies of one owned card entry placed at a one-based row and column
+        within a page
+      example:
+        row: 1
+        column: 1
+        card_id: 550e8400-e29b-41d4-a716-446655440000
+        quantity: 2
+    BinderPage:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: UUID identifier, normalized to lowercase
+          example: 550e8400-e29b-41d4-a716-446655440000
+        slots:
+          type: array
+          items:
+            $ref: '#/components/schemas/BinderSlot'
+      required:
+        - id
+        - slots
+      title: Binder Page
+      description: >-
+        An ordered binder page. An empty slots array preserves an empty page;
+        omitted positions remain empty.
+      example:
+        id: 550e8400-e29b-41d4-a716-446655440020
+        slots:
+          - row: 1
+            column: 1
+            card_id: 550e8400-e29b-41d4-a716-446655440000
+            quantity: 2
+    BinderLayout:
+      type: object
+      properties:
+        columns:
+          type: integer
+          maximum: 20
+          exclusiveMinimum: 0
+        rows:
+          type: integer
+          maximum: 20
+          exclusiveMinimum: 0
+        pages:
+          type: array
+          items:
+            $ref: '#/components/schemas/BinderPage'
+      required:
+        - columns
+        - rows
+        - pages
+      title: Binder Layout
+      description: >-
+        Independent column and row counts from 1 to 20, with ordered pages;
+        omitted positions remain empty
+      example:
+        columns: 1
+        rows: 4
+        pages:
+          - id: 550e8400-e29b-41d4-a716-446655440020
+            slots:
+              - row: 1
+                column: 1
+                card_id: 550e8400-e29b-41d4-a716-446655440000
+                quantity: 2
+    CardCollection:
+      allOf:
+        - $ref: '#/components/schemas/CardCollectionSummary'
+        - $ref: '#/components/schemas/BinderLayout'
+      title: Card Collection
+      description: >-
+        A collection summary together with its complete binder layout, including
+        empty pages and positions
+      example:
+        id: 550e8400-e29b-41d4-a716-446655440010
+        name: Favorites
+        is_unfiled: false
+        revision: 0
+        columns: 1
+        rows: 4
+        pages:
+          - id: 550e8400-e29b-41d4-a716-446655440020
+            slots:
+              - row: 1
+                column: 1
+                card_id: 550e8400-e29b-41d4-a716-446655440000
+                quantity: 2
+    CollectionBackupCard:
+      allOf:
+        - $ref: '#/components/schemas/ImportCard'
+        - type: object
+          properties:
+            collection_id:
+              type: string
+              format: uuid
+              description: UUID identifier, normalized to lowercase
+              example: 550e8400-e29b-41d4-a716-446655440000
+          required:
+            - collection_id
+      title: Collection Backup Card
+      description: >-
+        A complete card backup with the owning collection identifier used to
+        restore membership
+      example:
+        id: 550e8400-e29b-41d4-a716-446655440000
+        game: one_piece
+        name: Monkey D. Luffy
+        set_name: Romance Dawn
+        card_number: OP01-003
+        notes: Alternate art
+        created_at: '2026-07-20T10:30:00.000Z'
+        updated_at: '2026-07-20T10:30:00.000Z'
+        purchases:
+          - id: 550e8400-e29b-41d4-a716-446655440001
+            condition: near_mint
+            quantity: 2
+            purchase_price: '2.50'
+            currency: USD
+            automatic_price_date: '2026-07-20'
+        collection_id: 550e8400-e29b-41d4-a716-446655440010
+    CardCollections:
+      type: object
+      properties:
+        collections:
+          type: array
+          items:
+            $ref: '#/components/schemas/CardCollectionSummary'
+      required:
+        - collections
+      title: Card Collections
+      description: >-
+        Summaries of the authenticated account's collections, including its
+        Unfiled collection
+      example:
+        collections:
+          - id: 550e8400-e29b-41d4-a716-446655440011
+            name: Unfiled
+            is_unfiled: true
+            revision: 0
+          - id: 550e8400-e29b-41d4-a716-446655440010
+            name: Favorites
+            is_unfiled: false
+            revision: 0
+    CreateCollection:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+      required:
+        - name
+      title: Create Collection
+      description: A collection name, trimmed before storage
+      example:
+        name: Favorites
+    CollectionBackup:
+      type: object
+      properties:
+        version:
+          type: number
+          enum:
+            - 1
+        collections:
+          type: array
+          items:
+            $ref: '#/components/schemas/CardCollection'
+        cards:
+          type: array
+          items:
+            $ref: '#/components/schemas/CollectionBackupCard'
+      required:
+        - version
+        - collections
+        - cards
+      title: Collection Backup
+      description: >-
+        A complete versioned backup of selected collections, their layouts,
+        cards, and purchase history
+      example:
+        version: 1
+        collections:
+          - id: 550e8400-e29b-41d4-a716-446655440010
+            name: Favorites
+            is_unfiled: false
+            revision: 0
+            columns: 1
+            rows: 4
+            pages:
+              - id: 550e8400-e29b-41d4-a716-446655440020
+                slots:
+                  - row: 1
+                    column: 1
+                    card_id: 550e8400-e29b-41d4-a716-446655440000
+                    quantity: 2
+        cards:
+          - id: 550e8400-e29b-41d4-a716-446655440000
+            game: one_piece
+            name: Monkey D. Luffy
+            set_name: Romance Dawn
+            card_number: OP01-003
+            notes: Alternate art
+            created_at: '2026-07-20T10:30:00.000Z'
+            updated_at: '2026-07-20T10:30:00.000Z'
+            purchases:
+              - id: 550e8400-e29b-41d4-a716-446655440001
+                condition: near_mint
+                quantity: 2
+                purchase_price: '2.50'
+                currency: USD
+                automatic_price_date: '2026-07-20'
+            collection_id: 550e8400-e29b-41d4-a716-446655440010
+    ExportCollections:
+      type: object
+      properties:
+        collection_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+            description: UUID identifier, normalized to lowercase
+            example: 550e8400-e29b-41d4-a716-446655440000
+          minItems: 1
+          maxItems: 500
+      title: Export Collections
+      description: >-
+        Select owned collection identifiers for a complete backup; omit
+        collection_ids to export all collections
+      example:
+        collection_ids:
+          - 550e8400-e29b-41d4-a716-446655440010
+    ImportCollectionBackupResult:
+      type: object
+      properties:
+        imported_count:
+          type: integer
+          minimum: 0
+          maximum: 2147483647
+        updated_count:
+          type: integer
+          minimum: 0
+          maximum: 2147483647
+        skipped_count:
+          type: integer
+          minimum: 0
+          maximum: 2147483647
+        collection_count:
+          type: integer
+          minimum: 0
+          maximum: 2147483647
+      required:
+        - imported_count
+        - updated_count
+        - skipped_count
+        - collection_count
+      title: Import Collection Backup Result
+      description: >-
+        Counts of newly imported, updated, and unchanged cards, and collections
+        processed by the import
+      example:
+        imported_count: 1
+        updated_count: 0
+        skipped_count: 0
+        collection_count: 1
+    UpdateCollection:
+      allOf:
+        - $ref: '#/components/schemas/CreateCollection'
+        - type: object
+          properties:
+            revision:
+              type: integer
+              minimum: 0
+              maximum: 2147483647
+              description: >-
+                Current collection revision; send this value when renaming or
+                replacing a layout to detect stale edits
+              example: 0
+          required:
+            - revision
+      title: Update Collection
+      description: >-
+        Rename a collection using its current revision; a stale revision returns
+        a conflict
+      example:
+        name: Favorites
+        revision: 0
+    SaveBinderLayout:
+      allOf:
+        - $ref: '#/components/schemas/BinderLayout'
+        - type: object
+          properties:
+            revision:
+              type: integer
+              minimum: 0
+              maximum: 2147483647
+              description: >-
+                Current collection revision; send this value when renaming or
+                replacing a layout to detect stale edits
+              example: 0
+            pages:
+              type: array
+              items:
+                $ref: '#/components/schemas/BinderPage'
+              maxItems: 2000
+          required:
+            - revision
+      title: Save Binder Layout
+      description: >-
+        Atomically replace dimensions and ordered pages using the current
+        collection revision; omitted slots are cleared
+      example:
+        columns: 1
+        rows: 4
+        pages:
+          - id: 550e8400-e29b-41d4-a716-446655440020
+            slots:
+              - row: 1
+                column: 1
+                card_id: 550e8400-e29b-41d4-a716-446655440000
+                quantity: 2
+        revision: 0
+    DeleteCollectionResult:
+      type: object
+      properties:
+        deleted:
+          type: boolean
+      required:
+        - deleted
+      title: Delete Collection Result
+      description: >-
+        Confirms collection deletion; its cards remain owned and are moved to
+        Unfiled
+      example:
+        deleted: true
+    BinderPageCards:
+      type: object
+      properties:
+        cards:
+          type: array
+          items:
+            $ref: '#/components/schemas/CardWithPrice'
+      required:
+        - cards
+      title: Binder Page Cards
+      description: >-
+        Distinct owned cards placed on the requested page, with current pricing;
+        empty pages return an empty array
+      example:
+        cards: []
     PricingSearchResponse:
       type: object
       properties:

@@ -4,6 +4,7 @@ import type { PricingCoordinator } from '../card-pricing/coordinator.ts';
 import type { CardPricingRepository } from '../card-pricing/repository.ts';
 import type { CardImportProgress, CardsLogFields } from '../cards/logging.ts';
 import type { CardRepository } from '../cards/repository.ts';
+import type { CollectionRepository } from '../collections/repository.ts';
 import type { ForexRepository } from '../forex/repository.ts';
 import type { DomainLogger } from '../logging/index.ts';
 
@@ -19,6 +20,7 @@ export interface RepositoryDiagnostics {
 
 export interface RequestRepositories {
   cardRepository: CardRepository;
+  collectionRepository: CollectionRepository;
   cardPricingRepository: CardPricingRepository;
   userPreferencesRepository: UserPreferencesRepository;
 }

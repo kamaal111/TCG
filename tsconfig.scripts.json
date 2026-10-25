@@ -14,7 +14,7 @@
   "include": [
     "vitest.config.ts",
     "oxlint.config.ts",
-    "scripts/oxlint-class-spacing.test.ts",
+    "scripts/oxlint-*.ts",
     "scripts/build-server-image.ts",
     "scripts/build-server-image.test.ts",
     "scripts/check-server-image-health.ts",

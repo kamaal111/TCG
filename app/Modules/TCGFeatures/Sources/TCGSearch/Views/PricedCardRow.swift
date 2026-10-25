@@ -27,6 +27,7 @@ struct PricedCardRow: View {
             .buttonStyle(.plain)
             .disabled(card.imageURL == nil)
             .accessibilityLabel(Text("Explore image of \(card.name)", bundle: .module))
+            .help(Text("Explore image of \(card.name)", bundle: .module))
             VStack(alignment: .trailing, spacing: 8) {
                 Button(action: actions.showDetails) {
                     details
@@ -35,6 +36,7 @@ struct PricedCardRow: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(Text("Details for \(card.name)", bundle: .module))
+                .help(Text("Details for \(card.name)", bundle: .module))
                 Button(action: actions.add) {
                     Label {
                         Text("Add", bundle: .module)
@@ -46,6 +48,7 @@ struct PricedCardRow: View {
                 .controlSize(.small)
                 .font(.caption)
                 .accessibilityLabel(Text("Add \(card.name) to collection", bundle: .module))
+                .help(Text("Add \(card.name) to collection", bundle: .module))
             }
         }
         .padding(.vertical, 6)

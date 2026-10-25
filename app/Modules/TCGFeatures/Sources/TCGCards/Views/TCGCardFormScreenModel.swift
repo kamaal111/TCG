@@ -36,7 +36,7 @@ final class TCGCardFormScreenModel {
     private(set) var toast: String?
     private(set) var savedCard: CardWithPrice?
     var isShowingDiscardConfirmation = false
-    private let initialValues: CardFormValues
+    private var initialValues: CardFormValues
     private var hasSubmitted = false
     private var currencyConfigured = false
 
@@ -52,6 +52,34 @@ final class TCGCardFormScreenModel {
         }
         values = initial
         self.initialValues = initial
+    }
+
+    var canChooseCollection: Bool {
+        switch mode {
+        case .draft: false
+        case .add, .edit: true
+        }
+    }
+
+    func createCollection(name: String, using collections: TCGCollections) async -> Result<Void, CollectionsError> {
+        switch await collections.create(name: name) {
+        case .success(let collection):
+            values.collectionID = collection.id
+            return .success(())
+        case .failure(let error):
+            return .failure(error)
+        }
+    }
+
+    func configureCollection(currentID: UUID?, unfiledID: UUID?) {
+        let id: UUID?
+        switch mode {
+        case .add: id = currentID ?? unfiledID
+        case .edit: id = values.collectionID ?? unfiledID
+        case .draft: return
+        }
+        values.collectionID = id
+        initialValues.collectionID = id
     }
 
     var hasUnsavedChanges: Bool {

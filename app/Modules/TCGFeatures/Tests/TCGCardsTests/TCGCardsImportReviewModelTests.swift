@@ -293,6 +293,7 @@ struct TCGCardsImportReviewModelTests {
 
 private actor ImportRefreshTransport: ClientTransport {
     private(set) var paths: [String] = []
+
     func send(_ request: HTTPRequest, body: HTTPBody?, baseURL: URL, operationID: String) async throws -> (
         HTTPResponse, HTTPBody?
     ) {

@@ -4,7 +4,9 @@ import OpenAPIRuntime
 
 public protocol TCGCurrencyClient: Sendable {
     func initialize(_ payload: CurrencyPreferencePayload) async -> Result<CurrencyPreference, CurrencyClientError>
+
     func update(_ payload: CurrencyPreferencePayload) async -> Result<CurrencyPreference, CurrencyClientError>
+
     func latestRates() async -> Result<ExchangeRates, CurrencyClientError>
 }
 

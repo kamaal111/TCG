@@ -41,7 +41,10 @@ public struct TCGCardsImportReviewScreen: View {
                             )
                         )
                     }
-                }.padding(24).frame(maxWidth: 720).frame(maxWidth: .infinity)
+                }
+                .padding(24)
+                .frame(maxWidth: 720)
+                .frame(maxWidth: .infinity)
             }
             .navigationTitle(Text("Review Import", bundle: .module))
             .toolbar {
@@ -50,7 +53,8 @@ public struct TCGCardsImportReviewScreen: View {
                         if model.hasEdits && model.completion == nil { isConfirmingDiscard = true } else { dismiss() }
                     } label: {
                         Text("Close", bundle: .module)
-                    }.disabled(model.isSubmitting)
+                    }
+                    .disabled(model.isSubmitting)
                 }
             }
         }

@@ -4,6 +4,10 @@ import { appRelations } from './schema/index.ts';
 
 export type Database = ReturnType<typeof createDatabase>;
 
-export function createDatabase(options: { url: string; debug?: boolean }) {
-  return drizzle<typeof appRelations>(options.url, { relations: appRelations, logger: options.debug ?? false });
+export function createDatabase(options: { url: string; connectionTimeoutMs: number; debug?: boolean }) {
+  return drizzle<typeof appRelations>({
+    connection: { connectionString: options.url, connectionTimeoutMillis: options.connectionTimeoutMs },
+    relations: appRelations,
+    logger: options.debug ?? false,
+  });
 }

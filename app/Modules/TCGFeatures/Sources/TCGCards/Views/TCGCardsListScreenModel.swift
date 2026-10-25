@@ -29,6 +29,7 @@ final class TCGCardsListScreenModel {
             preferences?.set(setNames.sorted(), forKey: PreferenceKey.setNames)
         }
     }
+    var query = ""
     var presentedForm: CardFormRoute?
     var presentedImageURL: URL?
 
@@ -38,7 +39,7 @@ final class TCGCardsListScreenModel {
     @ObservationIgnored private var toastTask: Task<Void, Never>?
     @ObservationIgnored private var loadedFilters: FilterSelection?
 
-    var filters: FilterSelection { FilterSelection(game: gameFilter, setNames: setNames) }
+    var filters: FilterSelection { FilterSelection(game: gameFilter, setNames: setNames, query: query) }
 
     init(preferences: UserDefaults? = .standard) {
         self.preferences = preferences
@@ -51,14 +52,16 @@ final class TCGCardsListScreenModel {
     private static func loadFilters(from preferences: UserDefaults?) -> FilterSelection {
         var game: ClientCardGame?
         if let storedGame = preferences?.object(forKey: PreferenceKey.game) {
-            guard let rawValue = storedGame as? String else { return FilterSelection(game: nil, setNames: []) }
+            guard let rawValue = storedGame as? String else {
+                return FilterSelection(game: nil, setNames: [], query: "")
+            }
             guard let parsed = ClientCardGame(rawValue: rawValue) else {
-                return FilterSelection(game: nil, setNames: [])
+                return FilterSelection(game: nil, setNames: [], query: "")
             }
             game = parsed
         }
         let setNames = preferences?.object(forKey: PreferenceKey.setNames) as? [String] ?? []
-        return FilterSelection(game: game, setNames: Set(setNames))
+        return FilterSelection(game: game, setNames: Set(setNames), query: "")
     }
 
     private enum PreferenceKey {
@@ -68,6 +71,10 @@ final class TCGCardsListScreenModel {
 
     func resumeLoadIfNeeded(using cards: TCGCards) async {
         guard loadedFilters != filters || !cards.hasLoadedCurrentCollection else { return }
+        if filters.searchQuery != nil {
+            try? await Task.sleep(for: ModuleConfig.searchDebounce)
+            guard !Task.isCancelled else { return }
+        }
         await load(using: cards)
     }
 
@@ -81,7 +88,7 @@ final class TCGCardsListScreenModel {
 
     func load(using cards: TCGCards) async {
         let requested = filters
-        switch await cards.load(game: requested.game, setNames: requested.setNames) {
+        switch await cards.load(game: requested.game, setNames: requested.setNames, query: requested.searchQuery) {
         case .success:
             if requested == filters && !Task.isCancelled { loadedFilters = requested }
         case .failure(let error):
@@ -128,10 +135,15 @@ final class TCGCardsListScreenModel {
         case add
         case detail(CardWithPrice)
 
-        var id: String {
+        enum ID: Hashable {
+            case add
+            case detail(UUID)
+        }
+
+        var id: ID {
             switch self {
-            case .add: "add"
-            case .detail(let card): card.card.id
+            case .add: .add
+            case .detail(let card): .detail(card.card.id)
             }
         }
     }
@@ -139,5 +151,11 @@ final class TCGCardsListScreenModel {
     struct FilterSelection: Hashable {
         let game: ClientCardGame?
         let setNames: Set<String>
+        let query: String
+
+        var searchQuery: String? {
+            let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+            return trimmed.isEmpty ? nil : trimmed
+        }
     }
 }

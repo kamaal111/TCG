@@ -53,9 +53,11 @@ final class TCGSearchHistoryStore {
         let query = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !query.isEmpty else { return [] }
         return Array(
-            entries(for: game).filter {
-                !Self.matches($0.query, query) && $0.query.localizedCaseInsensitiveContains(query)
-            }.prefix(5)
+            entries(for: game)
+                .filter {
+                    !Self.matches($0.query, query) && $0.query.localizedCaseInsensitiveContains(query)
+                }
+                .prefix(5)
         )
     }
 

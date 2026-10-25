@@ -34,7 +34,8 @@ struct TCGSearchDetailView: View {
                     Task { await search.refresh() }
                 } label: {
                     Text("Search again for current prices", bundle: .module)
-                }.frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
 
         }

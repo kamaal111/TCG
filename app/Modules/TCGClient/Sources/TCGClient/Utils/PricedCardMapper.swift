@@ -6,12 +6,16 @@
 import Foundation
 
 enum PricedCardMapper {
-    static func makeOwnedPrice(_ apiPrice: Components.Schemas.OwnedCardPrice) -> OwnedCardPrice {
-        OwnedCardPrice(
-            cardId: apiPrice.cardId,
-            status: makeOwnedStatus(apiPrice.status),
-            price: apiPrice.pricedCard.map(makePricedCard)
-        )
+    static func makeOwnedPrice(_ apiPrice: Components.Schemas.OwnedCardPrice) -> Result<OwnedCardPrice, UUIDCodingError>
+    {
+        UUIDCoding.decode(apiPrice.cardId)
+            .map { cardID in
+                OwnedCardPrice(
+                    cardId: cardID,
+                    status: makeOwnedStatus(apiPrice.status),
+                    price: apiPrice.pricedCard.map(makePricedCard)
+                )
+            }
     }
 
     static func makePricedCard(_ card: Components.Schemas.PricedCard) -> PricedCard {
@@ -91,6 +95,79 @@ enum PricedCardMapper {
         case .isk: .isk
         case .nok: .nok
         case ._try: .try
+        case .aud: .aud
+        case .brl: .brl
+        case .cad: .cad
+        case .cny: .cny
+        case .hkd: .hkd
+        case .idr: .idr
+        case .ils: .ils
+        case .inr: .inr
+        case .krw: .krw
+        case .mxn: .mxn
+        case .myr: .myr
+        case .nzd: .nzd
+        case .php: .php
+        case .sgd: .sgd
+        case .thb: .thb
+        case .zar: .zar
+        }
+    }
+
+    static func makeCurrency(_ currency: Components.Schemas.NullableCurrency) -> Currency? {
+        switch currency {
+        case .eur: .eur
+        case .usd: .usd
+        case .jpy: .jpy
+        case .czk: .czk
+        case .dkk: .dkk
+        case .gbp: .gbp
+        case .huf: .huf
+        case .pln: .pln
+        case .ron: .ron
+        case .sek: .sek
+        case .chf: .chf
+        case .isk: .isk
+        case .nok: .nok
+        case ._try: .try
+        case .aud: .aud
+        case .brl: .brl
+        case .cad: .cad
+        case .cny: .cny
+        case .hkd: .hkd
+        case .idr: .idr
+        case .ils: .ils
+        case .inr: .inr
+        case .krw: .krw
+        case .mxn: .mxn
+        case .myr: .myr
+        case .nzd: .nzd
+        case .php: .php
+        case .sgd: .sgd
+        case .thb: .thb
+        case .zar: .zar
+        case ._empty_: nil
+        }
+    }
+
+    static func generatedNullableCurrency(
+        _ currency: Currency
+    ) -> Components.Schemas.NullableCurrency {
+        switch currency {
+        case .eur: .eur
+        case .usd: .usd
+        case .jpy: .jpy
+        case .czk: .czk
+        case .dkk: .dkk
+        case .gbp: .gbp
+        case .huf: .huf
+        case .pln: .pln
+        case .ron: .ron
+        case .sek: .sek
+        case .chf: .chf
+        case .isk: .isk
+        case .nok: .nok
+        case .try: ._try
         case .aud: .aud
         case .brl: .brl
         case .cad: .cad

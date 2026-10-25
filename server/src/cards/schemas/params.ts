@@ -1,11 +1,12 @@
 import { z } from 'zod';
 
-import { CardCoreFieldsSchema, CardIdSchema } from './fields.ts';
+import { CardCoreFieldsSchema } from './fields.ts';
+import { UuidSchema } from '../../schemas/common.ts';
 import { CARD_GAMES } from '../types.ts';
 import { decodeCardCursor } from '../utils/pagination.ts';
 
 export const CardIdParamsSchema = z.object({
-  cardId: CardIdSchema.meta({
+  cardId: UuidSchema.meta({
     description: 'Unique card entry identifier',
     example: '550e8400-e29b-41d4-a716-446655440000',
   }),
@@ -44,6 +45,11 @@ export const CardsPaginationQuerySchema = z.object({
 export type CardsPaginationQuery = z.infer<typeof CardsPaginationQuerySchema>;
 
 export const CardsListQuerySchema = CardsPaginationQuerySchema.extend({
+  collection_id: UuidSchema.optional(),
+  query: CardCoreFieldsSchema.shape.name.trim().optional().meta({
+    description: 'Case-insensitive literal substring in card name, set name, or card number; omitted means all cards.',
+    example: 'Luffy',
+  }),
   game: z.enum(CARD_GAMES).optional().meta({ description: 'Optional game filter', example: 'one_piece' }),
   set_name: z
     .preprocess(value => {

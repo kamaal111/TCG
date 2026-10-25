@@ -5,6 +5,7 @@ import TCGCurrency
 import TCGDesignSystem
 
 struct TCGCardDetailScreen: View {
+    @Environment(\.isEditingCollection) private var isEditingCollection
     @Environment(TCGCards.self) private var cards
     @Environment(\.dismiss) private var dismiss
     @Environment(\.tcgCurrency) private var currencyState
@@ -25,17 +26,19 @@ struct TCGCardDetailScreen: View {
                 Spacer()
                 Text("Card details", bundle: .module).font(.headline)
                 Spacer()
-                Button(action: editOrSave) {
-                    if model.editor != nil {
-                        Text("Save", bundle: .module)
-                    } else {
-                        Text("Edit", bundle: .module)
+                if isEditingCollection {
+                    Button(action: editOrSave) {
+                        if model.editor != nil {
+                            Text("Save", bundle: .module)
+                        } else {
+                            Text("Edit", bundle: .module)
+                        }
                     }
                 }
             }
             .padding()
             Divider()
-            if let editor = model.editor {
+            if isEditingCollection, let editor = model.editor {
                 editorContent(editor)
             } else if let displayedCard {
                 CardDetailContent(metadata: .init(ownedCard: displayedCard), price: displayedCard.price.price) {
@@ -51,7 +54,8 @@ struct TCGCardDetailScreen: View {
                     } label: {
                         Text("Try again", bundle: .module)
                     }
-                }.frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
         .background(.background)
@@ -151,6 +155,7 @@ struct TCGCardDetailScreen: View {
     }
 
     private func editOrSave() {
+        guard isEditingCollection else { return }
         if model.editor == nil {
             model.edit()
         } else {

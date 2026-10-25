@@ -176,9 +176,10 @@ enum CardsCSV {
         CSVImportRow(
             id: line,
             cells: [
-                .id: card.id, .game: card.game.rawValue, .name: card.name, .setName: card.setName,
+                .id: card.id.uuidString.lowercased(), .game: card.game.rawValue, .name: card.name,
+                .setName: card.setName,
                 .cardNumber: card.cardNumber, .notes: card.notes ?? "", .createdAt: dateString(card.createdAt),
-                .updatedAt: dateString(card.updatedAt), .purchaseID: purchase.id ?? UUID().uuidString.lowercased(),
+                .updatedAt: dateString(card.updatedAt), .purchaseID: (purchase.id ?? UUID()).uuidString.lowercased(),
                 .condition: purchase.condition.rawValue, .quantity: String(purchase.quantity),
                 .purchasePrice: purchase.purchasePrice.map { NSDecimalNumber(decimal: $0).stringValue } ?? "",
                 .currency: purchase.currency?.rawValue ?? "", .automaticPriceDate: purchase.automaticPriceDate ?? "",
@@ -358,13 +359,21 @@ enum CardsCSV {
         let selected = CSVImportCard(id: draft.id, rows: included)
         guard issues(for: selected).isEmpty else { return nil }
         guard let game = ClientCardGame(rawValue: trimmed(first[.game])) else { return nil }
+        guard let cardID = UUID(uuidString: trimmed(first[.id])) else { return nil }
         let purchases = included.compactMap { row -> CardPurchase? in
             guard let condition = CardCondition(rawValue: trimmed(row[.condition])) else { return nil }
             guard let quantity = Int(trimmed(row[.quantity])) else { return nil }
+            let rawPurchaseID = trimmed(row[.purchaseID])
+            let purchaseID: UUID
+            if rawPurchaseID.isEmpty {
+                purchaseID = row.generatedPurchaseID
+            } else {
+                guard let parsedID = UUID(uuidString: rawPurchaseID) else { return nil }
+                purchaseID = parsedID
+            }
             let price = trimmed(row[.purchasePrice])
             return .init(
-                id: trimmed(row[.purchaseID]).isEmpty
-                    ? row.generatedPurchaseID.uuidString.lowercased() : trimmed(row[.purchaseID]).lowercased(),
+                id: purchaseID,
                 condition: condition,
                 quantity: quantity,
                 purchasePrice: price.isEmpty ? nil : Decimal(string: price, locale: TCGLocales.decimal),
@@ -373,7 +382,7 @@ enum CardsCSV {
             )
         }
         return Card(
-            id: trimmed(first[.id]).lowercased(),
+            id: cardID,
             game: game,
             name: trimmed(first[.name]),
             setName: trimmed(first[.setName]),
@@ -381,7 +390,9 @@ enum CardsCSV {
             notes: first[.notes].isEmpty ? nil : first[.notes],
             createdAt: date(first[.createdAt]) ?? now,
             updatedAt: date(first[.updatedAt]) ?? now,
-            purchases: purchases
+            purchases: purchases,
+            collectionID: nil,
+            allocationAdjustments: nil
         )
     }
 

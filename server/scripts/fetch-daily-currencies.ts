@@ -8,7 +8,11 @@ import { initializeNodeLogging } from '../src/runtime/node/logging.ts';
 
 initializeNodeLogging();
 
-const db = createDatabase({ url: env.DATABASE_URL, debug: env.DEBUG });
+const db = createDatabase({
+  url: env.DATABASE_URL,
+  debug: env.DEBUG,
+  connectionTimeoutMs: env.DATABASE_CONNECTION_TIMEOUT_MS,
+});
 
 const service = new ForexCollector(new PostgresForexRepository(db), new EcbForexClient());
 

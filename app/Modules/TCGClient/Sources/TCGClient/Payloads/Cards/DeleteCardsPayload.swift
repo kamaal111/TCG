@@ -1,7 +1,9 @@
-public struct DeleteCardsPayload: Codable, Equatable, Sendable {
-    public let cardIDs: [String]
+import Foundation
 
-    public init(cardIDs: [String]) {
+public struct DeleteCardsPayload: Codable, Equatable, Sendable {
+    public let cardIDs: [UUID]
+
+    public init(cardIDs: [UUID]) {
         self.cardIDs = cardIDs
     }
 

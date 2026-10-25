@@ -89,7 +89,8 @@ struct PreviewTCGClientTests {
         await #expect(throws: SignUpErrors.sessionUnavailable) {
             try await client.auth.signUp(
                 with: .init(email: "jane@example.com", password: "Password123!", name: "Jane Doe")
-            ).get()
+            )
+            .get()
         }
     }
 
@@ -103,7 +104,8 @@ struct PreviewTCGClientTests {
         await #expect(throws: SignUpErrors.unknown(status: 503, payload: nil, cause: nil)) {
             try await client.auth.signUp(
                 with: .init(email: "jane@example.com", password: "Password123!", name: "Jane Doe")
-            ).get()
+            )
+            .get()
         }
     }
 
@@ -114,7 +116,8 @@ struct PreviewTCGClientTests {
         await #expect(throws: SignUpErrors.conflict) {
             try await client.auth.signUp(
                 with: .init(email: "jane@example.com", password: "Password123!", name: "Jane Doe")
-            ).get()
+            )
+            .get()
         }
     }
 }

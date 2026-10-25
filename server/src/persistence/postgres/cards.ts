@@ -2,8 +2,17 @@ import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
 
 import { omit } from '@kamaalio/kamaal/objects';
-import { and, eq, getColumns, inArray, isNull, notInArray, sql } from 'drizzle-orm';
+import { and, eq, getColumns, ilike, inArray, isNull, notInArray, or, sql } from 'drizzle-orm';
 
+import { placeCardInBinder } from './collection-placement.ts';
+import {
+  bumpCollections,
+  clearPlacements,
+  collectionMembership,
+  lockCollections,
+  membershipFilter,
+  reconcilePlacements,
+} from './collection-transactions.ts';
 import type { OwnedCardPriceResponse } from '../../card-pricing/schemas/responses.ts';
 import { CardNotFound } from '../../cards/exceptions.ts';
 import type { CardImportProgress } from '../../cards/logging.ts';
@@ -15,14 +24,13 @@ import {
   importMatches,
 } from '../../cards/policies.ts';
 import type { CardRepository } from '../../cards/repository.ts';
-import type { CardsPaginationQuery, CardGame } from '../../cards/schemas/params.ts';
 import type { ImportCard, UpsertCard } from '../../cards/schemas/payloads.ts';
 import type { DeleteCardsResponse, ImportCardsResponse } from '../../cards/schemas/responses.ts';
 import type { CardWithPurchases, CardCollection } from '../../cards/types.ts';
 import { encodeCardCursor } from '../../cards/utils/pagination.ts';
 import { marketPurchaseAmount } from '../../cards/utils/purchase-price.ts';
 import { purchaseQuantities } from '../../cards/utils/quantities.ts';
-import { DEFAULT_IMPORT_POLICY, type ApplicationConfig } from '../../config.ts';
+import { DEFAULT_COLLECTION_POLICY, DEFAULT_IMPORT_POLICY, type ApplicationConfig } from '../../config.ts';
 import type { Database } from '../../db/index.ts';
 import { card, cardConditionQuantity, cardPurchaseBatch } from '../../db/schema/cards.ts';
 import type { AuthenticatedIdentity, RepositoryDiagnostics } from '../contracts.ts';
@@ -31,20 +39,27 @@ type Transaction = Parameters<Parameters<Database['transaction']>[0]>[0];
 
 type PurchaseWrite = typeof cardPurchaseBatch.$inferInsert;
 
+type CardPolicy = Pick<
+  ApplicationConfig,
+  'CARD_IMPORT_BATCH_SIZE' | 'CARD_IMPORT_PURCHASE_BATCH_SIZE' | 'COLLECTION_MAX_PAGES'
+>;
+
+const DEFAULT_CARD_POLICY = {
+  ...DEFAULT_IMPORT_POLICY,
+  COLLECTION_MAX_PAGES: DEFAULT_COLLECTION_POLICY.COLLECTION_MAX_PAGES,
+};
+
 export class PostgresCardRepository implements CardRepository {
   private readonly db: Database;
   private readonly identity: AuthenticatedIdentity;
   private readonly diagnostics: RepositoryDiagnostics;
-  private readonly config: Pick<ApplicationConfig, 'CARD_IMPORT_BATCH_SIZE' | 'CARD_IMPORT_PURCHASE_BATCH_SIZE'>;
+  private readonly config: CardPolicy;
 
   constructor(
     db: Database,
     identity: AuthenticatedIdentity,
     diagnostics: RepositoryDiagnostics,
-    config: Pick<
-      ApplicationConfig,
-      'CARD_IMPORT_BATCH_SIZE' | 'CARD_IMPORT_PURCHASE_BATCH_SIZE'
-    > = DEFAULT_IMPORT_POLICY,
+    config: CardPolicy = DEFAULT_CARD_POLICY,
   ) {
     this.db = db;
     this.identity = identity;
@@ -60,14 +75,23 @@ export class PostgresCardRepository implements CardRepository {
    * Returns one owned-card page and all game-scoped set choices from one
    * database snapshot. Set choices do not depend on the set filter or cursor.
    */
-  async listCollection(
-    options: CardsPaginationQuery & { game?: CardGame; setNames: string[] },
-  ): Promise<CardCollection> {
-    const { game, setNames, limit, cursor } = options;
+  async listCollection(options: Parameters<CardRepository['listCollection']>[0]): Promise<CardCollection> {
+    const { game, setNames, limit, cursor, query } = options;
+    const searchPattern = query != null ? `%${query.replace(/[\\%_]/g, '\\$&')}%` : undefined;
 
     return this.db.transaction(
       async tx => {
-        const ownership = and(eq(card.userId, this.userId), game != null ? eq(card.game, game) : undefined);
+        const selectedCollection =
+          options.collection_id != null
+            ? await collectionMembership(tx, this.identity, options.collection_id)
+            : undefined;
+
+        const ownership = and(
+          eq(card.userId, this.userId),
+          game != null ? eq(card.game, game) : undefined,
+          selectedCollection !== undefined ? membershipFilter(selectedCollection) : undefined,
+        );
+
         const sets = await tx.selectDistinct({ name: card.setName }).from(card).where(ownership).orderBy(card.setName);
 
         const rows = await tx
@@ -79,6 +103,13 @@ export class PostgresCardRepository implements CardRepository {
           .where(
             and(
               ownership,
+              searchPattern !== undefined
+                ? or(
+                    ilike(card.name, searchPattern),
+                    ilike(card.setName, searchPattern),
+                    ilike(card.cardNumber, searchPattern),
+                  )
+                : undefined,
               setNames.length > 0 ? inArray(card.setName, new Set(setNames).values().toArray()) : undefined,
               cursor != null
                 ? sql`(${card.createdAt}, ${card.id}) < (${cursor.createdAt}::timestamp, ${cursor.id})`
@@ -167,10 +198,14 @@ export class PostgresCardRepository implements CardRepository {
     }
 
     return this.db.transaction(async tx => {
+      await lockCollections(tx, this.identity);
+      const collectionId = await collectionMembership(tx, this.identity, values.collection_id);
+
       const [createdCard] = await tx
         .insert(card)
         .values({
           userId: this.userId,
+          collectionId,
           ...cardFields(values),
         })
         .returning();
@@ -184,11 +219,21 @@ export class PostgresCardRepository implements CardRepository {
         .values(values.purchases.map(batch => purchaseBatchFields(createdCard.id, batch)))
         .returning();
 
+      await placeCardInBinder({
+        tx,
+        identity: this.identity,
+        collectionId,
+        cardId: createdCard.id,
+        quantity: values.purchases.reduce((total, purchase) => total + purchase.quantity, 0),
+        maximumPages: this.config.COLLECTION_MAX_PAGES,
+      });
+      await bumpCollections(tx, this.identity, [collectionId]);
+
       return { ...createdCard, purchaseBatches };
     });
   }
 
-  async importCards(inputs: ImportCard[]): Promise<ImportCardsResponse> {
+  async importCards(inputs: ImportCard[], transaction?: Transaction): Promise<ImportCardsResponse> {
     const started = performance.now();
     const uniqueInputs = new Map(inputs.map(input => [input.id, input]));
     const entries = uniqueInputs.values().toArray();
@@ -212,7 +257,13 @@ export class PostgresCardRepository implements CardRepository {
     );
 
     try {
-      const response = await this.db.transaction(async tx => {
+      const run =
+        transaction == null
+          ? this.db.transaction.bind(this.db)
+          : async (action: (tx: Transaction) => Promise<ImportCardsResponse>) => action(transaction);
+
+      const response = await run(async tx => {
+        let adjustments = 0;
         let importedCount = 0;
         let updatedCount = 0;
         let skippedCount = inputs.length - entries.length;
@@ -239,7 +290,7 @@ export class PostgresCardRepository implements CardRepository {
           .where(
             and(
               eq(card.userId, this.userId),
-              sql`(${card.id} = any(${sql.param(sourceIds)}::text[]) or ${card.importSourceId} = any(${sql.param(sourceIds)}::text[]))`,
+              sql`(${card.id} = any(${sql.param(sourceIds)}::uuid[]) or ${card.importSourceId} = any(${sql.param(sourceIds)}::uuid[]))`,
             ),
           )
           .orderBy(card.id)
@@ -319,6 +370,8 @@ export class PostgresCardRepository implements CardRepository {
 
           const purchases: (typeof cardPurchaseBatch.$inferInsert)[] = [];
           const quantities: (typeof cardConditionQuantity.$inferInsert)[] = [];
+          const reconciliations: { cardId: string; total: number }[] = [];
+          const changedCollections = new Set<string | null>();
           let batchUpdatedCount = 0;
           let batchSkippedCount = 0;
 
@@ -352,6 +405,11 @@ export class PostgresCardRepository implements CardRepository {
               );
 
               await clearReplacedPurchases(tx, target.id, retainedIds);
+              reconciliations.push({
+                cardId: target.id,
+                total: input.purchases.reduce((sum, p) => sum + p.quantity, 0),
+              });
+              changedCollections.add(existing.collectionId);
               batchUpdatedCount += 1;
             }
 
@@ -364,6 +422,9 @@ export class PostgresCardRepository implements CardRepository {
             );
             quantities.push(...conditionQuantityRows(target.id, input.purchases));
           }
+
+          adjustments += await reconcilePlacements(tx, this.identity, reconciliations);
+          await bumpCollections(tx, this.identity, [...changedCollections]);
 
           for (let index = 0; index < purchases.length; index += purchaseBatchSize) {
             await upsertPurchases(tx, purchases.slice(index, index + purchaseBatchSize));
@@ -396,8 +457,17 @@ export class PostgresCardRepository implements CardRepository {
 
         progress.stage = 'commit';
 
-        return { imported_count: importedCount, updated_count: updatedCount, skipped_count: skippedCount };
+        return {
+          imported_count: importedCount,
+          updated_count: updatedCount,
+          skipped_count: skippedCount,
+          allocation_adjustments: adjustments > 0 ? adjustments : undefined,
+        };
       });
+
+      if (transaction != null) {
+        return response;
+      }
 
       progress.stage = 'completed';
       progress.lastCompletedStage = 'completed';
@@ -431,6 +501,8 @@ export class PostgresCardRepository implements CardRepository {
    */
   update(cardId: string, values: UpsertCard): Promise<CardWithPurchases | undefined> {
     return this.db.transaction(async tx => {
+      await lockCollections(tx, this.identity);
+
       const [ownedCard] = await tx
         .select()
         .from(card)
@@ -439,6 +511,16 @@ export class PostgresCardRepository implements CardRepository {
 
       if (ownedCard == null) {
         return undefined;
+      }
+
+      const collectionId =
+        values.collection_id === undefined
+          ? ownedCard.collectionId
+          : await collectionMembership(tx, this.identity, values.collection_id);
+
+      if (collectionId !== ownedCard.collectionId) {
+        await clearPlacements(tx, this.identity, [cardId]);
+        await bumpCollections(tx, this.identity, [ownedCard.collectionId]);
       }
 
       const previousBatches = await tx.select().from(cardPurchaseBatch).where(eq(cardPurchaseBatch.cardId, cardId));
@@ -452,6 +534,7 @@ export class PostgresCardRepository implements CardRepository {
         .update(card)
         .set({
           ...cardFields(values),
+          collectionId,
           updatedAt: new Date(),
           ...pricingLinkFields(ownedCard, values),
         })
@@ -480,8 +563,33 @@ export class PostgresCardRepository implements CardRepository {
       });
 
       const purchaseBatches = await upsertPurchases(tx, purchases).returning();
+      const quantity = values.purchases.reduce((total, purchase) => total + purchase.quantity, 0);
 
-      return { ...updatedCard, purchaseBatches };
+      const allocationAdjustments = await reconcilePlacements(tx, this.identity, [
+        {
+          cardId,
+          total: quantity,
+        },
+      ]);
+
+      if (collectionId !== ownedCard.collectionId) {
+        await placeCardInBinder({
+          tx,
+          identity: this.identity,
+          collectionId,
+          cardId,
+          quantity,
+          maximumPages: this.config.COLLECTION_MAX_PAGES,
+        });
+      }
+
+      await bumpCollections(tx, this.identity, [collectionId]);
+
+      return {
+        ...updatedCard,
+        purchaseBatches,
+        allocationAdjustments: allocationAdjustments > 0 ? allocationAdjustments : undefined,
+      };
     });
   }
 
@@ -514,7 +622,7 @@ export class PostgresCardRepository implements CardRepository {
     const input = this.db.$with('purchase_price_input').as(
       this.db
         .select({
-          cardId: sql<string>`input.card_id`.as('card_id'),
+          cardId: sql<string>`input.card_id::uuid`.as('card_id'),
           game: sql<string>`input.game`.as('game'),
           name: sql<string>`input.name`.as('name'),
           cardNumber: sql<string>`input.card_number`.as('card_number'),
@@ -585,10 +693,25 @@ export class PostgresCardRepository implements CardRepository {
       return { deleted_ids: [], not_found_ids: [] };
     }
 
-    const deleted = await this.db
-      .delete(card)
-      .where(and(inArray(card.id, ids), eq(card.userId, this.userId)))
-      .returning({ id: card.id });
+    const deleted = await this.db.transaction(async tx => {
+      await lockCollections(tx, this.identity);
+
+      const owned = await tx
+        .select()
+        .from(card)
+        .where(and(inArray(card.id, ids), eq(card.userId, this.userId)));
+
+      await bumpCollections(
+        tx,
+        this.identity,
+        owned.map(c => c.collectionId),
+      );
+
+      return tx
+        .delete(card)
+        .where(and(inArray(card.id, ids), eq(card.userId, this.userId)))
+        .returning({ id: card.id });
+    });
 
     const deletedIds = new Set(deleted.map(row => row.id));
 

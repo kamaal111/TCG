@@ -36,6 +36,7 @@
   "devDependencies": {
     "@devcontainers/cli": "catalog:",
     "@kamaal111/kamaal-quality-config": "catalog:",
+    "@oxlint/plugins": "catalog:",
     "@standard-schema/spec": "catalog:",
     "@stylistic/eslint-plugin": "catalog:",
     "@types/node": "catalog:",

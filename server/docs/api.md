@@ -200,3 +200,35 @@ The request-ID middleware uses `tcg-request-id`; server-defined API exceptions
 also include `Request-Id` in their responses. Use request IDs to correlate events
 in [structured logs](logging.md), keeping credentials and user search text out
 of logs.
+
+## Collections and complete backups
+
+Authenticated `/app-api/collections` operations create, list, and manage owned
+collections. Listing returns summaries without binder pages or slots.
+`GET /app-api/collections/{collectionId}` retrieves one selected layout, and
+page-card reads query only that page. Layout and page reads use read-only
+snapshots without the account write lock. Listing creates Unfiled only when it
+is missing. Binder/List selection is local UI state and is
+absent from the database, API payloads, and backups.
+
+Unfiled is an immutable system collection; null card membership
+means Unfiled. Existing unfiltered card-list and CSV operations remain compatible.
+
+Card, purchase, collection, and binder-page identities are UUIDs. Requests accept
+either UUID letter case and normalize it before matching identities. PostgreSQL
+stores UUID-backed identities in native UUID columns.
+
+Binder layouts store integer `columns` and `rows` from 1 through 20, ordered pages, and
+occupied slots identified by one-based `row` and `column`. Empty pages are real
+records and missing slot records mean empty positions. Each slot references an
+owned card entry and quantity; aggregate allocations cannot exceed purchases.
+Layout updates require the current `revision`; HTTP 409 signals stale state or
+insufficient copies. Inaccessible resources return HTTP 404.
+
+`POST /app-api/collections/export` accepts optional `collection_ids` (omit for
+all collections) and returns a version-1 JSON backup. The file includes card
+purchases and collection membership alongside complete layouts.
+`POST /app-api/collections/import-preview` validates it and reports planned
+changes without importing. `POST /app-api/collections/import` merges it atomically,
+resolves source identities within the authenticated account, maps Unfiled to that
+account's system collection, and preserves unrelated cards and collections.

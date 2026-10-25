@@ -147,6 +147,9 @@ jobs:
       - name: Run app quality checks
         run: just quality-app
 
+      - name: Test Swift spacing
+        run: just test-swift-member-spacing
+
       - name: Run macOS app tests
         run: just test-app-macos
 

@@ -25,9 +25,8 @@ public struct TCGFormField<Field: View>: View {
             field
                 .textFieldStyle(.roundedBorder)
             if let error {
-                Text(error)
+                TCGInlineError(error)
                     .font(.caption)
-                    .foregroundStyle(.red)
                     .accessibilityLabel("Error: \(error)")
             }
         }

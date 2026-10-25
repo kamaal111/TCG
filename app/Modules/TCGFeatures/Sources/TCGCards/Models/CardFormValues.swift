@@ -10,6 +10,7 @@ import TCGClient
 import TCGUtils
 
 struct CardFormValues: Equatable {
+    var collectionID: UUID?
     var game: ClientCardGame
     var name: String
     var setName: String
@@ -74,6 +75,7 @@ struct CardFormValues: Equatable {
     }
 
     init(card: Card) {
+        collectionID = card.collectionID
         game = card.game
         name = card.name
         setName = card.setName
@@ -108,12 +110,14 @@ struct CardFormValues: Equatable {
             setName: setName.trimmingCharacters(in: .whitespacesAndNewlines),
             cardNumber: cardNumber.trimmingCharacters(in: .whitespacesAndNewlines),
             notes: trimmedNotes.isEmpty ? nil : trimmedNotes,
-            purchases: batches.filter { $0.quantity > 0 }.map(\.purchase)
+            purchases: batches.filter { $0.quantity > 0 }.map(\.purchase),
+            collectionID: collectionID
         )
     }
 
     static func == (lhs: Self, rhs: Self) -> Bool {
-        lhs.game == rhs.game && lhs.name == rhs.name && lhs.setName == rhs.setName
+        lhs.collectionID == rhs.collectionID && lhs.game == rhs.game && lhs.name == rhs.name
+            && lhs.setName == rhs.setName
             && lhs.cardNumber == rhs.cardNumber && lhs.notes == rhs.notes && lhs.batches == rhs.batches
     }
 
@@ -122,7 +126,7 @@ struct CardFormValues: Equatable {
 
 struct PurchaseBatchFormValue: Equatable, Identifiable {
     let id: UUID
-    let persistedID: String?
+    let persistedID: UUID?
     var condition: CardCondition
     var quantity: Int
     var priceText: String

@@ -22,9 +22,11 @@ struct CardImageExplorerControls: View {
                     Image(systemName: "minus.magnifyingglass")
                 }
             }
-            .disabled(!isLoaded || scale <= 1)
+            .disabled(!isLoaded || scale <= CardImageZoom.minimumScale)
+            .help(Text("Zoom out", bundle: .module))
             Text(scale, format: .percent.precision(.fractionLength(0)))
-                .monospacedDigit().frame(minWidth: 48)
+                .monospacedDigit()
+                .frame(minWidth: 48)
             Button {
                 actions.zoomIn()
             } label: {
@@ -34,13 +36,15 @@ struct CardImageExplorerControls: View {
                     Image(systemName: "plus.magnifyingglass")
                 }
             }
-            .disabled(!isLoaded || scale >= 6)
+            .disabled(!isLoaded || scale >= CardImageZoom.maximumScale)
+            .help(Text("Zoom in", bundle: .module))
             Button {
                 actions.reset()
             } label: {
                 Text("Reset", bundle: .module)
             }
-            .disabled(!isLoaded || scale == 1)
+            .disabled(!isLoaded || scale == CardImageZoom.minimumScale)
+            .help(Text("Reset", bundle: .module))
         }
         .labelStyle(.iconOnly)
         .padding()

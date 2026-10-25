@@ -4,6 +4,8 @@ import { z } from 'zod';
 
 import { SIGN_UP_ROUTE_PATH } from './auth/constants.ts';
 import { createCardRequest, validCardPayload } from './cards/tests/utils.ts';
+import { MAX_BINDER_DIMENSION } from './collections/constants.ts';
+import { DEFAULT_COLLECTION_POLICY } from './config.ts';
 import { CONTENTFUL_STATUS_CODES } from './constants/http.ts';
 import { MIME_TYPES } from './constants/request.ts';
 import type { HonoEnvironment } from './context.ts';
@@ -105,8 +107,20 @@ describe('OpenAPI specification integration', () => {
       '/app-api/cards/import',
       '/app-api/cards',
       '/app-api/cards/{cardId}',
+      '/app-api/collections/import-preview',
+      '/app-api/collections',
+      '/app-api/collections/export',
+      '/app-api/collections/import',
+      '/app-api/collections/{collectionId}',
+      '/app-api/collections/{collectionId}/layout',
+      '/app-api/collections/{collectionId}/pages/{pageId}',
       '/app-api/pricing/search',
     ]);
+    expect(document.paths['/app-api/collections/{collectionId}']?.get).toMatchObject({
+      responses: {
+        200: { content: { [MIME_TYPES.JSON]: { schema: { $ref: '#/components/schemas/CardCollection' } } } },
+      },
+    });
   });
 
   integrationTest('documents one deletion operation with an array request', async ({ app }) => {
@@ -170,6 +184,41 @@ describe('OpenAPI specification integration', () => {
       },
     ]);
   });
+
+  integrationTest(
+    'shares collection summaries and binder layouts while preserving layout request limits',
+    async ({ app }) => {
+      const document = await readSpecification(app);
+      const layoutReference = { $ref: '#/components/schemas/BinderLayout' };
+
+      expect(document.components.schemas.CardCollection).toMatchObject({
+        allOf: [{ $ref: '#/components/schemas/CardCollectionSummary' }, layoutReference],
+        description: expect.any(String),
+        example: expect.any(Object),
+      });
+      expect(document.components.schemas.CardCollection).not.toHaveProperty('properties');
+      expect(document.components.schemas.UpdateCollection).toMatchObject({
+        allOf: [{ $ref: '#/components/schemas/CreateCollection' }, { required: ['revision'] }],
+      });
+      expect(document.components.schemas.BinderLayout).toMatchObject({
+        properties: {
+          columns: { maximum: MAX_BINDER_DIMENSION },
+          rows: { maximum: MAX_BINDER_DIMENSION },
+          pages: { items: { $ref: '#/components/schemas/BinderPage' } },
+        },
+        required: ['columns', 'rows', 'pages'],
+      });
+      expect(document.components.schemas.SaveBinderLayout).toMatchObject({
+        allOf: [
+          layoutReference,
+          {
+            properties: { pages: { maxItems: DEFAULT_COLLECTION_POLICY.COLLECTION_MAX_PAGES } },
+            required: ['revision'],
+          },
+        ],
+      });
+    },
+  );
 
   integrationTest('describes the update card identifier as a required path parameter', async ({ app }) => {
     const document = await readSpecification(app);

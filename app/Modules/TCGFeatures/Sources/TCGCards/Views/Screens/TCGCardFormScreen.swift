@@ -12,6 +12,8 @@ import TCGModels
 
 public struct TCGCardFormScreen: View {
     @Environment(TCGCards.self) private var cards
+    @Environment(\.tcgCollections) private var collections
+    @State private var hasConfiguredCollection = false
     @Environment(\.dismiss) private var dismiss
 
     @State private var model: TCGCardFormScreenModel
@@ -55,6 +57,12 @@ public struct TCGCardFormScreen: View {
                     .frame(width: 0, height: 0)
                 }
             #endif
+            .task {
+                guard !hasConfiguredCollection else { return }
+                guard let collections else { return }
+                hasConfiguredCollection = true
+                model.configureCollection(currentID: collections.selectedID, unfiledID: collections.unfiled?.id)
+            }
             .disabled(model.isSubmitting)
     }
 
@@ -103,6 +111,7 @@ public struct TCGCardFormScreen: View {
         .keyboardShortcut(.defaultAction)
         .disabled(model.isSubmitting)
         .accessibilityLabel(submitTitle)
+        .help(submitTitle)
     }
 
     private var submitTitle: Text {
@@ -119,6 +128,7 @@ public struct TCGCardFormScreen: View {
                 .foregroundStyle(.primary)
         }
         .accessibilityLabel(Text("Close", bundle: .module))
+        .help(Text("Close", bundle: .module))
         .tint(.primary)
         .keyboardShortcut(.cancelAction)
         .disabled(model.isSubmitting)

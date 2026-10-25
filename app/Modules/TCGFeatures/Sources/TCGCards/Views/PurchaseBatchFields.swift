@@ -16,6 +16,7 @@ struct PurchaseBatchFields: View {
                 Button(role: .destructive, action: remove) { Image(systemName: "trash") }
                     .buttonStyle(.borderless)
                     .accessibilityLabel(Text("Remove purchase batch", bundle: .module))
+                    .help(Text("Remove purchase batch", bundle: .module))
             }
             Text("Purchase price per card", bundle: .module).font(.caption)
             HStack {
@@ -44,7 +45,9 @@ struct PurchaseBatchFields: View {
                     Text("Batch total", bundle: .module)
                     Spacer()
                     CurrencyAmount(price * Decimal(batch.quantity), currency: batch.currency)
-                }.font(.caption).foregroundStyle(.secondary)
+                }
+                .font(.caption)
+                .foregroundStyle(.secondary)
             }
         }
         .padding(10)

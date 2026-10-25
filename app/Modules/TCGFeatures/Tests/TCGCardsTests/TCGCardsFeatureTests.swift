@@ -30,13 +30,21 @@ struct TCGCardsFeatureTests {
         let refresh = Task { await feature.refreshDisplayPrices(for: currency.displayIdentity) }
         await transport.waitForRequests("/app-api/cards", count: 2)
         #expect(feature.cards.isEmpty)
-        await transport.completePage("/app-api/cards", id: "old", cursor: nil)
+        await transport.completePage(
+            "/app-api/cards",
+            id: CardsTestIDs.oldCurrencyCard,
+            cursor: nil
+        )
         try await original.value.get()
         #expect(feature.cards.isEmpty)
         #expect(feature.isLoading)
-        await transport.completePage("/app-api/cards", id: "fresh", cursor: nil)
+        await transport.completePage(
+            "/app-api/cards",
+            id: CardsTestIDs.newCurrencyCard,
+            cursor: nil
+        )
         await refresh.value
-        #expect(feature.cards.map(\.card.id) == ["fresh"])
+        #expect(feature.cards.map(\.card.id) == [CardsTestIDs.newCurrencyCard])
         #expect(feature.displayRefreshError == nil)
     }
 
@@ -48,7 +56,11 @@ struct TCGCardsFeatureTests {
         await feature.refreshDisplayPrices(for: currency.displayIdentity)
         let original = Task { await feature.load(game: nil) }
         await transport.waitForRequest("/app-api/cards")
-        await transport.completePage("/app-api/cards", id: "old", cursor: nil)
+        await transport.completePage(
+            "/app-api/cards",
+            id: CardsTestIDs.oldCurrencyCard,
+            cursor: nil
+        )
         try await original.value.get()
         #expect(await currency.save(.eur))
         let refresh = Task { await feature.refreshDisplayPrices(for: currency.displayIdentity) }
@@ -75,21 +87,29 @@ struct TCGCardsFeatureTests {
         }
         let path = changeGame ? "/app-api/cards?game=pokemon" : "/app-api/cards?set_name=Base%20Set"
         await transport.waitForRequest(path)
-        #expect(feature.cards.map(\.card.id) == ["pokemon-card"])
+        #expect(feature.cards.map(\.card.id) == [CardsTestIDs.cachedPokemon])
         #expect(feature.availableSetNames == (changeGame ? [] : ["Base Set", "Romance Dawn"]))
         await transport.complete(path, status: .serviceUnavailable)
         await #expect(throws: TCGCardsOperationError.serverUnavailable) { try await filteredLoad.value.get() }
-        #expect(feature.cards.map(\.card.id) == ["pokemon-card"])
+        #expect(feature.cards.map(\.card.id) == [CardsTestIDs.cachedPokemon])
         #expect(feature.availableSetNames == (changeGame ? [] : ["Base Set", "Romance Dawn"]))
         #expect(!feature.hasLoadedCurrentCollection)
         #expect(!feature.isLoading)
     }
 
     @Test(arguments: [
-        (["pokemon-card", "one-piece-card"], [], []),
-        (["pokemon-card"], ["one-piece-card"], [TCGCardsOperationError.notFound]),
+        (
+            [
+                CardsTestIDs.cachedPokemon,
+                CardsTestIDs.cachedOnePiece,
+            ], [], []
+        ),
+        (
+            [CardsTestIDs.cachedPokemon],
+            [CardsTestIDs.cachedOnePiece], [TCGCardsOperationError.notFound]
+        ),
     ])
-    func `Batch deletion uses one request and refreshes once`(scenario: ([String], [String], [TCGCardsOperationError]))
+    func `Batch deletion uses one request and refreshes once`(scenario: ([UUID], [UUID], [TCGCardsOperationError]))
         async throws
     {
         let (deletedIDs, notFoundIDs, expectedErrors) = scenario
@@ -101,7 +121,12 @@ struct TCGCardsFeatureTests {
         await transport.completeWithCachedCards(listPath)
         try await initialLoad.value.get()
 
-        let deletion = Task { await feature.deleteCards(ids: ["pokemon-card", "one-piece-card"]) }
+        let deletion = Task {
+            await feature.deleteCards(ids: [
+                CardsTestIDs.cachedPokemon,
+                CardsTestIDs.cachedOnePiece,
+            ])
+        }
         await transport.waitForRequest("/app-api/cards")
         #expect(await transport.requestCount == 2)
         try await transport.completeDeletion(deletedIDs: deletedIDs, notFoundIDs: notFoundIDs)
@@ -125,15 +150,19 @@ struct TCGCardsFeatureTests {
     @Test
     func `Missing deletion targets preserve cached rows without refreshing`() async throws {
         let transport = PendingCollectionTransport()
-        let feature = makePendingFeature(transport)
-        let load = Task { await feature.load(game: nil) }
-        await transport.waitForRequest("/app-api/cards")
-        await transport.completeWithCachedCards("/app-api/cards")
-        try await load.value.get()
+        let feature = try await loadCards(transport, response: .cached).get()
         let cached = feature.cards
-        let deletion = Task { await feature.deleteCards(ids: ["missing", "missing"]) }
+        let deletion = Task {
+            await feature.deleteCards(ids: [
+                CardsTestIDs.third,
+                CardsTestIDs.third,
+            ])
+        }
         await transport.waitForRequest("/app-api/cards")
-        try await transport.completeDeletion(deletedIDs: [], notFoundIDs: ["missing"])
+        try await transport.completeDeletion(
+            deletedIDs: [],
+            notFoundIDs: [CardsTestIDs.third]
+        )
         #expect(await deletion.value == [.notFound])
         #expect(feature.cards == cached)
         #expect(feature.hasLoadedCurrentCollection)
@@ -143,13 +172,11 @@ struct TCGCardsFeatureTests {
     @Test
     func `Failed deletion requests preserve cached rows without refreshing`() async throws {
         let transport = PendingCollectionTransport()
-        let feature = makePendingFeature(transport)
-        let load = Task { await feature.load(game: nil) }
-        await transport.waitForRequest("/app-api/cards")
-        await transport.completeWithCachedCards("/app-api/cards")
-        try await load.value.get()
+        let feature = try await loadCards(transport, response: .cached).get()
         let cached = feature.cards
-        let deletion = Task { await feature.deleteCards(ids: ["pokemon-card"]) }
+        let deletion = Task {
+            await feature.deleteCards(ids: [CardsTestIDs.cachedPokemon])
+        }
         await transport.waitForRequest("/app-api/cards")
         await transport.complete("/app-api/cards", status: .internalServerError)
         #expect(await deletion.value == [.serverUnavailable])
@@ -167,13 +194,18 @@ struct TCGCardsFeatureTests {
         await transport.waitForRequest("/app-api/cards")
         await transport.completeWithCachedCards("/app-api/cards")
         await load.value
-        let deletion = Task { await feature.deleteCards(ids: ["pokemon-card"]) }
+        let deletion = Task {
+            await feature.deleteCards(ids: [CardsTestIDs.cachedPokemon])
+        }
         await transport.waitForRequest("/app-api/cards")
-        try await transport.completeDeletion(deletedIDs: ["pokemon-card"], notFoundIDs: [])
+        try await transport.completeDeletion(
+            deletedIDs: [CardsTestIDs.cachedPokemon],
+            notFoundIDs: []
+        )
         await transport.waitForRequest("/app-api/cards")
         await transport.complete("/app-api/cards", status: .serviceUnavailable)
         #expect(await deletion.value.isEmpty)
-        #expect(feature.cards.map(\.card.id) == ["one-piece-card"])
+        #expect(feature.cards.map(\.card.id) == [CardsTestIDs.cachedOnePiece])
         #expect(!feature.hasLoadedCurrentCollection)
         let resumed = Task { await model.resumeLoadIfNeeded(using: feature) }
         await transport.waitForRequest("/app-api/cards")
@@ -186,20 +218,21 @@ struct TCGCardsFeatureTests {
     @Test
     func `A missing single deletion preserves cached rows and returns not found`() async throws {
         let transport = PendingCollectionTransport()
-        let feature = makePendingFeature(transport)
-        let load = Task { await feature.load(game: nil) }
-        await transport.waitForRequest("/app-api/cards")
-        await transport.completeWithCachedCards("/app-api/cards")
-        try await load.value.get()
+        let feature = try await loadCards(transport, response: .cached).get()
         let cached = feature.cards
-        let deletion = Task { await feature.deleteCard(id: "pokemon-card") }
+        let deletion = Task {
+            await feature.deleteCard(id: CardsTestIDs.cachedPokemon)
+        }
         await transport.waitForRequest("/app-api/cards")
-        try await transport.completeDeletion(deletedIDs: [], notFoundIDs: ["pokemon-card"])
+        try await transport.completeDeletion(
+            deletedIDs: [],
+            notFoundIDs: [CardsTestIDs.cachedPokemon]
+        )
         await #expect(throws: TCGCardsOperationError.notFound) { try await deletion.value.get() }
         #expect(feature.cards == cached)
         #expect(feature.hasLoadedCurrentCollection)
         #expect(await transport.requestCount == 2)
-        #expect(await transport.deletionIDs == [["pokemon-card"]])
+        #expect(await transport.deletionIDs == [[CardsTestIDs.cachedPokemon]])
     }
 
     @Test
@@ -212,10 +245,15 @@ struct TCGCardsFeatureTests {
         await transport.complete("/app-api/cards", setName: "Base Set")
         await initialLoad.value
 
-        let deletion = Task { await feature.deleteCard(id: "deleted-card") }
+        let deletion = Task {
+            await feature.deleteCard(id: CardsTestIDs.createdCard)
+        }
         await transport.waitForRequest("/app-api/cards")
-        try await transport.completeDeletion(deletedIDs: ["deleted-card"], notFoundIDs: [])
-        #expect(await transport.deletionIDs == [["deleted-card"]])
+        try await transport.completeDeletion(
+            deletedIDs: [CardsTestIDs.createdCard],
+            notFoundIDs: []
+        )
+        #expect(await transport.deletionIDs == [[CardsTestIDs.createdCard]])
         await transport.waitForRequest("/app-api/cards")
         await transport.complete("/app-api/cards", status: .serviceUnavailable)
         try await deletion.value.get()
@@ -340,8 +378,8 @@ struct TCGCardsFeatureTests {
 
         try await feature.load(game: .pokemon).get()
 
-        #expect(feature.cards.map(\.card.id) == ["preview-card-2"])
-        #expect(feature.cards.map(\.price.cardId) == ["preview-card-2"])
+        #expect(feature.cards.map(\.card.id) == [CardsTestIDs.secondary])
+        #expect(feature.cards.map(\.price.cardId) == [CardsTestIDs.secondary])
     }
 
     @Test
@@ -372,14 +410,25 @@ struct TCGCardsFeatureTests {
     func `Updating a card merges its refreshed price without clearing other prices`() async throws {
         let feature = makeFeature(.success(cards: PreviewTCGCardsClient.sampleCards))
         try await feature.load(game: nil).get()
-        let otherCardId = try #require(PreviewTCGCardsClient.sampleCards.first { $0.id != "preview-card-1" }?.id)
+        let otherCardId = try #require(
+            PreviewTCGCardsClient.sampleCards.first {
+                $0.id != CardsTestIDs.primary
+            }?.id
+        )
         let priceBeforeUpdate = feature.cards.first { $0.card.id == otherCardId }?.price
 
         var updated = validValues
         updated.name = "Updated"
-        _ = try await feature.updateCard(id: "preview-card-1", values: updated).get()
+        _ = try await feature.updateCard(
+            id: CardsTestIDs.primary,
+            values: updated
+        )
+        .get()
 
-        #expect(feature.cards.first { $0.card.id == "preview-card-1" }?.price != nil)
+        #expect(
+            feature.cards.first { $0.card.id == CardsTestIDs.primary }?.price
+                != nil
+        )
         #expect(feature.cards.first { $0.card.id == otherCardId }?.price == priceBeforeUpdate)
     }
 
@@ -402,7 +451,11 @@ struct TCGCardsFeatureTests {
     func `Missing update fails`() async {
         let feature = makeFeature(.notFound)
         await #expect(throws: TCGCardsOperationError.notFound) {
-            try await feature.updateCard(id: "preview-card-1", values: validValues).get()
+            try await feature.updateCard(
+                id: CardsTestIDs.primary,
+                values: validValues
+            )
+            .get()
         }
     }
 
@@ -413,12 +466,8 @@ struct TCGCardsFeatureTests {
     @Test
     func `Collection fetches only the first page and serializes subsequent loads`() async throws {
         let transport = PendingCollectionTransport()
-        let feature = makePendingFeature(transport)
-        let initial = Task { await feature.load(game: nil) }
-        await transport.waitForRequest("/app-api/cards")
-        await transport.completePage("/app-api/cards", id: "first", cursor: "page-two")
-        try await initial.value.get()
-        #expect(feature.cards.map(\.card.id) == ["first"])
+        let feature = try await loadCards(transport, response: .paginated).get()
+        #expect(feature.cards.map(\.card.id) == [CardsTestIDs.firstPageCard])
         #expect(feature.hasMoreCards)
         #expect(await transport.requestCount == 1)
 
@@ -427,9 +476,18 @@ struct TCGCardsFeatureTests {
         #expect(feature.isLoadingNextPage)
         try await feature.loadNextPage().get()
         #expect(await transport.requestCount == 2)
-        await transport.completePage("/app-api/cards?cursor=page-two", id: "second", cursor: nil)
+        await transport.completePage(
+            "/app-api/cards?cursor=page-two",
+            id: CardsTestIDs.secondPageCard,
+            cursor: nil
+        )
         try await next.value.get()
-        #expect(feature.cards.map(\.card.id) == ["first", "second"])
+        #expect(
+            feature.cards.map(\.card.id) == [
+                CardsTestIDs.firstPageCard,
+                CardsTestIDs.secondPageCard,
+            ]
+        )
         #expect(feature.availableSetNames == ["Base Set", "Crown Zenith"])
         #expect(!feature.hasMoreCards)
         #expect(!feature.isLoadingNextPage)
@@ -438,44 +496,49 @@ struct TCGCardsFeatureTests {
     @Test
     func `A failed subsequent page preserves rows and retries the same cursor`() async throws {
         let transport = PendingCollectionTransport()
-        let feature = makePendingFeature(transport)
-        let initial = Task { await feature.load(game: nil) }
-        await transport.waitForRequest("/app-api/cards")
-        await transport.completePage("/app-api/cards", id: "first", cursor: "page-two")
-        try await initial.value.get()
+        let feature = try await loadCards(transport, response: .paginated).get()
 
         let next = Task { await feature.loadNextPage() }
         await transport.waitForRequest("/app-api/cards?cursor=page-two")
         await transport.complete("/app-api/cards?cursor=page-two", status: .serviceUnavailable)
         await #expect(throws: TCGCardsOperationError.serverUnavailable) { try await next.value.get() }
         #expect(feature.nextPageError == .serverUnavailable)
-        #expect(feature.cards.map(\.card.id) == ["first"])
+        #expect(feature.cards.map(\.card.id) == [CardsTestIDs.firstPageCard])
         #expect(feature.hasMoreCards)
         #expect(!feature.isLoadingNextPage)
 
         let retry = Task { await feature.loadNextPage() }
         await transport.waitForRequest("/app-api/cards?cursor=page-two")
-        await transport.completePage("/app-api/cards?cursor=page-two", id: "second", cursor: nil)
+        await transport.completePage(
+            "/app-api/cards?cursor=page-two",
+            id: CardsTestIDs.secondPageCard,
+            cursor: nil
+        )
         try await retry.value.get()
-        #expect(feature.cards.map(\.card.id) == ["first", "second"])
+        #expect(
+            feature.cards.map(\.card.id) == [
+                CardsTestIDs.firstPageCard,
+                CardsTestIDs.secondPageCard,
+            ]
+        )
         #expect(feature.nextPageError == nil)
     }
 
     @Test
     func `Filter changes ignore an in-flight page from the previous collection`() async throws {
         let transport = PendingCollectionTransport()
-        let feature = makePendingFeature(transport)
-        let initial = Task { await feature.load(game: nil) }
-        await transport.waitForRequest("/app-api/cards")
-        await transport.completePage("/app-api/cards", id: "first", cursor: "page-two")
-        try await initial.value.get()
+        let feature = try await loadCards(transport, response: .paginated).get()
         let oldPage = Task { await feature.loadNextPage() }
         await transport.waitForRequest("/app-api/cards?cursor=page-two")
         let filtered = Task { await feature.load(game: .onePiece) }
         await transport.waitForRequest("/app-api/cards?game=one_piece")
         await transport.complete("/app-api/cards?game=one_piece", setName: "Romance Dawn")
         try await filtered.value.get()
-        await transport.completePage("/app-api/cards?cursor=page-two", id: "stale", cursor: "stale-cursor")
+        await transport.completePage(
+            "/app-api/cards?cursor=page-two",
+            id: CardsTestIDs.newFilterCard,
+            cursor: "stale-cursor"
+        )
         try await oldPage.value.get()
         #expect(feature.cards.isEmpty)
         #expect(feature.availableSetNames == ["Romance Dawn"])
@@ -486,17 +549,17 @@ struct TCGCardsFeatureTests {
     @Test
     func `Cancelled subsequent pages do not publish their rows`() async throws {
         let transport = PendingCollectionTransport()
-        let feature = makePendingFeature(transport)
-        let initial = Task { await feature.load(game: nil) }
-        await transport.waitForRequest("/app-api/cards")
-        await transport.completePage("/app-api/cards", id: "first", cursor: "page-two")
-        try await initial.value.get()
+        let feature = try await loadCards(transport, response: .paginated).get()
         let next = Task { await feature.loadNextPage() }
         await transport.waitForRequest("/app-api/cards?cursor=page-two")
         next.cancel()
-        await transport.completePage("/app-api/cards?cursor=page-two", id: "cancelled", cursor: nil)
+        await transport.completePage(
+            "/app-api/cards?cursor=page-two",
+            id: CardsTestIDs.oldFilterCard,
+            cursor: nil
+        )
         try await next.value.get()
-        #expect(feature.cards.map(\.card.id) == ["first"])
+        #expect(feature.cards.map(\.card.id) == [CardsTestIDs.firstPageCard])
         #expect(feature.hasMoreCards)
         #expect(!feature.isLoadingNextPage)
         #expect(feature.nextPageError == nil)
@@ -505,28 +568,42 @@ struct TCGCardsFeatureTests {
     @Test
     func `Refresh preserves loaded depth and publishes the replacement pages together`() async throws {
         let transport = PendingCollectionTransport()
-        let feature = makePendingFeature(transport)
-        let initial = Task { await feature.load(game: nil) }
-        await transport.waitForRequest("/app-api/cards")
-        await transport.completePage("/app-api/cards", id: "first", cursor: "page-two")
-        try await initial.value.get()
+        let feature = try await loadCards(transport, response: .paginated).get()
         let next = Task { await feature.loadNextPage() }
         await transport.waitForRequest("/app-api/cards?cursor=page-two")
-        await transport.completePage("/app-api/cards?cursor=page-two", id: "second", cursor: "page-three")
+        await transport.completePage(
+            "/app-api/cards?cursor=page-two",
+            id: CardsTestIDs.secondPageCard,
+            cursor: "page-three"
+        )
         try await next.value.get()
 
         let refresh = Task { await feature.retryImportRefresh() }
         await transport.waitForRequest("/app-api/cards")
-        await transport.completePage("/app-api/cards", id: "refreshed-first", cursor: "new-page-two")
+        await transport.completePage(
+            "/app-api/cards",
+            id: CardsTestIDs.staleCard,
+            cursor: "new-page-two"
+        )
         await transport.waitForRequest("/app-api/cards?cursor=new-page-two")
-        #expect(feature.cards.map(\.card.id) == ["first", "second"])
+        #expect(
+            feature.cards.map(\.card.id) == [
+                CardsTestIDs.firstPageCard,
+                CardsTestIDs.secondPageCard,
+            ]
+        )
         await transport.completePage(
             "/app-api/cards?cursor=new-page-two",
-            id: "refreshed-second",
+            id: CardsTestIDs.freshCard,
             cursor: "new-page-three"
         )
         #expect(await refresh.value)
-        #expect(feature.cards.map(\.card.id) == ["refreshed-first", "refreshed-second"])
+        #expect(
+            feature.cards.map(\.card.id) == [
+                CardsTestIDs.staleCard,
+                CardsTestIDs.freshCard,
+            ]
+        )
         #expect(feature.hasMoreCards)
         #expect(await transport.requestCount == 4)
     }
@@ -537,24 +614,40 @@ struct TCGCardsFeatureTests {
         let feature = makePendingFeature(transport)
         let initial = Task { await feature.load(game: nil) }
         await transport.waitForRequest("/app-api/cards")
-        await transport.completePage("/app-api/cards", id: "duplicate", cursor: "page-two")
+        await transport.completePage(
+            "/app-api/cards",
+            id: CardsTestIDs.loadedCard,
+            cursor: "page-two"
+        )
         try await initial.value.get()
 
         let next = Task { await feature.loadNextPage() }
         await transport.waitForRequest("/app-api/cards?cursor=page-two")
-        await transport.completePage("/app-api/cards?cursor=page-two", id: "duplicate", cursor: nil)
+        await transport.completePage(
+            "/app-api/cards?cursor=page-two",
+            id: CardsTestIDs.loadedCard,
+            cursor: nil
+        )
         try await next.value.get()
-        #expect(feature.cards.map(\.card.id) == ["duplicate"])
+        #expect(feature.cards.map(\.card.id) == [CardsTestIDs.loadedCard])
         #expect(!feature.hasMoreCards)
 
         let refresh = Task { await feature.retryImportRefresh() }
         await transport.waitForRequest("/app-api/cards")
-        await transport.completePage("/app-api/cards", id: "refreshed", cursor: "new-page-two")
+        await transport.completePage(
+            "/app-api/cards",
+            id: CardsTestIDs.updatedCard,
+            cursor: "new-page-two"
+        )
         await transport.waitForRequest("/app-api/cards?cursor=new-page-two")
-        #expect(feature.cards.map(\.card.id) == ["duplicate"])
-        await transport.completePage("/app-api/cards?cursor=new-page-two", id: "refreshed", cursor: nil)
+        #expect(feature.cards.map(\.card.id) == [CardsTestIDs.loadedCard])
+        await transport.completePage(
+            "/app-api/cards?cursor=new-page-two",
+            id: CardsTestIDs.updatedCard,
+            cursor: nil
+        )
         #expect(await refresh.value)
-        #expect(feature.cards.map(\.card.id) == ["refreshed"])
+        #expect(feature.cards.map(\.card.id) == [CardsTestIDs.updatedCard])
         #expect(feature.availableSetNames == ["Base Set", "Crown Zenith"])
         #expect(!feature.hasMoreCards)
         #expect(await transport.requestCount == 4)
@@ -566,14 +659,41 @@ struct TCGCardsFeatureTests {
         let feature = makePendingFeature(transport)
         let initial = Task { await feature.load(game: nil) }
         await transport.waitForRequest("/app-api/cards")
-        await transport.completePage("/app-api/cards", id: "first", cursor: "same")
+        await transport.completePage(
+            "/app-api/cards",
+            id: CardsTestIDs.firstPageCard,
+            cursor: "same"
+        )
         try await initial.value.get()
         let next = Task { await feature.loadNextPage() }
         await transport.waitForRequest("/app-api/cards?cursor=same")
-        await transport.completePage("/app-api/cards?cursor=same", id: "second", cursor: "same")
+        await transport.completePage(
+            "/app-api/cards?cursor=same",
+            id: CardsTestIDs.secondPageCard,
+            cursor: "same"
+        )
         await #expect(throws: TCGCardsOperationError.serverUnavailable) { try await next.value.get() }
-        #expect(feature.cards.map(\.card.id) == ["first"])
+        #expect(feature.cards.map(\.card.id) == [CardsTestIDs.firstPageCard])
         #expect(feature.nextPageError == .serverUnavailable)
+    }
+
+    private enum InitialCards {
+        case paginated, cached
+    }
+
+    private func loadCards(_ transport: PendingCollectionTransport, response: InitialCards) async -> Result<
+        TCGCards, TCGCardsOperationError
+    > {
+        let feature = makePendingFeature(transport)
+        let initial = Task { await feature.load(game: nil) }
+        await transport.waitForRequest("/app-api/cards")
+        switch response {
+        case .paginated:
+            await transport.completePage("/app-api/cards", id: CardsTestIDs.firstPageCard, cursor: "page-two")
+        case .cached:
+            await transport.completeWithCachedCards("/app-api/cards")
+        }
+        return await initial.value.map { feature }
     }
 
     private func makePendingFeature(_ transport: PendingCollectionTransport) -> TCGCards {
@@ -596,7 +716,7 @@ struct TCGCardsFeatureTests {
 
 private actor PendingCollectionTransport: ClientTransport {
     private(set) var requestCount = 0
-    private(set) var deletionIDs: [[String]] = []
+    private(set) var deletionIDs: [[UUID]] = []
     private var pending: [String: [CheckedContinuation<(HTTPResponse, HTTPBody?), Never>]] = [:]
     private var pendingCountWaiters: [String: (Int, CheckedContinuation<Void, Never>)] = [:]
     private var waiters: [String: CheckedContinuation<Void, Never>] = [:]
@@ -656,7 +776,7 @@ private actor PendingCollectionTransport: ClientTransport {
         continuation.resume(returning: (HTTPResponse(status: status), HTTPBody("{}")))
     }
 
-    func completePage(_ path: String, id: String, cursor: String?) {
+    func completePage(_ path: String, id: UUID, cursor: String?) {
         let continuation = takeRequest(path)
         let nextCursor = cursor.map { "\"\($0)\"" } ?? "null"
         let body = """
@@ -675,10 +795,13 @@ private actor PendingCollectionTransport: ClientTransport {
         continuation.resume(returning: (HTTPResponse(status: .ok), HTTPBody(body)))
     }
 
-    func completeDeletion(deletedIDs: [String], notFoundIDs: [String]) throws {
+    func completeDeletion(deletedIDs: [UUID], notFoundIDs: [UUID]) throws {
         let path = "/app-api/cards"
         let continuation = takeRequest(path)
-        let body = try JSONSerialization.data(withJSONObject: ["deleted_ids": deletedIDs, "not_found_ids": notFoundIDs])
+        let body = try JSONSerialization.data(withJSONObject: [
+            "deleted_ids": deletedIDs.map { $0.uuidString.lowercased() },
+            "not_found_ids": notFoundIDs.map { $0.uuidString.lowercased() },
+        ])
         continuation.resume(returning: (HTTPResponse(status: .ok), HTTPBody(body)))
     }
 
@@ -686,14 +809,14 @@ private actor PendingCollectionTransport: ClientTransport {
         let continuation = takeRequest(path)
         let body = """
             {"cards": [
-              {"id": "pokemon-card", "game": "pokemon", "name": "Pikachu",
+              {"id": "00000000-0000-4000-8000-000000000060", "game": "pokemon", "name": "Pikachu",
                "set_name": "Base Set", "card_number": "58/102", "notes": null, "purchases": [], "purchase_price_change_percent": null,
                "created_at": "2026-07-20T10:30:00.000Z", "updated_at": "2026-07-20T10:30:00.000Z",
-               "price": {"card_id": "pokemon-card", "status": "no_price"}},
-              {"id": "one-piece-card", "game": "one_piece", "name": "Luffy",
+               "price": {"card_id": "00000000-0000-4000-8000-000000000060", "status": "no_price"}},
+              {"id": "00000000-0000-4000-8000-000000000061", "game": "one_piece", "name": "Luffy",
                "set_name": "Romance Dawn", "card_number": "OP01-003", "notes": null, "purchases": [], "purchase_price_change_percent": null,
                "created_at": "2026-07-20T10:30:00.000Z", "updated_at": "2026-07-20T10:30:00.000Z",
-               "price": {"card_id": "one-piece-card", "status": "no_price"}}
+               "price": {"card_id": "00000000-0000-4000-8000-000000000061", "status": "no_price"}}
             ], "available_set_names": ["Base Set", "Romance Dawn"], "next_cursor": null}
             """
         continuation.resume(returning: (HTTPResponse(status: .ok), HTTPBody(body)))

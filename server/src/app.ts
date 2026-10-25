@@ -53,7 +53,7 @@ export function createApp({
           }),
         )
         .route(HEALTH_ROUTE_NAME, healthRoute)
-        .route(APP_API_ROUTE_NAME, createAppApiRoute(authModule)),
+        .route(APP_API_ROUTE_NAME, createAppApiRoute(authModule, config)),
     ),
     config.BASE_URL,
   ).all('/*', c => new NotFound(c).getResponse());
