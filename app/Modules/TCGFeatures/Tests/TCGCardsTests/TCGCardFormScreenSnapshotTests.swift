@@ -22,12 +22,20 @@ struct TCGCardFormScreenSnapshotTests {
             initialValues: .init(pricedCard: PreviewTCGPricingClient.samplePricedCards[0])
         )
         model.values.batches = [
-            .init(condition: .nearMint, quantity: 2, priceText: "2"),
+            .init(condition: .nearMint, quantity: 2),
             .init(condition: .nearMint, quantity: 3, priceText: "4"),
         ]
-        for index in model.values.batches.indices {
-            model.values.batches[index].priceWasEdited = true
-        }
+        model.values.batches[1].priceWasEdited = true
+        model.values.defaultMarketPrice = 300
+        model.values.defaultMarketCurrency = .jpy
+        model.values.marketPricedOn = .now
+        model.configureCurrency(
+            preferred: .jpy,
+            rates: ExchangeRates(date: "2026-10-16", rates: ["USD": 1, "JPY": 150])
+        )
+        model.selectPurchaseCurrency(id: model.values.batches[0].id, currency: .usd)
+        #expect(model.values.batches[0].priceText == "2")
+        #expect(model.values.batches[0].currency == .usd)
         #expect(model.values.quantities == [.nearMint: 5])
         await assertScreenSnapshot(testName: #function) { makeScreen(model: model) }
     }

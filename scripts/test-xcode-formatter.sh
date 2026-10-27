@@ -31,7 +31,7 @@ EOF
 assert_contains() {
     if ! grep -Fq -- "$2" "$1"; then
         echo "xcbeautify compatibility check failed: missing '$2' in $3 output." >&2
-        echo 'Run `brew upgrade xcbeautify` and retry `just test-xcode-formatter`.' >&2
+        echo 'Run `brew upgrade xcbeautify` and retry `just test-scripts`.' >&2
         exit 1
     fi
 }

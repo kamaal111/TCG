@@ -4,6 +4,7 @@ import TCGCurrency
 
 struct PurchaseBatchFields: View {
     @Binding var batch: PurchaseBatchFormValue
+    let selectCurrency: @MainActor @Sendable (Currency) -> Void
     let remove: () -> Void
 
     var body: some View {
@@ -26,10 +27,7 @@ struct PurchaseBatchFields: View {
                 Picker(
                     selection: Binding(
                         get: { batch.currency },
-                        set: {
-                            batch.currency = $0
-                            batch.priceWasEdited = true
-                        }
+                        set: selectCurrency
                     )
                 ) {
                     ForEach(Currency.allCases, id: \.self) { currency in

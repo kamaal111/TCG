@@ -69,4 +69,23 @@ if [[ "$command_status" -ne 0 ]]; then
     exit "$command_status"
 fi
 
-exit "$formatter_status"
+if [[ "$formatter_status" -ne 0 ]]; then
+    exit "$formatter_status"
+fi
+
+repository_directory="$(cd "$script_directory/.." && pwd)"
+awk -v app_root="$repository_directory/app/" '
+    /:[0-9]+(:[0-9]+)?: warning:/ {
+        source = $0
+        sub(/:[0-9]+(:[0-9]+)?: warning:.*/, "", source)
+        if (source ~ /\/(\.build|SourcePackages)\//) next
+        if (index(source, app_root) == 1 || source ~ /^(app\/)?(Modules|TCG)\//) {
+            print > "/dev/stderr"
+            warnings = 1
+        }
+    }
+    END {
+        if (warnings) print "Xcode emitted warnings in repository application sources." > "/dev/stderr"
+        exit warnings ? 1 : 0
+    }
+' "$log_file"

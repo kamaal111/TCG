@@ -126,6 +126,21 @@ final class TCGCardFormScreenModel {
         values.batches.append(values.newBatch(condition: condition))
     }
 
+    func selectPurchaseCurrency(id: UUID, currency: Currency) {
+        guard let index = values.batches.firstIndex(where: { $0.id == id }) else { return }
+        guard values.batches[index].currency != currency else { return }
+        var batch = values.batches[index]
+        batch.currency = currency
+        switch mode {
+        case .add:
+            batch.currencyWasSelected = true
+            batch = values.applyingMarketDefault(to: batch)
+        case .edit, .draft:
+            batch.priceWasEdited = true
+        }
+        values.batches[index] = batch
+    }
+
     func removeBatch(id: UUID) { values.batches.removeAll { $0.id == id } }
 
     func requestDismissal() -> Bool {

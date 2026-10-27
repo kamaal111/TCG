@@ -183,7 +183,7 @@ heavy: quality test-heavy
 
 # Run all verification checks for app
 [parallel]
-ready-app: quality-app test-app test-localization-check test-xcode-formatter
+ready-app: quality-app test-app test-scripts
 
 # Run all verification checks for server
 [parallel]
@@ -218,14 +218,6 @@ check-localizations-macos *args:
 _check-localizations platform *args:
     node scripts/check-localizations.ts "$@"
 
-
-# Test localization coverage checks with isolated compiler-output fixtures
-test-localization-check:
-    {{ PNR }} test scripts/check-localizations.test.ts
-
-# Verify real formatter output for build tasks and named test results
-test-xcode-formatter:
-    bash scripts/test-xcode-formatter.sh
 
 # Run app tests on macOS
 [working-directory("app")]

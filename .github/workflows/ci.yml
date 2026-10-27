@@ -86,6 +86,7 @@ jobs:
         run: just test-server-image
 
       - name: Run repository tooling tests
+        if: needs.changes.outputs.app != 'true'
         run: just test-scripts
 
   app-macos:
@@ -113,8 +114,8 @@ jobs:
       - name: Install xcbeautify if needed
         run: just install-xcbeautify
 
-      - name: Verify formatter test visibility
-        run: just test-xcode-formatter
+      - name: Run repository tooling tests
+        run: just test-scripts
 
       - name: Identify Swift toolchain
         id: swift-toolchain
@@ -150,9 +151,7 @@ jobs:
         run: just test-app-macos
 
       - name: Verify macOS localization coverage
-        run: |
-          just test-localization-check
-          just check-localizations-macos
+        run: just check-localizations-macos
 
       - name: Collect failed snapshots
         if: failure()
@@ -203,9 +202,6 @@ jobs:
 
       - name: Install xcbeautify if needed
         run: just install-xcbeautify
-
-      - name: Verify formatter test visibility
-        run: just test-xcode-formatter
 
       - name: Identify Swift toolchain
         id: swift-toolchain

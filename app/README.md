@@ -170,9 +170,9 @@ it runs `brew install xcbeautify`. Ruby and RubyGems are not required.
 
 Both local and CI logs display formatted build tasks and named test results.
 CI uses the GitHub Actions renderer; local commands use the terminal renderer.
-`just test-xcode-formatter` checks both renderers against representative build,
-Swift Testing, and XCTest output using the actual installed binary. It also runs
-in app CI and `just ready-app`. If an older installation fails this compatibility
+The root Vitest suite checks both renderers against representative build,
+Swift Testing, and XCTest output when xcbeautify is installed. It runs in app CI
+and `just ready-app`. If an older installation fails this compatibility
 check, run `brew upgrade xcbeautify`. The check is validated with xcbeautify 3.2.1.
 Newer Swift Testing aggregate lines containing “in 3 suites” are not parsed by
 that version; the iOS job summary still reports totals from the raw stream.
@@ -291,7 +291,7 @@ macOS and iOS. Create a catalog in a new module before syncing its strings.
 Run the matching platform tests before a standalone coverage check so extraction
 reflects the current source. CI checks both platforms to cover conditional text
 such as iOS sheet buttons. Checker regression tests run with
-`just test-localization-check` and need Node.js (using the repository's `.node-version`) and installed
+`just test-scripts` and need Node.js (using the repository's `.node-version`) and installed
 pnpm dependencies. They use Vitest and also run in the Linux devcontainer without Xcode.
 
 ## Preferred currency
