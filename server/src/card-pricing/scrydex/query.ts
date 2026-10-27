@@ -8,7 +8,7 @@ const POKEMON_EXPANSION_ID = /^(?:[a-z]{1,4}\d[a-z0-9]*|mep)(?:_[a-z]{2})?$/i;
 
 const NUMERIC_CARD_NUMBER = /^\d+$/;
 
-const PRINTED_CARD_NUMBER = /^\d+\/\d+$/;
+const PRINTED_CARD_NUMBER = /^[A-Z]*\d+\/[A-Z]*\d+$/i;
 
 const RESERVED_CHARACTERS = /([+\-!(){}[\]^"~*?:\\/]|&&|\|\|)/g;
 
@@ -74,7 +74,7 @@ function onePieceNumberQuery(number: string): string {
 
 function pokemonNumberQuery(number: string): string {
   if (PRINTED_CARD_NUMBER.test(number)) {
-    return `!printed_number:"${number}"`;
+    return `!printed_number:"${number.toUpperCase()}"`;
   }
 
   const normalized = NUMERIC_CARD_NUMBER.test(number) ? number.replace(/^0+(?=\d)/, '') : number;

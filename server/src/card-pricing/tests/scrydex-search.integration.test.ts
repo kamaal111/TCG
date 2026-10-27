@@ -1,15 +1,19 @@
 import type { ScrydexRawCard } from '@tcg/scrydex';
 
-import { sessionHeaders } from '../../cards/tests/utils.ts';
+import { proxyURLForOriginURL } from '../../card-images/keys.ts';
+import { LIST_CARDS_ROUTE_PATH } from '../../cards/routes/list-cards.ts';
+import { CardsListResponseSchema, CardWithPriceSchema } from '../../cards/schemas/responses.ts';
+import { createCardRequest, sessionHeaders } from '../../cards/tests/utils.ts';
 import type { Database } from '../../db/index.ts';
 import { cardPriceSearch } from '../../db/schema/card-pricing.ts';
+import { card } from '../../db/schema/cards.ts';
 import App from '../../runtime/node/app.ts';
 import type { ObjectStorageClient } from '../../storage/client.ts';
 import { integrationTest } from '../../tests/fixtures.ts';
 import { createTestUser } from '../../tests/utils.ts';
 import { parseCardLanguages } from '../languages.ts';
 import { SEARCH_PRICING_ROUTE_PATH } from '../routes/search-pricing.ts';
-import { PricingSearchResponseSchema } from '../schemas/responses.ts';
+import { PricedCardSchema, PricingSearchResponseSchema } from '../schemas/responses.ts';
 import { RealScrydexClient } from '../scrydex/real-client.ts';
 import type { CardGame } from '../types.ts';
 import { queryKey, todayUTC } from '../utils/query.ts';
@@ -49,7 +53,198 @@ const TORCHIC_PROMO = {
 
 const MEP_AND_NUMBER = '(!expansion.id:mep OR !expansion.id:mep_ja) AND !number:56';
 
+const PRINTED_NUMBER_CASES = [
+  {
+    providerCard: {
+      id: 'swsh12pt5gg-GG69',
+      name: 'Giratina VSTAR',
+      number: 'GG69',
+      printed_number: 'GG69/GG70',
+      expansion: { name: 'Crown Zenith Galarian Gallery' },
+      images: [{ type: 'front', large: 'https://images.example.com/giratina.png' }],
+      variants: [{ name: 'normal', prices: [{ condition: 'NM', type: 'raw', currency: 'USD', low: 146.69 }] }],
+    },
+    status: 'priced',
+  },
+  {
+    providerCard: {
+      id: 'swsh11tg-TG05',
+      name: 'Pikachu',
+      number: 'TG05',
+      printed_number: 'TG05/TG30',
+      expansion: { name: 'Lost Origin Trainer Gallery' },
+      images: [{ type: 'front', large: 'https://images.example.com/pikachu.png' }],
+      variants: [],
+    },
+    status: 'no_price',
+  },
+  {
+    providerCard: {
+      ...SHIFTRY,
+      expansion: { name: 'Wild Force' },
+      images: [{ type: 'front', large: 'https://images.example.com/shiftry.png' }],
+    },
+    status: 'priced',
+  },
+] as const satisfies { providerCard: ScrydexRawCard; status: string }[];
+
 describe('Scrydex search through the authenticated pricing API', () => {
+  for (const { providerCard, status } of PRINTED_NUMBER_CASES) {
+    integrationTest(
+      `preserves artwork when saving and listing ${providerCard.printed_number} with ${status} pricing`,
+      async ({ db, storageClient }) => {
+        const expectedQuery = `name:"${providerCard.name}" AND !printed_number:"${providerCard.printed_number}"`;
+        const nameQuery = `name:"${providerCard.name}"`;
+
+        const search = await createSearchApp({
+          db,
+          storageClient,
+          expectedQuery: [nameQuery, expectedQuery],
+          cards: [providerCard],
+        });
+
+        const first = await search.request(providerCard.name);
+
+        expect(first.status).toBe(200);
+        const searched = PricingSearchResponseSchema.parse(await first.json());
+        expect(searched.matches).toHaveLength(1);
+        const match = PricedCardSchema.parse(searched.matches[0]);
+
+        const created = await createCardRequest(search.app, search.user.sessionToken, {
+          game: 'pokemon',
+          name: match.name,
+          set_name: providerCard.expansion.name,
+          card_number: match.card_number,
+          purchases: [{ condition: 'near_mint', quantity: 1, purchase_price: null, currency: null }],
+        });
+
+        expect(created.status).toBe(201);
+        const saved = CardWithPriceSchema.parse(await created.json());
+        const expectedImage = proxyURLForOriginURL(providerCard.images[0].large, 'http://localhost:8080');
+        expect(match).toMatchObject({ card_number: providerCard.printed_number, image_url: expectedImage });
+        expect(saved.price).toMatchObject({
+          status,
+          priced_card: { id: match.id, card_number: providerCard.printed_number, image_url: expectedImage },
+        });
+        expect(await db.query.card.findFirst({ where: { id: saved.id } })).toMatchObject({
+          pricingCardId: providerCard.id,
+          pricingSource: 'scrydex_real',
+        });
+
+        const listed = await search.app.request(LIST_CARDS_ROUTE_PATH, {
+          headers: sessionHeaders(search.user.sessionToken),
+        });
+
+        expect(listed.status).toBe(200);
+        const collection = CardsListResponseSchema.parse(await listed.json());
+        expect(collection.cards).toHaveLength(1);
+        expect(collection.cards[0]).toMatchObject({ id: saved.id, price: saved.price });
+
+        const repeated = await search.app.request(LIST_CARDS_ROUTE_PATH, {
+          headers: sessionHeaders(search.user.sessionToken),
+        });
+
+        expect(repeated.status).toBe(200);
+        expect(CardsListResponseSchema.parse(await repeated.json())).toEqual(collection);
+        expect(search.transport.queries).toEqual([nameQuery, expectedQuery]);
+      },
+    );
+
+    integrationTest(
+      `recovers an unlinked ${providerCard.printed_number} collection entry despite a v3 empty cache`,
+      async ({ db, storageClient }) => {
+        const expectedQuery = `name:"${providerCard.name}" AND !printed_number:"${providerCard.printed_number}"`;
+        const search = await createSearchApp({ db, storageClient, expectedQuery, cards: [providerCard] });
+        await db.insert(card).values({
+          userId: search.user.userId,
+          game: 'pokemon',
+          name: providerCard.name,
+          setName: providerCard.expansion.name,
+          cardNumber: providerCard.printed_number,
+        });
+        await db.insert(cardPriceSearch).values({
+          game: 'pokemon',
+          pricingSource: 'scrydex_real',
+          queryKey: `pokemon|v3|${providerCard.name.toLowerCase()} ${providerCard.printed_number.toLowerCase()}`,
+          pricedOn: todayUTC(),
+          pricingCardIds: [],
+        });
+
+        const response = await search.app.request(LIST_CARDS_ROUTE_PATH, {
+          headers: sessionHeaders(search.user.sessionToken),
+        });
+
+        expect(response.status).toBe(200);
+        expect(CardsListResponseSchema.parse(await response.json()).cards).toMatchObject([
+          {
+            card_number: providerCard.printed_number,
+            price: {
+              status,
+              priced_card: {
+                image_url: proxyURLForOriginURL(providerCard.images[0].large, 'http://localhost:8080'),
+              },
+            },
+          },
+        ]);
+        expect(await db.query.card.findFirst({ where: { userId: search.user.userId } })).toMatchObject({
+          pricingCardId: providerCard.id,
+          pricingSource: 'scrydex_real',
+        });
+        expect(search.transport.queries).toEqual([expectedQuery]);
+      },
+    );
+  }
+
+  for (const { languages, oldKey, expectedQuery } of [
+    { languages: '', oldKey: 'pokemon|v3|gg69/gg70', expectedQuery: '!printed_number:"GG69/GG70"' },
+    {
+      languages: 'en',
+      oldKey: 'pokemon|v3|languages-v1|en|gg69/gg70',
+      expectedQuery: '(!printed_number:"GG69/GG70") AND (!language_code:EN)',
+    },
+  ]) {
+    integrationTest(
+      `finds lowercase prefixed printed numbers despite a v3 empty cache with languages=${languages}`,
+      async ({ db, storageClient }) => {
+        await db.insert(cardPriceSearch).values({
+          game: 'pokemon',
+          pricingSource: 'scrydex_real',
+          queryKey: oldKey,
+          pricedOn: todayUTC(),
+          pricingCardIds: [],
+        });
+
+        const search = await createSearchApp({
+          db,
+          storageClient,
+          expectedQuery,
+          cards: [PRINTED_NUMBER_CASES[0].providerCard],
+        });
+
+        const response = await search.request('gg69/gg70', languages);
+        expect(response.status).toBe(200);
+        expect(PricingSearchResponseSchema.parse(await response.json()).matches).toMatchObject([
+          { name: 'Giratina VSTAR', card_number: 'GG69/GG70', image_url: expect.any(String) },
+        ]);
+        expect(search.transport.queries).toEqual([expectedQuery]);
+      },
+    );
+  }
+
+  integrationTest('keeps prefixed printed denominators exact', async ({ db, storageClient }) => {
+    const search = await createSearchApp({
+      db,
+      storageClient,
+      expectedQuery: '!printed_number:"GG69/GG70"',
+      cards: [PRINTED_NUMBER_CASES[0].providerCard],
+    });
+
+    const response = await search.request('GG69/GG71');
+    expect(response.status).toBe(200);
+    expect(PricingSearchResponseSchema.parse(await response.json())).toEqual({ matches: [] });
+    expect(search.transport.queries).toEqual(['!printed_number:"GG69/GG71"']);
+  });
+
   for (const { query, expectedQuery } of [
     { query: 'p-110', expectedQuery: '!id:P-110' },
     { query: 'Monkey.D.Luffy P-110', expectedQuery: 'name:"Monkey.D.Luffy" AND !id:P-110' },
@@ -420,12 +615,16 @@ interface SearchAppOptions {
   game?: CardGame;
   db: Database;
   storageClient: ObjectStorageClient;
-  expectedQuery: string;
+  expectedQuery: string | string[];
   cards: ScrydexRawCard[];
 }
 
 async function createSearchApp({ db, storageClient, expectedQuery, cards, game = 'pokemon' }: SearchAppOptions) {
-  const transport = new ScrydexSearchTransport(expectedQuery, cards, game);
+  const transport = new ScrydexSearchTransport(
+    Array.isArray(expectedQuery) ? expectedQuery : [expectedQuery],
+    cards,
+    game,
+  );
 
   const pricingClient = new RealScrydexClient({
     apiKey: 'test-api-key',
@@ -438,6 +637,8 @@ async function createSearchApp({ db, storageClient, expectedQuery, cards, game =
   const user = await createTestUser(app, db);
 
   return {
+    app,
+    user,
     transport,
     request: (query: string, languages = '') =>
       app.request(`${SEARCH_PRICING_ROUTE_PATH}?${new URLSearchParams({ game, query, languages })}`, {
@@ -451,7 +652,7 @@ class ScrydexSearchTransport {
   readonly paths: string[] = [];
 
   constructor(
-    private readonly expectedQuery: string,
+    private readonly expectedQueries: string[],
     private readonly cards: ScrydexRawCard[],
     private readonly game: CardGame,
   ) {}
@@ -462,7 +663,7 @@ class ScrydexSearchTransport {
     this.queries.push(query);
     this.paths.push(url.pathname);
     const expectedPath = this.game === 'pokemon' ? '/pokemon/v1/cards' : '/onepiece/v1/cards';
-    const data = url.pathname === expectedPath && query === this.expectedQuery ? this.cards : [];
+    const data = url.pathname === expectedPath && this.expectedQueries.includes(query) ? this.cards : [];
 
     return Response.json({ data, total_count: data.length });
   };
