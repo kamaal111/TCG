@@ -52,7 +52,10 @@ struct TCGCardFormFields: View {
                         }
                         ForEach($model.values.batches) { $batch in
                             if batch.condition == condition {
-                                PurchaseBatchFields(batch: $batch) {
+                                PurchaseBatchFields(
+                                    batch: $batch,
+                                    selectCurrency: { model.selectPurchaseCurrency(id: batch.id, currency: $0) }
+                                ) {
                                     model.removeBatch(id: batch.id)
                                 }
                             }

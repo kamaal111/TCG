@@ -44,7 +44,8 @@ struct CardFormValues: Equatable {
     }
 
     func applyingMarketDefault(to batch: PurchaseBatchFormValue) -> PurchaseBatchFormValue {
-        let target = preferredCurrency ?? defaultMarketCurrency ?? .fallback
+        let target =
+            batch.currencyWasSelected ? batch.currency : preferredCurrency ?? defaultMarketCurrency ?? .fallback
         let converted: Decimal?
         if let price = defaultMarketPrice, let source = defaultMarketCurrency {
             converted = source == target ? price : exchangeRates?.convert(price, from: source, to: target)
@@ -127,6 +128,7 @@ struct PurchaseBatchFormValue: Equatable, Identifiable {
     var priceText: String
     var currency: Currency
     var priceWasEdited = false
+    var currencyWasSelected = false
 
     init(condition: CardCondition, quantity: Int, priceText: String = "", currency: Currency = .fallback) {
         id = UUID()
@@ -166,7 +168,7 @@ struct PurchaseBatchFormValue: Equatable, Identifiable {
         guard persistedID == nil else { return }
         guard !priceWasEdited else { return }
         priceText = Self.priceText(for: price)
-        self.currency = currency ?? .fallback
+        if !currencyWasSelected { self.currency = currency ?? .fallback }
     }
 
     private static func priceText(for price: Decimal?) -> String {

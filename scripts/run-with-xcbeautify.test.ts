@@ -7,6 +7,11 @@ const runner = path.resolve('scripts/run-with-xcbeautify.sh');
 
 const installer = path.resolve('scripts/install-xcbeautify.sh');
 
+const formatterCompatibility = path.resolve('scripts/test-xcode-formatter.sh');
+
+const hasXcbeautify =
+  childProcess.spawnSync('/bin/sh', ['-c', 'command -v xcbeautify'], { stdio: 'ignore' }).status === 0;
+
 const fixtures: string[] = [];
 
 const processes: childProcess.ChildProcess[] = [];
@@ -95,6 +100,13 @@ describe('xcbeautify installation', () => {
 });
 
 describe('xcbeautify runner', () => {
+  it('preserves build and test output with the installed xcbeautify', { skip: !hasXcbeautify }, () => {
+    const result = childProcess.spawnSync('/bin/bash', [formatterCompatibility], { encoding: 'utf8', timeout: 10_000 });
+
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain('build, Swift Testing, and XCTest visibility checks passed for both renderers');
+  });
+
   it.each([
     ['false', 'terminal'],
     ['true', 'github-actions'],
@@ -147,6 +159,36 @@ describe('xcbeautify runner', () => {
     const { invoke } = fixture();
 
     expect(invoke(['tests', process.execPath, '-e', "console.error('test failed'); process.exit(65)"]).status).toBe(65);
+  });
+
+  it.each([
+    path.resolve('app/Modules/TCGFeatures/Sources/TCGCards/Views/PurchaseBatchFields.swift'),
+    'Modules/TCGFeatures/Sources/TCGCards/Views/PurchaseBatchFields.swift',
+    'app/Modules/TCGFeatures/Sources/TCGCards/Views/PurchaseBatchFields.swift',
+    'TCG/TCGApp.swift',
+  ])('rejects a successful build that emits a repository source warning at %s', source => {
+    const { directory, invoke } = fixture();
+    const diagnostic = `${source}:30:30: warning: converting non-Sendable function value to '@isolated(any) @Sendable (Currency) -> Void' may introduce data races`;
+
+    const result = invoke(['tests', process.execPath, '-e', `console.error(${JSON.stringify(diagnostic)})`]);
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain(diagnostic);
+    expect(result.stderr).toContain('Xcode emitted warnings in repository application sources.');
+    expect(fs.readFileSync(path.join(directory, 'logs/tests.log'), 'utf8')).toContain(diagnostic);
+  });
+
+  it.each([
+    '/tmp/SourcePackages/checkouts/Dependency/Sources/Dependency.swift',
+    path.resolve('app/Modules/TCGFeatures/.build/checkouts/Dependency/Sources/Dependency.swift'),
+  ])('keeps dependency warnings at %s visible without treating them as repository source warnings', source => {
+    const { invoke } = fixture();
+    const diagnostic = `${source}:30:30: warning: dependency warning`;
+
+    const result = invoke(['tests', process.execPath, '-e', `console.error(${JSON.stringify(diagnostic)})`]);
+
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain(diagnostic);
   });
 
   it('fails when the formatter fails after consuming output', () => {

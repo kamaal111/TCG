@@ -17,6 +17,151 @@ import Testing
 @Suite("TCGCard Form Screen Model Tests")
 @MainActor
 struct TCGCardFormScreenModelTests {
+    @Test
+    func `Selecting JPY converts the automatic price and saved purchase`() throws {
+        let model = makeCurrencySelectionModel()
+        model.values.batches[0].quantity = 2
+        let id = model.values.batches[0].id
+        model.selectPurchaseCurrency(id: id, currency: .jpy)
+        let batch = model.values.batches[0]
+        let price = try #require(batch.price)
+        #expect(batch.priceText == "42600")
+        #expect(batch.currency == .jpy)
+        #expect(price * Decimal(batch.quantity) == 85200)
+        #expect(model.values.payload.purchases.first?.purchasePrice == 42600)
+        #expect(model.values.payload.purchases.first?.currency == .jpy)
+        #expect(TCGCardsValidator.issues(for: model.values).isEmpty)
+    }
+
+    @Test
+    func `Repeated currency selections use the original market amount`() {
+        let model = makeCurrencySelectionModel()
+        let id = model.values.batches[0].id
+        model.selectPurchaseCurrency(id: id, currency: .jpy)
+        #expect(model.values.batches[0].price == 42600)
+        model.selectPurchaseCurrency(id: id, currency: .eur)
+        #expect(model.values.batches[0].price == Decimal(string: "227.2"))
+        model.selectPurchaseCurrency(id: id, currency: .usd)
+        #expect(model.values.batches[0].price == 284)
+        model.values.defaultMarketPrice = 1
+        model.configureCurrency(preferred: .usd, rates: ExchangeRates(date: "2026-10-16", rates: ["USD": 3, "EUR": 1]))
+        model.selectPurchaseCurrency(id: id, currency: .eur)
+        #expect(model.values.batches[0].priceText == "0.333333")
+        model.selectPurchaseCurrency(id: id, currency: .usd)
+        #expect(model.values.batches[0].priceText == "1")
+    }
+
+    @Test(arguments: ["300", "", "1.2345678"])
+    func `Currency selection and refresh preserve manually edited text`(text: String) {
+        let model = makeCurrencySelectionModel()
+        let id = model.values.batches[0].id
+        model.values.batches[0].priceText = text
+        model.values.batches[0].priceWasEdited = true
+        model.selectPurchaseCurrency(id: id, currency: .jpy)
+        model.configureCurrency(preferred: .usd, rates: nil)
+        model.applyMarketDefault(PreviewTCGPricingClient.samplePricedCards[0])
+        #expect(model.values.batches[0].priceText == text)
+        #expect(model.values.batches[0].currency == .jpy)
+    }
+
+    @Test(
+        arguments: [
+            nil,
+            ExchangeRates(date: "2026-10-16", rates: ["USD": 1]),
+            ExchangeRates(date: "2026-10-16", rates: ["JPY": 150]),
+            ExchangeRates(date: "2026-10-16", rates: ["USD": 0, "JPY": 150]),
+            ExchangeRates(date: "2026-10-16", rates: ["USD": 1, "JPY": -1]),
+        ] as [ExchangeRates?]
+    )
+    func `Unavailable conversion clears automatic price and rate recovery restores selected currency`(
+        rates: ExchangeRates?
+    ) throws {
+        let model = makeCurrencySelectionModel()
+        model.configureCurrency(preferred: .usd, rates: rates)
+        let id = model.values.batches[0].id
+        model.selectPurchaseCurrency(id: id, currency: .jpy)
+        #expect(model.values.batches[0].currency == .jpy)
+        #expect(model.values.batches[0].priceText.isEmpty)
+        let purchase = try #require(model.values.payload.purchases.first)
+        #expect(purchase.purchasePrice == nil)
+        #expect(purchase.currency == nil)
+        model.configureCurrency(preferred: .usd, rates: currencySelectionRates)
+        #expect(model.values.batches[0].currency == .jpy)
+        #expect(model.values.batches[0].price == 42600)
+    }
+
+    @Test
+    func `Manual entry after failed conversion survives rate recovery`() {
+        let model = makeCurrencySelectionModel()
+        model.configureCurrency(preferred: .usd, rates: nil)
+        model.selectPurchaseCurrency(id: model.values.batches[0].id, currency: .jpy)
+        model.values.batches[0].priceText = "500"
+        model.values.batches[0].priceWasEdited = true
+        model.configureCurrency(preferred: .usd, rates: currencySelectionRates)
+        #expect(model.values.batches[0].price == 500)
+        #expect(model.values.batches[0].currency == .jpy)
+    }
+
+    @Test
+    func `Currency selections affect only one batch and survive market refresh`() {
+        let model = makeCurrencySelectionModel()
+        model.addBatch(condition: .played)
+        let other = model.values.batches[1]
+        let id = model.values.batches[0].id
+        model.selectPurchaseCurrency(id: id, currency: .jpy)
+        #expect(model.values.batches[1] == other)
+        model.addBatch(condition: .mint)
+        #expect(model.values.batches[2].currency == .usd)
+        #expect(model.values.batches[2].price == 284)
+        model.applyMarketDefault(PreviewTCGPricingClient.samplePricedCards[0])
+        #expect(model.values.batches[0].currency == .jpy)
+        #expect(model.values.batches[0].price == model.values.defaultMarketPrice.map { $0 * 150 })
+        model.values.name = "Different card"
+        #expect(model.values.batches[0].priceText.isEmpty)
+        #expect(model.values.batches[0].currency == .jpy)
+    }
+
+    @Test
+    func `Selecting current currency or an unknown batch leaves automatic defaults active`() {
+        let model = makeCurrencySelectionModel()
+        let original = model.values.batches
+        model.selectPurchaseCurrency(id: UUID(), currency: .jpy)
+        model.selectPurchaseCurrency(id: model.values.batches[0].id, currency: .usd)
+        #expect(model.values.batches == original)
+        model.values.defaultMarketPrice = 300
+        model.configureCurrency(preferred: .usd, rates: currencySelectionRates)
+        #expect(model.values.batches[0].price == 300)
+    }
+
+    @Test(arguments: [
+        TCGCardFormScreenModel.Mode.edit(PreviewTCGCardsClient.sampleCards[0]),
+        TCGCardFormScreenModel.Mode.draft,
+    ])
+    func `Edit and draft currency selections preserve the price and prevent future defaults`(
+        mode: TCGCardFormScreenModel.Mode
+    ) {
+        let model = TCGCardFormScreenModel(mode: mode, initialValues: validValues)
+        let id = model.values.batches[0].id
+        model.values.batches[0].priceText = "284"
+        model.values.batches[0].currency = .usd
+        model.selectPurchaseCurrency(id: id, currency: .jpy)
+        model.applyMarketDefault(PreviewTCGPricingClient.samplePricedCards[0])
+        #expect(model.values.batches[0].price == 284)
+        #expect(model.values.batches[0].currency == .jpy)
+    }
+
+    private var currencySelectionRates: ExchangeRates {
+        ExchangeRates(date: "2026-10-16", rates: ["USD": 1, "JPY": 150, "EUR": Decimal(8) / 10])
+    }
+
+    private func makeCurrencySelectionModel() -> TCGCardFormScreenModel {
+        let model = TCGCardFormScreenModel(mode: .add, initialValues: validValues)
+        model.values.defaultMarketPrice = 284
+        model.values.defaultMarketCurrency = .usd
+        model.configureCurrency(preferred: .usd, rates: currencySelectionRates)
+        return model
+    }
+
     @Test(arguments: [
         ("10", "1.9", "5.263158"),
         ("5.13640806895938860748244912467786368", "1", "5.136408"),
