@@ -52,7 +52,7 @@ describe('card pricing query utilities', () => {
     expect(normalizeName('  Marshall.D.Teach   Alt  ')).toBe('Marshall.D.Teach Alt');
     expect(normalizeCardNumber(' op09-093 ')).toBe('OP09-093');
     expect(buildSearchQuery('  Charizard ex ', ' 199 ')).toBe('Charizard ex 199');
-    expect(queryKey('pokemon', '  Charizard   EX 199 ')).toBe('pokemon|v3|charizard ex 199');
+    expect(queryKey('pokemon', '  Charizard   EX 199 ')).toBe('pokemon|v4|charizard ex 199');
   });
 
   it('builds exact Scrydex card-number searches', () => {
@@ -79,8 +79,8 @@ describe('card pricing query utilities', () => {
   });
 
   it('versions unrestricted and language-filtered Pokémon promo cache keys', () => {
-    expect(queryKey('pokemon', ' MEP   056 ')).toBe('pokemon|v3|mep 056');
-    expect(queryKey('pokemon', 'mep 056', ['en'])).toBe('pokemon|v3|languages-v1|en|mep 056');
+    expect(queryKey('pokemon', ' MEP   056 ')).toBe('pokemon|v4|mep 056');
+    expect(queryKey('pokemon', 'mep 056', ['en'])).toBe('pokemon|v4|languages-v1|en|mep 056');
   });
 
   it('escapes reserved Scrydex search characters', () => {
@@ -102,8 +102,25 @@ describe('card pricing query utilities', () => {
     ['072/071', '!printed_number:"072/071"'],
     ['Porygon2 123', 'name:"Porygon2" AND !number:123'],
     ['Giratina VSTAR GG69', 'name:"Giratina VSTAR" AND !number:GG69'],
+    ['GG69/GG70', '!printed_number:"GG69/GG70"'],
+    ['  gg69/gg70  ', '!printed_number:"GG69/GG70"'],
+    ['Giratina VSTAR GG69/GG70', 'name:"Giratina VSTAR" AND !printed_number:"GG69/GG70"'],
+    ['Pikachu TG05/TG30', 'name:"Pikachu" AND !printed_number:"TG05/TG30"'],
+    ['Charizard SV49/SV94', 'name:"Charizard" AND !printed_number:"SV49/SV94"'],
+    ['RC01/RC32', '!printed_number:"RC01/RC32"'],
+    ['H1/147', '!printed_number:"H1/147"'],
+    [
+      'swsh12pt5gg GG69/GG70',
+      '(!expansion.id:swsh12pt5gg OR !expansion.id:swsh12pt5gg_ja) AND !printed_number:"GG69/GG70"',
+    ],
   ])('translates Pokémon input %s into the expected provider filters', (input, expected) => {
     expect(buildScrydexQuery('pokemon', input)).toBe(expected);
+  });
+
+  it('applies language filters to prefixed printed numbers', () => {
+    expect(buildScrydexQuery('pokemon', 'gg69/gg70', ['en'])).toBe(
+      '(!printed_number:"GG69/GG70") AND (!language_code:EN)',
+    );
   });
 
   it('preserves standalone One Piece set-number searches with versioned cache keys', () => {

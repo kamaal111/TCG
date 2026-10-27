@@ -15,7 +15,7 @@ export function buildSearchQuery(name: string, cardNumber: string): string {
 }
 
 export function queryKey(game: CardGame, query: string, languages: readonly CardLanguage[] = []): string {
-  const version = game === 'pokemon' ? 'v3' : 'v2';
+  const version = game === 'pokemon' ? 'v4' : 'v2';
 
   const selected = normalizeCardLanguages(game, languages);
   const normalized = normalizeName(query).toLowerCase();
