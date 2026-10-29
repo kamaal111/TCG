@@ -3,7 +3,7 @@ import path from 'node:path';
 
 import { z } from 'zod';
 
-import { migrationFixture } from './migration-fixture.ts';
+import { migrationFixture, repositoryMigrationFixture } from './migration-fixture.ts';
 import { createTestDatabase } from '../../tests/utils.ts';
 import { migrateDatabase } from '../migrate.ts';
 import { readMigrationCatalog, squashMigrations } from '../migration-files.ts';
@@ -198,9 +198,7 @@ test('recognizes legacy migration records without names using exact hashes and t
 });
 
 test('preserves real users, cards, collections, binder slots, quantities and purchases without rebuilding tables', async t => {
-  const { folder } = await migrationFixture(t);
-  await fs.rm(folder, { recursive: true });
-  await fs.cp('./drizzle', folder, { recursive: true });
+  const { folder } = await repositoryMigrationFixture(t);
   const original = await readMigrationCatalog(folder);
   const database = await createTestDatabase(folder);
   t.onTestFinished(database.cleanup);

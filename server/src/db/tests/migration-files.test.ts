@@ -5,22 +5,20 @@ import util from 'node:util';
 
 import { z } from 'zod';
 
-import { migrationFixture, readTree } from './migration-fixture.ts';
+import { migrationFixture, readTree, repositoryMigrationFixture } from './migration-fixture.ts';
 import { readMigrationCatalog, squashMigrations } from '../migration-files.ts';
 
 const execFile = util.promisify(childProcess.execFile);
 
 test('squashes the current repository history without connecting to a database', async t => {
-  const { folder } = await migrationFixture(t);
-  await fs.rm(folder, { recursive: true });
-  await fs.cp('./drizzle', folder, { recursive: true });
+  const { folder } = await repositoryMigrationFixture(t);
   const before = await readMigrationCatalog(folder);
   const first = z.string().parse(before.active[0]?.name);
   const last = z.string().parse(before.active.at(-1)?.name);
   const name = await squashMigrations({ folder, first, last });
   const after = await readMigrationCatalog(folder);
   expect(after.active.map(migration => migration.name)).toEqual([name]);
-  expect(after.archive.replacements[0]?.sources).toEqual(before.active);
+  expect(after.archive.replacements.find(entry => entry.migration.name === name)?.sources).toEqual(before.active);
   expect(after.active[0]?.sql).toBe(before.active.map(migration => migration.sql).join('\n--> statement-breakpoint\n'));
 });
 
@@ -178,9 +176,7 @@ test('previews and confirms the selected inclusive range in an interactive termi
 });
 
 test('generates a subsequent Drizzle migration using the squashed snapshot', async t => {
-  const { root, folder } = await migrationFixture(t);
-  await fs.rm(folder, { recursive: true });
-  await fs.cp('./drizzle', folder, { recursive: true });
+  const { root, folder } = await repositoryMigrationFixture(t);
   const catalog = await readMigrationCatalog(folder);
 
   const replacement = await squashMigrations({
