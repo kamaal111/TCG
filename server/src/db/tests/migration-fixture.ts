@@ -4,8 +4,10 @@ import os from 'node:os';
 import path from 'node:path';
 
 import type { TestContext } from 'vitest';
+import { z } from 'zod';
 
 import { createTestDatabase } from '../../tests/utils.ts';
+import { readMigrationCatalog } from '../migration-files.ts';
 
 export async function migrationFixture(t: Pick<TestContext, 'onTestFinished'> = { onTestFinished }) {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'tcg-migrations-'));
@@ -59,6 +61,29 @@ export async function migrationFixture(t: Pick<TestContext, 'onTestFinished'> = 
   }
 
   return { root, folder, names, database };
+}
+
+export async function repositoryMigrationFixture(t: Pick<TestContext, 'onTestFinished'>) {
+  const { root, folder } = await migrationFixture(t);
+  await fs.rm(folder, { recursive: true });
+  await fs.cp('./drizzle', folder, { recursive: true });
+  const catalog = await readMigrationCatalog(folder);
+  const last = z.object({ name: z.string(), timestamp: z.number() }).parse(catalog.active.at(-1));
+
+  const snapshot = z
+    .looseObject({ id: z.string() })
+    .parse(JSON.parse(await fs.readFile(path.join(folder, last.name, 'snapshot.json'), 'utf8')));
+
+  const timestamp = new Date(last.timestamp + 1000).toISOString().replaceAll(/\D/g, '').slice(0, 14);
+  const next = path.join(folder, `${timestamp}_fixture_followup`);
+  await fs.mkdir(next);
+  await fs.writeFile(path.join(next, 'migration.sql'), 'SELECT 1;');
+  await fs.writeFile(
+    path.join(next, 'snapshot.json'),
+    JSON.stringify({ ...snapshot, id: crypto.randomUUID(), prevIds: [snapshot.id] }),
+  );
+
+  return { root, folder };
 }
 
 export async function readTree(folder: string): Promise<Record<string, string>> {
