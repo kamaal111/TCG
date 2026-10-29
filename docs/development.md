@@ -25,6 +25,45 @@ The root `.env` is ignored by Git and loaded/exported by `just`. It provides
 configuration to recipes that run from `server/`; use recipes rather than assuming
 a direct Node invocation loads it.
 
+## Git worktrees
+
+Create a worktree without Herdr:
+
+```sh
+just create-worktree feature/cards
+just create-worktree feature/pricing feature/cards
+just create-worktree feature/release origin/release
+```
+
+The default fetches `origin/main` before branching. An explicit base uses the
+exact local branch or remote-tracking ref supplied, without fetching; refresh
+remote-tracking refs yourself when needed. The new branch must not already exist.
+Checkouts live at the main checkout's `.agents/worktrees/<branch>`, even when
+invoked from another linked checkout. For example, `feature/cards` lands in
+`.agents/worktrees/feature/cards`. This directory is ignored by Git.
+
+Creation runs `just setup-worktree` in the new checkout, copying the main
+checkout's `.env` with private permissions and allocating separate local ports
+and a Compose project name. The base must include the setup recipe. If setup
+fails, the branch and checkout remain available; fix the reported configuration
+issue, then run `just setup-worktree` from that checkout. Dependencies are not
+installed and services are not started automatically.
+
+From the main checkout or another worktree, remove a finished checkout with:
+
+```sh
+just cleanup-worktree feature/cards
+```
+
+Cleanup retains the branch and refuses tracked changes, untracked files, locked
+worktrees, and removal of the invoking checkout. It only removes matching
+registered checkouts under `.agents/worktrees`; existing Herdr and other
+worktrees are not migrated or removed. Ignored files such as the generated `.env`
+are deleted with the checkout. Stop any checkout-specific services before
+cleanup; the recipe does not stop containers or delete their volumes.
+
+The existing `just herdr-worktree` workflow remains available and unchanged.
+
 ## Local server and services
 
 ```sh
