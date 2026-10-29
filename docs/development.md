@@ -165,6 +165,43 @@ Review and commit the generated migration SQL and Drizzle metadata under
 Better Auth's schema from its configuration; review that output before generating
 a migration.
 
+### Squashing migrations without resetting data
+
+Run `just squash-migrations` in an interactive terminal. Select the first and
+last migration numbers in the inclusive range, review the replacement name,
+and confirm. Migrations outside that range remain unchanged. The recipe only
+changes migration files; it does not connect to or reset a database.
+
+The replacement preserves the selected SQL in order, including custom data
+migrations, and keeps the final schema snapshot. Original SQL and migration
+identities are retained in `server/drizzle/compatibility/manifest.json`.
+Review and commit that archive together with the replacement and removed
+migration folders. Keep the archive in future releases: databases deployed
+before a squash need it to catch up, including across repeated squashes.
+Squashing reduces the active migration count, not the archived SQL size.
+
+Use `just migrate` on every database after deploying these changes. It validates
+recorded migration identities, applies only missing steps to databases partway
+through a squash, and adopts completed squashes without replaying their SQL.
+Fresh databases apply the combined SQL normally. Catch-up and migration
+bookkeeping run in one transaction; concurrent runs serialize using a PostgreSQL
+advisory lock. Unknown, edited, or inconsistent applied history fails without
+guessing which migrations ran. Restore matching files to resolve that failure.
+Do not use `drizzle-kit migrate` or the raw ORM migrator against an existing
+database after squashing; they do not reconcile the archived history.
+
+Apply this tooling release before using it to squash deployed migrations.
+Deploy the archive and replacement together, and use this release's migration
+runner for the deployment. The runner preserves the intended behavior of
+pending migrations; it cannot make destructive SQL inside an existing migration
+non-destructive. Do not edit migration files while a squash is running.
+
+Squashes stage changes under `server/.drizzle-squash/` and retain originals
+until publication succeeds. If interrupted, commands stop and print recovery
+instructions. Ensure no squash process is running, inspect `drizzle/`, `staged/`
+and `original/`, restore `original/` to `server/drizzle/` if that directory is
+missing, and remove the workspace only after recovering a complete history.
+
 For an API contract change, update routes/schemas and regenerate the Swift client's
 committed contract:
 

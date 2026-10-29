@@ -147,7 +147,12 @@ make-migrations: prepare-server
 # Run database migrations
 [working-directory("server")]
 migrate: prepare-server
-    {{ PNX }} drizzle-kit migrate
+    node scripts/migrate.ts
+
+# Combine a selected migration range while preserving existing databases
+[working-directory("server")]
+squash-migrations: prepare-server
+    node scripts/squash-migrations.ts
 
 # Fetch and persist the latest daily ECB currency rates
 [working-directory("server")]
