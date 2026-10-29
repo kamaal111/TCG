@@ -2,28 +2,23 @@ import { eq } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { Client } from 'pg';
 
-import { createCardRequest, sessionHeaders, validCardPayload } from './utils.ts';
+import { createCardRequest, validCardPayload, createTestCard } from './utils.ts';
 import { StaticScrydexClient } from '../../card-pricing/scrydex/static-client.ts';
 import { todayUTC } from '../../card-pricing/utils/query.ts';
 import { CollectionSchema } from '../../collections/schemas/responses.ts';
 import { CONTENTFUL_STATUS_CODES } from '../../constants/http.ts';
 import { card } from '../../db/schema/cards.ts';
 import { appRelations } from '../../db/schema/index.ts';
-import App from '../../runtime/node/app.ts';
 import { expectErrorResponse } from '../../tests/auth.ts';
 import { integrationTest } from '../../tests/fixtures.ts';
-import { createTestUser } from '../../tests/utils.ts';
 import { LIST_CARDS_ROUTE_PATH } from '../routes/list-cards.ts';
-import { CardSchema } from '../schemas/responses.ts';
 import { CardsListResponseSchema } from '../schemas/responses.ts';
 
 describe('List cards integration', () => {
   integrationTest(
     'searches across collections with owned paginated results and literal wildcard characters',
-    async ({ app, db }) => {
-      const owner = await createTestUser(app, db);
-      const other = await createTestUser(app, db);
-      const headers = sessionHeaders(owner.sessionToken);
+    async ({ app, user: owner, createUser, authenticatedHeaders: headers }) => {
+      const other = await createUser();
 
       const created = await app.request('/app-api/collections', {
         method: 'POST',
@@ -33,17 +28,13 @@ describe('List cards integration', () => {
 
       expect(created.status).toBe(201);
       const collection = CollectionSchema.parse(await created.json());
-      const unfiled = CardSchema.parse(await (await createCardRequest(app, owner.sessionToken)).json());
+      const unfiled = await createTestCard(app, owner.sessionToken);
 
-      const filed = CardSchema.parse(
-        await (
-          await createCardRequest(app, owner.sessionToken, {
-            ...validCardPayload,
-            collection_id: collection.id,
-            card_number: '50%_Luffy',
-          })
-        ).json(),
-      );
+      const filed = await createTestCard(app, owner.sessionToken, {
+        ...validCardPayload,
+        collection_id: collection.id,
+        card_number: '50%_Luffy',
+      });
 
       await createCardRequest(app, other.sessionToken);
       const first = await app.request(`${LIST_CARDS_ROUTE_PATH}?query=lUfFy&limit=1`, { headers });
@@ -80,9 +71,8 @@ describe('List cards integration', () => {
     });
   });
 
-  integrationTest('returns an empty collection for a fresh user', async ({ app, db }) => {
-    const user = await createTestUser(app, db);
-    const response = await app.request(LIST_CARDS_ROUTE_PATH, { headers: sessionHeaders(user.sessionToken) });
+  integrationTest('returns an empty collection for a fresh user', async ({ app, authenticatedHeaders }) => {
+    const response = await app.request(LIST_CARDS_ROUTE_PATH, { headers: authenticatedHeaders });
     expect(response.status).toBe(CONTENTFUL_STATUS_CODES.OK);
     expect(CardsListResponseSchema.parse(await response.json())).toEqual({
       cards: [],
@@ -93,27 +83,22 @@ describe('List cards integration', () => {
 
   integrationTest(
     'returns only the session user cards newest first and logs success',
-    async ({ app, db, getLogsForRequestId, withRequestId }) => {
-      const owner = await createTestUser(app, db);
-      const otherUser = await createTestUser(app, db);
-      const first = CardSchema.parse(await (await createCardRequest(app, owner.sessionToken)).json());
+    async ({ app, getLogsForRequestId, withRequestId, user: owner, createUser, authenticatedHeaders }) => {
+      const otherUser = await createUser();
+      const first = await createTestCard(app, owner.sessionToken);
 
-      const second = CardSchema.parse(
-        await (
-          await createCardRequest(app, owner.sessionToken, {
-            ...validCardPayload,
-            game: 'pokemon',
-            name: 'Pikachu',
-            set_name: 'Base Set',
-            card_number: '58/102',
-            purchases: [{ condition: 'mint', quantity: 1, purchase_price: null, currency: null }],
-          })
-        ).json(),
-      );
+      const second = await createTestCard(app, owner.sessionToken, {
+        ...validCardPayload,
+        game: 'pokemon',
+        name: 'Pikachu',
+        set_name: 'Base Set',
+        card_number: '58/102',
+        purchases: [{ condition: 'mint', quantity: 1, purchase_price: null, currency: null }],
+      });
 
       await createCardRequest(app, otherUser.sessionToken);
 
-      const { headers, requestId } = withRequestId(Object.fromEntries(sessionHeaders(owner.sessionToken).entries()));
+      const { headers, requestId } = withRequestId(authenticatedHeaders);
       const response = await app.request(LIST_CARDS_ROUTE_PATH, { headers });
       const body = CardsListResponseSchema.parse(await response.json());
 
@@ -133,9 +118,8 @@ describe('List cards integration', () => {
     },
   );
 
-  integrationTest('filters the session user collection by game', async ({ app, db }) => {
-    const owner = await createTestUser(app, db);
-    const onePiece = CardSchema.parse(await (await createCardRequest(app, owner.sessionToken)).json());
+  integrationTest('filters the session user collection by game', async ({ app, user: owner, authenticatedHeaders }) => {
+    const onePiece = await createTestCard(app, owner.sessionToken);
     await createCardRequest(app, owner.sessionToken, {
       ...validCardPayload,
       game: 'pokemon',
@@ -145,7 +129,7 @@ describe('List cards integration', () => {
     });
 
     const response = await app.request(`${LIST_CARDS_ROUTE_PATH}?game=one_piece`, {
-      headers: sessionHeaders(owner.sessionToken),
+      headers: authenticatedHeaders,
     });
 
     expect(response.status).toBe(CONTENTFUL_STATUS_CODES.OK);
@@ -156,15 +140,12 @@ describe('List cards integration', () => {
 
   integrationTest(
     'combines game and repeated exact sets while retaining all owned set choices',
-    async ({ app, db }) => {
-      const owner = await createTestUser(app, db);
-      const otherUser = await createTestUser(app, db);
-      const first = CardSchema.parse(await (await createCardRequest(app, owner.sessionToken)).json());
+    async ({ app, user: owner, createUser, authenticatedHeaders }) => {
+      const otherUser = await createUser();
+      const first = await createTestCard(app, owner.sessionToken);
       const specialSet = 'Special, Set & + 日本語';
 
-      const second = CardSchema.parse(
-        await (await createCardRequest(app, owner.sessionToken, { ...validCardPayload, set_name: specialSet })).json(),
-      );
+      const second = await createTestCard(app, owner.sessionToken, { ...validCardPayload, set_name: specialSet });
 
       await createCardRequest(app, owner.sessionToken, { ...validCardPayload, set_name: 'Unselected set' });
       await createCardRequest(app, owner.sessionToken, { ...validCardPayload, game: 'pokemon' });
@@ -175,7 +156,7 @@ describe('List cards integration', () => {
       query.append('set_name', specialSet);
 
       const response = await app.request(`${LIST_CARDS_ROUTE_PATH}?${query}`, {
-        headers: sessionHeaders(owner.sessionToken),
+        headers: authenticatedHeaders,
       });
 
       expect(response.status).toBe(CONTENTFUL_STATUS_CODES.OK);
@@ -199,31 +180,30 @@ describe('List cards integration', () => {
     },
   );
 
-  integrationTest('filters one set across games and deduplicates available names', async ({ app, db }) => {
-    const owner = await createTestUser(app, db);
-    const first = CardSchema.parse(await (await createCardRequest(app, owner.sessionToken)).json());
+  integrationTest(
+    'filters one set across games and deduplicates available names',
+    async ({ app, user: owner, authenticatedHeaders }) => {
+      const first = await createTestCard(app, owner.sessionToken);
 
-    const second = CardSchema.parse(
-      await (await createCardRequest(app, owner.sessionToken, { ...validCardPayload, game: 'pokemon' })).json(),
-    );
+      const second = await createTestCard(app, owner.sessionToken, { ...validCardPayload, game: 'pokemon' });
 
-    await createCardRequest(app, owner.sessionToken, { ...validCardPayload, set_name: 'Other set' });
-    const query = new URLSearchParams({ set_name: first.set_name });
+      await createCardRequest(app, owner.sessionToken, { ...validCardPayload, set_name: 'Other set' });
+      const query = new URLSearchParams({ set_name: first.set_name });
 
-    const response = await app.request(`${LIST_CARDS_ROUTE_PATH}?${query}`, {
-      headers: sessionHeaders(owner.sessionToken),
-    });
+      const response = await app.request(`${LIST_CARDS_ROUTE_PATH}?${query}`, {
+        headers: authenticatedHeaders,
+      });
 
-    expect(response.status).toBe(CONTENTFUL_STATUS_CODES.OK);
-    const body = CardsListResponseSchema.parse(await response.json());
-    expect(body.cards.map(card => card.id)).toEqual([second.id, first.id]);
-    expect(body.available_set_names).toEqual(['Other set', 'Romance Dawn']);
-  });
+      expect(response.status).toBe(CONTENTFUL_STATUS_CODES.OK);
+      const body = CardsListResponseSchema.parse(await response.json());
+      expect(body.cards.map(card => card.id)).toEqual([second.id, first.id]);
+      expect(body.available_set_names).toEqual(['Other set', 'Romance Dawn']);
+    },
+  );
 
   integrationTest(
     'reads a bounded card page and complete set choices when no selected sets match',
-    async ({ app, db, storageClient }) => {
-      const owner = await createTestUser(app, db);
+    async ({ app, db, createApp, user: owner, authenticatedHeaders }) => {
       await createCardRequest(app, owner.sessionToken);
       const query = new URLSearchParams();
       query.append('set_name', 'romance dawn');
@@ -237,10 +217,10 @@ describe('List cards integration', () => {
         logger: { logQuery: query => statements.push(query) },
       });
 
-      const observedApp = new App({ db: observedDB, storageClient, pricingClient: new StaticScrydexClient() }).app;
+      const observedApp = createApp({ db: observedDB, pricingClient: new StaticScrydexClient() });
 
       const response = await observedApp.request(`${LIST_CARDS_ROUTE_PATH}?${query}`, {
-        headers: sessionHeaders(owner.sessionToken),
+        headers: authenticatedHeaders,
       });
 
       expect(response.status).toBe(CONTENTFUL_STATUS_CODES.OK);
@@ -253,31 +233,32 @@ describe('List cards integration', () => {
     },
   );
 
-  integrationTest('returns no cards or sets when only other games and users own cards', async ({ app, db }) => {
-    const owner = await createTestUser(app, db);
-    const otherUser = await createTestUser(app, db);
-    await createCardRequest(app, owner.sessionToken, { ...validCardPayload, game: 'pokemon' });
-    await createCardRequest(app, otherUser.sessionToken);
+  integrationTest(
+    'returns no cards or sets when only other games and users own cards',
+    async ({ app, user: owner, createUser, authenticatedHeaders }) => {
+      const otherUser = await createUser();
+      await createCardRequest(app, owner.sessionToken, { ...validCardPayload, game: 'pokemon' });
+      await createCardRequest(app, otherUser.sessionToken);
 
-    const response = await app.request(`${LIST_CARDS_ROUTE_PATH}?game=one_piece`, {
-      headers: sessionHeaders(owner.sessionToken),
-    });
+      const response = await app.request(`${LIST_CARDS_ROUTE_PATH}?game=one_piece`, {
+        headers: authenticatedHeaders,
+      });
 
-    expect(response.status).toBe(CONTENTFUL_STATUS_CODES.OK);
-    expect(CardsListResponseSchema.parse(await response.json())).toEqual({
-      cards: [],
-      available_set_names: [],
-      next_cursor: null,
-    });
-  });
+      expect(response.status).toBe(CONTENTFUL_STATUS_CODES.OK);
+      expect(CardsListResponseSchema.parse(await response.json())).toEqual({
+        cards: [],
+        available_set_names: [],
+        next_cursor: null,
+      });
+    },
+  );
 
   for (const setName of ['', 'x'.repeat(201)]) {
-    integrationTest(`rejects a set name with ${setName.length} characters`, async ({ app, db }) => {
-      const owner = await createTestUser(app, db);
+    integrationTest(`rejects a set name with ${setName.length} characters`, async ({ app, authenticatedHeaders }) => {
       const query = new URLSearchParams({ set_name: setName });
 
       const response = await app.request(`${LIST_CARDS_ROUTE_PATH}?${query}`, {
-        headers: sessionHeaders(owner.sessionToken),
+        headers: authenticatedHeaders,
       });
 
       expect(await expectErrorResponse(response, CONTENTFUL_STATUS_CODES.BAD_REQUEST)).toMatchObject({
@@ -288,9 +269,8 @@ describe('List cards integration', () => {
 
   integrationTest(
     'returns cards with unavailable pricing when a pricing lock times out',
-    async ({ app, connectionString, db }) => {
-      const user = await createTestUser(app, db);
-      const created = CardSchema.parse(await (await createCardRequest(app, user.sessionToken)).json());
+    async ({ app, connectionString, db, user, authenticatedHeaders }) => {
+      const created = await createTestCard(app, user.sessionToken);
       const pricingCardId = 'one-piece-pricing-lock-test';
       await db.update(card).set({ pricingCardId, pricingSource: 'scrydex_static' }).where(eq(card.id, created.id));
 
@@ -303,7 +283,7 @@ describe('List cards integration', () => {
           `pricing:card:scrydex_static:${todayUTC()}:one_piece:${pricingCardId}`,
         ]);
 
-        const response = await app.request(LIST_CARDS_ROUTE_PATH, { headers: sessionHeaders(user.sessionToken) });
+        const response = await app.request(LIST_CARDS_ROUTE_PATH, { headers: authenticatedHeaders });
         const body = CardsListResponseSchema.parse(await response.json());
 
         expect(response.status).toBe(CONTENTFUL_STATUS_CODES.OK);

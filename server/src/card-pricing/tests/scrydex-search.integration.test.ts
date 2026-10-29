@@ -1,20 +1,19 @@
 import type { ScrydexRawCard } from '@tcg/scrydex';
 
+import { createTestScrydexClient } from './utils.ts';
 import { proxyURLForOriginURL } from '../../card-images/keys.ts';
 import { LIST_CARDS_ROUTE_PATH } from '../../cards/routes/list-cards.ts';
 import { CardsListResponseSchema, CardWithPriceSchema } from '../../cards/schemas/responses.ts';
-import { createCardRequest, sessionHeaders } from '../../cards/tests/utils.ts';
-import type { Database } from '../../db/index.ts';
+import { createCardRequest } from '../../cards/tests/utils.ts';
 import { cardPriceSearch } from '../../db/schema/card-pricing.ts';
 import { card } from '../../db/schema/cards.ts';
-import App from '../../runtime/node/app.ts';
-import type { ObjectStorageClient } from '../../storage/client.ts';
+import type App from '../../runtime/node/app.ts';
+import { sessionHeaders } from '../../tests/auth.ts';
 import { integrationTest } from '../../tests/fixtures.ts';
-import { createTestUser } from '../../tests/utils.ts';
+import type { createTestUser } from '../../tests/utils.ts';
 import { parseCardLanguages } from '../languages.ts';
 import { SEARCH_PRICING_ROUTE_PATH } from '../routes/search-pricing.ts';
 import { PricedCardSchema, PricingSearchResponseSchema } from '../schemas/responses.ts';
-import { RealScrydexClient } from '../scrydex/real-client.ts';
 import type { CardGame } from '../types.ts';
 import { queryKey, todayUTC } from '../utils/query.ts';
 
@@ -92,13 +91,13 @@ describe('Scrydex search through the authenticated pricing API', () => {
   for (const { providerCard, status } of PRINTED_NUMBER_CASES) {
     integrationTest(
       `preserves artwork when saving and listing ${providerCard.printed_number} with ${status} pricing`,
-      async ({ db, storageClient }) => {
+      async ({ createApp, user, db }) => {
         const expectedQuery = `name:"${providerCard.name}" AND !printed_number:"${providerCard.printed_number}"`;
         const nameQuery = `name:"${providerCard.name}"`;
 
-        const search = await createSearchApp({
-          db,
-          storageClient,
+        const search = createSearchApp({
+          createApp,
+          user,
           expectedQuery: [nameQuery, expectedQuery],
           cards: [providerCard],
         });
@@ -152,9 +151,9 @@ describe('Scrydex search through the authenticated pricing API', () => {
 
     integrationTest(
       `recovers an unlinked ${providerCard.printed_number} collection entry despite a v3 empty cache`,
-      async ({ db, storageClient }) => {
+      async ({ createApp, user, db }) => {
         const expectedQuery = `name:"${providerCard.name}" AND !printed_number:"${providerCard.printed_number}"`;
-        const search = await createSearchApp({ db, storageClient, expectedQuery, cards: [providerCard] });
+        const search = createSearchApp({ createApp, user, expectedQuery, cards: [providerCard] });
         await db.insert(card).values({
           userId: search.user.userId,
           game: 'pokemon',
@@ -205,7 +204,7 @@ describe('Scrydex search through the authenticated pricing API', () => {
   ]) {
     integrationTest(
       `finds lowercase prefixed printed numbers despite a v3 empty cache with languages=${languages}`,
-      async ({ db, storageClient }) => {
+      async ({ createApp, user, db }) => {
         await db.insert(cardPriceSearch).values({
           game: 'pokemon',
           pricingSource: 'scrydex_real',
@@ -214,9 +213,9 @@ describe('Scrydex search through the authenticated pricing API', () => {
           pricingCardIds: [],
         });
 
-        const search = await createSearchApp({
-          db,
-          storageClient,
+        const search = createSearchApp({
+          createApp,
+          user,
           expectedQuery,
           cards: [PRINTED_NUMBER_CASES[0].providerCard],
         });
@@ -231,10 +230,10 @@ describe('Scrydex search through the authenticated pricing API', () => {
     );
   }
 
-  integrationTest('keeps prefixed printed denominators exact', async ({ db, storageClient }) => {
-    const search = await createSearchApp({
-      db,
-      storageClient,
+  integrationTest('keeps prefixed printed denominators exact', async ({ createApp, user }) => {
+    const search = createSearchApp({
+      createApp,
+      user,
       expectedQuery: '!printed_number:"GG69/GG70"',
       cards: [PRINTED_NUMBER_CASES[0].providerCard],
     });
@@ -251,10 +250,10 @@ describe('Scrydex search through the authenticated pricing API', () => {
   ]) {
     integrationTest(
       `finds the anniversary promo using ${query} without requiring base-variant pricing`,
-      async ({ db, storageClient }) => {
-        const search = await createSearchApp({
-          db,
-          storageClient,
+      async ({ createApp, user }) => {
+        const search = createSearchApp({
+          createApp,
+          user,
           game: 'one_piece',
           expectedQuery,
           cards: [LUFFY_PROMO],
@@ -276,7 +275,7 @@ describe('Scrydex search through the authenticated pricing API', () => {
 
   integrationTest(
     'bypasses the old empty promo cache and reuses the corrected result',
-    async ({ db, storageClient }) => {
+    async ({ createApp, user, db }) => {
       await db.insert(cardPriceSearch).values({
         game: 'one_piece',
         pricingSource: 'scrydex_real',
@@ -285,9 +284,9 @@ describe('Scrydex search through the authenticated pricing API', () => {
         pricingCardIds: [],
       });
 
-      const search = await createSearchApp({
-        db,
-        storageClient,
+      const search = createSearchApp({
+        createApp,
+        user,
         game: 'one_piece',
         expectedQuery: '!id:P-110',
         cards: [LUFFY_PROMO],
@@ -316,10 +315,10 @@ describe('Scrydex search through the authenticated pricing API', () => {
     },
   );
 
-  integrationTest('keeps an empty provider promo search empty', async ({ db, storageClient }) => {
-    const search = await createSearchApp({
-      db,
-      storageClient,
+  integrationTest('keeps an empty provider promo search empty', async ({ createApp, user, db }) => {
+    const search = createSearchApp({
+      createApp,
+      user,
       game: 'one_piece',
       expectedQuery: '!id:P-110',
       cards: [],
@@ -343,7 +342,7 @@ describe('Scrydex search through the authenticated pricing API', () => {
   ]) {
     integrationTest(
       `finds Torchic by MEP promo code despite an old empty cache with languages=${languages}`,
-      async ({ db, storageClient }) => {
+      async ({ createApp, user, db }) => {
         await db.insert(cardPriceSearch).values({
           game: 'pokemon',
           pricingSource: 'scrydex_real',
@@ -351,7 +350,7 @@ describe('Scrydex search through the authenticated pricing API', () => {
           pricedOn: todayUTC(),
           pricingCardIds: [],
         });
-        const search = await createSearchApp({ db, storageClient, expectedQuery, cards: [TORCHIC_PROMO] });
+        const search = createSearchApp({ createApp, user, expectedQuery, cards: [TORCHIC_PROMO] });
         const first = await search.request('mep 056', languages);
 
         expect(first.status).toBe(200);
@@ -380,10 +379,10 @@ describe('Scrydex search through the authenticated pricing API', () => {
     );
   }
 
-  integrationTest('applies the English filter before requesting provider results', async ({ db, storageClient }) => {
+  integrationTest('applies the English filter before requesting provider results', async ({ createApp, user, db }) => {
     const card = { id: 'sv5-163', name: 'Shiftry', number: '163', language_code: 'EN' };
     const expectedQuery = '(name:"Shiftry") AND (!language_code:EN)';
-    const search = await createSearchApp({ db, storageClient, expectedQuery, cards: [card] });
+    const search = createSearchApp({ createApp, user, expectedQuery, cards: [card] });
 
     const response = await search.request('Shiftry', 'en');
 
@@ -395,10 +394,10 @@ describe('Scrydex search through the authenticated pricing API', () => {
     ).toMatchObject({ pricingCardIds: [card.id] });
   });
 
-  integrationTest('applies the Japanese filter before requesting provider results', async ({ db, storageClient }) => {
+  integrationTest('applies the Japanese filter before requesting provider results', async ({ createApp, user, db }) => {
     const card = SHIFTRY;
     const expectedQuery = '(name:"Shiftry") AND (!language_code:JA)';
-    const search = await createSearchApp({ db, storageClient, expectedQuery, cards: [card] });
+    const search = createSearchApp({ createApp, user, expectedQuery, cards: [card] });
 
     const response = await search.request('Shiftry', 'ja');
 
@@ -412,10 +411,10 @@ describe('Scrydex search through the authenticated pricing API', () => {
 
   integrationTest(
     'finds Japanese Shiftry by set code and printed number and persists its identity',
-    async ({ db, storageClient }) => {
-      const search = await createSearchApp({
-        db,
-        storageClient,
+    async ({ createApp, user, db }) => {
+      const search = createSearchApp({
+        createApp,
+        user,
         expectedQuery: SET_AND_PRINTED_NUMBER,
         cards: [SHIFTRY],
       });
@@ -450,32 +449,29 @@ describe('Scrydex search through the authenticated pricing API', () => {
     },
   );
 
-  integrationTest(
-    'finds a Japanese card by explicit expansion ID and unpadded number',
-    async ({ db, storageClient }) => {
-      const search = await createSearchApp({
-        db,
-        storageClient,
-        expectedQuery: '!expansion.id:sv5m_ja AND !number:72',
-        cards: [SHIFTRY],
-      });
+  integrationTest('finds a Japanese card by explicit expansion ID and unpadded number', async ({ createApp, user }) => {
+    const search = createSearchApp({
+      createApp,
+      user,
+      expectedQuery: '!expansion.id:sv5m_ja AND !number:72',
+      cards: [SHIFTRY],
+    });
 
-      const response = await search.request('  SV5M_JA   072  ');
+    const response = await search.request('  SV5M_JA   072  ');
 
-      expect(response.status).toBe(200);
-      expect(PricingSearchResponseSchema.parse(await response.json()).matches).toMatchObject([
-        { name: 'ダーテング', card_number: '072/071' },
-      ]);
-      expect(search.transport.queries).toEqual(['!expansion.id:sv5m_ja AND !number:72']);
-    },
-  );
+    expect(response.status).toBe(200);
+    expect(PricingSearchResponseSchema.parse(await response.json()).matches).toMatchObject([
+      { name: 'ダーテング', card_number: '072/071' },
+    ]);
+    expect(search.transport.queries).toEqual(['!expansion.id:sv5m_ja AND !number:72']);
+  });
 
   integrationTest(
     'matches Japanese cards through their English translated name using the provider name index',
-    async ({ db, storageClient }) => {
-      const search = await createSearchApp({
-        db,
-        storageClient,
+    async ({ createApp, user }) => {
+      const search = createSearchApp({
+        createApp,
+        user,
         expectedQuery: 'name:"Shiftry" AND !printed_number:"072/071"',
         cards: [SHIFTRY],
       });
@@ -493,12 +489,12 @@ describe('Scrydex search through the authenticated pricing API', () => {
 
   integrationTest(
     'matches native names when the provider has no English translation or market price',
-    async ({ db, storageClient }) => {
+    async ({ createApp, user }) => {
       const nativeCard = { id: 'sv5m_ja-72', name: 'ダーテング', number: '72', printed_number: '072/071' };
 
-      const search = await createSearchApp({
-        db,
-        storageClient,
+      const search = createSearchApp({
+        createApp,
+        user,
         expectedQuery: 'name:"ダーテング"',
         cards: [nativeCard],
       });
@@ -515,7 +511,7 @@ describe('Scrydex search through the authenticated pricing API', () => {
 
   integrationTest(
     'returns English and Japanese cards together for a name-only search',
-    async ({ db, storageClient }) => {
+    async ({ createApp, user, db }) => {
       const englishCard = {
         id: 'sv5-163',
         name: 'Shiftry',
@@ -524,9 +520,9 @@ describe('Scrydex search through the authenticated pricing API', () => {
         language_code: 'EN',
       };
 
-      const search = await createSearchApp({
-        db,
-        storageClient,
+      const search = createSearchApp({
+        createApp,
+        user,
         expectedQuery: 'name:"Shiftry"',
         cards: [englishCard, SHIFTRY],
       });
@@ -544,10 +540,10 @@ describe('Scrydex search through the authenticated pricing API', () => {
     },
   );
 
-  integrationTest('returns no matches when the printed denominator differs', async ({ db, storageClient }) => {
-    const search = await createSearchApp({
-      db,
-      storageClient,
+  integrationTest('returns no matches when the printed denominator differs', async ({ createApp, user, db }) => {
+    const search = createSearchApp({
+      createApp,
+      user,
       expectedQuery: SET_AND_PRINTED_NUMBER,
       cards: [SHIFTRY],
     });
@@ -562,30 +558,33 @@ describe('Scrydex search through the authenticated pricing API', () => {
     expect(await db.query.cardPrice.findMany()).toEqual([]);
   });
 
-  integrationTest('reuses persisted search results without another provider request', async ({ db, storageClient }) => {
-    const search = await createSearchApp({
-      db,
-      storageClient,
-      expectedQuery: SET_AND_PRINTED_NUMBER,
-      cards: [SHIFTRY],
-    });
+  integrationTest(
+    'reuses persisted search results without another provider request',
+    async ({ createApp, user, db }) => {
+      const search = createSearchApp({
+        createApp,
+        user,
+        expectedQuery: SET_AND_PRINTED_NUMBER,
+        cards: [SHIFTRY],
+      });
 
-    const first = await search.request('sv5m 072/071');
-    expect(first.status).toBe(200);
-    const firstBody = PricingSearchResponseSchema.parse(await first.json());
-    expect(firstBody.matches[0]).toHaveProperty('set_name', 'Wild Force');
+      const first = await search.request('sv5m 072/071');
+      expect(first.status).toBe(200);
+      const firstBody = PricingSearchResponseSchema.parse(await first.json());
+      expect(firstBody.matches[0]).toHaveProperty('set_name', 'Wild Force');
 
-    const second = await search.request(' SV5M   072/071 ');
+      const second = await search.request(' SV5M   072/071 ');
 
-    expect(second.status).toBe(200);
-    expect(PricingSearchResponseSchema.parse(await second.json())).toEqual(firstBody);
-    expect(search.transport.queries).toEqual([SET_AND_PRINTED_NUMBER]);
-    expect(await db.query.cardPriceSearch.findMany()).toHaveLength(1);
-  });
+      expect(second.status).toBe(200);
+      expect(PricingSearchResponseSchema.parse(await second.json())).toEqual(firstBody);
+      expect(search.transport.queries).toEqual([SET_AND_PRINTED_NUMBER]);
+      expect(await db.query.cardPriceSearch.findMany()).toHaveLength(1);
+    },
+  );
 
   integrationTest(
     'ignores empty search results cached under the previous query version',
-    async ({ db, storageClient }) => {
+    async ({ createApp, user, db }) => {
       await db.insert(cardPriceSearch).values({
         game: 'pokemon',
         pricingSource: 'scrydex_real',
@@ -594,9 +593,9 @@ describe('Scrydex search through the authenticated pricing API', () => {
         pricingCardIds: [],
       });
 
-      const search = await createSearchApp({
-        db,
-        storageClient,
+      const search = createSearchApp({
+        createApp,
+        user,
         expectedQuery: SET_AND_PRINTED_NUMBER,
         cards: [SHIFTRY],
       });
@@ -613,28 +612,22 @@ describe('Scrydex search through the authenticated pricing API', () => {
 
 interface SearchAppOptions {
   game?: CardGame;
-  db: Database;
-  storageClient: ObjectStorageClient;
+  createApp: (overrides?: ConstructorParameters<typeof App>[0]) => App['app'];
+  user: Awaited<ReturnType<typeof createTestUser>>;
   expectedQuery: string | string[];
   cards: ScrydexRawCard[];
 }
 
-async function createSearchApp({ db, storageClient, expectedQuery, cards, game = 'pokemon' }: SearchAppOptions) {
+function createSearchApp({ createApp, user, expectedQuery, cards, game = 'pokemon' }: SearchAppOptions) {
   const transport = new ScrydexSearchTransport(
     Array.isArray(expectedQuery) ? expectedQuery : [expectedQuery],
     cards,
     game,
   );
 
-  const pricingClient = new RealScrydexClient({
-    apiKey: 'test-api-key',
-    teamId: 'test-team-id',
-    baseURL: 'https://scrydex.test',
-    fetch: transport.fetch,
-  });
+  const pricingClient = createTestScrydexClient(transport.fetch, { baseURL: 'https://scrydex.test' });
 
-  const { app } = new App({ db, storageClient, pricingClient });
-  const user = await createTestUser(app, db);
+  const app = createApp({ pricingClient });
 
   return {
     app,

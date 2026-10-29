@@ -1,11 +1,10 @@
 import { eq } from 'drizzle-orm';
 
-import { createCardRequest, sessionHeaders, validCardPayload } from './utils.ts';
+import { createCardRequest, validCardPayload } from './utils.ts';
 import { CONTENTFUL_STATUS_CODES } from '../../constants/http.ts';
 import { cardConditionQuantity } from '../../db/schema/cards.ts';
 import { expectErrorResponse, expectValidationIssueForField } from '../../tests/auth.ts';
 import { integrationTest } from '../../tests/fixtures.ts';
-import { createTestUser } from '../../tests/utils.ts';
 import { CREATE_CARD_ROUTE_PATH } from '../routes/create-card.ts';
 import { CardSchema } from '../schemas/responses.ts';
 
@@ -17,9 +16,7 @@ describe('Create card integration', () => {
     });
   });
 
-  integrationTest('rejects invalid card fields and quantities', async ({ app, db }) => {
-    const user = await createTestUser(app, db);
-
+  integrationTest('rejects invalid card fields and quantities', async ({ app, authenticatedHeaders }) => {
     const cases: [string, unknown][] = [
       ['name', { ...validCardPayload, name: '' }],
       ['set_name', { ...validCardPayload, set_name: '' }],
@@ -60,7 +57,7 @@ describe('Create card integration', () => {
     for (const [field, payload] of cases) {
       const response = await app.request(CREATE_CARD_ROUTE_PATH, {
         method: 'POST',
-        headers: sessionHeaders(user.sessionToken),
+        headers: authenticatedHeaders,
         body: JSON.stringify(payload),
       });
 
@@ -68,8 +65,7 @@ describe('Create card integration', () => {
     }
   });
 
-  integrationTest('creates and persists a card with deterministic quantities', async ({ app, db }) => {
-    const user = await createTestUser(app, db);
+  integrationTest('creates and persists a card with deterministic quantities', async ({ app, db, user }) => {
     const response = await createCardRequest(app, user.sessionToken);
 
     expect(response.status).toBe(CONTENTFUL_STATUS_CODES.CREATED);
@@ -86,9 +82,7 @@ describe('Create card integration', () => {
     );
   });
 
-  integrationTest('trims notes and treats whitespace-only notes as unset', async ({ app, db }) => {
-    const user = await createTestUser(app, db);
-
+  integrationTest('trims notes and treats whitespace-only notes as unset', async ({ app, user }) => {
     const padded = await createCardRequest(app, user.sessionToken, { ...validCardPayload, notes: '  Foil  ' });
     expect(CardSchema.parse(await padded.json()).notes).toBe('Foil');
 
@@ -98,9 +92,8 @@ describe('Create card integration', () => {
 
   integrationTest(
     'round-trips notes and multiple conditions and logs success',
-    async ({ app, db, getLogsForRequestId, withRequestId }) => {
-      const user = await createTestUser(app, db);
-      const { headers, requestId } = withRequestId(Object.fromEntries(sessionHeaders(user.sessionToken).entries()));
+    async ({ app, getLogsForRequestId, withRequestId, authenticatedHeaders }) => {
+      const { headers, requestId } = withRequestId(authenticatedHeaders);
 
       const response = await app.request(CREATE_CARD_ROUTE_PATH, {
         method: 'POST',

@@ -6,14 +6,13 @@ import { Client } from 'pg';
 
 import { imageKeyForOriginURL } from '../../card-images/keys.ts';
 import { LIST_CARDS_ROUTE_PATH } from '../../cards/routes/list-cards.ts';
-import { createCardRequest, sessionHeaders } from '../../cards/tests/utils.ts';
+import { createCardRequest } from '../../cards/tests/utils.ts';
 import { CONTENTFUL_STATUS_CODES } from '../../constants/http.ts';
 import { cardImage } from '../../db/schema/card-images.ts';
 import { cardPrice } from '../../db/schema/card-pricing.ts';
-import App from '../../runtime/node/app.ts';
-import { expectErrorResponse, expectValidationIssueForField } from '../../tests/auth.ts';
+import { deferred } from '../../tests/async.ts';
+import { expectErrorResponse, expectValidationIssueForField, sessionHeaders } from '../../tests/auth.ts';
 import { integrationTest } from '../../tests/fixtures.ts';
-import { createTestUser } from '../../tests/utils.ts';
 import { PRICING_CLIENT_ERROR_REASONS, type PricingClient } from '../client.ts';
 import { SEARCH_PRICING_ROUTE_PATH } from '../routes/search-pricing.ts';
 import { PricingSearchResponseSchema } from '../schemas/responses.ts';
@@ -28,62 +27,63 @@ describe('Card pricing integration', () => {
     });
   });
 
-  integrationTest('separates filtered caches and reuses equivalent unrestricted selections', async ({ db }) => {
-    const pricingClient = new CountingPricingClient();
-    const { app } = new App({ db, pricingClient });
-    const user = await createTestUser(app, db);
-    const path = `${SEARCH_PRICING_ROUTE_PATH}?game=pokemon&query=Giratina`;
-    const headers = sessionHeaders(user.sessionToken);
-    const unrestricted = await app.request(path, { headers });
-    const empty = await app.request(`${path}&languages=`, { headers });
-    const complete = await app.request(`${path}&languages=ja,en,ja`, { headers });
-    const english = await app.request(`${path}&languages=en,en`, { headers });
-    const englishAgain = await app.request(`${path}&languages=en`, { headers });
-    const japanese = await app.request(`${path}&languages=ja`, { headers });
+  integrationTest(
+    'separates filtered caches and reuses equivalent unrestricted selections',
+    async ({ db, createApp, authenticatedHeaders: headers }) => {
+      const pricingClient = new CountingPricingClient();
+      const app = createApp({ pricingClient });
 
-    expect(unrestricted.status).toBe(200);
-    expect(empty.status).toBe(200);
-    expect(complete.status).toBe(200);
-    expect(english.status).toBe(200);
-    expect(englishAgain.status).toBe(200);
-    expect(japanese.status).toBe(200);
+      const path = `${SEARCH_PRICING_ROUTE_PATH}?game=pokemon&query=Giratina`;
 
-    const unfilteredBody = PricingSearchResponseSchema.parse(await unrestricted.json());
-    expect(PricingSearchResponseSchema.parse(await empty.json())).toEqual(unfilteredBody);
-    expect(PricingSearchResponseSchema.parse(await complete.json())).toEqual(unfilteredBody);
+      const unrestricted = await app.request(path, { headers });
+      const empty = await app.request(`${path}&languages=`, { headers });
+      const complete = await app.request(`${path}&languages=ja,en,ja`, { headers });
+      const english = await app.request(`${path}&languages=en,en`, { headers });
+      const englishAgain = await app.request(`${path}&languages=en`, { headers });
+      const japanese = await app.request(`${path}&languages=ja`, { headers });
 
-    const englishBody = PricingSearchResponseSchema.parse(await english.json());
+      expect(unrestricted.status).toBe(200);
+      expect(empty.status).toBe(200);
+      expect(complete.status).toBe(200);
+      expect(english.status).toBe(200);
+      expect(englishAgain.status).toBe(200);
+      expect(japanese.status).toBe(200);
 
-    expect(englishBody.matches).toMatchObject([{ name: 'Giratina VSTAR', card_number: 'GG69' }]);
-    expect(PricingSearchResponseSchema.parse(await englishAgain.json())).toEqual(englishBody);
-    expect(PricingSearchResponseSchema.parse(await japanese.json())).toEqual({ matches: [] });
-    expect(pricingClient.searchCallCount).toBe(3);
-    expect(await db.query.cardPriceSearch.findMany()).toHaveLength(3);
-  });
+      const unfilteredBody = PricingSearchResponseSchema.parse(await unrestricted.json());
+      expect(PricingSearchResponseSchema.parse(await empty.json())).toEqual(unfilteredBody);
+      expect(PricingSearchResponseSchema.parse(await complete.json())).toEqual(unfilteredBody);
 
-  integrationTest('returns language validation errors for unknown codes and unsupported games', async ({ app, db }) => {
-    const user = await createTestUser(app, db);
-    const headers = sessionHeaders(user.sessionToken);
+      const englishBody = PricingSearchResponseSchema.parse(await english.json());
 
-    const unknown = await app.request(`${SEARCH_PRICING_ROUTE_PATH}?game=pokemon&query=Shiftry&languages=fr`, {
-      headers,
-    });
+      expect(englishBody.matches).toMatchObject([{ name: 'Giratina VSTAR', card_number: 'GG69' }]);
+      expect(PricingSearchResponseSchema.parse(await englishAgain.json())).toEqual(englishBody);
+      expect(PricingSearchResponseSchema.parse(await japanese.json())).toEqual({ matches: [] });
+      expect(pricingClient.searchCallCount).toBe(3);
+      expect(await db.query.cardPriceSearch.findMany()).toHaveLength(3);
+    },
+  );
 
-    const unsupported = await app.request(`${SEARCH_PRICING_ROUTE_PATH}?game=one_piece&query=Nami&languages=ja`, {
-      headers,
-    });
+  integrationTest(
+    'returns language validation errors for unknown codes and unsupported games',
+    async ({ app, db, authenticatedHeaders: headers }) => {
+      const unknown = await app.request(`${SEARCH_PRICING_ROUTE_PATH}?game=pokemon&query=Shiftry&languages=fr`, {
+        headers,
+      });
 
-    await expectValidationIssueForField(unknown, 'languages');
-    await expectValidationIssueForField(unsupported, 'languages');
+      const unsupported = await app.request(`${SEARCH_PRICING_ROUTE_PATH}?game=one_piece&query=Nami&languages=ja`, {
+        headers,
+      });
 
-    expect(await db.query.cardPriceSearch.findMany()).toEqual([]);
-  });
+      await expectValidationIssueForField(unknown, 'languages');
+      await expectValidationIssueForField(unsupported, 'languages');
 
-  integrationTest('searches and returns normalized market pricing', async ({ app, db }) => {
-    const user = await createTestUser(app, db);
+      expect(await db.query.cardPriceSearch.findMany()).toEqual([]);
+    },
+  );
 
+  integrationTest('searches and returns normalized market pricing', async ({ app, authenticatedHeaders }) => {
     const response = await app.request(`${SEARCH_PRICING_ROUTE_PATH}?game=pokemon&query=Giratina%20VSTAR%20GG69`, {
-      headers: sessionHeaders(user.sessionToken),
+      headers: authenticatedHeaders,
     });
 
     expect(response.status).toBe(CONTENTFUL_STATUS_CODES.OK);
@@ -101,66 +101,70 @@ describe('Card pricing integration', () => {
     expect(body.matches[0]).not.toHaveProperty('pricing_card_id');
   });
 
-  integrationTest('returns One Piece set metadata from fresh and cached pricing', async ({ app, db }) => {
-    const user = await createTestUser(app, db);
-    const path = `${SEARCH_PRICING_ROUTE_PATH}?game=one_piece&query=OP09-093`;
-    const first = await app.request(path, { headers: sessionHeaders(user.sessionToken) });
-    expect(first.status).toBe(200);
-    const firstBody = PricingSearchResponseSchema.parse(await first.json());
-    expect(firstBody.matches[0]).toMatchObject({ game: 'one_piece', set_name: 'Emperors in the New World' });
+  integrationTest(
+    'returns One Piece set metadata from fresh and cached pricing',
+    async ({ app, authenticatedHeaders }) => {
+      const path = `${SEARCH_PRICING_ROUTE_PATH}?game=one_piece&query=OP09-093`;
+      const first = await app.request(path, { headers: authenticatedHeaders });
+      expect(first.status).toBe(200);
+      const firstBody = PricingSearchResponseSchema.parse(await first.json());
+      expect(firstBody.matches[0]).toMatchObject({ game: 'one_piece', set_name: 'Emperors in the New World' });
 
-    const second = await app.request(path, { headers: sessionHeaders(user.sessionToken) });
-    expect(second.status).toBe(200);
-    expect(PricingSearchResponseSchema.parse(await second.json())).toEqual(firstBody);
-  });
+      const second = await app.request(path, { headers: authenticatedHeaders });
+      expect(second.status).toBe(200);
+      expect(PricingSearchResponseSchema.parse(await second.json())).toEqual(firstBody);
+    },
+  );
 
-  integrationTest('omits set name from legacy cached pricing without normalized metadata', async ({ app, db }) => {
-    const user = await createTestUser(app, db);
-    const path = `${SEARCH_PRICING_ROUTE_PATH}?game=pokemon&query=Giratina`;
-    const first = await app.request(path, { headers: sessionHeaders(user.sessionToken) });
-    expect(first.status).toBe(200);
-    const cachedRow = await db.query.cardPrice.findFirst();
-    assert(cachedRow != null);
-    const { setName, ...legacyPrices } = cachedRow.prices;
-    expect(setName).toBe('Crown Zenith');
-    await db.update(cardPrice).set({ prices: legacyPrices });
+  integrationTest(
+    'omits set name from legacy cached pricing without normalized metadata',
+    async ({ app, db, authenticatedHeaders }) => {
+      const path = `${SEARCH_PRICING_ROUTE_PATH}?game=pokemon&query=Giratina`;
+      const first = await app.request(path, { headers: authenticatedHeaders });
+      expect(first.status).toBe(200);
+      const cachedRow = await db.query.cardPrice.findFirst();
+      assert(cachedRow != null);
+      const { setName, ...legacyPrices } = cachedRow.prices;
+      expect(setName).toBe('Crown Zenith');
+      await db.update(cardPrice).set({ prices: legacyPrices });
 
-    const cached = await app.request(path, { headers: sessionHeaders(user.sessionToken) });
-    expect(cached.status).toBe(200);
-    const body = PricingSearchResponseSchema.parse(await cached.json());
-    expect(body.matches).toHaveLength(1);
-    expect(body.matches[0]).not.toHaveProperty('set_name');
-  });
+      const cached = await app.request(path, { headers: authenticatedHeaders });
+      expect(cached.status).toBe(200);
+      const body = PricingSearchResponseSchema.parse(await cached.json());
+      expect(body.matches).toHaveLength(1);
+      expect(body.matches[0]).not.toHaveProperty('set_name');
+    },
+  );
 
-  integrationTest('registers images when serving legacy cached pricing results', async ({ app, db }) => {
-    const user = await createTestUser(app, db);
-    const path = `${SEARCH_PRICING_ROUTE_PATH}?game=pokemon&query=Giratina%20VSTAR%20GG69`;
-    const first = await app.request(path, { headers: sessionHeaders(user.sessionToken) });
-    const firstBody = PricingSearchResponseSchema.parse(await first.json());
-    const originURL = 'https://images.example.com/giratina-vstar-gg69.png';
-    const imageKey = imageKeyForOriginURL(originURL);
+  integrationTest(
+    'registers images when serving legacy cached pricing results',
+    async ({ app, db, authenticatedHeaders }) => {
+      const path = `${SEARCH_PRICING_ROUTE_PATH}?game=pokemon&query=Giratina%20VSTAR%20GG69`;
+      const first = await app.request(path, { headers: authenticatedHeaders });
+      const firstBody = PricingSearchResponseSchema.parse(await first.json());
+      const originURL = 'https://images.example.com/giratina-vstar-gg69.png';
+      const imageKey = imageKeyForOriginURL(originURL);
 
-    await db.delete(cardImage);
+      await db.delete(cardImage);
 
-    const second = await app.request(path, { headers: sessionHeaders(user.sessionToken) });
-    expect(second.status).toBe(CONTENTFUL_STATUS_CODES.OK);
-    expect(PricingSearchResponseSchema.parse(await second.json()).matches).toEqual(firstBody.matches);
-    expect(await db.query.cardImage.findFirst({ where: { imageKey } })).toMatchObject({
-      imageKey,
-      originUrl: originURL,
-      status: 'pending',
-    });
-  });
+      const second = await app.request(path, { headers: authenticatedHeaders });
+      expect(second.status).toBe(CONTENTFUL_STATUS_CODES.OK);
+      expect(PricingSearchResponseSchema.parse(await second.json()).matches).toEqual(firstBody.matches);
+      expect(await db.query.cardImage.findFirst({ where: { imageKey } })).toMatchObject({
+        imageKey,
+        originUrl: originURL,
+        status: 'pending',
+      });
+    },
+  );
 
-  integrationTest('returns no-results and rejects invalid search queries', async ({ app, db }) => {
-    const user = await createTestUser(app, db);
-
+  integrationTest('returns no-results and rejects invalid search queries', async ({ app, authenticatedHeaders }) => {
     const noResults = await app.request(`${SEARCH_PRICING_ROUTE_PATH}?game=pokemon&query=no%20results`, {
-      headers: sessionHeaders(user.sessionToken),
+      headers: authenticatedHeaders,
     });
 
     const invalid = await app.request(`${SEARCH_PRICING_ROUTE_PATH}?game=pokemon&query=x`, {
-      headers: sessionHeaders(user.sessionToken),
+      headers: authenticatedHeaders,
     });
 
     expect(PricingSearchResponseSchema.parse(await noResults.json())).toMatchObject({
@@ -169,60 +173,63 @@ describe('Card pricing integration', () => {
     await expectValidationIssueForField(invalid, 'query');
   });
 
-  integrationTest('deduplicates repeated provider cards before bulk upserting them', async ({ db }) => {
-    const pricingClient = new DuplicateSearchPricingClient();
-    const { app } = new App({ db, pricingClient });
-    const user = await createTestUser(app, db);
+  integrationTest(
+    'deduplicates repeated provider cards before bulk upserting them',
+    async ({ db, createApp, authenticatedHeaders }) => {
+      const pricingClient = new DuplicateSearchPricingClient();
+      const app = createApp({ pricingClient });
 
-    const response = await app.request(`${SEARCH_PRICING_ROUTE_PATH}?game=pokemon&query=Giratina%20VSTAR%20GG69`, {
-      headers: sessionHeaders(user.sessionToken),
-    });
+      const response = await app.request(`${SEARCH_PRICING_ROUTE_PATH}?game=pokemon&query=Giratina%20VSTAR%20GG69`, {
+        headers: authenticatedHeaders,
+      });
 
-    expect(response.status).toBe(CONTENTFUL_STATUS_CODES.OK);
-    expect(PricingSearchResponseSchema.parse(await response.json()).matches).toHaveLength(1);
-    expect(
-      await db
-        .select()
-        .from(cardPrice)
-        .where(and(eq(cardPrice.game, 'pokemon'), eq(cardPrice.pricingCardId, 'crown-zenith-GG69'))),
-    ).toHaveLength(1);
-  });
+      expect(response.status).toBe(CONTENTFUL_STATUS_CODES.OK);
+      expect(PricingSearchResponseSchema.parse(await response.json()).matches).toHaveLength(1);
+      expect(
+        await db
+          .select()
+          .from(cardPrice)
+          .where(and(eq(cardPrice.game, 'pokemon'), eq(cardPrice.pricingCardId, 'crown-zenith-GG69'))),
+      ).toHaveLength(1);
+    },
+  );
 
-  integrationTest('relinks an owned card when the active pricing source changes', async ({ db }) => {
-    const staticClient = new CountingPricingClient();
-    const staticApp = new App({ db, pricingClient: staticClient }).app;
-    const user = await createTestUser(staticApp, db);
+  integrationTest(
+    'relinks an owned card when the active pricing source changes',
+    async ({ db, createApp, user, authenticatedHeaders }) => {
+      const staticClient = new CountingPricingClient();
+      const staticApp = createApp({ pricingClient: staticClient });
 
-    const created = await createCardRequest(staticApp, user.sessionToken, {
-      game: 'pokemon',
-      name: 'Giratina VSTAR',
-      set_name: 'Crown Zenith',
-      card_number: 'GG69',
-      purchases: [{ condition: 'near_mint', quantity: 1, purchase_price: null, currency: null }],
-    });
+      const created = await createCardRequest(staticApp, user.sessionToken, {
+        game: 'pokemon',
+        name: 'Giratina VSTAR',
+        set_name: 'Crown Zenith',
+        card_number: 'GG69',
+        purchases: [{ condition: 'near_mint', quantity: 1, purchase_price: null, currency: null }],
+      });
 
-    expect(created.status).toBe(CONTENTFUL_STATUS_CODES.CREATED);
-    const ownedCard = await db.query.card.findFirst({ where: { userId: user.userId } });
-    assert(ownedCard != null);
-    expect(ownedCard).toMatchObject({ pricingCardId: 'crown-zenith-GG69', pricingSource: 'scrydex_static' });
+      expect(created.status).toBe(CONTENTFUL_STATUS_CODES.CREATED);
+      const ownedCard = await db.query.card.findFirst({ where: { userId: user.userId } });
+      assert(ownedCard != null);
+      expect(ownedCard).toMatchObject({ pricingCardId: 'crown-zenith-GG69', pricingSource: 'scrydex_static' });
 
-    const realModeClient = new CountingPricingClient('scrydex_real');
-    const realModeApp = new App({ db, pricingClient: realModeClient }).app;
-    const listed = await realModeApp.request(LIST_CARDS_ROUTE_PATH, { headers: sessionHeaders(user.sessionToken) });
+      const realModeClient = new CountingPricingClient('scrydex_real');
+      const realModeApp = createApp({ pricingClient: realModeClient });
+      const listed = await realModeApp.request(LIST_CARDS_ROUTE_PATH, { headers: authenticatedHeaders });
 
-    expect(listed.status).toBe(CONTENTFUL_STATUS_CODES.OK);
-    await expect(db.query.card.findFirst({ where: { id: ownedCard.id } })).resolves.toMatchObject({
-      pricingCardId: 'crown-zenith-GG69',
-      pricingSource: 'scrydex_real',
-    });
-    expect(realModeClient.searchCallCount).toBe(1);
-  });
+      expect(listed.status).toBe(CONTENTFUL_STATUS_CODES.OK);
+      await expect(db.query.card.findFirst({ where: { id: ownedCard.id } })).resolves.toMatchObject({
+        pricingCardId: 'crown-zenith-GG69',
+        pricingSource: 'scrydex_real',
+      });
+      expect(realModeClient.searchCallCount).toBe(1);
+    },
+  );
 
   integrationTest(
     'logs one redacted lock-completion event',
-    async ({ app, db, getLogsForRequestId, withRequestId }) => {
-      const user = await createTestUser(app, db);
-      const { headers, requestId } = withRequestId(Object.fromEntries(sessionHeaders(user.sessionToken).entries()));
+    async ({ app, getLogsForRequestId, withRequestId, authenticatedHeaders }) => {
+      const { headers, requestId } = withRequestId(authenticatedHeaders);
 
       const response = await app.request(`${SEARCH_PRICING_ROUTE_PATH}?game=pokemon&query=Sensitive%20Search%20Term`, {
         headers,
@@ -245,79 +252,88 @@ describe('Card pricing integration', () => {
     },
   );
 
-  integrationTest('deduplicates concurrent searches across app instances', async ({ connectionString, db }) => {
-    const pricingClient = new BlockingPricingClient('search');
-    const firstApp = new App({ db, pricingClient }).app;
-    const secondApp = new App({ db, pricingClient }).app;
-    const firstUser = await createTestUser(firstApp, db);
-    const secondUser = await createTestUser(secondApp, db);
-    const path = `${SEARCH_PRICING_ROUTE_PATH}?game=pokemon&query=Charizard%20ex%20199`;
+  integrationTest(
+    'deduplicates concurrent searches across app instances',
+    async ({ connectionString, createApp, createUser, authenticatedHeaders }) => {
+      const pricingClient = new BlockingPricingClient('search');
+      const firstApp = createApp({ pricingClient });
+      const secondApp = createApp({ pricingClient });
 
-    const firstRequest = firstApp.request(path, { headers: sessionHeaders(firstUser.sessionToken) });
-    await pricingClient.started;
-    const secondRequest = secondApp.request(path, { headers: sessionHeaders(secondUser.sessionToken) });
-    await waitForAdvisoryLockWaiter(connectionString);
-    pricingClient.release();
+      const secondUser = await createUser();
+      const path = `${SEARCH_PRICING_ROUTE_PATH}?game=pokemon&query=Charizard%20ex%20199`;
 
-    const [first, second] = await Promise.all([firstRequest, secondRequest]);
-    expect(first.status).toBe(CONTENTFUL_STATUS_CODES.OK);
-    expect(second.status).toBe(CONTENTFUL_STATUS_CODES.OK);
-    expect(await first.json()).toEqual(await second.json());
-    expect(pricingClient.searchCallCount).toBe(1);
-  });
+      const firstRequest = firstApp.request(path, { headers: authenticatedHeaders });
+      await pricingClient.started;
+      const secondRequest = secondApp.request(path, { headers: sessionHeaders(secondUser.sessionToken) });
+      await waitForAdvisoryLockWaiter(connectionString);
+      pricingClient.release();
 
-  integrationTest('returns a retryable 503 when the pricing lock times out', async ({ connectionString, db }) => {
-    const pricingClient = new CountingPricingClient();
-    const { app } = new App({ db, pricingClient });
-    const user = await createTestUser(app, db);
-    const query = 'Charizard ex 199';
-    const lockKey = `pricing:search:scrydex_static:${todayUTC()}:pokemon:${queryKey('pokemon', query)}`;
-    const lockHolder = new Client({ connectionString });
-    await lockHolder.connect();
+      const [first, second] = await Promise.all([firstRequest, secondRequest]);
+      expect(first.status).toBe(CONTENTFUL_STATUS_CODES.OK);
+      expect(second.status).toBe(CONTENTFUL_STATUS_CODES.OK);
+      expect(await first.json()).toEqual(await second.json());
+      expect(pricingClient.searchCallCount).toBe(1);
+    },
+  );
 
-    try {
-      await lockHolder.query('begin');
-      await lockHolder.query('select pg_advisory_xact_lock(hashtextextended($1, 0))', [lockKey]);
+  integrationTest(
+    'returns a retryable 503 when the pricing lock times out',
+    async ({ connectionString, createApp, authenticatedHeaders }) => {
+      const pricingClient = new CountingPricingClient();
+      const app = createApp({ pricingClient });
 
-      const response = await app.request(`${SEARCH_PRICING_ROUTE_PATH}?game=pokemon&query=Charizard%20ex%20199`, {
-        headers: sessionHeaders(user.sessionToken),
-      });
+      const query = 'Charizard ex 199';
+      const lockKey = `pricing:search:scrydex_static:${todayUTC()}:pokemon:${queryKey('pokemon', query)}`;
+      const lockHolder = new Client({ connectionString });
+      await lockHolder.connect();
 
-      expect(await expectErrorResponse(response, CONTENTFUL_STATUS_CODES.SERVICE_UNAVAILABLE)).toEqual({
-        code: 'PRICING_LOCK_TIMEOUT',
-        message: 'Pricing is busy; try again shortly.',
-      });
-      expect(response.headers.get('Retry-After')).toBe('1');
-      expect(pricingClient.searchCallCount).toBe(0);
-    } finally {
-      await lockHolder.query('rollback');
-      await lockHolder.end();
-    }
-  });
+      try {
+        await lockHolder.query('begin');
+        await lockHolder.query('select pg_advisory_xact_lock(hashtextextended($1, 0))', [lockKey]);
 
-  integrationTest('releases the lock after an upstream failure', async ({ db }) => {
-    const pricingClient = new FailOncePricingClient();
-    const firstApp = new App({ db, pricingClient }).app;
-    const secondApp = new App({ db, pricingClient }).app;
-    const firstUser = await createTestUser(firstApp, db);
-    const secondUser = await createTestUser(secondApp, db);
-    const path = `${SEARCH_PRICING_ROUTE_PATH}?game=pokemon&query=Giratina%20VSTAR%20GG69`;
+        const response = await app.request(`${SEARCH_PRICING_ROUTE_PATH}?game=pokemon&query=Charizard%20ex%20199`, {
+          headers: authenticatedHeaders,
+        });
 
-    const first = await firstApp.request(path, { headers: sessionHeaders(firstUser.sessionToken) });
-    const second = await secondApp.request(path, { headers: sessionHeaders(secondUser.sessionToken) });
+        expect(await expectErrorResponse(response, CONTENTFUL_STATUS_CODES.SERVICE_UNAVAILABLE)).toEqual({
+          code: 'PRICING_LOCK_TIMEOUT',
+          message: 'Pricing is busy; try again shortly.',
+        });
+        expect(response.headers.get('Retry-After')).toBe('1');
+        expect(pricingClient.searchCallCount).toBe(0);
+      } finally {
+        await lockHolder.query('rollback');
+        await lockHolder.end();
+      }
+    },
+  );
 
-    expect(first.status).toBe(CONTENTFUL_STATUS_CODES.INTERNAL_SERVER_ERROR);
-    expect(second.status).toBe(CONTENTFUL_STATUS_CODES.OK);
-    expect(pricingClient.searchCallCount).toBe(2);
-  });
+  integrationTest(
+    'releases the lock after an upstream failure',
+    async ({ createApp, createUser, authenticatedHeaders }) => {
+      const pricingClient = new FailOncePricingClient();
+      const firstApp = createApp({ pricingClient });
+      const secondApp = createApp({ pricingClient });
+
+      const secondUser = await createUser();
+      const path = `${SEARCH_PRICING_ROUTE_PATH}?game=pokemon&query=Giratina%20VSTAR%20GG69`;
+
+      const first = await firstApp.request(path, { headers: authenticatedHeaders });
+      const second = await secondApp.request(path, { headers: sessionHeaders(secondUser.sessionToken) });
+
+      expect(first.status).toBe(CONTENTFUL_STATUS_CODES.INTERNAL_SERVER_ERROR);
+      expect(second.status).toBe(CONTENTFUL_STATUS_CODES.OK);
+      expect(pricingClient.searchCallCount).toBe(2);
+    },
+  );
 
   integrationTest(
     'logs the safe provider failure details when search pricing is unavailable',
-    async ({ db, getLogsForRequestId, withRequestId }) => {
+    async ({ getLogsForRequestId, withRequestId, createApp, authenticatedHeaders }) => {
       const pricingClient = new UnavailablePricingClient();
-      const { app } = new App({ db, pricingClient });
-      const user = await createTestUser(app, db);
-      const { headers, requestId } = withRequestId(Object.fromEntries(sessionHeaders(user.sessionToken).entries()));
+      const app = createApp({ pricingClient });
+
+      const { headers, requestId } = withRequestId(authenticatedHeaders);
 
       const response = await app.request(`${SEARCH_PRICING_ROUTE_PATH}?game=pokemon&query=Giratina%20VSTAR%20GG69`, {
         headers,
@@ -343,29 +359,35 @@ describe('Card pricing integration', () => {
     },
   );
 
-  integrationTest('allows different pricing keys to proceed concurrently', async ({ db }) => {
-    const pricingClient = new TwoCallBarrierPricingClient();
-    const firstApp = new App({ db, pricingClient }).app;
-    const secondApp = new App({ db, pricingClient }).app;
-    const firstUser = await createTestUser(firstApp, db);
-    const secondUser = await createTestUser(secondApp, db);
+  integrationTest(
+    'allows different pricing keys to proceed concurrently',
+    async ({ createApp, createUser, authenticatedHeaders }) => {
+      const pricingClient = new TwoCallBarrierPricingClient();
+      const firstApp = createApp({ pricingClient });
+      const secondApp = createApp({ pricingClient });
 
-    const firstRequest = firstApp.request(`${SEARCH_PRICING_ROUTE_PATH}?game=pokemon&query=Charizard%20ex%20199`, {
-      headers: sessionHeaders(firstUser.sessionToken),
-    });
+      const secondUser = await createUser();
 
-    const secondRequest = secondApp.request(`${SEARCH_PRICING_ROUTE_PATH}?game=pokemon&query=Giratina%20VSTAR%20GG69`, {
-      headers: sessionHeaders(secondUser.sessionToken),
-    });
+      const firstRequest = firstApp.request(`${SEARCH_PRICING_ROUTE_PATH}?game=pokemon&query=Charizard%20ex%20199`, {
+        headers: authenticatedHeaders,
+      });
 
-    await withTimeout(pricingClient.bothStarted, 750, 'Different pricing keys did not proceed concurrently');
-    pricingClient.release();
+      const secondRequest = secondApp.request(
+        `${SEARCH_PRICING_ROUTE_PATH}?game=pokemon&query=Giratina%20VSTAR%20GG69`,
+        {
+          headers: sessionHeaders(secondUser.sessionToken),
+        },
+      );
 
-    const [first, second] = await Promise.all([firstRequest, secondRequest]);
-    expect(first.status).toBe(CONTENTFUL_STATUS_CODES.OK);
-    expect(second.status).toBe(CONTENTFUL_STATUS_CODES.OK);
-    expect(pricingClient.searchCallCount).toBe(2);
-  });
+      await withTimeout(pricingClient.bothStarted, 750, 'Different pricing keys did not proceed concurrently');
+      pricingClient.release();
+
+      const [first, second] = await Promise.all([firstRequest, secondRequest]);
+      expect(first.status).toBe(CONTENTFUL_STATUS_CODES.OK);
+      expect(second.status).toBe(CONTENTFUL_STATUS_CODES.OK);
+      expect(pricingClient.searchCallCount).toBe(2);
+    },
+  );
 });
 
 class CountingPricingClient implements PricingClient {
@@ -511,16 +533,6 @@ async function waitForAdvisoryLockWaiter(connectionString: string) {
   } finally {
     await observer.end();
   }
-}
-
-function deferred<T>() {
-  let resolve: (value: T | PromiseLike<T>) => void = () => {};
-
-  const promise = new Promise<T>(resolver => {
-    resolve = resolver;
-  });
-
-  return { promise, resolve };
 }
 
 async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {

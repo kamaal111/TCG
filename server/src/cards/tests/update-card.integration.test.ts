@@ -1,21 +1,19 @@
 import { eq } from 'drizzle-orm';
 
-import { createCardRequest, sessionHeaders, validCardPayload } from './utils.ts';
+import type { createCardRequest } from './utils.ts';
+import { validCardPayload, createTestCard } from './utils.ts';
 import { CONTENTFUL_STATUS_CODES } from '../../constants/http.ts';
 import { cardConditionQuantity } from '../../db/schema/cards.ts';
-import { expectErrorResponse, expectValidationIssueForField } from '../../tests/auth.ts';
+import { expectErrorResponse, expectValidationIssueForField, sessionHeaders } from '../../tests/auth.ts';
 import { integrationTest } from '../../tests/fixtures.ts';
-import { createTestUser } from '../../tests/utils.ts';
 import { CardSchema, CardWithPriceSchema } from '../schemas/responses.ts';
 
 describe('Update card integration', () => {
-  integrationTest('requires a session and hides missing cards', async ({ app, db }) => {
+  integrationTest('requires a session and hides missing cards', async ({ app, user }) => {
     const response = await app.request('/app-api/cards/missing', { method: 'PUT' });
     expect(await expectErrorResponse(response, CONTENTFUL_STATUS_CODES.UNAUTHORIZED)).toMatchObject({
       code: 'SESSION_NOT_FOUND',
     });
-
-    const user = await createTestUser(app, db);
 
     const missing = await updateRequest(
       app,
@@ -31,14 +29,11 @@ describe('Update card integration', () => {
 
   integrationTest(
     "does not update another user's card and logs the access denial",
-    async ({ app, db, getLogsForRequestId, withRequestId }) => {
-      const owner = await createTestUser(app, db);
-      const otherUser = await createTestUser(app, db);
-      const original = CardSchema.parse(await (await createCardRequest(app, owner.sessionToken)).json());
+    async ({ app, db, getLogsForRequestId, withRequestId, user: owner, createUser }) => {
+      const otherUser = await createUser();
+      const original = await createTestCard(app, owner.sessionToken);
 
-      const { headers, requestId } = withRequestId(
-        Object.fromEntries(sessionHeaders(otherUser.sessionToken).entries()),
-      );
+      const { headers, requestId } = withRequestId(sessionHeaders(otherUser.sessionToken));
 
       const response = await app.request(`/app-api/cards/${original.id}`, {
         method: 'PUT',
@@ -58,19 +53,14 @@ describe('Update card integration', () => {
     },
   );
 
-  integrationTest('validates replacement input', async ({ app, db }) => {
-    const user = await createTestUser(app, db);
-    const card = CardSchema.parse(await (await createCardRequest(app, user.sessionToken)).json());
+  integrationTest('validates replacement input', async ({ app, user }) => {
+    const card = await createTestCard(app, user.sessionToken);
     const response = await updateRequest(app, user.sessionToken, card.id, { ...validCardPayload, name: '' });
     await expectValidationIssueForField(response, 'name');
   });
 
-  integrationTest('clears notes when the replacement payload omits them', async ({ app, db }) => {
-    const user = await createTestUser(app, db);
-
-    const original = CardSchema.parse(
-      await (await createCardRequest(app, user.sessionToken, { ...validCardPayload, notes: 'Alternate art' })).json(),
-    );
+  integrationTest('clears notes when the replacement payload omits them', async ({ app, db, user }) => {
+    const original = await createTestCard(app, user.sessionToken, { ...validCardPayload, notes: 'Alternate art' });
 
     expect(original.notes).toBe('Alternate art');
 
@@ -81,9 +71,8 @@ describe('Update card integration', () => {
     expect(await db.query.card.findFirst({ where: { id: original.id } })).toMatchObject({ notes: null });
   });
 
-  integrationTest('trims replacement notes and clears whitespace-only notes', async ({ app, db }) => {
-    const user = await createTestUser(app, db);
-    const original = CardSchema.parse(await (await createCardRequest(app, user.sessionToken)).json());
+  integrationTest('trims replacement notes and clears whitespace-only notes', async ({ app, db, user }) => {
+    const original = await createTestCard(app, user.sessionToken);
 
     const padded = CardSchema.parse(
       await (
@@ -103,10 +92,9 @@ describe('Update card integration', () => {
 
   integrationTest(
     'fully replaces card fields and quantities and logs success',
-    async ({ app, db, getLogsForRequestId, withRequestId }) => {
-      const user = await createTestUser(app, db);
-      const original = CardSchema.parse(await (await createCardRequest(app, user.sessionToken)).json());
-      const { headers, requestId } = withRequestId(Object.fromEntries(sessionHeaders(user.sessionToken).entries()));
+    async ({ app, db, getLogsForRequestId, withRequestId, user, authenticatedHeaders }) => {
+      const original = await createTestCard(app, user.sessionToken);
+      const { headers, requestId } = withRequestId(authenticatedHeaders);
 
       const replacement = {
         ...validCardPayload,
@@ -147,20 +135,14 @@ describe('Update card integration', () => {
   );
   integrationTest(
     're-resolves provider pricing instead of pricing the card under its stale identity',
-    async ({ app, db }) => {
-      const user = await createTestUser(app, db);
-
-      const original = CardWithPriceSchema.parse(
-        await (
-          await createCardRequest(app, user.sessionToken, {
-            ...validCardPayload,
-            game: 'pokemon',
-            name: 'Giratina VSTAR',
-            set_name: 'Crown Zenith',
-            card_number: 'GG69',
-          })
-        ).json(),
-      );
+    async ({ app, db, user }) => {
+      const original = await createTestCard(app, user.sessionToken, {
+        ...validCardPayload,
+        game: 'pokemon',
+        name: 'Giratina VSTAR',
+        set_name: 'Crown Zenith',
+        card_number: 'GG69',
+      });
 
       expect(original.price.priced_card?.id).toEqual(expect.any(String));
       await expect(db.query.card.findFirst({ where: { id: original.id } })).resolves.toMatchObject({
@@ -186,20 +168,14 @@ describe('Update card integration', () => {
     },
   );
 
-  integrationTest('clears a stale provider identity when the replacement has no match', async ({ app, db }) => {
-    const user = await createTestUser(app, db);
-
-    const original = CardWithPriceSchema.parse(
-      await (
-        await createCardRequest(app, user.sessionToken, {
-          ...validCardPayload,
-          game: 'pokemon',
-          name: 'Giratina VSTAR',
-          set_name: 'Crown Zenith',
-          card_number: 'GG69',
-        })
-      ).json(),
-    );
+  integrationTest('clears a stale provider identity when the replacement has no match', async ({ app, db, user }) => {
+    const original = await createTestCard(app, user.sessionToken, {
+      ...validCardPayload,
+      game: 'pokemon',
+      name: 'Giratina VSTAR',
+      set_name: 'Crown Zenith',
+      card_number: 'GG69',
+    });
 
     expect(original.price.priced_card?.id).toEqual(expect.any(String));
 

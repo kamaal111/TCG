@@ -5,11 +5,10 @@ import type { Hono } from 'hono';
 import { z } from 'zod';
 
 import { integrationTest } from './fixtures.ts';
-import { CardSchema } from '../../cards/schemas/responses.ts';
-import { sessionHeaders, createCardRequest, validCardPayload } from '../../cards/tests/utils.ts';
+import { validCardPayload, createTestCard } from '../../cards/tests/utils.ts';
 import type { HonoEnvironment } from '../../context.ts';
 import { binderPage, card, cardCollection, cardPurchaseBatch } from '../../db/schema/cards.ts';
-import { createTestUser } from '../../tests/utils.ts';
+import { sessionHeaders } from '../../tests/auth.ts';
 import { BackupSchema, CollectionsSchema } from '../schemas/responses.ts';
 
 const EMPTY_BACKUP = { version: 1, collections: [], cards: [] };
@@ -33,12 +32,10 @@ for (const { policy, body } of [
 ]) {
   integrationTest(
     `rejects cumulative count overflow before validating entries or writing data: ${JSON.stringify(policy)}`,
-    async ({ app, db, limitedApp }) => {
-      const user = await createTestUser(app, db);
-
+    async ({ db, limitedApp, user, authenticatedHeaders }) => {
       const response = await limitedApp(policy).request(ENDPOINT, {
         method: 'POST',
-        headers: sessionHeaders(user.sessionToken),
+        headers: authenticatedHeaders,
         body: JSON.stringify(body),
       });
 
@@ -51,12 +48,11 @@ for (const { policy, body } of [
 
 integrationTest(
   'accepts exactly the UTF-8 byte limit and rejects one additional byte despite a false Content-Length',
-  async ({ app, db, limitedApp }) => {
-    const user = await createTestUser(app, db);
+  async ({ limitedApp, authenticatedHeaders: headers }) => {
     const body = JSON.stringify({ ...EMPTY_BACKUP, ignored: 'é' });
     const bytes = Buffer.byteLength(body);
     const instance = limitedApp({ COLLECTION_MAX_BODY_BYTES: bytes });
-    const headers = sessionHeaders(user.sessionToken);
+
     const accepted = await instance.request(ENDPOINT, { method: 'POST', headers, body });
     const falseLengthHeaders = new Headers(headers);
     falseLengthHeaders.set('Content-Length', '1');
@@ -72,14 +68,13 @@ integrationTest(
   },
 );
 
-integrationTest('retains authentication and malformed JSON responses', async ({ app, db, limitedApp }) => {
-  const user = await createTestUser(app, db);
+integrationTest('retains authentication and malformed JSON responses', async ({ limitedApp, authenticatedHeaders }) => {
   const instance = limitedApp({ COLLECTION_MAX_BODY_BYTES: 1 });
   const unauthorized = await instance.request(ENDPOINT, { method: 'POST', body: 'large' });
 
   const malformed = await instance.request(ENDPOINT, {
     method: 'POST',
-    headers: sessionHeaders(user.sessionToken),
+    headers: authenticatedHeaders,
     body: '{',
   });
 
@@ -87,31 +82,30 @@ integrationTest('retains authentication and malformed JSON responses', async ({ 
   expect(malformed.status).toBe(400);
 });
 
-integrationTest('times out a stalled body and releases the body reader capacity', async ({ app, db, limitedApp }) => {
-  const user = await createTestUser(app, db);
-  const instance = limitedApp({ COLLECTION_BODY_TIMEOUT_MS: 20, COLLECTION_CONCURRENCY: 1 });
-  const headers = sessionHeaders(user.sessionToken);
+integrationTest(
+  'times out a stalled body and releases the body reader capacity',
+  async ({ limitedApp, authenticatedHeaders: headers }) => {
+    const instance = limitedApp({ COLLECTION_BODY_TIMEOUT_MS: 20, COLLECTION_CONCURRENCY: 1 });
 
-  const init = {
-    method: 'POST',
-    headers,
-    body: new ReadableStream<Uint8Array>(),
-    duplex: 'half',
-  };
+    const init = {
+      method: 'POST',
+      headers,
+      body: new ReadableStream<Uint8Array>(),
+      duplex: 'half',
+    };
 
-  const stalled = new Request('http://localhost' + ENDPOINT, init);
+    const stalled = new Request('http://localhost' + ENDPOINT, init);
 
-  const response = await instance.request(stalled);
-  const subsequent = await previewRequest(instance, headers);
-  expect(response.status).toBe(408);
-  expect(subsequent.status).toBe(200);
-});
+    const response = await instance.request(stalled);
+    const subsequent = await previewRequest(instance, headers);
+    expect(response.status).toBe(408);
+    expect(subsequent.status).toBe(200);
+  },
+);
 
 integrationTest(
   'shares account admission across app instances and releases it after a canceled export',
-  async ({ app, db, limitedApp }) => {
-    const user = await createTestUser(app, db);
-    const headers = sessionHeaders(user.sessionToken);
+  async ({ limitedApp, authenticatedHeaders: headers }) => {
     const first = limitedApp({});
     const second = limitedApp({});
     const exporting = await first.request('/app-api/collections/export', { method: 'POST', headers, body: '{}' });
@@ -127,15 +121,14 @@ integrationTest(
 
 integrationTest(
   'shares global admission across app instances and releases it after export completion',
-  async ({ app, db, limitedApp }) => {
-    const firstUser = await createTestUser(app, db);
-    const secondUser = await createTestUser(app, db);
+  async ({ limitedApp, createUser, authenticatedHeaders }) => {
+    const secondUser = await createUser();
     const first = limitedApp({ COLLECTION_CONCURRENCY: 1 });
     const second = limitedApp({ COLLECTION_CONCURRENCY: 1 });
 
     const exporting = await first.request('/app-api/collections/export', {
       method: 'POST',
-      headers: sessionHeaders(firstUser.sessionToken),
+      headers: authenticatedHeaders,
       body: '{}',
     });
 
@@ -151,9 +144,7 @@ integrationTest(
 
 integrationTest(
   'streams 501 collections and 5001 cards without imposing import limits on a full export',
-  async ({ app, db, limitedApp }) => {
-    const user = await createTestUser(app, db);
-
+  async ({ db, limitedApp, user, authenticatedHeaders }) => {
     const named = Array.from({ length: 501 }, (_, index) => ({
       id: crypto.randomUUID(),
       userId: user.userId,
@@ -187,7 +178,7 @@ integrationTest(
 
     const response = await limitedApp({}).request('/app-api/collections/export', {
       method: 'POST',
-      headers: sessionHeaders(user.sessionToken),
+      headers: authenticatedHeaders,
       body: '{}',
     });
 
@@ -202,9 +193,7 @@ integrationTest(
 
 integrationTest(
   'inserts 501 pages in batches and preserves empty pages at the configured boundary',
-  async ({ app, db, limitedApp }) => {
-    const user = await createTestUser(app, db);
-    const headers = sessionHeaders(user.sessionToken);
+  async ({ app, db, limitedApp, authenticatedHeaders: headers }) => {
     const listed = CollectionsSchema.parse(await (await app.request('/app-api/collections', { headers })).json());
     const collection = z.object({ id: z.string(), revision: z.number() }).parse(listed.collections[0]);
     const pages = Array.from({ length: 501 }, () => ({ id: crypto.randomUUID(), slots: [] }));
@@ -225,9 +214,7 @@ integrationTest(
 
 integrationTest(
   'a database lock timeout rolls back the import and releases admission',
-  async ({ app, db, limitedApp }) => {
-    const user = await createTestUser(app, db);
-    const headers = sessionHeaders(user.sessionToken);
+  async ({ db, limitedApp, user, authenticatedHeaders: headers }) => {
     const held = Promise.withResolvers<undefined>();
     const release = Promise.withResolvers<undefined>();
 
@@ -272,8 +259,7 @@ for (const policy of [
 ]) {
   integrationTest(
     `database deadline rolls back all import writes and leaves a usable pool: ${JSON.stringify(policy)}`,
-    async ({ app, db, limitedApp }) => {
-      const user = await createTestUser(app, db);
+    async ({ db, limitedApp, user, authenticatedHeaders: headers }) => {
       await db.execute(sql`create function delay_collection() returns trigger language plpgsql as $$
       begin
         if NEW.name = 'Slow' then perform pg_sleep(0.2); end if;
@@ -296,8 +282,6 @@ for (const policy of [
           },
         ],
       };
-
-      const headers = sessionHeaders(user.sessionToken);
 
       const response = await limitedApp(policy).request('/app-api/collections/import', {
         method: 'POST',
@@ -326,18 +310,11 @@ function previewRequest(app: Hono<HonoEnvironment>, headers: Headers) {
 
 integrationTest(
   'accepts a complete backup at every configured count limit and limits submitted export IDs before deduplication',
-  async ({ app, db, limitedApp }) => {
-    const user = await createTestUser(app, db);
-    const headers = sessionHeaders(user.sessionToken);
-
-    const ownedCard = CardSchema.parse(
-      await (
-        await createCardRequest(app, user.sessionToken, {
-          ...validCardPayload,
-          purchases: validCardPayload.purchases.slice(0, 1),
-        })
-      ).json(),
-    );
+  async ({ app, limitedApp, user, authenticatedHeaders: headers }) => {
+    const ownedCard = await createTestCard(app, user.sessionToken, {
+      ...validCardPayload,
+      purchases: validCardPayload.purchases.slice(0, 1),
+    });
 
     const listed = CollectionsSchema.parse(await (await app.request('/app-api/collections', { headers })).json());
     const collection = z.object({ id: z.string(), revision: z.number() }).parse(listed.collections[0]);

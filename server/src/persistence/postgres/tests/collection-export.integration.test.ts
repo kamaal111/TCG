@@ -1,17 +1,14 @@
 import crypto from 'node:crypto';
 
 import { ImportCardSchema } from '../../../cards/schemas/payloads.ts';
-import { sessionHeaders } from '../../../cards/tests/utils.ts';
 import { BackupSchema, CollectionSchema } from '../../../collections/schemas/responses.ts';
 import { binderPage, binderSlot, card, cardCollection, cardPurchaseBatch } from '../../../db/schema/cards.ts';
 import { integrationTest } from '../../../tests/fixtures.ts';
-import { createTestUser } from '../../../tests/utils.ts';
 import { COLLECTION_BATCH_SIZE } from '../collection-batches.ts';
 
 integrationTest(
   'exports slots and purchases across batch boundaries after a long empty-page prefix',
-  async ({ app, db }) => {
-    const user = await createTestUser(app, db);
+  async ({ app, db, user, authenticatedHeaders }) => {
     const collectionId = crypto.randomUUID();
     const collectionSourceId = crypto.randomUUID();
     const cardId = crypto.randomUUID();
@@ -59,7 +56,7 @@ integrationTest(
 
     const response = await app.request('/app-api/collections/export', {
       method: 'POST',
-      headers: sessionHeaders(user.sessionToken),
+      headers: authenticatedHeaders,
       body: JSON.stringify({ collection_ids: [collectionId] }),
     });
 

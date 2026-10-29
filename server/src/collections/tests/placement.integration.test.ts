@@ -4,82 +4,79 @@ import { eq, inArray } from 'drizzle-orm';
 import type { Hono } from 'hono';
 
 import { integrationTest } from './fixtures.ts';
-import { readCollection } from './utils.ts';
-import { CardSchema } from '../../cards/schemas/responses.ts';
-import { createCardRequest, sessionHeaders, validCardPayload } from '../../cards/tests/utils.ts';
+import { readCollection, createTestCollection, saveLayout } from './utils.ts';
+import { createCardRequest, validCardPayload, createTestCard } from '../../cards/tests/utils.ts';
 import type { HonoEnvironment } from '../../context.ts';
 import { card, cardPurchaseBatch } from '../../db/schema/cards.ts';
 import { ValidationErrorResponseSchema } from '../../schemas/errors.ts';
-import { createTestUser } from '../../tests/utils.ts';
-import type { SaveLayout } from '../schemas/payloads.ts';
-import { CollectionSchema, CollectionsSchema, CollectionSummarySchema } from '../schemas/responses.ts';
+import { CollectionsSchema, CollectionSummarySchema } from '../schemas/responses.ts';
 
-integrationTest('places all copies in the first empty slot and grows full binders', async ({ app, db }) => {
-  const user = await createTestUser(app, db);
-  const headers = sessionHeaders(user.sessionToken);
-  const collection = await createBinder(app, headers, 1, 2);
-  const first = await addCard(app, user.sessionToken, collection.id);
-  const initial = await readCollection(app, headers, collection.id);
-  expect(initial.pages).toMatchObject([{ slots: [{ row: 1, column: 1, card_id: first.id, quantity: 3 }] }]);
-  expect(initial.revision).toBe(collection.revision + 1);
+integrationTest(
+  'places all copies in the first empty slot and grows full binders',
+  async ({ app, user, authenticatedHeaders: headers }) => {
+    const collection = await createBinder(app, headers, 1, 2);
+    const first = await addCard(app, user.sessionToken, collection.id);
+    const initial = await readCollection(app, headers, collection.id);
+    expect(initial.pages).toMatchObject([{ slots: [{ row: 1, column: 1, card_id: first.id, quantity: 3 }] }]);
+    expect(initial.revision).toBe(collection.revision + 1);
 
-  const pageId = crypto.randomUUID();
-  const emptyId = crypto.randomUUID();
-  await saveLayout(app, headers, collection.id, {
-    revision: initial.revision,
-    rows: 1,
-    columns: 2,
-    pages: [
-      { id: pageId, slots: [{ row: 1, column: 2, card_id: first.id, quantity: 3 }] },
-      { id: emptyId, slots: [] },
-    ],
-  });
-  const second = await addCard(app, user.sessionToken, collection.id);
-  const third = await addCard(app, user.sessionToken, collection.id);
-  const fourth = await addCard(app, user.sessionToken, collection.id);
-  const fifth = await addCard(app, user.sessionToken, collection.id);
-  const result = await readCollection(app, headers, collection.id);
-  expect(result.pages).toMatchObject([
-    {
-      id: pageId,
-      slots: [
-        { row: 1, column: 1, card_id: second.id, quantity: 3 },
-        { row: 1, column: 2, card_id: first.id, quantity: 3 },
+    const pageId = crypto.randomUUID();
+    const emptyId = crypto.randomUUID();
+    await saveLayout(app, headers, collection.id, {
+      revision: initial.revision,
+      rows: 1,
+      columns: 2,
+      pages: [
+        { id: pageId, slots: [{ row: 1, column: 2, card_id: first.id, quantity: 3 }] },
+        { id: emptyId, slots: [] },
       ],
-    },
-    {
-      id: emptyId,
-      slots: [
-        { row: 1, column: 1, card_id: third.id, quantity: 3 },
-        { row: 1, column: 2, card_id: fourth.id, quantity: 3 },
-      ],
-    },
-    { slots: [{ row: 1, column: 1, card_id: fifth.id, quantity: 3 }] },
-  ]);
-});
+    });
+    const second = await addCard(app, user.sessionToken, collection.id);
+    const third = await addCard(app, user.sessionToken, collection.id);
+    const fourth = await addCard(app, user.sessionToken, collection.id);
+    const fifth = await addCard(app, user.sessionToken, collection.id);
+    const result = await readCollection(app, headers, collection.id);
+    expect(result.pages).toMatchObject([
+      {
+        id: pageId,
+        slots: [
+          { row: 1, column: 1, card_id: second.id, quantity: 3 },
+          { row: 1, column: 2, card_id: first.id, quantity: 3 },
+        ],
+      },
+      {
+        id: emptyId,
+        slots: [
+          { row: 1, column: 1, card_id: third.id, quantity: 3 },
+          { row: 1, column: 2, card_id: fourth.id, quantity: 3 },
+        ],
+      },
+      { slots: [{ row: 1, column: 1, card_id: fifth.id, quantity: 3 }] },
+    ]);
+  },
+);
 
-integrationTest('serializes concurrent additions so each entry gets a distinct empty slot', async ({ app, db }) => {
-  const user = await createTestUser(app, db);
-  const headers = sessionHeaders(user.sessionToken);
-  const collection = await createBinder(app, headers, 2, 2);
-  const cards = await Promise.all(Array.from({ length: 4 }, () => addCard(app, user.sessionToken, collection.id)));
-  const result = await readCollection(app, headers, collection.id);
-  expect(result.pages).toHaveLength(1);
-  const slots = result.pages.flatMap(page => page.slots);
-  expect(slots.map(slot => [slot.row, slot.column])).toEqual([
-    [1, 1],
-    [1, 2],
-    [2, 1],
-    [2, 2],
-  ]);
-  expect(new Set(slots.map(slot => slot.card_id))).toEqual(new Set(cards.map(entry => entry.id)));
-});
+integrationTest(
+  'serializes concurrent additions so each entry gets a distinct empty slot',
+  async ({ app, user, authenticatedHeaders: headers }) => {
+    const collection = await createBinder(app, headers, 2, 2);
+    const cards = await Promise.all(Array.from({ length: 4 }, () => addCard(app, user.sessionToken, collection.id)));
+    const result = await readCollection(app, headers, collection.id);
+    expect(result.pages).toHaveLength(1);
+    const slots = result.pages.flatMap(page => page.slots);
+    expect(slots.map(slot => [slot.row, slot.column])).toEqual([
+      [1, 1],
+      [1, 2],
+      [2, 1],
+      [2, 2],
+    ]);
+    expect(new Set(slots.map(slot => slot.card_id))).toEqual(new Set(cards.map(entry => entry.id)));
+  },
+);
 
 integrationTest(
   'places moved cards but preserves intentional gaps when editing the same collection',
-  async ({ app, db }) => {
-    const user = await createTestUser(app, db);
-    const headers = sessionHeaders(user.sessionToken);
+  async ({ app, user, authenticatedHeaders: headers }) => {
     const source = await createBinder(app, headers, 1, 2);
     const destination = await createBinder(app, headers, 2, 1);
     const entry = await addCard(app, user.sessionToken, source.id);
@@ -114,10 +111,9 @@ integrationTest(
 
 integrationTest(
   'rolls back additions and moves into a full binder and allows retry after resizing',
-  async ({ app, db, limitedApp }) => {
+  async ({ db, limitedApp, user, authenticatedHeaders: headers }) => {
     const instance = limitedApp({ COLLECTION_MAX_PAGES: 1 });
-    const user = await createTestUser(app, db);
-    const headers = sessionHeaders(user.sessionToken);
+
     const collection = await createBinder(instance, headers, 1, 1);
     await addCard(instance, user.sessionToken, collection.id);
     const before = await readCollection(instance, headers, collection.id);
@@ -179,33 +175,11 @@ integrationTest(
 );
 
 async function createBinder(app: Hono<HonoEnvironment>, headers: Headers, rows: number, columns: number) {
-  const response = await app.request('/app-api/collections', {
-    method: 'POST',
-    headers,
-    body: JSON.stringify({ name: 'Favorites' }),
-  });
-
-  expect(response.status).toBe(201);
-  const collection = CollectionSchema.parse(await response.json());
+  const collection = await createTestCollection(app, headers);
 
   return saveLayout(app, headers, collection.id, { revision: collection.revision, rows, columns, pages: [] });
 }
 
-async function saveLayout(app: Hono<HonoEnvironment>, headers: Headers, id: string, layout: SaveLayout) {
-  const response = await app.request(`/app-api/collections/${id}/layout`, {
-    method: 'PUT',
-    headers,
-    body: JSON.stringify(layout),
-  });
-
-  expect(response.status).toBe(200);
-
-  return CollectionSchema.parse(await response.json());
-}
-
 async function addCard(app: Hono<HonoEnvironment>, sessionToken: string, collectionId: string) {
-  const response = await createCardRequest(app, sessionToken, { ...validCardPayload, collection_id: collectionId });
-  expect(response.status).toBe(201);
-
-  return CardSchema.parse(await response.json());
+  return createTestCard(app, sessionToken, { ...validCardPayload, collection_id: collectionId });
 }

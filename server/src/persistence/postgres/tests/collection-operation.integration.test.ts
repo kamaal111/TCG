@@ -4,13 +4,11 @@ import { z } from 'zod';
 import { CollectionOperationTimeout } from '../../../collections/exceptions.ts';
 import { DEFAULT_COLLECTION_POLICY } from '../../../config.ts';
 import { integrationTest } from '../../../tests/fixtures.ts';
-import { createTestUser } from '../../../tests/utils.ts';
 import { runCollectionOperation } from '../collection-operation.ts';
 
 integrationTest(
   'removes expired connection acquisitions from an exhausted pool and recovers after release',
-  async ({ app, db }) => {
-    const user = await createTestUser(app, db);
+  async ({ db, user }) => {
     const identity = { requireUserId: () => user.userId };
     const poolSize = z.number().int().positive().parse(db.$client.options.max);
     const heldConnections: PoolClient[] = [];

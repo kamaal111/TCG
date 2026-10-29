@@ -13,7 +13,6 @@ import { CURRENCY_CODES } from './forex/currencies.ts';
 import { OPENAPI_JSON_SPEC_PATH, OPENAPI_YAML_SPEC_PATH } from './open-api.ts';
 import { expectValidationIssueForFields } from './tests/auth.ts';
 import { integrationTest } from './tests/fixtures.ts';
-import { createTestUser } from './tests/utils.ts';
 
 const SpecificationDocumentSchema = z
   .object({
@@ -76,9 +75,7 @@ describe('OpenAPI specification integration', () => {
     expect(yaml.load(await yamlResponse.text())).toEqual(jsonDocument);
   });
 
-  integrationTest('rejects an invalid auth payload with the same envelope cards routes use', async ({ app, db }) => {
-    const user = await createTestUser(app, db);
-
+  integrationTest('rejects an invalid auth payload with the same envelope cards routes use', async ({ app, user }) => {
     const authResponse = await app.request(SIGN_UP_ROUTE_PATH, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

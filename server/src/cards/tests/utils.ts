@@ -1,9 +1,10 @@
 import type { Hono } from 'hono';
 
-import { MIME_TYPES } from '../../constants/request.ts';
 import type { HonoEnvironment } from '../../context.ts';
+import { sessionHeaders } from '../../tests/auth.ts';
 import { CREATE_CARD_ROUTE_PATH } from '../routes/create-card.ts';
 import type { UpsertCard } from '../schemas/payloads.ts';
+import { CardWithPriceSchema } from '../schemas/responses.ts';
 
 export const validCardPayload: UpsertCard = {
   game: 'one_piece',
@@ -16,13 +17,6 @@ export const validCardPayload: UpsertCard = {
   ],
 };
 
-export function sessionHeaders(sessionToken: string) {
-  return new Headers({
-    'Content-Type': MIME_TYPES.JSON,
-    Cookie: `better-auth.session_token=${sessionToken}`,
-  });
-}
-
 export function createCardRequest(
   app: Hono<HonoEnvironment>,
   sessionToken: string,
@@ -33,4 +27,15 @@ export function createCardRequest(
     headers: sessionHeaders(sessionToken),
     body: JSON.stringify(payload),
   });
+}
+
+export async function createTestCard(
+  app: Hono<HonoEnvironment>,
+  sessionToken: string,
+  payload: UpsertCard = validCardPayload,
+) {
+  const response = await createCardRequest(app, sessionToken, payload);
+  expect(response.status).toBe(201);
+
+  return CardWithPriceSchema.parse(await response.json());
 }

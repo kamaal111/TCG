@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 
 import { z } from 'zod';
 
+import { createTestScrydexClient } from './utils.ts';
 import { RealScrydexClient } from '../scrydex/real-client.ts';
 
 describe('RealScrydexClient', () => {
@@ -244,16 +245,6 @@ describe('RealScrydexClient', () => {
   });
 });
 
-function makeClient(fetchImplementation: typeof fetch): RealScrydexClient {
-  return new RealScrydexClient({
-    apiKey: 'test-api-key',
-    teamId: 'test-team-id',
-    baseURL: 'https://api.scrydex.test',
-    fetch: fetchImplementation,
-    requestTimeoutMs: 100,
-  });
-}
-
 function jsonResponse(body: z.input<typeof JsonValueSchema>, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
 }
@@ -293,4 +284,8 @@ function stringifyRequestURL(input: string | URL | Request): string {
   }
 
   return input instanceof Request ? input.url : input;
+}
+
+function makeClient(fetchImplementation: typeof fetch) {
+  return createTestScrydexClient(fetchImplementation, { requestTimeoutMs: 100 });
 }
