@@ -71,6 +71,16 @@ prepare-worktree branch:
 herdr-worktree branch *args:
     bash scripts/create-herdr-worktree.sh "$@"
 
+# Create a Git worktree under the main checkout's .agents/worktrees
+[positional-arguments]
+create-worktree branch *args:
+    bash scripts/create-worktree.sh "$@"
+
+# Remove a clean managed checkout while retaining its branch
+[positional-arguments]
+cleanup-worktree branch:
+    bash scripts/cleanup-worktree.sh "$1"
+
 # Run dev server
 [working-directory("server")]
 dev-server: prepare-server start-services migrate fetch-daily-currencies
