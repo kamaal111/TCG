@@ -1,6 +1,10 @@
 import { AuthResponseSchema, TokenHeaders } from '@kamaalio/kamaal-auth-hono';
+import type { Hono } from 'hono';
 
 import { CONTENTFUL_STATUS_CODES } from '../constants/http.ts';
+import { MIME_TYPES } from '../constants/request.ts';
+import type { HonoEnvironment } from '../context.ts';
+import type { Currency } from '../forex/currencies.ts';
 import { ErrorResponseSchema, ValidationErrorResponseSchema } from '../schemas/errors.ts';
 
 export async function expectAuthSuccessResponse(response: Response, status: number) {
@@ -45,4 +49,21 @@ export async function expectValidationIssueForFields(response: Response, fieldNa
 
     expect(hasMatchingIssue).toBe(true);
   }
+}
+
+export function sessionHeaders(sessionToken: string) {
+  return new Headers({
+    'Content-Type': MIME_TYPES.JSON,
+    Cookie: `better-auth.session_token=${sessionToken}`,
+  });
+}
+
+export async function setPreferredCurrency(app: Hono<HonoEnvironment>, headers: Headers, currency: Currency) {
+  const response = await app.request('/app-api/auth/preferences', {
+    method: 'PATCH',
+    headers,
+    body: JSON.stringify({ preferred_currency: currency }),
+  });
+
+  expect(response.status).toBe(CONTENTFUL_STATUS_CODES.OK);
 }

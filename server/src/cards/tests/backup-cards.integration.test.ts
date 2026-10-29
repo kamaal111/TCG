@@ -2,13 +2,12 @@ import assert from 'node:assert/strict';
 
 import { eq, sql } from 'drizzle-orm';
 
-import { sessionHeaders, createCardRequest } from './utils.ts';
-import { RealScrydexClient } from '../../card-pricing/scrydex/real-client.ts';
+import { createCardRequest } from './utils.ts';
+import { createTestScrydexClient } from '../../card-pricing/tests/utils.ts';
 import { CONTENTFUL_STATUS_CODES } from '../../constants/http.ts';
 import { card, cardPurchaseBatch } from '../../db/schema/cards.ts';
-import App from '../../runtime/node/app.ts';
+import { sessionHeaders } from '../../tests/auth.ts';
 import { integrationTest } from '../../tests/fixtures.ts';
-import { createTestUser } from '../../tests/utils.ts';
 import { EXPORT_CARDS_ROUTE_PATH } from '../routes/export-cards.ts';
 import { IMPORT_CARDS_ROUTE_PATH } from '../routes/import-cards.ts';
 import { ExportCardsResponseSchema, ImportCardsResponseSchema } from '../schemas/responses.ts';
@@ -50,141 +49,150 @@ describe('Card backup integration', () => {
     );
   });
 
-  integrationTest('imports purchases and timestamps and skips repeat imports', async ({ app, db }) => {
-    const user = await createTestUser(app, db);
-
-    const request = () =>
-      app.request(IMPORT_CARDS_ROUTE_PATH, {
-        method: 'POST',
-        headers: sessionHeaders(user.sessionToken),
-        body: JSON.stringify({ cards: [backupCard] }),
-      });
-
-    const response = await request();
-    expect(response.status).toBe(CONTENTFUL_STATUS_CODES.OK);
-    expect(ImportCardsResponseSchema.parse(await response.json())).toEqual({
-      imported_count: 1,
-      updated_count: 0,
-      skipped_count: 0,
-    });
-    expect(ImportCardsResponseSchema.parse(await (await request()).json())).toEqual({
-      imported_count: 0,
-      updated_count: 0,
-      skipped_count: 1,
-    });
-    const exported = await app.request(EXPORT_CARDS_ROUTE_PATH, { headers: sessionHeaders(user.sessionToken) });
-    expect(exported.status).toBe(CONTENTFUL_STATUS_CODES.OK);
-    expect(ExportCardsResponseSchema.parse(await exported.json()).cards).toEqual([
-      expect.objectContaining({
-        ...backupCard,
-        purchases: expect.arrayContaining([
-          expect.objectContaining({
-            condition: 'near_mint',
-            quantity: 2,
-            purchase_price: '2.500000',
-            currency: 'USD',
-            automatic_price_date: '2026-07-20',
-          }),
-          expect.objectContaining({ condition: 'played', quantity: 1, purchase_price: null, currency: null }),
-        ]),
-      }),
-    ]);
-    const stored = await db.query.card.findFirst({ where: { userId: user.userId }, with: { purchaseBatches: true } });
-    expect(stored?.id).not.toBe(backupCard.id);
-    expect(stored?.purchaseBatches).toHaveLength(2);
-  });
-
-  integrationTest('transfers a backup to another account without changing the owner', async ({ app, db }) => {
-    const owner = await createTestUser(app, db);
-    const recipient = await createTestUser(app, db);
-    expect((await createCardRequest(app, owner.sessionToken)).status).toBe(CONTENTFUL_STATUS_CODES.CREATED);
-
-    const original = ExportCardsResponseSchema.parse(
-      await (
-        await app.request(EXPORT_CARDS_ROUTE_PATH, {
-          headers: sessionHeaders(owner.sessionToken),
-        })
-      ).json(),
-    );
-
-    const result = await app.request(IMPORT_CARDS_ROUTE_PATH, {
-      method: 'POST',
-      headers: sessionHeaders(recipient.sessionToken),
-      body: JSON.stringify({
-        ...original,
-        cards: original.cards.map(source => ({ ...source, name: 'Recipient copy' })),
-      }),
-    });
-
-    expect(result.status).toBe(CONTENTFUL_STATUS_CODES.OK);
-    expect(await result.json()).toEqual({ imported_count: 1, updated_count: 0, skipped_count: 0 });
-    expect(await db.select().from(card).where(eq(card.userId, owner.userId))).toHaveLength(1);
-    expect(await db.select().from(card).where(eq(card.userId, recipient.userId))).toHaveLength(1);
-    expect(
-      ExportCardsResponseSchema.parse(
-        await (
-          await app.request(EXPORT_CARDS_ROUTE_PATH, {
-            headers: sessionHeaders(owner.sessionToken),
-          })
-        ).json(),
-      ),
-    ).toEqual(original);
-  });
-
-  integrationTest('handles concurrent imports without duplicate purchases', async ({ app, db }) => {
-    const user = await createTestUser(app, db);
-
-    const requests = await Promise.all(
-      [1, 2].map(async () =>
+  integrationTest(
+    'imports purchases and timestamps and skips repeat imports',
+    async ({ app, db, user, authenticatedHeaders }) => {
+      const request = () =>
         app.request(IMPORT_CARDS_ROUTE_PATH, {
           method: 'POST',
-          headers: sessionHeaders(user.sessionToken),
+          headers: authenticatedHeaders,
           body: JSON.stringify({ cards: [backupCard] }),
+        });
+
+      const response = await request();
+      expect(response.status).toBe(CONTENTFUL_STATUS_CODES.OK);
+      expect(ImportCardsResponseSchema.parse(await response.json())).toEqual({
+        imported_count: 1,
+        updated_count: 0,
+        skipped_count: 0,
+      });
+      expect(ImportCardsResponseSchema.parse(await (await request()).json())).toEqual({
+        imported_count: 0,
+        updated_count: 0,
+        skipped_count: 1,
+      });
+      const exported = await app.request(EXPORT_CARDS_ROUTE_PATH, { headers: authenticatedHeaders });
+      expect(exported.status).toBe(CONTENTFUL_STATUS_CODES.OK);
+      expect(ExportCardsResponseSchema.parse(await exported.json()).cards).toEqual([
+        expect.objectContaining({
+          ...backupCard,
+          purchases: expect.arrayContaining([
+            expect.objectContaining({
+              condition: 'near_mint',
+              quantity: 2,
+              purchase_price: '2.500000',
+              currency: 'USD',
+              automatic_price_date: '2026-07-20',
+            }),
+            expect.objectContaining({ condition: 'played', quantity: 1, purchase_price: null, currency: null }),
+          ]),
         }),
-      ),
-    );
+      ]);
+      const stored = await db.query.card.findFirst({ where: { userId: user.userId }, with: { purchaseBatches: true } });
+      expect(stored?.id).not.toBe(backupCard.id);
+      expect(stored?.purchaseBatches).toHaveLength(2);
+    },
+  );
 
-    expect(requests.map(response => response.status)).toEqual([CONTENTFUL_STATUS_CODES.OK, CONTENTFUL_STATUS_CODES.OK]);
+  integrationTest(
+    'transfers a backup to another account without changing the owner',
+    async ({ app, db, user: owner, createUser, authenticatedHeaders }) => {
+      const recipient = await createUser();
+      expect((await createCardRequest(app, owner.sessionToken)).status).toBe(CONTENTFUL_STATUS_CODES.CREATED);
 
-    const results = await Promise.all(
-      requests.map(async response => ImportCardsResponseSchema.parse(await response.json())),
-    );
+      const original = ExportCardsResponseSchema.parse(
+        await (
+          await app.request(EXPORT_CARDS_ROUTE_PATH, {
+            headers: authenticatedHeaders,
+          })
+        ).json(),
+      );
 
-    expect(results.reduce((sum, result) => sum + result.imported_count, 0)).toBe(1);
-    expect(await db.query.card.findMany({ where: { userId: user.userId }, with: { purchaseBatches: true } })).toEqual([
-      expect.objectContaining({
-        purchaseBatches: expect.arrayContaining([
-          expect.objectContaining({ quantity: 2 }),
-          expect.objectContaining({ quantity: 1 }),
-        ]),
-      }),
-    ]);
-  });
+      const result = await app.request(IMPORT_CARDS_ROUTE_PATH, {
+        method: 'POST',
+        headers: sessionHeaders(recipient.sessionToken),
+        body: JSON.stringify({
+          ...original,
+          cards: original.cards.map(source => ({ ...source, name: 'Recipient copy' })),
+        }),
+      });
 
-  integrationTest('rejects invalid paired costs before persisting any cards', async ({ app, db }) => {
-    const user = await createTestUser(app, db);
+      expect(result.status).toBe(CONTENTFUL_STATUS_CODES.OK);
+      expect(await result.json()).toEqual({ imported_count: 1, updated_count: 0, skipped_count: 0 });
+      expect(await db.select().from(card).where(eq(card.userId, owner.userId))).toHaveLength(1);
+      expect(await db.select().from(card).where(eq(card.userId, recipient.userId))).toHaveLength(1);
+      expect(
+        ExportCardsResponseSchema.parse(
+          await (
+            await app.request(EXPORT_CARDS_ROUTE_PATH, {
+              headers: authenticatedHeaders,
+            })
+          ).json(),
+        ),
+      ).toEqual(original);
+    },
+  );
 
-    const invalid = {
-      ...backupCard,
-      id: '550e8400-e29b-41d4-a716-446655440003',
-      purchases: [{ ...backupCard.purchases[0], currency: null }],
-    };
+  integrationTest(
+    'handles concurrent imports without duplicate purchases',
+    async ({ app, db, user, authenticatedHeaders }) => {
+      const requests = await Promise.all(
+        [1, 2].map(async () =>
+          app.request(IMPORT_CARDS_ROUTE_PATH, {
+            method: 'POST',
+            headers: authenticatedHeaders,
+            body: JSON.stringify({ cards: [backupCard] }),
+          }),
+        ),
+      );
 
-    const response = await app.request(IMPORT_CARDS_ROUTE_PATH, {
-      method: 'POST',
-      headers: sessionHeaders(user.sessionToken),
-      body: JSON.stringify({ cards: [backupCard, invalid] }),
-    });
+      expect(requests.map(response => response.status)).toEqual([
+        CONTENTFUL_STATUS_CODES.OK,
+        CONTENTFUL_STATUS_CODES.OK,
+      ]);
 
-    expect(response.status).toBe(CONTENTFUL_STATUS_CODES.BAD_REQUEST);
-    expect(await db.select().from(card).where(eq(card.userId, user.userId))).toEqual([]);
-  });
+      const results = await Promise.all(
+        requests.map(async response => ImportCardsResponseSchema.parse(await response.json())),
+      );
+
+      expect(results.reduce((sum, result) => sum + result.imported_count, 0)).toBe(1);
+      expect(await db.query.card.findMany({ where: { userId: user.userId }, with: { purchaseBatches: true } })).toEqual(
+        [
+          expect.objectContaining({
+            purchaseBatches: expect.arrayContaining([
+              expect.objectContaining({ quantity: 2 }),
+              expect.objectContaining({ quantity: 1 }),
+            ]),
+          }),
+        ],
+      );
+    },
+  );
+
+  integrationTest(
+    'rejects invalid paired costs before persisting any cards',
+    async ({ app, db, user, authenticatedHeaders }) => {
+      const invalid = {
+        ...backupCard,
+        id: '550e8400-e29b-41d4-a716-446655440003',
+        purchases: [{ ...backupCard.purchases[0], currency: null }],
+      };
+
+      const response = await app.request(IMPORT_CARDS_ROUTE_PATH, {
+        method: 'POST',
+        headers: authenticatedHeaders,
+        body: JSON.stringify({ cards: [backupCard, invalid] }),
+      });
+
+      expect(response.status).toBe(CONTENTFUL_STATUS_CODES.BAD_REQUEST);
+      expect(await db.select().from(card).where(eq(card.userId, user.userId))).toEqual([]);
+    },
+  );
 
   integrationTest(
     'returns repository failures as 500 and rolls back the import',
-    async ({ app, db, getLogsForRequestId, withRequestId }) => {
-      const user = await createTestUser(app, db);
-      const { headers, requestId } = withRequestId(sessionHeaders(user.sessionToken));
+    async ({ app, db, getLogsForRequestId, withRequestId, user, authenticatedHeaders }) => {
+      const { headers, requestId } = withRequestId(authenticatedHeaders);
       await db.execute(sql`alter table ${cardPurchaseBatch} add constraint forced_import_failure check (quantity < 0)`);
 
       const response = await app.request(IMPORT_CARDS_ROUTE_PATH, {
@@ -217,30 +225,25 @@ describe('Card backup integration', () => {
 
   integrationTest(
     'backs up cards without fetching prices or filling missing costs',
-    async ({ app, db, storageClient }) => {
-      const user = await createTestUser(app, db);
+    async ({ createApp, authenticatedHeaders }) => {
       let providerRequests = 0;
 
-      const pricingClient = new RealScrydexClient({
-        apiKey: 'test',
-        teamId: 'test',
-        fetch: async () => {
-          providerRequests += 1;
+      const pricingClient = createTestScrydexClient(async () => {
+        providerRequests += 1;
 
-          return new Response('Unavailable', { status: 503 });
-        },
+        return new Response('Unavailable', { status: 503 });
       });
 
-      const isolated = new App({ db, storageClient, pricingClient }).app;
+      const isolated = createApp({ pricingClient });
 
       const imported = await isolated.request(IMPORT_CARDS_ROUTE_PATH, {
         method: 'POST',
-        headers: sessionHeaders(user.sessionToken),
+        headers: authenticatedHeaders,
         body: JSON.stringify({ cards: [backupCard] }),
       });
 
       expect(imported.status).toBe(CONTENTFUL_STATUS_CODES.OK);
-      const exported = await isolated.request(EXPORT_CARDS_ROUTE_PATH, { headers: sessionHeaders(user.sessionToken) });
+      const exported = await isolated.request(EXPORT_CARDS_ROUTE_PATH, { headers: authenticatedHeaders });
       expect(exported.status).toBe(CONTENTFUL_STATUS_CODES.OK);
       const body = ExportCardsResponseSchema.parse(await exported.json());
       expect(body.cards[0]?.purchases).toEqual(
@@ -259,9 +262,8 @@ describe('Card backup integration', () => {
 
   integrationTest(
     'accepts the generated client wire shape for the supplied Japanese CSV and logs committed milestones',
-    async ({ app, db, getLogsForRequestId, withRequestId }) => {
-      const user = await createTestUser(app, db);
-      const { headers, requestId } = withRequestId(sessionHeaders(user.sessionToken));
+    async ({ app, db, getLogsForRequestId, withRequestId, user, authenticatedHeaders }) => {
+      const { headers, requestId } = withRequestId(authenticatedHeaders);
 
       const input = {
         id: '9ecb8b92-e1ad-4863-bd0e-7ca38210835b',
@@ -322,7 +324,7 @@ describe('Card backup integration', () => {
 
       const repeated = await app.request(IMPORT_CARDS_ROUTE_PATH, {
         method: 'POST',
-        headers: sessionHeaders(user.sessionToken),
+        headers: authenticatedHeaders,
         body: JSON.stringify({ cards: [input] }),
       });
 
@@ -335,12 +337,11 @@ describe('Card backup integration', () => {
 
   integrationTest(
     'replaces changed owned cards and complete purchases, retaining owned purchase IDs and restoring older timestamps',
-    async ({ app, db }) => {
-      const user = await createTestUser(app, db);
+    async ({ app, db, user, authenticatedHeaders }) => {
       expect((await createCardRequest(app, user.sessionToken)).status).toBe(201);
 
       const original = ExportCardsResponseSchema.parse(
-        await (await app.request(EXPORT_CARDS_ROUTE_PATH, { headers: sessionHeaders(user.sessionToken) })).json(),
+        await (await app.request(EXPORT_CARDS_ROUTE_PATH, { headers: authenticatedHeaders })).json(),
       );
 
       const source = original.cards[0];
@@ -349,7 +350,7 @@ describe('Card backup integration', () => {
 
       const unchanged = await app.request(IMPORT_CARDS_ROUTE_PATH, {
         method: 'POST',
-        headers: sessionHeaders(user.sessionToken),
+        headers: authenticatedHeaders,
         body: JSON.stringify(original),
       });
 
@@ -374,7 +375,7 @@ describe('Card backup integration', () => {
 
       const updated = await app.request(IMPORT_CARDS_ROUTE_PATH, {
         method: 'POST',
-        headers: sessionHeaders(user.sessionToken),
+        headers: authenticatedHeaders,
         body: JSON.stringify({ cards: [input] }),
       });
 
@@ -409,7 +410,7 @@ describe('Card backup integration', () => {
 
       const repeated = await app.request(IMPORT_CARDS_ROUTE_PATH, {
         method: 'POST',
-        headers: sessionHeaders(user.sessionToken),
+        headers: authenticatedHeaders,
         body: JSON.stringify({ cards: [input] }),
       });
 
@@ -425,13 +426,11 @@ describe('Card backup integration', () => {
 
   integrationTest(
     'updates imported source IDs, removes absent purchases, and ignores purchase order on retry',
-    async ({ app, db }) => {
-      const user = await createTestUser(app, db);
-
+    async ({ app, db, user, authenticatedHeaders }) => {
       const request = (cards: unknown[]) =>
         app.request(IMPORT_CARDS_ROUTE_PATH, {
           method: 'POST',
-          headers: sessionHeaders(user.sessionToken),
+          headers: authenticatedHeaders,
           body: JSON.stringify({ cards }),
         });
 
@@ -472,9 +471,8 @@ describe('Card backup integration', () => {
 
   integrationTest(
     'returns and logs the specific indexed date validation failure',
-    async ({ app, db, getLogsForRequestId, withRequestId }) => {
-      const user = await createTestUser(app, db);
-      const { headers, requestId } = withRequestId(sessionHeaders(user.sessionToken));
+    async ({ app, db, getLogsForRequestId, withRequestId, user, authenticatedHeaders }) => {
+      const { headers, requestId } = withRequestId(authenticatedHeaders);
       const input = { ...backupCard, purchases: [{ ...backupCard.purchases[0], automatic_price_date: '' }] };
 
       const response = await app.request(IMPORT_CARDS_ROUTE_PATH, {
@@ -509,37 +507,36 @@ describe('Card backup integration', () => {
     },
   );
 
-  integrationTest('accepts omitted costs and dates as null purchases', async ({ app, db }) => {
-    const user = await createTestUser(app, db);
+  integrationTest(
+    'accepts omitted costs and dates as null purchases',
+    async ({ app, db, user, authenticatedHeaders }) => {
+      const input = {
+        ...backupCard,
+        purchases: [{ id: backupCard.purchases[0]?.id, condition: 'excellent', quantity: 1 }],
+      };
 
-    const input = {
-      ...backupCard,
-      purchases: [{ id: backupCard.purchases[0]?.id, condition: 'excellent', quantity: 1 }],
-    };
+      const response = await app.request(IMPORT_CARDS_ROUTE_PATH, {
+        method: 'POST',
+        headers: authenticatedHeaders,
+        body: JSON.stringify({ cards: [input] }),
+      });
 
-    const response = await app.request(IMPORT_CARDS_ROUTE_PATH, {
-      method: 'POST',
-      headers: sessionHeaders(user.sessionToken),
-      body: JSON.stringify({ cards: [input] }),
-    });
-
-    expect(response.status).toBe(200);
-    const stored = await db.query.card.findFirst({ where: { userId: user.userId }, with: { purchaseBatches: true } });
-    assert(stored);
-    expect(stored.purchaseBatches).toEqual([
-      expect.objectContaining({ purchasePrice: null, currency: null, automaticPriceDate: null }),
-    ]);
-  });
+      expect(response.status).toBe(200);
+      const stored = await db.query.card.findFirst({ where: { userId: user.userId }, with: { purchaseBatches: true } });
+      assert(stored);
+      expect(stored.purchaseBatches).toEqual([
+        expect.objectContaining({ purchasePrice: null, currency: null, automaticPriceDate: null }),
+      ]);
+    },
+  );
 
   integrationTest(
     'rolls back replacement fields, deleted purchases, and quantities when purchase persistence fails',
-    async ({ app, db }) => {
-      const user = await createTestUser(app, db);
-
+    async ({ app, db, user, authenticatedHeaders }) => {
       const request = (cards: unknown[]) =>
         app.request(IMPORT_CARDS_ROUTE_PATH, {
           method: 'POST',
-          headers: sessionHeaders(user.sessionToken),
+          headers: authenticatedHeaders,
           body: JSON.stringify({ cards }),
         });
 
@@ -568,11 +565,8 @@ describe('Card backup integration', () => {
     },
   );
 
-  integrationTest('supports an empty collection and an empty import', async ({ app, db }) => {
-    const user = await createTestUser(app, db);
-    expect(
-      await (await app.request(EXPORT_CARDS_ROUTE_PATH, { headers: sessionHeaders(user.sessionToken) })).json(),
-    ).toEqual({
+  integrationTest('supports an empty collection and an empty import', async ({ app, authenticatedHeaders }) => {
+    expect(await (await app.request(EXPORT_CARDS_ROUTE_PATH, { headers: authenticatedHeaders })).json()).toEqual({
       cards: [],
       next_cursor: null,
     });
@@ -580,7 +574,7 @@ describe('Card backup integration', () => {
       await (
         await app.request(IMPORT_CARDS_ROUTE_PATH, {
           method: 'POST',
-          headers: sessionHeaders(user.sessionToken),
+          headers: authenticatedHeaders,
           body: JSON.stringify({ cards: [] }),
         })
       ).json(),

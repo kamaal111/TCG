@@ -5,15 +5,12 @@ import { CONTENTFUL_STATUS_CODES } from '../../constants/http.ts';
 import { MIME_TYPES } from '../../constants/request.ts';
 import type { HonoEnvironment } from '../../context.ts';
 import { integrationTest } from '../../tests/fixtures.ts';
-import { createTestUser } from '../../tests/utils.ts';
 import { SIGN_OUT_ROUTE_PATH } from '../constants.ts';
 
 describe('Sign-out integration', () => {
   integrationTest(
     'invalidates the current session, clears the session cookie, and logs the request',
-    async ({ app, db, getLogsForRequestId, withRequestId }) => {
-      const createdUser = await createTestUser(app, db);
-
+    async ({ app, db, getLogsForRequestId, withRequestId, user: createdUser }) => {
       const sessionsBeforeSignOut = await db.query.session.findMany({
         where: { userId: createdUser.userId },
       });

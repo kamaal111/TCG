@@ -1,75 +1,56 @@
-import assert from 'node:assert/strict';
-
-import { ok } from 'neverthrow';
-
+import { integrationTest } from './fixtures.ts';
 import { CONTENTFUL_STATUS_CODES } from '../../constants/http.ts';
-import { cardImage } from '../../db/schema/card-images.ts';
 import env from '../../env.ts';
-import { PostgresCardImageRepository } from '../../persistence/postgres/card-images.ts';
-import App from '../../runtime/node/app.ts';
-import { CardImageWarmer } from '../../runtime/node/warmer.ts';
-import { integrationTest } from '../../tests/fixtures.ts';
-import { CardImageMaterializer } from '../materializer.ts';
-import type { CardImageOriginClient, CardImageOriginResult } from '../origin-client.ts';
 import { CARD_IMAGE_STATUSES } from '../types.ts';
 
 describe('Card image proxy integration', () => {
-  integrationTest('allows one lease owner and rejects stale completion', async ({ db }) => {
-    const imageKey = 'c'.repeat(64);
-    const repository = new PostgresCardImageRepository(db);
-    await db.insert(cardImage).values({
-      imageKey,
-      originUrl: 'https://images.example.com/lease.png',
-      storageKey: 'card-images/lease',
-    });
+  integrationTest(
+    'allows one lease owner and rejects stale completion',
+    async ({ imageRepository: repository, createImage }) => {
+      const imageKey = 'c'.repeat(64);
+      await createImage({
+        imageKey,
+      });
 
-    const [first, second] = await Promise.all([
-      repository.claim(imageKey, 'worker-one'),
-      repository.claim(imageKey, 'worker-two'),
-    ]);
+      const [first, second] = await Promise.all([
+        repository.claim(imageKey, 'worker-one'),
+        repository.claim(imageKey, 'worker-two'),
+      ]);
 
-    const claimed = [first, second].filter(row => row != null);
+      const claimed = [first, second].filter(row => row != null);
 
-    const staleCompletion = await repository.markReady(imageKey, 'stale-worker', {
-      contentType: 'image/png',
-      contentLength: 3,
-      checksum: 'checksum',
-    });
+      const staleCompletion = await repository.markReady(imageKey, 'stale-worker', {
+        contentType: 'image/png',
+        contentLength: 3,
+        checksum: 'checksum',
+      });
 
-    expect(claimed).toHaveLength(1);
-    expect(staleCompletion).toBe(false);
-    expect((await repository.getByImageKey(imageKey))?.status).toBe('fetching');
-  });
+      expect(claimed).toHaveLength(1);
+      expect(staleCompletion).toBe(false);
+      expect((await repository.getByImageKey(imageKey))?.status).toBe('fetching');
+    },
+  );
 
   integrationTest(
     'waits for an in-flight warmer instead of returning a placeholder response',
-    async ({ db, storageClient }) => {
+    async ({
+      createApp,
+      imageOrigin: origin,
+      imageMaterializer: cardImageMaterializer,
+      createImageWarmer,
+      createImage,
+    }) => {
       const imageKey = 'a'.repeat(64);
-      const origin = new BlockingImageOriginClient();
-      const repository = new PostgresCardImageRepository(db);
 
-      const cardImageMaterializer = new CardImageMaterializer({
-        repository,
-        storageClient,
-        imageOriginClient: origin,
-      });
+      const cardImageWarmer = createImageWarmer({ concurrency: 1 });
 
-      const cardImageWarmer = new CardImageWarmer({ repository, materializer: cardImageMaterializer, concurrency: 1 });
-
-      const { app } = new App({
-        db,
-        storageClient,
+      const app = createApp({
         imageOriginClient: origin,
         cardImageMaterializer,
         cardImageWarmer,
       });
 
-      const [row] = await db
-        .insert(cardImage)
-        .values({ imageKey, originUrl: 'https://images.example.com/test.png', storageKey: 'card-images/test' })
-        .returning();
-
-      assert(row != null, 'Expected the image row to be inserted');
+      await createImage({ imageKey });
 
       cardImageWarmer.notifyRegistered(1);
       await origin.started;
@@ -83,12 +64,10 @@ describe('Card image proxy integration', () => {
     },
   );
 
-  integrationTest('reports an image that ran out of attempts as missing', async ({ db, app }) => {
+  integrationTest('reports an image that ran out of attempts as missing', async ({ app, createImage }) => {
     const imageKey = 'e'.repeat(64);
-    await db.insert(cardImage).values({
+    await createImage({
       imageKey,
-      originUrl: 'https://images.example.com/exhausted.png',
-      storageKey: 'card-images/exhausted',
       status: CARD_IMAGE_STATUSES.FAILED,
       attemptCount: env.CARD_IMAGE_MAX_ATTEMPTS,
       lastErrorCode: 'origin_http_error',
@@ -99,103 +78,73 @@ describe('Card image proxy integration', () => {
     expect(response.status).toBe(CONTENTFUL_STATUS_CODES.NOT_FOUND);
   });
 
-  integrationTest('does not hold a database transaction while downloading an image', async ({ db, storageClient }) => {
-    const imageKey = 'b'.repeat(64);
-    const origin = new BlockingImageOriginClient();
-    const repository = new PostgresCardImageRepository(db);
+  integrationTest(
+    'does not hold a database transaction while downloading an image',
+    async ({
+      createApp,
+      imageRepository: repository,
+      imageOrigin: origin,
+      imageMaterializer: cardImageMaterializer,
+      createImage,
+    }) => {
+      const imageKey = 'b'.repeat(64);
 
-    const cardImageMaterializer = new CardImageMaterializer({
-      repository,
-      storageClient,
-      imageOriginClient: origin,
-    });
+      const app = createApp({ imageOriginClient: origin, cardImageMaterializer });
+      await createImage({
+        imageKey,
+      });
 
-    const { app } = new App({ db, storageClient, imageOriginClient: origin, cardImageMaterializer });
-    await db.insert(cardImage).values({
-      imageKey,
-      originUrl: 'https://images.example.com/blocked.png',
-      storageKey: 'card-images/blocked',
-    });
+      const responsePromise = app.request(`/app-api/images/${imageKey}`);
+      await origin.started;
 
-    const responsePromise = app.request(`/app-api/images/${imageKey}`);
-    await origin.started;
+      const databaseRead = await Promise.race([
+        repository.getByImageKey(imageKey),
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Database read was starved')), 500)),
+      ]);
 
-    const databaseRead = await Promise.race([
-      repository.getByImageKey(imageKey),
-      new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Database read was starved')), 500)),
-    ]);
+      origin.release();
 
-    origin.release();
+      expect(databaseRead?.status).toBe('fetching');
+      expect((await responsePromise).status).toBe(CONTENTFUL_STATUS_CODES.OK);
+    },
+  );
 
-    expect(databaseRead?.status).toBe('fetching');
-    expect((await responsePromise).status).toBe(CONTENTFUL_STATUS_CODES.OK);
-  });
+  integrationTest(
+    'logs each origin image fetch',
+    async ({
+      getLogsForRequestId,
+      withRequestId,
+      createApp,
+      imageOrigin: origin,
+      imageMaterializer: cardImageMaterializer,
+      createImage,
+    }) => {
+      const imageKey = 'd'.repeat(64);
 
-  integrationTest('logs each origin image fetch', async ({ db, storageClient, getLogsForRequestId, withRequestId }) => {
-    const imageKey = 'd'.repeat(64);
-    const origin = new BlockingImageOriginClient();
-    const repository = new PostgresCardImageRepository(db);
+      const app = createApp({ imageOriginClient: origin, cardImageMaterializer });
+      await createImage({
+        imageKey,
+      });
+      const { headers, requestId } = withRequestId();
 
-    const cardImageMaterializer = new CardImageMaterializer({
-      repository,
-      storageClient,
-      imageOriginClient: origin,
-    });
+      origin.release();
+      const response = await app.request(`/app-api/images/${imageKey}`, { headers });
 
-    const { app } = new App({ db, storageClient, imageOriginClient: origin, cardImageMaterializer });
-    await db.insert(cardImage).values({
-      imageKey,
-      originUrl: 'https://images.example.com/logged.png',
-      storageKey: 'card-images/logged',
-    });
-    const { headers, requestId } = withRequestId();
-
-    origin.release();
-    const response = await app.request(`/app-api/images/${imageKey}`, { headers });
-
-    expect(response.status).toBe(CONTENTFUL_STATUS_CODES.OK);
-    expect(getLogsForRequestId(requestId)).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          event: 'images.origin_fetch.completed',
-          outcome: 'success',
-          image_key: imageKey,
-          attempt: 1,
-          trigger: 'proxy',
-          content_length: 3,
-          content_type: 'image/png',
-          duration_ms: expect.any(Number),
-        }),
-      ]),
-    );
-  });
+      expect(response.status).toBe(CONTENTFUL_STATUS_CODES.OK);
+      expect(getLogsForRequestId(requestId)).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            event: 'images.origin_fetch.completed',
+            outcome: 'success',
+            image_key: imageKey,
+            attempt: 1,
+            trigger: 'proxy',
+            content_length: 3,
+            content_type: 'image/png',
+            duration_ms: expect.any(Number),
+          }),
+        ]),
+      );
+    },
+  );
 });
-
-class BlockingImageOriginClient implements CardImageOriginClient {
-  private readonly releaseGate = deferred<undefined>();
-  private readonly startedGate = deferred<undefined>();
-  callCount = 0;
-  readonly started = this.startedGate.promise;
-
-  async fetchImage(): Promise<CardImageOriginResult> {
-    this.callCount += 1;
-    this.startedGate.resolve(undefined);
-    await this.releaseGate.promise;
-
-    return ok({ body: new Uint8Array([1, 2, 3]), contentType: 'image/png' });
-  }
-
-  release() {
-    this.releaseGate.resolve(undefined);
-  }
-}
-
-function deferred<T>() {
-  let resolve: (value: T | PromiseLike<T>) => void = () => {};
-
-  const promise = new Promise<T>(resolver => {
-    resolve = resolver;
-  });
-
-  return { promise, resolve };
-}

@@ -1,18 +1,15 @@
 import crypto from 'node:crypto';
 
-import { readCollection } from './utils.ts';
+import { readCollection, createTestCollection } from './utils.ts';
 import { CardSchema } from '../../cards/schemas/responses.ts';
-import { sessionHeaders, createCardRequest, validCardPayload } from '../../cards/tests/utils.ts';
+import { createCardRequest, validCardPayload, createTestCard } from '../../cards/tests/utils.ts';
+import { sessionHeaders } from '../../tests/auth.ts';
 import { integrationTest } from '../../tests/fixtures.ts';
-import { createTestUser } from '../../tests/utils.ts';
 import { BackupSchema, CollectionSchema, CollectionsSchema, CollectionSummarySchema } from '../schemas/responses.ts';
 
 integrationTest(
   'allocates four copies across slots, rejects a fifth and preserves empty pages',
-  async ({ app, db }) => {
-    const user = await createTestUser(app, db);
-    const headers = sessionHeaders(user.sessionToken);
-
+  async ({ app, user, authenticatedHeaders: headers }) => {
     const created = await app.request('/app-api/collections', {
       method: 'POST',
       headers,
@@ -93,29 +90,14 @@ integrationTest(
 
 integrationTest(
   'reducing owned copies trims later slots and deleting a collection preserves cards in Unfiled',
-  async ({ app, db }) => {
-    const user = await createTestUser(app, db);
-    const headers = sessionHeaders(user.sessionToken);
+  async ({ app, db, user, authenticatedHeaders: headers }) => {
+    const collection = await createTestCollection(app, headers, { name: 'Favorites' });
 
-    const collection = CollectionSchema.parse(
-      await (
-        await app.request('/app-api/collections', {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({ name: 'Favorites' }),
-        })
-      ).json(),
-    );
-
-    const card = CardSchema.parse(
-      await (
-        await createCardRequest(app, user.sessionToken, {
-          ...validCardPayload,
-          collection_id: collection.id,
-          purchases: [{ condition: 'near_mint', quantity: 4, purchase_price: null, currency: null }],
-        })
-      ).json(),
-    );
+    const card = await createTestCard(app, user.sessionToken, {
+      ...validCardPayload,
+      collection_id: collection.id,
+      purchases: [{ condition: 'near_mint', quantity: 4, purchase_price: null, currency: null }],
+    });
 
     const current = await readCollection(app, headers, collection.id);
 
@@ -168,25 +150,10 @@ integrationTest(
 
 integrationTest(
   'backs up selected collections together and merges repeated imports without duplicates',
-  async ({ app, db, getLogsForRequestId, withRequestId }) => {
-    const user = await createTestUser(app, db);
-    const headers = sessionHeaders(user.sessionToken);
+  async ({ app, db, getLogsForRequestId, withRequestId, user, createUser, authenticatedHeaders: headers }) => {
+    const collection = await createTestCollection(app, headers, { name: 'Favorites' });
 
-    const collection = CollectionSchema.parse(
-      await (
-        await app.request('/app-api/collections', {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({ name: 'Favorites' }),
-        })
-      ).json(),
-    );
-
-    const card = CardSchema.parse(
-      await (
-        await createCardRequest(app, user.sessionToken, { ...validCardPayload, collection_id: collection.id })
-      ).json(),
-    );
+    const card = await createTestCard(app, user.sessionToken, { ...validCardPayload, collection_id: collection.id });
 
     const current = await readCollection(app, headers, collection.id);
 
@@ -224,7 +191,7 @@ integrationTest(
 
     expect(backup.collections).toHaveLength(1);
     expect(backup.cards.map(c => c.id)).toEqual([card.id]);
-    const recipient = await createTestUser(app, db);
+    const recipient = await createUser();
     const recipientHeaders = sessionHeaders(recipient.sessionToken);
 
     const preview = await app.request('/app-api/collections/import-preview', {
@@ -276,71 +243,57 @@ integrationTest(
   },
 );
 
-integrationTest('rejects foreign collection access, invalid coordinates and stale revisions', async ({ app, db }) => {
-  const owner = await createTestUser(app, db);
-  const other = await createTestUser(app, db);
-  const headers = sessionHeaders(owner.sessionToken);
+integrationTest(
+  'rejects foreign collection access, invalid coordinates and stale revisions',
+  async ({ app, createUser, authenticatedHeaders: headers }) => {
+    const other = await createUser();
 
-  const collection = CollectionSchema.parse(
-    await (
-      await app.request('/app-api/collections', { method: 'POST', headers, body: JSON.stringify({ name: 'Private' }) })
-    ).json(),
-  );
+    const collection = await createTestCollection(app, headers, { name: 'Private' });
 
-  expect(
-    (
-      await app.request(`/app-api/collections/${collection.id}`, {
-        method: 'PATCH',
-        headers: sessionHeaders(other.sessionToken),
-        body: JSON.stringify({ revision: 0, name: 'Inaccessible' }),
-      })
-    ).status,
-  ).toBe(404);
-  expect(
-    (await app.request(`/app-api/collections/${collection.id}`, { headers: sessionHeaders(other.sessionToken) }))
-      .status,
-  ).toBe(404);
-  expect((await app.request(`/app-api/collections/${collection.id}`, { method: 'PATCH' })).status).toBe(401);
-  expect(
-    (
-      await app.request(`/app-api/collections/${collection.id}/layout`, {
-        method: 'PUT',
-        headers,
-        body: JSON.stringify({ revision: 0, columns: 0, rows: 4, pages: [] }),
-      })
-    ).status,
-  ).toBe(400);
+    expect(
+      (
+        await app.request(`/app-api/collections/${collection.id}`, {
+          method: 'PATCH',
+          headers: sessionHeaders(other.sessionToken),
+          body: JSON.stringify({ revision: 0, name: 'Inaccessible' }),
+        })
+      ).status,
+    ).toBe(404);
+    expect(
+      (await app.request(`/app-api/collections/${collection.id}`, { headers: sessionHeaders(other.sessionToken) }))
+        .status,
+    ).toBe(404);
+    expect((await app.request(`/app-api/collections/${collection.id}`, { method: 'PATCH' })).status).toBe(401);
+    expect(
+      (
+        await app.request(`/app-api/collections/${collection.id}/layout`, {
+          method: 'PUT',
+          headers,
+          body: JSON.stringify({ revision: 0, columns: 0, rows: 4, pages: [] }),
+        })
+      ).status,
+    ).toBe(400);
 
-  const results = await Promise.all(
-    ['First', 'Second'].map(async name =>
-      app.request(`/app-api/collections/${collection.id}`, {
-        method: 'PATCH',
-        headers,
-        body: JSON.stringify({ revision: 0, name }),
-      }),
-    ),
-  );
+    const results = await Promise.all(
+      ['First', 'Second'].map(async name =>
+        app.request(`/app-api/collections/${collection.id}`, {
+          method: 'PATCH',
+          headers,
+          body: JSON.stringify({ revision: 0, name }),
+        }),
+      ),
+    );
 
-  expect(results.map(r => r.status).sort((a, b) => a - b)).toEqual([200, 409]);
-});
+    expect(results.map(r => r.status).sort((a, b) => a - b)).toEqual([200, 409]);
+  },
+);
 
 integrationTest(
   'moving a card clears its old slots without compacting the page and scopes collection lists',
-  async ({ app, db }) => {
-    const user = await createTestUser(app, db);
-    const headers = sessionHeaders(user.sessionToken);
+  async ({ app, user, authenticatedHeaders: headers }) => {
+    const collection = await createTestCollection(app, headers, { name: 'Binder' });
 
-    const collection = CollectionSchema.parse(
-      await (
-        await app.request('/app-api/collections', { method: 'POST', headers, body: JSON.stringify({ name: 'Binder' }) })
-      ).json(),
-    );
-
-    const card = CardSchema.parse(
-      await (
-        await createCardRequest(app, user.sessionToken, { ...validCardPayload, collection_id: collection.id })
-      ).json(),
-    );
+    const card = await createTestCard(app, user.sessionToken, { ...validCardPayload, collection_id: collection.id });
 
     const current = await readCollection(app, headers, collection.id);
 
@@ -374,157 +327,137 @@ integrationTest(
   },
 );
 
-integrationTest('concurrent layout writes cannot allocate copies twice', async ({ app, db }) => {
-  const user = await createTestUser(app, db);
-  const headers = sessionHeaders(user.sessionToken);
+integrationTest(
+  'concurrent layout writes cannot allocate copies twice',
+  async ({ app, user, authenticatedHeaders: headers }) => {
+    const collection = await createTestCollection(app, headers, { name: 'Binder' });
 
-  const collection = CollectionSchema.parse(
-    await (
-      await app.request('/app-api/collections', { method: 'POST', headers, body: JSON.stringify({ name: 'Binder' }) })
-    ).json(),
-  );
+    const card = await createTestCard(app, user.sessionToken, { ...validCardPayload, collection_id: collection.id });
 
-  const card = CardSchema.parse(
-    await (
-      await createCardRequest(app, user.sessionToken, { ...validCardPayload, collection_id: collection.id })
-    ).json(),
-  );
+    const current = await readCollection(app, headers, collection.id);
 
-  const current = await readCollection(app, headers, collection.id);
+    const layout = {
+      revision: current.revision,
+      columns: 2,
+      rows: 1,
+      pages: [{ id: crypto.randomUUID(), slots: [{ row: 1, column: 1, card_id: card.id, quantity: 3 }] }],
+    };
 
-  const layout = {
-    revision: current.revision,
-    columns: 2,
-    rows: 1,
-    pages: [{ id: crypto.randomUUID(), slots: [{ row: 1, column: 1, card_id: card.id, quantity: 3 }] }],
-  };
+    const responses = await Promise.all(
+      [1, 2].map(async () =>
+        app.request(`/app-api/collections/${collection.id}/layout`, {
+          method: 'PUT',
+          headers,
+          body: JSON.stringify(layout),
+        }),
+      ),
+    );
 
-  const responses = await Promise.all(
-    [1, 2].map(async () =>
-      app.request(`/app-api/collections/${collection.id}/layout`, {
-        method: 'PUT',
-        headers,
-        body: JSON.stringify(layout),
+    const statuses = responses.map(response => response.status).sort((a, b) => a - b);
+    expect(statuses[0]).toBe(200);
+    expect([409, 429]).toContain(statuses[1]);
+    expect((await readCollection(app, headers, collection.id)).pages).toEqual(layout.pages);
+  },
+);
+
+integrationTest(
+  'a rejected complete backup writes neither collections nor cards',
+  async ({ app, db, user, authenticatedHeaders: headers }) => {
+    const collectionId = crypto.randomUUID();
+
+    const response = await app.request('/app-api/collections/import', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        version: 1,
+        collections: [
+          {
+            id: collectionId,
+            name: 'Broken',
+            is_unfiled: false,
+            revision: 0,
+            columns: 1,
+            rows: 4,
+            pages: [
+              { id: crypto.randomUUID(), slots: [{ row: 1, column: 1, card_id: crypto.randomUUID(), quantity: 1 }] },
+            ],
+          },
+        ],
+        cards: [],
       }),
-    ),
-  );
+    });
 
-  const statuses = responses.map(response => response.status).sort((a, b) => a - b);
-  expect(statuses[0]).toBe(200);
-  expect([409, 429]).toContain(statuses[1]);
-  expect((await readCollection(app, headers, collection.id)).pages).toEqual(layout.pages);
-});
+    expect(response.status).toBe(400);
+    const collections = CollectionsSchema.parse(await (await app.request('/app-api/collections', { headers })).json());
+    expect(collections.collections).toHaveLength(1);
+    expect(collections.collections[0]).toMatchObject({ is_unfiled: true });
+    expect(await db.query.card.findMany({ where: { userId: user.userId } })).toEqual([]);
+  },
+);
 
-integrationTest('a rejected complete backup writes neither collections nor cards', async ({ app, db }) => {
-  const user = await createTestUser(app, db);
-  const headers = sessionHeaders(user.sessionToken);
-  const collectionId = crypto.randomUUID();
+integrationTest(
+  'a late restore conflict rolls back earlier collection writes',
+  async ({ app, authenticatedHeaders: headers }) => {
+    const initial = CollectionsSchema.parse(await (await app.request('/app-api/collections', { headers })).json());
+    const unfiled = initial.collections[0];
+    expect(unfiled).toBeDefined();
+    const defaultCollection = await readCollection(app, headers, CollectionSummarySchema.parse(unfiled).id);
 
-  const response = await app.request('/app-api/collections/import', {
-    method: 'POST',
-    headers,
-    body: JSON.stringify({
-      version: 1,
-      collections: [
-        {
-          id: collectionId,
-          name: 'Broken',
-          is_unfiled: false,
-          revision: 0,
-          columns: 1,
-          rows: 4,
-          pages: [
-            { id: crypto.randomUUID(), slots: [{ row: 1, column: 1, card_id: crypto.randomUUID(), quantity: 1 }] },
-          ],
-        },
-      ],
-      cards: [],
-    }),
-  });
+    const response = await app.request('/app-api/collections/import', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        version: 1,
+        collections: [
+          { ...defaultCollection, id: crypto.randomUUID(), is_unfiled: false, name: 'Must roll back' },
+          { ...defaultCollection, is_unfiled: false, name: 'Cannot replace Unfiled' },
+        ],
+        cards: [],
+      }),
+    });
 
-  expect(response.status).toBe(400);
-  const collections = CollectionsSchema.parse(await (await app.request('/app-api/collections', { headers })).json());
-  expect(collections.collections).toHaveLength(1);
-  expect(collections.collections[0]).toMatchObject({ is_unfiled: true });
-  expect(await db.query.card.findMany({ where: { userId: user.userId } })).toEqual([]);
-});
+    expect(response.status).toBe(409);
+    expect(CollectionsSchema.parse(await (await app.request('/app-api/collections', { headers })).json())).toEqual(
+      initial,
+    );
+  },
+);
 
-integrationTest('a late restore conflict rolls back earlier collection writes', async ({ app, db }) => {
-  const user = await createTestUser(app, db);
-  const headers = sessionHeaders(user.sessionToken);
-  const initial = CollectionsSchema.parse(await (await app.request('/app-api/collections', { headers })).json());
-  const unfiled = initial.collections[0];
-  expect(unfiled).toBeDefined();
-  const defaultCollection = await readCollection(app, headers, CollectionSummarySchema.parse(unfiled).id);
+integrationTest(
+  'page identity collisions never overwrite another account layout',
+  async ({ app, createUser, authenticatedHeaders: headers }) => {
+    const other = await createUser();
 
-  const response = await app.request('/app-api/collections/import', {
-    method: 'POST',
-    headers,
-    body: JSON.stringify({
-      version: 1,
-      collections: [
-        { ...defaultCollection, id: crypto.randomUUID(), is_unfiled: false, name: 'Must roll back' },
-        { ...defaultCollection, is_unfiled: false, name: 'Cannot replace Unfiled' },
-      ],
-      cards: [],
-    }),
-  });
+    const otherHeaders = sessionHeaders(other.sessionToken);
 
-  expect(response.status).toBe(409);
-  expect(CollectionsSchema.parse(await (await app.request('/app-api/collections', { headers })).json())).toEqual(
-    initial,
-  );
-});
+    const owned = await createTestCollection(app, headers, { name: 'Private binder' });
 
-integrationTest('page identity collisions never overwrite another account layout', async ({ app, db }) => {
-  const owner = await createTestUser(app, db);
-  const other = await createTestUser(app, db);
-  const headers = sessionHeaders(owner.sessionToken);
-  const otherHeaders = sessionHeaders(other.sessionToken);
+    const foreign = await createTestCollection(app, otherHeaders, { name: 'Other binder' });
 
-  const owned = CollectionSchema.parse(
-    await (
-      await app.request('/app-api/collections', {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ name: 'Private binder' }),
-      })
-    ).json(),
-  );
-
-  const foreign = CollectionSchema.parse(
-    await (
-      await app.request('/app-api/collections', {
-        method: 'POST',
-        headers: otherHeaders,
-        body: JSON.stringify({ name: 'Other binder' }),
-      })
-    ).json(),
-  );
-
-  const pageId = crypto.randomUUID();
-  const payload = { revision: 0, columns: 1, rows: 4, pages: [{ id: pageId, slots: [] }] };
-  expect(
-    (
-      await app.request(`/app-api/collections/${owned.id}/layout`, {
-        method: 'PUT',
-        headers,
-        body: JSON.stringify(payload),
-      })
-    ).status,
-  ).toBe(200);
-  expect(
-    (
-      await app.request(`/app-api/collections/${foreign.id}/layout`, {
-        method: 'PUT',
-        headers: otherHeaders,
-        body: JSON.stringify(payload),
-      })
-    ).status,
-  ).toBe(404);
-  expect((await readCollection(app, headers, owned.id)).pages).toEqual(payload.pages);
-  expect((await readCollection(app, otherHeaders, foreign.id)).pages).toEqual([]);
-});
+    const pageId = crypto.randomUUID();
+    const payload = { revision: 0, columns: 1, rows: 4, pages: [{ id: pageId, slots: [] }] };
+    expect(
+      (
+        await app.request(`/app-api/collections/${owned.id}/layout`, {
+          method: 'PUT',
+          headers,
+          body: JSON.stringify(payload),
+        })
+      ).status,
+    ).toBe(200);
+    expect(
+      (
+        await app.request(`/app-api/collections/${foreign.id}/layout`, {
+          method: 'PUT',
+          headers: otherHeaders,
+          body: JSON.stringify(payload),
+        })
+      ).status,
+    ).toBe(404);
+    expect((await readCollection(app, headers, owned.id)).pages).toEqual(payload.pages);
+    expect((await readCollection(app, otherHeaders, foreign.id)).pages).toEqual([]);
+  },
+);
 
 for (const dimensions of [
   { columns: 20, rows: 20, status: 200, stored: { columns: 20, rows: 20 } },
@@ -533,9 +466,7 @@ for (const dimensions of [
 ]) {
   integrationTest(
     `validates binder dimensions ${dimensions.columns} by ${dimensions.rows} with status ${dimensions.status}`,
-    async ({ app, db }) => {
-      const user = await createTestUser(app, db);
-      const headers = sessionHeaders(user.sessionToken);
+    async ({ app, authenticatedHeaders: headers }) => {
       const listed = CollectionsSchema.parse(await (await app.request('/app-api/collections', { headers })).json());
       const collection = CollectionSummarySchema.parse(listed.collections[0]);
 

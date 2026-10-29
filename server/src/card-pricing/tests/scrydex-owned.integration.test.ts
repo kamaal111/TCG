@@ -2,14 +2,12 @@ import assert from 'node:assert/strict';
 
 import { eq } from 'drizzle-orm';
 
+import { createTestScrydexClient } from './utils.ts';
 import { LIST_CARDS_ROUTE_PATH } from '../../cards/routes/list-cards.ts';
-import { CardsListResponseSchema, CardSchema } from '../../cards/schemas/responses.ts';
-import { createCardRequest, sessionHeaders } from '../../cards/tests/utils.ts';
+import { CardsListResponseSchema } from '../../cards/schemas/responses.ts';
+import { createCardRequest, createTestCard } from '../../cards/tests/utils.ts';
 import { card } from '../../db/schema/cards.ts';
-import App from '../../runtime/node/app.ts';
 import { integrationTest } from '../../tests/fixtures.ts';
-import { createTestUser } from '../../tests/utils.ts';
-import { RealScrydexClient } from '../scrydex/real-client.ts';
 import { StaticScrydexClient } from '../scrydex/static-client.ts';
 
 const providerCard = {
@@ -21,20 +19,18 @@ const providerCard = {
 };
 
 describe('Scrydex owned-card pricing', () => {
-  integrationTest('decodes a daily lookup and reuses the persisted price', async ({ app, db, storageClient }) => {
-    const user = await createTestUser(app, db);
-    const created = CardSchema.parse(await (await createCardRequest(app, user.sessionToken)).json());
-    await db
-      .update(card)
-      .set({ game: 'pokemon', pricingCardId: providerCard.id, pricingSource: 'scrydex_real' })
-      .where(eq(card.id, created.id));
+  integrationTest(
+    'decodes a daily lookup and reuses the persisted price',
+    async ({ app, db, createApp, user, authenticatedHeaders }) => {
+      const created = await createTestCard(app, user.sessionToken);
+      await db
+        .update(card)
+        .set({ game: 'pokemon', pricingCardId: providerCard.id, pricingSource: 'scrydex_real' })
+        .where(eq(card.id, created.id));
 
-    let calls = 0;
+      let calls = 0;
 
-    const pricingClient = new RealScrydexClient({
-      apiKey: 'test-key',
-      teamId: 'test-team',
-      fetch: async input => {
+      const pricingClient = createTestScrydexClient(async input => {
         calls += 1;
         const url = new URL(input instanceof Request ? input.url : input.toString());
 
@@ -42,38 +38,37 @@ describe('Scrydex owned-card pricing', () => {
         expect(url.searchParams.get('include')).toBe('prices');
 
         return Response.json({ status: 'success', data: providerCard });
-      },
-    });
+      });
 
-    const realApp = new App({ db, storageClient, pricingClient }).app;
-    const first = await realApp.request(LIST_CARDS_ROUTE_PATH, { headers: sessionHeaders(user.sessionToken) });
-    expect(first.status).toBe(200);
-    const body = CardsListResponseSchema.parse(await first.json());
-    expect(body.cards[0]?.price).toMatchObject({
-      status: 'priced',
-      priced_card: { headline: { amount: 800, currency: 'JPY' } },
-    });
-    expect(await db.query.cardPrice.findFirst({ where: { pricingSource: 'scrydex_real' } })).toMatchObject({
-      raw: providerCard,
-    });
-    const second = await realApp.request(LIST_CARDS_ROUTE_PATH, { headers: sessionHeaders(user.sessionToken) });
-    expect(second.status).toBe(200);
-    expect(CardsListResponseSchema.parse(await second.json())).toEqual(body);
-    expect(calls).toBe(1);
-  });
+      const realApp = createApp({ pricingClient });
+      const first = await realApp.request(LIST_CARDS_ROUTE_PATH, { headers: authenticatedHeaders });
+      expect(first.status).toBe(200);
+      const body = CardsListResponseSchema.parse(await first.json());
+      expect(body.cards[0]?.price).toMatchObject({
+        status: 'priced',
+        priced_card: { headline: { amount: 800, currency: 'JPY' } },
+      });
+      expect(await db.query.cardPrice.findFirst({ where: { pricingSource: 'scrydex_real' } })).toMatchObject({
+        raw: providerCard,
+      });
+      const second = await realApp.request(LIST_CARDS_ROUTE_PATH, { headers: authenticatedHeaders });
+      expect(second.status).toBe(200);
+      expect(CardsListResponseSchema.parse(await second.json())).toEqual(body);
+      expect(calls).toBe(1);
+    },
+  );
 
   integrationTest(
     'does not hide unexpected collection pricing failures',
-    async ({ app, db, storageClient, withRequestId, getLogsForRequestId }) => {
-      const user = await createTestUser(app, db);
-      const created = CardSchema.parse(await (await createCardRequest(app, user.sessionToken)).json());
+    async ({ app, db, withRequestId, getLogsForRequestId, createApp, user, authenticatedHeaders }) => {
+      const created = await createTestCard(app, user.sessionToken);
       await db
         .update(card)
         .set({ pricingCardId: 'uncached', pricingSource: 'scrydex_static' })
         .where(eq(card.id, created.id));
 
-      const realApp = new App({ db, storageClient, pricingClient: new UnexpectedPricingClient() }).app;
-      const { headers, requestId } = withRequestId(Object.fromEntries(sessionHeaders(user.sessionToken).entries()));
+      const realApp = createApp({ pricingClient: new UnexpectedPricingClient() });
+      const { headers, requestId } = withRequestId(authenticatedHeaders);
       const response = await realApp.request(LIST_CARDS_ROUTE_PATH, { headers });
       expect(response.status).toBe(500);
       expect(getLogsForRequestId(requestId)).toEqual(
@@ -90,16 +85,10 @@ describe('Scrydex owned-card pricing', () => {
 
   integrationTest(
     'keeps create and update pricing failures strict after saving',
-    async ({ app, db, storageClient }) => {
-      const user = await createTestUser(app, db);
+    async ({ db, createApp, user, authenticatedHeaders }) => {
+      const pricingClient = createTestScrydexClient(async () => Response.json({ data: null }));
 
-      const pricingClient = new RealScrydexClient({
-        apiKey: 'test-key',
-        teamId: 'test-team',
-        fetch: async () => Response.json({ data: null }),
-      });
-
-      const realApp = new App({ db, storageClient, pricingClient }).app;
+      const realApp = createApp({ pricingClient });
       const created = await createCardRequest(realApp, user.sessionToken);
       expect(created.status).toBe(503);
       expect(await created.json()).toMatchObject({ code: 'PRICING_PROVIDER_UNAVAILABLE' });
@@ -113,7 +102,7 @@ describe('Scrydex owned-card pricing', () => {
 
       const updated = await realApp.request(`${LIST_CARDS_ROUTE_PATH}/${saved.id}`, {
         method: 'PUT',
-        headers: sessionHeaders(user.sessionToken),
+        headers: authenticatedHeaders,
         body: JSON.stringify({
           game: saved.game,
           name: 'Updated card',
@@ -132,10 +121,9 @@ describe('Scrydex owned-card pricing', () => {
   for (const operation of ['card_lookup', 'search'] as const) {
     integrationTest(
       `keeps cards visible and logs provider failures during ${operation}`,
-      async ({ app, db, storageClient, withRequestId, getLogsForRequestId }) => {
-        const user = await createTestUser(app, db);
-        const failed = CardSchema.parse(await (await createCardRequest(app, user.sessionToken)).json());
-        const successful = CardSchema.parse(await (await createCardRequest(app, user.sessionToken)).json());
+      async ({ app, db, withRequestId, getLogsForRequestId, createApp, user, authenticatedHeaders }) => {
+        const failed = await createTestCard(app, user.sessionToken);
+        const successful = await createTestCard(app, user.sessionToken);
         await db
           .update(card)
           .set({
@@ -148,20 +136,16 @@ describe('Scrydex owned-card pricing', () => {
           .set({ game: 'pokemon', pricingCardId: providerCard.id, pricingSource: 'scrydex_real' })
           .where(eq(card.id, successful.id));
 
-        const pricingClient = new RealScrydexClient({
-          apiKey: 'test-key',
-          teamId: 'test-team',
-          fetch: async input => {
-            const url = new URL(input instanceof Request ? input.url : input.toString());
+        const pricingClient = createTestScrydexClient(async input => {
+          const url = new URL(input instanceof Request ? input.url : input.toString());
 
-            return url.pathname.endsWith(providerCard.id)
-              ? Response.json({ data: providerCard })
-              : Response.json({ data: null });
-          },
+          return url.pathname.endsWith(providerCard.id)
+            ? Response.json({ data: providerCard })
+            : Response.json({ data: null });
         });
 
-        const realApp = new App({ db, storageClient, pricingClient }).app;
-        const { headers, requestId } = withRequestId(Object.fromEntries(sessionHeaders(user.sessionToken).entries()));
+        const realApp = createApp({ pricingClient });
+        const { headers, requestId } = withRequestId(authenticatedHeaders);
         const response = await realApp.request(LIST_CARDS_ROUTE_PATH, { headers });
         expect(response.status).toBe(200);
         const body = CardsListResponseSchema.parse(await response.json());

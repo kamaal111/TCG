@@ -16,15 +16,12 @@ import {
   expectValidationIssueForFields,
 } from '../../tests/auth.ts';
 import { integrationTest } from '../../tests/fixtures.ts';
-import { createTestUser } from '../../tests/utils.ts';
 import { SIGN_IN_ROUTE_PATH } from '../constants.ts';
 
 describe('Sign-in integration', () => {
   integrationTest(
     'creates a new session and returns auth/session headers for a valid user',
-    async ({ app, db, getLogsForRequestId, withRequestId }) => {
-      const createdUser = await createTestUser(app, db);
-
+    async ({ app, db, getLogsForRequestId, withRequestId, user: createdUser }) => {
       const initialSessions = await db.query.session.findMany({
         where: { userId: createdUser.userId },
       });
@@ -83,9 +80,7 @@ describe('Sign-in integration', () => {
     expect(body.code).toBe('INVALID_EMAIL_OR_PASSWORD');
   });
 
-  integrationTest('rejects an incorrect password for an existing user', async ({ app, db }) => {
-    const createdUser = await createTestUser(app, db);
-
+  integrationTest('rejects an incorrect password for an existing user', async ({ app, user: createdUser }) => {
     const response = await sendSignInRequest(
       app,
       createValidSignInPayload({
@@ -99,9 +94,7 @@ describe('Sign-in integration', () => {
     expect(body.code).toBe('INVALID_EMAIL_OR_PASSWORD');
   });
 
-  integrationTest('accepts a valid app callback URL', async ({ app, db }) => {
-    const createdUser = await createTestUser(app, db);
-
+  integrationTest('accepts a valid app callback URL', async ({ app, user: createdUser }) => {
     const response = await sendSignInRequest(app, {
       email: createdUser.email,
       password: createdUser.password,
@@ -111,8 +104,8 @@ describe('Sign-in integration', () => {
     await expectAuthSuccessResponse(response, CONTENTFUL_STATUS_CODES.OK);
   });
 
-  integrationTest('accepts an eight-character password', async ({ app, db }) => {
-    const createdUser = await createTestUser(app, db, { password: '12345678' });
+  integrationTest('accepts an eight-character password', async ({ app, createUser }) => {
+    const createdUser = await createUser({ password: '12345678' });
 
     const response = await sendSignInRequest(
       app,
@@ -125,8 +118,8 @@ describe('Sign-in integration', () => {
     await expectAuthSuccessResponse(response, CONTENTFUL_STATUS_CODES.OK);
   });
 
-  integrationTest('accepts a 128-character password', async ({ app, db }) => {
-    const createdUser = await createTestUser(app, db, { password: 'a'.repeat(128) });
+  integrationTest('accepts a 128-character password', async ({ app, createUser }) => {
+    const createdUser = await createUser({ password: 'a'.repeat(128) });
 
     const response = await sendSignInRequest(
       app,

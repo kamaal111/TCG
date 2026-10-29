@@ -2,12 +2,12 @@ import { sql } from 'drizzle-orm';
 import { Context } from 'hono';
 import { ok } from 'neverthrow';
 
+import { seedExchangeRate } from './utils.ts';
 import type { HonoEnvironment } from '../../context.ts';
 import type { Database } from '../../db/index.ts';
 import { exchangeRate } from '../../db/schema/forex.ts';
 import { PostgresForexRepository } from '../../persistence/postgres/forex.ts';
 import { integrationTest } from '../../tests/fixtures.ts';
-import { createTestUser } from '../../tests/utils.ts';
 import { EcbForexClient } from '../client.ts';
 import {
   ForexInvalidResponse,
@@ -24,9 +24,7 @@ const xml = `<gesmes:Envelope xmlns:gesmes="http://www.gesmes.org/xml/2002-08-01
 
 integrationTest(
   'logs available snapshots and server-generated request IDs',
-  async ({ app, db, getLogsForRequestId }) => {
-    const user = await createTestUser(app, db);
-    const headers = { Cookie: `better-auth.session_token=${user.sessionToken}` };
+  async ({ app, db, getLogsForRequestId, user, authenticatedHeaders: headers }) => {
     const missing = await app.request(LATEST_SNAPSHOT_ROUTE_PATH, { headers });
     expect(missing.status).toBe(503);
     const missingId = missing.headers.get('tcg-request-id');
@@ -42,7 +40,7 @@ integrationTest(
       ]),
     );
     expect(failures.filter(log => log.event === 'forex.snapshot.loaded')).toHaveLength(0);
-    await db.insert(exchangeRate).values({ date: '2026-10-16', rates: { EUR: 1, USD: 1.25, JPY: 150 } });
+    await seedExchangeRate(db);
     const response = await app.request(LATEST_SNAPSHOT_ROUTE_PATH, { headers });
     expect(response.status).toBe(200);
     const requestId = response.headers.get('tcg-request-id');
@@ -82,7 +80,7 @@ integrationTest('collects one dated snapshot and tolerates concurrent duplicate 
 });
 
 integrationTest('skips the provider when today already has a snapshot', async ({ db }) => {
-  await db.insert(exchangeRate).values({
+  await seedExchangeRate(db, {
     date: '2026-10-17',
     rates: { EUR: 1, USD: 1.2, JPY: 140 },
     collectedAt: new Date('2026-10-17T08:00:00Z'),
@@ -95,7 +93,7 @@ integrationTest('skips the provider when today already has a snapshot', async ({
 
 integrationTest('retains stored rates when the provider returns an HTTP failure', async ({ db }) => {
   const collectedAt = new Date('2026-10-15T17:00:00Z');
-  await db.insert(exchangeRate).values({ date: '2026-10-15', rates: { EUR: 1, USD: 1.2, JPY: 140 }, collectedAt });
+  await seedExchangeRate(db, { date: '2026-10-15', rates: { EUR: 1, USD: 1.2, JPY: 140 }, collectedAt });
   const fetchFeed = vi.fn<typeof fetch>().mockResolvedValue(new Response('Unavailable', { status: 503 }));
   const { service, repository } = createCollector(db, fetchFeed);
   const collection = await service.collectLatest(new Date('2026-10-17'));
@@ -110,7 +108,7 @@ integrationTest(
   'fetches once per UTC collection day even when the published rate date is unchanged',
   async ({ db }) => {
     const rates = { EUR: 1, USD: 1.2, JPY: 140 };
-    await db.insert(exchangeRate).values({
+    await seedExchangeRate(db, {
       date: '2026-10-16',
       rates,
       collectedAt: new Date('2026-10-16T17:00:00Z'),
@@ -161,7 +159,7 @@ for (const [name, invalidXML, message] of [
   ['future date', xml.replace('2026-10-16', '2026-10-18'), 'ECB snapshot is in the future'],
 ]) {
   integrationTest(`rejects ${name} without replacing stored rates`, async ({ db }) => {
-    await db.insert(exchangeRate).values({
+    await seedExchangeRate(db, {
       date: '2026-10-15',
       rates: { EUR: 1, USD: 1.2, JPY: 140 },
       collectedAt: new Date('2026-10-15T17:00:00Z'),
@@ -176,18 +174,22 @@ for (const [name, invalidXML, message] of [
   });
 }
 
-integrationTest('serves the last collected rates and requires authentication', async ({ app, db }) => {
-  expect((await app.request(LATEST_SNAPSHOT_ROUTE_PATH)).status).toBe(401);
-  const user = await createTestUser(app, db);
-  const headers = { Cookie: `better-auth.session_token=${user.sessionToken}` };
-  const missing = await app.request(LATEST_SNAPSHOT_ROUTE_PATH, { headers });
-  expect(missing.status).toBe(503);
-  expect(await missing.json()).toEqual({ code: 'EXCHANGE_RATES_UNAVAILABLE', message: 'No exchange rates available' });
-  await db.insert(exchangeRate).values({ date: '2026-10-16', rates: { EUR: 1, USD: 1.25, JPY: 150 } });
-  const response = await app.request(LATEST_SNAPSHOT_ROUTE_PATH, { headers });
-  expect(response.status).toBe(200);
-  expect(await response.json()).toEqual({ base: 'EUR', date: '2026-10-16', rates: { EUR: 1, USD: 1.25, JPY: 150 } });
-});
+integrationTest(
+  'serves the last collected rates and requires authentication',
+  async ({ app, db, authenticatedHeaders: headers }) => {
+    expect((await app.request(LATEST_SNAPSHOT_ROUTE_PATH)).status).toBe(401);
+    const missing = await app.request(LATEST_SNAPSHOT_ROUTE_PATH, { headers });
+    expect(missing.status).toBe(503);
+    expect(await missing.json()).toEqual({
+      code: 'EXCHANGE_RATES_UNAVAILABLE',
+      message: 'No exchange rates available',
+    });
+    await seedExchangeRate(db);
+    const response = await app.request(LATEST_SNAPSHOT_ROUTE_PATH, { headers });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ base: 'EUR', date: '2026-10-16', rates: { EUR: 1, USD: 1.25, JPY: 150 } });
+  },
+);
 
 integrationTest('distinguishes no stored snapshot from a repository failure', async ({ db }) => {
   const { repository, service } = createCollector(db, vi.fn<typeof fetch>());
@@ -211,8 +213,7 @@ integrationTest('orders snapshots by their rate date rather than collection time
 
 integrationTest(
   'returns invalid stored data as a typed error and a safe API failure',
-  async ({ app, db, getLogsForRequestId }) => {
-    const user = await createTestUser(app, db);
+  async ({ app, db, getLogsForRequestId, authenticatedHeaders }) => {
     await db.insert(exchangeRate).values({ date: '2026-10-16', rates: {} });
     const fetchFeed = vi.fn<typeof fetch>();
     const { repository, service } = createCollector(db, fetchFeed);
@@ -230,7 +231,7 @@ integrationTest(
     expect(latest.error.cause).toBeInstanceOf(ForexStoredSnapshotInvalid);
 
     const response = await app.request(LATEST_SNAPSHOT_ROUTE_PATH, {
-      headers: { Cookie: `better-auth.session_token=${user.sessionToken}` },
+      headers: authenticatedHeaders,
     });
 
     expect(response.status).toBe(500);

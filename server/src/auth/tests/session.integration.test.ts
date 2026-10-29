@@ -8,16 +8,13 @@ import { MIME_TYPES } from '../../constants/request.ts';
 import type { HonoEnvironment } from '../../context.ts';
 import { expectAuthSuccessResponse, expectErrorResponse } from '../../tests/auth.ts';
 import { integrationTest } from '../../tests/fixtures.ts';
-import { createTestUser } from '../../tests/utils.ts';
 import { SESSION_ROUTE_PATH } from '../constants.ts';
 import { SIGN_IN_ROUTE_PATH } from '../constants.ts';
 
 describe('Session integration', () => {
   integrationTest(
     'returns the current user session for a valid session cookie',
-    async ({ app, db, getLogsForRequestId, withRequestId }) => {
-      const createdUser = await createTestUser(app, db);
-
+    async ({ app, db, getLogsForRequestId, withRequestId, user: createdUser }) => {
       const { headers, requestId } = withRequestId({
         Cookie: `better-auth.session_token=${createdUser.sessionToken}`,
         'User-Agent': 'TCG integration test client',
@@ -65,9 +62,7 @@ describe('Session integration', () => {
 
   integrationTest(
     'returns the current user session for a valid bearer token',
-    async ({ app, db, getLogsForRequestId, withRequestId }) => {
-      const createdUser = await createTestUser(app, db);
-
+    async ({ app, db, getLogsForRequestId, withRequestId, user: createdUser }) => {
       const signInResponse = await app.request(SIGN_IN_ROUTE_PATH, {
         method: 'POST',
         headers: new Headers({ 'Content-Type': MIME_TYPES.JSON }),

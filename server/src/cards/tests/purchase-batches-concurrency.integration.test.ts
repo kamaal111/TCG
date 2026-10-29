@@ -2,25 +2,23 @@ import assert from 'node:assert/strict';
 
 import { eq } from 'drizzle-orm';
 
-import { createCardRequest, sessionHeaders } from './utils.ts';
-import { RealScrydexClient } from '../../card-pricing/scrydex/real-client.ts';
+import { createTestCard } from './utils.ts';
+import { createTestScrydexClient } from '../../card-pricing/tests/utils.ts';
 import type { Database } from '../../db/index.ts';
 import { card, cardPurchaseBatch } from '../../db/schema/cards.ts';
-import App from '../../runtime/node/app.ts';
-import type { ObjectStorageClient } from '../../storage/client.ts';
+import type App from '../../runtime/node/app.ts';
+import { sessionHeaders } from '../../tests/auth.ts';
 import { integrationTest } from '../../tests/fixtures.ts';
-import { createTestUser } from '../../tests/utils.ts';
-import { CardSchema } from '../schemas/responses.ts';
 
 interface PendingPricingSetup {
   db: Database;
   app: App['app'];
-  storageClient: ObjectStorageClient;
+  sessionToken: string;
+  createApp: (overrides?: ConstructorParameters<typeof App>[0]) => App['app'];
 }
 
-async function pendingPricing({ app, db, storageClient }: PendingPricingSetup) {
-  const user = await createTestUser(app, db);
-  const owned = CardSchema.parse(await (await createCardRequest(app, user.sessionToken)).json());
+async function pendingPricing({ app, db, sessionToken, createApp }: PendingPricingSetup) {
+  const owned = await createTestCard(app, sessionToken);
   const batch = owned.purchases[0];
   assert(batch != null);
   await db
@@ -31,27 +29,23 @@ async function pendingPricing({ app, db, storageClient }: PendingPricingSetup) {
   const requested = Promise.withResolvers<undefined>();
   const release = Promise.withResolvers<undefined>();
 
-  const provider = new RealScrydexClient({
-    apiKey: 'test',
-    teamId: 'test',
-    fetch: async () => {
-      requested.resolve(undefined);
-      await release.promise;
+  const provider = createTestScrydexClient(async () => {
+    requested.resolve(undefined);
+    await release.promise;
 
-      return Response.json({
-        status: 'success',
-        data: {
-          id: 'pending',
-          name: owned.name,
-          number: owned.card_number,
-          variants: [{ name: 'normal', prices: [{ condition: 'NM', type: 'raw', currency: 'USD', market: 5 }] }],
-        },
-      });
-    },
+    return Response.json({
+      status: 'success',
+      data: {
+        id: 'pending',
+        name: owned.name,
+        number: owned.card_number,
+        variants: [{ name: 'normal', prices: [{ condition: 'NM', type: 'raw', currency: 'USD', market: 5 }] }],
+      },
+    });
   });
 
-  const pending = new App({ db, storageClient, pricingClient: provider }).app.request('/app-api/cards', {
-    headers: sessionHeaders(user.sessionToken),
+  const pending = createApp({ pricingClient: provider }).request('/app-api/cards', {
+    headers: sessionHeaders(sessionToken),
   });
 
   await requested.promise;
@@ -61,8 +55,8 @@ async function pendingPricing({ app, db, storageClient }: PendingPricingSetup) {
 
 integrationTest(
   'a manual price saved while provider pricing is pending wins over backfill',
-  async ({ app, db, storageClient }) => {
-    const { batch, pending, release } = await pendingPricing({ app, db, storageClient });
+  async ({ app, db, user, createApp }) => {
+    const { batch, pending, release } = await pendingPricing({ app, db, sessionToken: user.sessionToken, createApp });
     await db
       .update(cardPurchaseBatch)
       .set({ purchasePrice: '4', currency: 'USD' })
@@ -79,8 +73,14 @@ integrationTest(
 
 integrationTest(
   'pricing for an old card identity cannot backfill a changed card',
-  async ({ app, db, storageClient }) => {
-    const { owned, batch, pending, release } = await pendingPricing({ app, db, storageClient });
+  async ({ app, db, user, createApp }) => {
+    const { owned, batch, pending, release } = await pendingPricing({
+      app,
+      db,
+      sessionToken: user.sessionToken,
+      createApp,
+    });
+
     await db.update(card).set({ name: 'Different card' }).where(eq(card.id, owned.id));
     release.resolve(undefined);
     expect((await pending).status).toBe(200);

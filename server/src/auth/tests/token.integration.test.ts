@@ -10,15 +10,12 @@ import type { HonoEnvironment } from '../../context.ts';
 import env from '../../env.ts';
 import { expectErrorResponse } from '../../tests/auth.ts';
 import { integrationTest } from '../../tests/fixtures.ts';
-import { createTestUser } from '../../tests/utils.ts';
 import { TOKEN_ROUTE_PATH } from '../constants.ts';
 
 describe('Token integration', () => {
   integrationTest(
     'returns a JWT and refresh headers for a valid session token',
-    async ({ app, db, getLogsForRequestId, withRequestId }) => {
-      const createdUser = await createTestUser(app, db);
-
+    async ({ app, getLogsForRequestId, withRequestId, user: createdUser }) => {
       const { headers, requestId } = withRequestId({
         Authorization: `Bearer ${createdUser.sessionToken}`,
       });
@@ -79,9 +76,7 @@ describe('Token integration', () => {
 
   integrationTest(
     'rejects the issued JWT as a bearer credential',
-    async ({ app, db, getLogsForRequestId, withRequestId }) => {
-      const createdUser = await createTestUser(app, db);
-
+    async ({ app, getLogsForRequestId, withRequestId, user: createdUser }) => {
       const tokenResponse = await sendTokenRequest(
         app,
         new Headers({ Authorization: `Bearer ${createdUser.sessionToken}` }),
