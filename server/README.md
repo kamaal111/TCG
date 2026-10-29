@@ -71,6 +71,7 @@ time without replacing that snapshot's rates. Failed collection does not mark
 the day complete, so another invocation can retry.
 
 `GET /app-api/forex/latest` requires authentication and returns `{base, date, rates}`.
+
 Without collected rates it returns HTTP 503 with `EXCHANGE_RATES_UNAVAILABLE`;
 card endpoints continue working. Market prices and purchase records retain their
 source currencies. The server supplies preferred-currency `display` projections on priced cards
@@ -89,6 +90,75 @@ the resolved currency. Accounts without a saved preference use
 `DEFAULT_PREFERRED_CURRENCY` from `.env` (USD when unset). It must be a supported
 ECB currency code. The app can then initialize their supported device-region
 currency.
+
+### Schedule collection on a macOS home server
+
+Use a dedicated, persistent checkout with dependencies installed (`just prepare-server`)
+and secure access to the intended PostgreSQL database, for example through a VPN.
+Keep PostgreSQL closed to the public internet. The scheduler does not create or
+maintain that connection or run migrations.
+
+Create a private environment file outside the repository, for example
+`/Users/kamaal/.config/tcg/currencies.env`, containing:
+
+```dotenv
+DATABASE_URL=postgresql://tcg:replace-with-production-password@private-db-host/tcg
+BETTER_AUTH_URL=https://api.example.com
+```
+
+Set its permissions with `chmod 600 /Users/kamaal/.config/tcg/currencies.env`.
+Omit `DEBUG`: the current boolean parser treats even `DEBUG=false` as enabled,
+and the installer rejects it. These settings are loaded directly from this file;
+the checkout's `.env` and interactive shell environment are not used by the job.
+The plist contains the environment-file path, not its contents.
+
+Run the following from the checkout root as your regular user, without prefixing
+`just` with `sudo`. Installation and removal request administrator access for the
+system operations only:
+
+```sh
+# Preview the plist without installing or fetching anything.
+bash scripts/currency-schedule.sh preview /Users/kamaal/.config/tcg/currencies.env
+just install-currency-schedule /Users/kamaal/.config/tcg/currencies.env
+just currency-schedule-status
+just uninstall-currency-schedule
+```
+
+Installation creates `/Library/LaunchDaemons/com.tcg.daily-currencies.plist` and
+schedules collection at **17:15 Mac local time**, running as your regular user.
+Set the Mac's system timezone to Europe/Amsterdam or Europe/Berlin; the installer
+requires one of these so the time remains after Frankfurt's publication window
+across daylight saving changes. Keep that timezone setting after installation.
+Reinstalling updates the same job rather than adding another. Installation does
+not fetch rates immediately. For an initial collection after the publication window,
+run the existing collector explicitly with the same environment file:
+
+```sh
+cd server
+env -i HOME="$HOME" NODE_ENV=production "$(command -v node)" \
+  --env-file=/Users/kamaal/.config/tcg/currencies.env scripts/fetch-daily-currencies.ts
+```
+
+The job continues after SSH disconnects and desktop logout. It needs the Mac
+awake, network access, and an accessible home directory; FileVault may require
+the first login after a reboot. A calendar trigger missed during sleep runs on
+wake; the scheduled wrapper skips runs before 17:15 Frankfurt time so a morning
+wake-up does not suppress that afternoon’s collection. A powered-off machine
+cannot collect rates. Avoid manually collecting
+before publication: a successful run makes the collector skip further runs on
+the same UTC day, even if the earlier fetch received yesterday's rates.
+
+Inspect `just currency-schedule-status` for launchd state and the last exit code.
+Collection outcomes are appended to `~/Library/Logs/TCG/currencies.stdout.log`;
+runtime errors go to `currencies.stderr.log` in that directory. Monitor these logs
+and arrange log rotation as needed. Failed collection preserves existing rates;
+there is no automatic retry before the next daily trigger. Removing the job
+preserves its logs and environment file.
+
+The plist pins this checkout and the current absolute Node executable. Keep both
+available, including dependencies and scripts; rerun installation after moving
+the checkout or replacing/removing that Node version. Do not install from a
+temporary feature worktree that will later be deleted.
 
 ## Database connections
 

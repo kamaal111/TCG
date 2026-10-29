@@ -169,6 +169,19 @@ squash-migrations: prepare-server
 fetch-daily-currencies:
     node scripts/fetch-daily-currencies.ts
 
+# Install the macOS daily currency job using an explicit environment file
+[positional-arguments]
+install-currency-schedule env-file:
+    bash scripts/currency-schedule.sh install "$1"
+
+# Inspect the macOS daily currency job
+currency-schedule-status:
+    bash scripts/currency-schedule.sh status
+
+# Unload and remove the macOS daily currency job (keeps configuration and logs)
+uninstall-currency-schedule:
+    bash scripts/currency-schedule.sh uninstall
+
 # Generate auth tables
 [working-directory("server")]
 make-auth-tables: prepare-server
