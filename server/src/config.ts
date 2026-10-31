@@ -178,6 +178,12 @@ const BaseEnvSchema = z.object({
   CARD_IMAGE_WARM_ON_REGISTER: z.stringbool().default(true),
 });
 
+export const LoggingEnvSchema = BaseEnvSchema.pick({ DEBUG: true, LOG_LEVEL: true, MODE: true });
+
+export const ForexCollectorEnvSchema = LoggingEnvSchema.extend(
+  BaseEnvSchema.pick({ DATABASE_URL: true, DATABASE_CONNECTION_TIMEOUT_MS: true }).shape,
+);
+
 export const EnvSchema = BaseEnvSchema.superRefine((value, context) => {
   if (value.SCRYDEX_CLIENT === PRICING_CLIENT_MODES.REAL && value.SCRYDEX_API_KEY == null) {
     context.addIssue({

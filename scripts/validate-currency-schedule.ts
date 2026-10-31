@@ -2,15 +2,15 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import util from 'node:util';
 
-import { EnvSchema } from '../server/src/config.ts';
+import { ForexCollectorEnvSchema } from '../server/src/config.ts';
 
 try {
   const [file, action, ...extra] = process.argv.slice(2);
   assert(file && extra.length === 0, 'Provide an environment file and install, preview, or run action.');
   assert(action === 'install' || action === 'preview' || action === 'run', 'Invalid currency schedule action.');
   assert((fs.statSync(file).mode & 0o077) === 0, 'Restrict the environment file permissions with chmod 600.');
-  const config = EnvSchema.safeParse(util.parseEnv(fs.readFileSync(file, 'utf8')));
-  assert(config.success, 'Invalid collector configuration: provide DATABASE_URL and BETTER_AUTH_URL.');
+  const config = ForexCollectorEnvSchema.safeParse(util.parseEnv(fs.readFileSync(file, 'utf8')));
+  assert(config.success, 'Invalid collector configuration: provide DATABASE_URL and valid collector settings.');
   assert(!config.data.DEBUG, 'Omit DEBUG from the currency environment file; nonempty strings enable it.');
   assert(URL.canParse(config.data.DATABASE_URL), 'DATABASE_URL must be a PostgreSQL connection URL.');
   assert(

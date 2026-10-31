@@ -3,8 +3,8 @@ import stream from 'node:stream';
 import type { DestinationStream, LevelWithSilent, Logger, LoggerOptions } from 'pino';
 import pino from 'pino';
 
+import { LoggingEnvSchema } from '../../config.ts';
 import type { ServerMode } from '../../constants/common.ts';
-import env from '../../env.ts';
 import { configureLogging } from '../../logging/index.ts';
 
 const SERVICE_NAME = 'tcg-server';
@@ -25,7 +25,7 @@ export function initializeNodeLogging() {
 }
 
 export function setRootLoggerDestination(destination?: DestinationStream) {
-  const logger = createServerLogger({ destination, pretty: destination == null ? env.DEBUG : false });
+  const logger = createServerLogger({ destination });
   rootLogger = logger;
   configureLogging({ root: logger, createRequestLogger: fields => logger.child(fields) });
 }
@@ -40,6 +40,7 @@ export function createMemoryLogDestination(logs: string[]) {
 }
 
 function createServerLogger(options: CreateLoggerOptions = {}): Logger {
+  const env = LoggingEnvSchema.parse(process.env);
   const destination = options.destination ?? createDestination(options.pretty ?? env.DEBUG);
   const loggerOptions = createLoggerOptions(options.level ?? env.LOG_LEVEL, options.mode ?? env.MODE);
 

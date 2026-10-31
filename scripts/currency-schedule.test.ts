@@ -19,11 +19,7 @@ async function fixture(t: TestContext) {
   await fs.copyFile(source, script);
   await fs.symlink(path.resolve('server/src'), path.join(root, 'server/src'));
   const envFile = path.join(root, 'production.env');
-  await fs.writeFile(
-    envFile,
-    'DATABASE_URL=postgresql://tcg:fixture-secret@db/tcg\nBETTER_AUTH_URL=https://tcg.test\n',
-    { mode: 0o600 },
-  );
+  await fs.writeFile(envFile, 'DATABASE_URL=postgresql://tcg:fixture-secret@db/tcg\n', { mode: 0o600 });
   const calls = path.join(root, 'calls.jsonl');
   const installed = path.join(root, 'installed.plist');
   const loaded = path.join(root, 'loaded');
@@ -130,6 +126,24 @@ it('rejects DEBUG=false because the collector would enable query logging', async
   const result = f.invoke(['install', f.envFile]);
   expect(result.status).toBe(1);
   expect(result.stderr).toContain('Omit DEBUG');
+  expect(await f.commands()).toEqual([]);
+});
+
+it('ignores an invalid auth URL that collection does not use', async t => {
+  const f = await fixture(t);
+  await fs.appendFile(f.envFile, 'BETTER_AUTH_URL=invalid\n');
+  expect(f.invoke(['install', f.envFile]).status).toBe(0);
+  expect(f.invoke(['run', f.envFile, process.execPath]).status).toBe(0);
+  expect(JSON.parse(await fs.readFile(f.collected, 'utf8')).database).toBe('postgresql://tcg:fixture-secret@db/tcg');
+});
+
+it('rejects a missing database URL before executing system commands', async t => {
+  const f = await fixture(t);
+  await fs.writeFile(f.envFile, '');
+  const result = f.invoke(['install', f.envFile]);
+  expect(result.status).toBe(1);
+  expect(result.stderr).toContain('DATABASE_URL');
+  expect(result.stderr).not.toContain('BETTER_AUTH_URL');
   expect(await f.commands()).toEqual([]);
 });
 

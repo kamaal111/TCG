@@ -1,10 +1,12 @@
+import { ForexCollectorEnvSchema } from '../src/config.ts';
 import { createDatabase } from '../src/db/index.ts';
-import env from '../src/env.ts';
 import { EcbForexClient } from '../src/forex/client.ts';
 import { ForexCollector } from '../src/forex/collector.ts';
 import { forexProcessLogger } from '../src/forex/logging.ts';
 import { PostgresForexRepository } from '../src/persistence/postgres/forex.ts';
 import { initializeNodeLogging } from '../src/runtime/node/logging.ts';
+
+const env = ForexCollectorEnvSchema.parse(process.env);
 
 initializeNodeLogging();
 

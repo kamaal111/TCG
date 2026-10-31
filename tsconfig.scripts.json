@@ -18,6 +18,7 @@
     "scripts/build-server-image.ts",
     "scripts/build-server-image.test.ts",
     "scripts/currency-schedule.test.ts",
+    "scripts/forex-config.test.ts",
     "scripts/validate-currency-schedule.ts",
     "scripts/fixtures/currency-schedule/*.ts",
     "scripts/check-server-image-health.ts",
