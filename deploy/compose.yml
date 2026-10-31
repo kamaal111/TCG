@@ -1,0 +1,56 @@
+name: tcg
+
+x-server: &server
+  image: ${TCG_RUNTIME_IMAGE:?Set an immutable runtime image digest}
+  env_file: server.env
+  volumes:
+    - ./config/database-ca.crt:/run/tcg/database-ca.crt:ro
+  dns: [1.1.1.1, 1.0.0.1]
+  read_only: true
+  tmpfs: [/tmp]
+  security_opt: [no-new-privileges:true]
+  cap_drop: [ALL]
+  logging:
+    driver: json-file
+    options:
+      max-size: 10m
+      max-file: '3'
+
+services:
+  server:
+    <<: *server
+    restart: unless-stopped
+    ports: ['127.0.0.1:8080:8080']
+    stop_grace_period: 15s
+    healthcheck:
+      test: [CMD, node, /app/server/scripts/check-health.ts]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 15s
+  tools:
+    <<: *server
+    image: ${TCG_MIGRATION_IMAGE:?Set an immutable migration image digest}
+    profiles: [tools]
+    restart: 'no'
+  proxy:
+    image: caddy:2.11.7-alpine
+    profiles: [public]
+    restart: unless-stopped
+    environment:
+      API_HOSTNAME: ${API_HOSTNAME:-}
+    ports: ['80:80', '443:443']
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    security_opt: [no-new-privileges:true]
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: '3'
+
+volumes:
+  caddy_data:
+  caddy_config:

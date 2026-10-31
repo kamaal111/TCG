@@ -3,7 +3,8 @@ import crypto from 'node:crypto';
 import { CreateBucketCommand, S3Client } from '@aws-sdk/client-s3';
 import { inject } from 'vitest';
 
-import { S3ObjectStorageClient } from '../storage/s3-client.ts';
+import { createConfiguredObjectStorage } from '../storage/config.ts';
+import type { S3ObjectStorageClient } from '../storage/s3-client.ts';
 
 const REQUEST_TIMEOUT_MS = 5_000;
 
@@ -26,14 +27,14 @@ export async function createTestObjectStorage(): Promise<S3ObjectStorageClient> 
   await client.send(new CreateBucketCommand({ Bucket: bucket }));
   client.destroy();
 
-  return new S3ObjectStorageClient({
-    accessKeyId: connection.accessKeyId,
-    secretAccessKey: connection.secretAccessKey,
-    bucket,
-    endpoint: connection.endpoint,
-    forcePathStyle: true,
-    region: connection.region,
-    requestTimeoutMs: REQUEST_TIMEOUT_MS,
-    maxAttempts: 2,
+  return createConfiguredObjectStorage({
+    OBJECT_STORAGE_ACCESS_KEY_ID: connection.accessKeyId,
+    OBJECT_STORAGE_SECRET_ACCESS_KEY: connection.secretAccessKey,
+    OBJECT_STORAGE_BUCKET: bucket,
+    OBJECT_STORAGE_ENDPOINT: connection.endpoint,
+    OBJECT_STORAGE_FORCE_PATH_STYLE: true,
+    OBJECT_STORAGE_REGION: connection.region,
+    OBJECT_STORAGE_REQUEST_TIMEOUT_MS: REQUEST_TIMEOUT_MS,
+    OBJECT_STORAGE_MAX_ATTEMPTS: 2,
   });
 }

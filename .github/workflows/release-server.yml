@@ -1,0 +1,45 @@
+name: Release server
+
+on:
+  workflow_dispatch:
+    inputs:
+      revision:
+        description: Commit or tag already merged into main
+        type: string
+        default: main
+      exposure:
+        description: Public requires a configured domain; private works without one
+        type: choice
+        options: [private, public]
+        default: private
+      schema_compatible_rollback:
+        description: Confirm the previous application supports the current database schema
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tcg-production-mutation
+  cancel-in-progress: false
+
+jobs:
+  build:
+    uses: ./.github/workflows/build-server-images.yml
+    permissions:
+      contents: read
+      packages: write
+    with:
+      revision: ${{ inputs.revision }}
+
+  deploy:
+    needs: build
+    uses: ./.github/workflows/server-operation.yml
+    secrets: inherit
+    with:
+      operation: deploy
+      runtime: ${{ needs.build.outputs.runtime }}
+      migration: ${{ needs.build.outputs.migration }}
+      exposure: ${{ inputs.exposure }}
+      schema_compatible_rollback: ${{ inputs.schema_compatible_rollback }}

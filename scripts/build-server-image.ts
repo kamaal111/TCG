@@ -7,7 +7,7 @@ import url from 'node:url';
 
 import z from 'zod';
 
-import { parseMiseTools } from './check-versions-in-sync.ts';
+import { parseMiseTools } from './mise-tools.ts';
 
 const repoRoot = path.dirname(path.dirname(url.fileURLToPath(import.meta.url)));
 
@@ -41,7 +41,12 @@ function isEditorHelper(helper: string | undefined): boolean {
 }
 
 async function buildServerImage(): Promise<number> {
-  const tools = parseMiseTools(await fs.readFile(path.join(repoRoot, 'mise.toml'), 'utf8'));
+  const [target = 'runtime', ...extra] = process.argv.slice(2);
+  assert(
+    (target === 'runtime' || target === 'migration') && extra.length === 0,
+    'Expected runtime or migration image target.',
+  );
+  const tools = await parseMiseTools(path.join(repoRoot, 'mise.toml'));
 
   if (tools.node === undefined || tools.pnpm === undefined) {
     throw new Error('Building the server image requires Node and pnpm versions in mise.toml.');
@@ -92,12 +97,13 @@ async function buildServerImage(): Promise<number> {
       'docker',
       [
         'build',
+        ...(target === 'migration' ? ['--target', 'migration'] : []),
         '--build-arg',
         `NODE_VERSION=${tools.node}`,
         '--build-arg',
         `PNPM_VERSION=${tools.pnpm}`,
         '--tag',
-        'tcg-server:local',
+        target === 'migration' ? 'tcg-server-migrations:local' : 'tcg-server:local',
         '.',
       ],
       { cwd: repoRoot, stdio: 'inherit', env },

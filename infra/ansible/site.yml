@@ -1,0 +1,227 @@
+---
+- name: Configure the TCG host without replacing it
+  hosts: all
+  become: true
+  vars:
+    deploy_directory: /opt/tcg
+  pre_tasks:
+    - name: Require the supported operating system and architecture
+      ansible.builtin.assert:
+        that:
+          - ansible_facts.distribution == 'Debian'
+          - ansible_facts.distribution_major_version == '13'
+          - ansible_facts.architecture == 'x86_64'
+          - lookup('env', 'TCG_DEPLOY_PUBLIC_KEY') | length > 0
+          - lookup('env', 'TCG_IMAGE_REPOSITORY') is match('^ghcr.io/[a-z0-9_.-]+/[a-z0-9_.-]+$')
+          - database_host | length > 0
+          - database_ca | length > 0
+          - object_storage_secret_key | length > 0
+        quiet: true
+      no_log: true
+    - name: Create deployment directory before acquiring configuration lock
+      ansible.builtin.file:
+        path: '{{ deploy_directory }}'
+        state: directory
+        mode: '0700'
+    - name: Acquire shared deployment lock
+      ansible.builtin.command: 'mkdir {{ deploy_directory }}/.deployment-lock'
+      when: not ansible_check_mode
+  tasks:
+    - name: Configure under the deployment lock
+      block:
+        - name: Install host dependencies
+          ansible.builtin.apt:
+            name: [ca-certificates, curl, gnupg, python3, openssl, sudo]
+            state: present
+            update_cache: true
+            cache_valid_time: 3600
+        - name: Create package key directory
+          ansible.builtin.file:
+            path: /etc/apt/keyrings
+            state: directory
+            mode: '0755'
+        - name: Install Docker repository key
+          ansible.builtin.get_url:
+            url: https://download.docker.com/linux/debian/gpg
+            dest: /etc/apt/keyrings/docker.asc
+            mode: '0644'
+        - name: Configure Docker repository
+          ansible.builtin.copy:
+            dest: /etc/apt/sources.list.d/docker.sources
+            mode: '0644'
+            content: |
+              Types: deb
+              URIs: https://download.docker.com/linux/debian
+              Suites: trixie
+              Components: stable
+              Architectures: amd64
+              Signed-By: /etc/apt/keyrings/docker.asc
+          register: docker_repository
+        - name: Install Docker
+          ansible.builtin.apt:
+            name: [docker-ce, docker-ce-cli, containerd.io, docker-buildx-plugin, docker-compose-plugin]
+            state: present
+            update_cache: '{{ docker_repository.changed }}'
+        - name: Enable Docker after reboot
+          ansible.builtin.systemd_service:
+            name: docker
+            enabled: true
+            state: started
+        - name: Install Tailscale repository key
+          ansible.builtin.get_url:
+            url: https://pkgs.tailscale.com/stable/debian/trixie.noarmor.gpg
+            dest: /etc/apt/keyrings/tailscale.gpg
+            mode: '0644'
+        - name: Configure Tailscale repository
+          ansible.builtin.copy:
+            dest: /etc/apt/sources.list.d/tailscale.list
+            mode: '0644'
+            content: "deb [signed-by=/etc/apt/keyrings/tailscale.gpg] https://pkgs.tailscale.com/stable/debian trixie main\n"
+          register: tailscale_repository
+        - name: Install Tailscale
+          ansible.builtin.apt:
+            name: tailscale
+            state: present
+            update_cache: '{{ tailscale_repository.changed }}'
+        - name: Enable Tailscale after reboot
+          ansible.builtin.systemd_service:
+            name: tailscaled
+            enabled: true
+            state: started
+        - name: Inspect Tailscale registration
+          ansible.builtin.command: tailscale status --json
+          register: tailscale_status
+          changed_when: false
+          failed_when: false
+          check_mode: false
+        - name: Require a bootstrap key for an unregistered host
+          ansible.builtin.assert:
+            that: lookup('env', 'TCG_TAILSCALE_AUTH_KEY') | length > 0
+            fail_msg: Supply TCG_TAILSCALE_AUTH_KEY for first registration.
+          when: (tailscale_status.stdout | from_json).BackendState != 'Running'
+          no_log: true
+        - name: Register Tailscale using a temporary private key file
+          when:
+            - not ansible_check_mode
+            - (tailscale_status.stdout | from_json).BackendState != 'Running'
+          block:
+            - name: Stage Tailscale bootstrap key
+              ansible.builtin.copy:
+                content: "{{ lookup('env', 'TCG_TAILSCALE_AUTH_KEY') }}"
+                dest: /run/tcg-tailscale-key
+                mode: '0600'
+              no_log: true
+            - name: Join the deployment network
+              ansible.builtin.command:
+                argv:
+                  - tailscale
+                  - up
+                  - --auth-key=file:/run/tcg-tailscale-key
+                  - '--hostname={{ tailscale_hostname }}'
+                  - --advertise-tags=tag:tcg-server
+                  - --accept-dns=false
+              no_log: true
+          always:
+            - name: Remove bootstrap key
+              ansible.builtin.file:
+                path: /run/tcg-tailscale-key
+                state: absent
+        - name: Create deployment user
+          ansible.builtin.user:
+            name: tcg-deploy
+            shell: /bin/bash
+            create_home: true
+        - name: Create deployment SSH directory
+          ansible.builtin.file:
+            path: /home/tcg-deploy/.ssh
+            owner: tcg-deploy
+            group: tcg-deploy
+            state: directory
+            mode: '0700'
+        - name: Authorize deployment key without forwarding or interactive shell
+          ansible.builtin.copy:
+            dest: /home/tcg-deploy/.ssh/authorized_keys
+            owner: tcg-deploy
+            group: tcg-deploy
+            mode: '0600'
+            content: 'restrict,command="sudo /usr/local/sbin/tcg-deploy-command" {{ lookup("env", "TCG_DEPLOY_PUBLIC_KEY") | trim }}'
+        - name: Permit only the deployment dispatcher through sudo
+          ansible.builtin.copy:
+            dest: /etc/sudoers.d/tcg-deploy
+            mode: '0440'
+            validate: /usr/sbin/visudo -cf %s
+            content: |
+              Defaults:tcg-deploy env_keep += "SSH_ORIGINAL_COMMAND"
+              tcg-deploy ALL=(root) NOPASSWD: /usr/local/sbin/tcg-deploy-command
+        - name: Create private deployment directory
+          ansible.builtin.file:
+            path: '{{ deploy_directory }}'
+            state: directory
+            owner: root
+            group: root
+            mode: '0700'
+        - name: Create configuration mount directory
+          ansible.builtin.file:
+            path: '{{ deploy_directory }}/config'
+            state: directory
+            mode: '0755'
+        - name: Install the database certificate
+          ansible.builtin.copy:
+            content: '{{ database_ca }}'
+            dest: '{{ deploy_directory }}/config/database-ca.crt'
+            mode: '0444'
+          no_log: true
+        - name: Inspect stable authentication secret
+          ansible.builtin.stat:
+            path: '{{ deploy_directory }}/auth-secret'
+          register: auth_secret_file
+        - name: Generate authentication secret once
+          ansible.builtin.shell: "umask 077; openssl rand -hex 32 > '{{ deploy_directory }}/auth-secret'"
+          args:
+            creates: '{{ deploy_directory }}/auth-secret'
+          when: not auth_secret_file.stat.exists
+          no_log: true
+        - name: Read stable authentication secret
+          ansible.builtin.slurp:
+            src: '{{ deploy_directory }}/auth-secret'
+          register: auth_secret
+          no_log: true
+          when: not ansible_check_mode
+        - name: Install runtime environment
+          ansible.builtin.template:
+            src: templates/server.env.j2
+            dest: '{{ deploy_directory }}/server.env'
+            mode: '0600'
+          no_log: true
+          when: not ansible_check_mode
+        - name: Install deployment configuration
+          ansible.builtin.copy:
+            src: '{{ item.source }}'
+            dest: '{{ item.dest }}'
+            mode: '{{ item.mode }}'
+          loop:
+            - { source: '../../deploy/compose.yml', dest: '{{ deploy_directory }}/compose.yml', mode: '0600' }
+            - { source: '../../deploy/Caddyfile', dest: '{{ deploy_directory }}/Caddyfile', mode: '0600' }
+            - { source: '../../deploy/release.sh', dest: /usr/local/sbin/tcg-release, mode: '0755' }
+            - { source: '../../deploy/command.sh', dest: /usr/local/sbin/tcg-deploy-command, mode: '0755' }
+        - name: Install public hostname configuration
+          ansible.builtin.copy:
+            dest: '{{ deploy_directory }}/host.env'
+            mode: '0600'
+            content: "API_HOSTNAME={{ api_hostname }}\n"
+        - name: Install explicit registry repository allowlist
+          ansible.builtin.copy:
+            dest: '{{ deploy_directory }}/registry-repository'
+            mode: '0600'
+            content: "{{ lookup('env', 'TCG_IMAGE_REPOSITORY') | mandatory }}\n"
+        - name: Install registry pull credentials when supplied
+          ansible.builtin.command:
+            argv: [docker, login, ghcr.io, --username, "{{ lookup('env', 'TCG_REGISTRY_USER') }}", --password-stdin]
+            stdin: "{{ lookup('env', 'TCG_REGISTRY_TOKEN') }}"
+          changed_when: false
+          no_log: true
+          when: lookup('env', 'TCG_REGISTRY_TOKEN') | length > 0
+      always:
+        - name: Release shared deployment lock
+          ansible.builtin.command: 'rmdir {{ deploy_directory }}/.deployment-lock'
+          when: not ansible_check_mode

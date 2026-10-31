@@ -44,10 +44,33 @@ export const DEFAULT_COLLECTION_POLICY = {
   COLLECTION_CONCURRENCY: 4,
 } as const;
 
-const DEFAULT_DATABASE_CONNECTION_TIMEOUT_MS = 2 * ONE_SECOND_IN_MS;
+export const DEFAULT_APPLICATION_CONFIG = {
+  ...DEFAULT_COLLECTION_POLICY,
+  ...DEFAULT_IMPORT_POLICY,
+  ...DEFAULT_IMAGE_POLICY,
+  DATABASE_CONNECTION_TIMEOUT_MS: 2 * ONE_SECOND_IN_MS,
+  PORT: 8080,
+  MODE: SERVER_MODES.SERVER,
+  DEBUG: false,
+  LOG_LEVEL: LOG_LEVELS.INFO,
+  DEFAULT_PREFERRED_CURRENCY: 'USD',
+  BETTER_AUTH_SESSION_UPDATE_AGE_DAYS: 1,
+  BETTER_AUTH_SESSION_EXPIRY_DAYS: 30,
+  JWT_EXPIRY_DAYS: 7,
+  SCRYDEX_CLIENT: PRICING_CLIENT_MODES.STATIC,
+  SCRYDEX_BASE_URL: 'https://api.scrydex.com',
+  SCRYDEX_REQUEST_TIMEOUT_MS: 8 * ONE_SECOND_IN_MS,
+  PRICING_LOCK_TIMEOUT_MS: 12 * ONE_SECOND_IN_MS,
+  CARD_IMAGE_WORKER_ENABLED: true,
+  CARD_IMAGE_WARM_ON_REGISTER: true,
+} as const;
 
 const BaseEnvSchema = z.object({
-  DATABASE_CONNECTION_TIMEOUT_MS: z.coerce.number().int().positive().default(DEFAULT_DATABASE_CONNECTION_TIMEOUT_MS),
+  DATABASE_CONNECTION_TIMEOUT_MS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(DEFAULT_APPLICATION_CONFIG.DATABASE_CONNECTION_TIMEOUT_MS),
   COLLECTION_MAX_BODY_BYTES: z.coerce
     .number()
     .int()
@@ -88,38 +111,46 @@ const BaseEnvSchema = z.object({
     .default(DEFAULT_COLLECTION_POLICY.COLLECTION_LOCK_TIMEOUT_MS),
   COLLECTION_CONCURRENCY: z.coerce.number().int().positive().default(DEFAULT_COLLECTION_POLICY.COLLECTION_CONCURRENCY),
 
-  PORT: z.coerce.number().gte(1000).lt(10_000).default(8080),
+  PORT: z.coerce.number().gte(1000).lt(10_000).default(DEFAULT_APPLICATION_CONFIG.PORT),
   DATABASE_URL: z.string(),
   BETTER_AUTH_SECRET: z.string().min(1).optional(),
-  MODE: z.enum(Object.values(SERVER_MODES)).default(SERVER_MODES.SERVER),
-  DEBUG: z.coerce.boolean().default(false),
-  LOG_LEVEL: z.enum(Object.values(LOG_LEVELS)).default(LOG_LEVELS.INFO),
-  DEFAULT_PREFERRED_CURRENCY: CurrencySchema.default('USD'),
-  BETTER_AUTH_SESSION_UPDATE_AGE_DAYS: z.coerce.number().gte(1).optional().default(1),
-  BETTER_AUTH_SESSION_EXPIRY_DAYS: z.coerce.number().gte(1).optional().default(30),
+  MODE: z.enum(Object.values(SERVER_MODES)).default(DEFAULT_APPLICATION_CONFIG.MODE),
+  DEBUG: z.coerce.boolean().default(DEFAULT_APPLICATION_CONFIG.DEBUG),
+  LOG_LEVEL: z.enum(Object.values(LOG_LEVELS)).default(DEFAULT_APPLICATION_CONFIG.LOG_LEVEL),
+  DEFAULT_PREFERRED_CURRENCY: CurrencySchema.default(DEFAULT_APPLICATION_CONFIG.DEFAULT_PREFERRED_CURRENCY),
+  BETTER_AUTH_SESSION_UPDATE_AGE_DAYS: z.coerce
+    .number()
+    .gte(1)
+    .optional()
+    .default(DEFAULT_APPLICATION_CONFIG.BETTER_AUTH_SESSION_UPDATE_AGE_DAYS),
+  BETTER_AUTH_SESSION_EXPIRY_DAYS: z.coerce
+    .number()
+    .gte(1)
+    .optional()
+    .default(DEFAULT_APPLICATION_CONFIG.BETTER_AUTH_SESSION_EXPIRY_DAYS),
   BETTER_AUTH_URL: z.url(),
   PUBLIC_BASE_URL: z.url().optional(),
-  JWT_EXPIRY_DAYS: z.coerce.number().gte(1).optional().default(7),
+  JWT_EXPIRY_DAYS: z.coerce.number().gte(1).optional().default(DEFAULT_APPLICATION_CONFIG.JWT_EXPIRY_DAYS),
   CARD_IMPORT_BATCH_SIZE: z.coerce.number().int().positive().default(DEFAULT_IMPORT_POLICY.CARD_IMPORT_BATCH_SIZE),
   CARD_IMPORT_PURCHASE_BATCH_SIZE: z.coerce
     .number()
     .int()
     .positive()
     .default(DEFAULT_IMPORT_POLICY.CARD_IMPORT_PURCHASE_BATCH_SIZE),
-  SCRYDEX_CLIENT: z.enum(Object.values(PRICING_CLIENT_MODES)).default(PRICING_CLIENT_MODES.STATIC),
+  SCRYDEX_CLIENT: z.enum(Object.values(PRICING_CLIENT_MODES)).default(DEFAULT_APPLICATION_CONFIG.SCRYDEX_CLIENT),
   SCRYDEX_API_KEY: z.string().min(1).optional(),
   SCRYDEX_TEAM_ID: z.string().min(1).optional(),
-  SCRYDEX_BASE_URL: z.url().default('https://api.scrydex.com'),
+  SCRYDEX_BASE_URL: z.url().default(DEFAULT_APPLICATION_CONFIG.SCRYDEX_BASE_URL),
   SCRYDEX_REQUEST_TIMEOUT_MS: z.coerce
     .number()
     .int()
     .positive()
-    .default(8 * ONE_SECOND_IN_MS),
+    .default(DEFAULT_APPLICATION_CONFIG.SCRYDEX_REQUEST_TIMEOUT_MS),
   PRICING_LOCK_TIMEOUT_MS: z.coerce
     .number()
     .int()
     .positive()
-    .default(12 * ONE_SECOND_IN_MS),
+    .default(DEFAULT_APPLICATION_CONFIG.PRICING_LOCK_TIMEOUT_MS),
   OBJECT_STORAGE_ENDPOINT: z.url().optional(),
   OBJECT_STORAGE_REGION: z.string().min(1).default('us-east-1'),
   OBJECT_STORAGE_BUCKET: z.string().min(1).default('tcg-card-images'),
@@ -158,7 +189,7 @@ const BaseEnvSchema = z.object({
     .int()
     .positive()
     .default(DEFAULT_IMAGE_POLICY.CARD_IMAGE_FOREGROUND_WAIT_MS),
-  CARD_IMAGE_WORKER_ENABLED: z.stringbool().default(true),
+  CARD_IMAGE_WORKER_ENABLED: z.stringbool().default(DEFAULT_APPLICATION_CONFIG.CARD_IMAGE_WORKER_ENABLED),
   CARD_IMAGE_MAX_ATTEMPTS: z.coerce.number().int().positive().default(DEFAULT_IMAGE_POLICY.CARD_IMAGE_MAX_ATTEMPTS),
   CARD_IMAGE_RETRY_AFTER_MS: z.coerce
     .number()
@@ -175,7 +206,7 @@ const BaseEnvSchema = z.object({
     .int()
     .positive()
     .default(DEFAULT_IMAGE_POLICY.CARD_IMAGE_ORIGIN_URL_PATTERN_LIMIT),
-  CARD_IMAGE_WARM_ON_REGISTER: z.stringbool().default(true),
+  CARD_IMAGE_WARM_ON_REGISTER: z.stringbool().default(DEFAULT_APPLICATION_CONFIG.CARD_IMAGE_WARM_ON_REGISTER),
 });
 
 export const LoggingEnvSchema = BaseEnvSchema.pick({ DEBUG: true, LOG_LEVEL: true, MODE: true });
@@ -204,7 +235,7 @@ export const EnvSchema = BaseEnvSchema.superRefine((value, context) => {
 
 export type Env = z.infer<typeof EnvSchema>;
 
-export const ApplicationConfigSchema = BaseEnvSchema.omit({
+const ApplicationEnvironmentSchema = BaseEnvSchema.omit({
   DATABASE_URL: true,
   BETTER_AUTH_SECRET: true,
   OBJECT_STORAGE_ENDPOINT: true,
@@ -215,16 +246,30 @@ export const ApplicationConfigSchema = BaseEnvSchema.omit({
   OBJECT_STORAGE_FORCE_PATH_STYLE: true,
   OBJECT_STORAGE_REQUEST_TIMEOUT_MS: true,
   OBJECT_STORAGE_MAX_ATTEMPTS: true,
-})
-  .extend({
-    CARD_IMAGE_WORKER_ENABLED: z.union([z.boolean(), z.stringbool()]).default(true),
-    CARD_IMAGE_WARM_ON_REGISTER: z.union([z.boolean(), z.stringbool()]).default(true),
-  })
-  .transform(value => ({
+}).extend({
+  CARD_IMAGE_WORKER_ENABLED: z
+    .union([z.boolean(), z.stringbool()])
+    .default(DEFAULT_APPLICATION_CONFIG.CARD_IMAGE_WORKER_ENABLED),
+  CARD_IMAGE_WARM_ON_REGISTER: z
+    .union([z.boolean(), z.stringbool()])
+    .default(DEFAULT_APPLICATION_CONFIG.CARD_IMAGE_WARM_ON_REGISTER),
+});
+
+type ApplicationConfigInput = z.infer<typeof ApplicationEnvironmentSchema>;
+
+export type ApplicationConfig = ApplicationConfigInput & {
+  BASE_URL: string;
+  PUBLIC_BASE_URL: string;
+  IS_TEST: boolean;
+};
+
+export function createApplicationConfig(value: ApplicationConfigInput): ApplicationConfig {
+  return {
     ...value,
     BASE_URL: value.BETTER_AUTH_URL,
     PUBLIC_BASE_URL: value.PUBLIC_BASE_URL ?? value.BETTER_AUTH_URL,
     IS_TEST: value.MODE === SERVER_MODES.TEST,
-  }));
+  };
+}
 
-export type ApplicationConfig = z.infer<typeof ApplicationConfigSchema>;
+export const ApplicationConfigSchema = ApplicationEnvironmentSchema.transform(createApplicationConfig);

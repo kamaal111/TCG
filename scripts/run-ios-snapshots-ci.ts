@@ -1,8 +1,11 @@
+import assert from 'node:assert/strict';
 import childProcess from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import stringDecoder from 'node:string_decoder';
+
+import z from 'zod';
 
 const gracePeriodMs = 2000;
 
@@ -10,6 +13,50 @@ const shutdownTimeoutMs = 2000;
 
 function log(message: string): void {
   console.error(`[iOS snapshots ${new Date().toISOString()}] ${message}`);
+}
+
+const SimulatorDestinationSchema = z.strictObject({
+  platform: z.literal('iOS Simulator'),
+  OS: z.string().regex(/^\d+(?:\.\d+)+$/),
+  name: z.string().min(1),
+});
+
+const SimulatorInventorySchema = z.object({
+  devices: z.record(z.string(), z.array(z.object({ name: z.string(), udid: z.uuid(), isAvailable: z.boolean() }))),
+});
+
+function resolveSimulator(destination: string): string {
+  const fields = destination.split(',').map(field => {
+    const separator = field.indexOf('=');
+    assert(separator > 0, 'Invalid iOS Simulator destination.');
+
+    return [field.slice(0, separator), field.slice(separator + 1)];
+  });
+
+  const selected = SimulatorDestinationSchema.parse(Object.fromEntries(fields));
+
+  const inventory = SimulatorInventorySchema.parse(
+    JSON.parse(
+      childProcess.execFileSync('xcrun', ['simctl', 'list', 'devices', 'available', '--json'], {
+        encoding: 'utf8',
+        timeout: 10_000,
+      }),
+    ),
+  );
+
+  const runtime = `com.apple.CoreSimulator.SimRuntime.iOS-${selected.OS.replaceAll('.', '-')}`;
+
+  const matches = (inventory.devices[runtime] ?? []).filter(
+    device => device.name === selected.name && device.isAvailable,
+  );
+
+  const [simulator] = matches;
+  assert(
+    matches.length === 1 && simulator,
+    `Expected one available ${selected.name} on iOS ${selected.OS}; found ${matches.length}.`,
+  );
+
+  return simulator.udid;
 }
 
 function signalGroup(child: childProcess.ChildProcess | undefined, signal: NodeJS.Signals): void {
@@ -254,10 +301,26 @@ function run(): void {
     }, idleTimeoutSeconds * 1000);
   }
 
-  const simulator = process.env.TCG_IOS_SNAPSHOT_SIMULATOR;
+  const destination = process.env.TCG_APP_IOS_TEST_DESTINATION;
   const snapshotArgs = process.argv.slice(2);
+  let simulator: string | undefined;
+  let resolvedDestination: string | undefined;
   let derivedDataPath: string | undefined;
   let testRunPath: string | undefined;
+
+  if (destination) {
+    try {
+      assert(!snapshotArgs.includes('-destination'), 'Set the destination through TCG_APP_IOS_TEST_DESTINATION only.');
+      simulator = resolveSimulator(destination);
+      resolvedDestination = `platform=iOS Simulator,id=${simulator}`;
+      log(`Resolved ${destination} to ${simulator}; using this device for build, boot, and tests.`);
+    } catch (error) {
+      log(`Could not resolve snapshot simulator: ${String(error)}`);
+      process.exitCode = 1;
+
+      return;
+    }
+  }
 
   const buildArgs = snapshotArgs.filter(
     (argument, index) => argument !== '-resultBundlePath' && snapshotArgs[index - 1] !== '-resultBundlePath',
@@ -281,7 +344,11 @@ function run(): void {
     tests = childProcess.spawn(command, args, {
       detached: true,
       stdio: ['inherit', 'pipe', 'pipe'],
-      env: { ...process.env, TCG_APP_IOS_XCTESTRUN: phase === 'test' ? testRunPath : undefined },
+      env: {
+        ...process.env,
+        TCG_APP_IOS_TEST_DESTINATION: resolvedDestination ?? destination,
+        TCG_APP_IOS_XCTESTRUN: phase === 'test' ? testRunPath : undefined,
+      },
     });
     phaseProcesses.push(tests);
     tests.stdout?.pipe(process.stdout);
