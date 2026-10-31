@@ -50,6 +50,7 @@ new database migrations. The image does not run migrations on startup.
 - [Logging](docs/logging.md) — how structured logging works here, the field vocabulary, and how to add an event.
 - [Card images](docs/card-images.md) — the image cache, its work queue, and how it behaves across instances.
 - [DigitalOcean database setup](docs/digitalocean-database.md) — allow this Mac to connect, configure TLS, apply migrations, and install daily currency collection.
+- [DigitalOcean deployment setup](docs/digitalocean-deployment.md) — prepare a Debian Droplet, install Docker, create Spaces storage, and plan manual GitHub releases.
 
 ## Daily currency rates
 

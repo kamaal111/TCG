@@ -1,6 +1,9 @@
 import {
   checkDevcontainerVersions,
   checkDockerfileVersions,
+  checkInfrastructureVersions,
+  checkMiseLockVersions,
+  checkWorkflowActionVersions,
   parseMiseTools,
   parsePackageManagerVersion,
   parseSwiftToolsVersion,
@@ -20,7 +23,7 @@ describe('parseMiseTools', () => {
   });
 
   it('ignores tools this script does not check yet, without misparsing the rest', () => {
-    const contents = '[tools]\nnode = "26"\nswift = "6.4"\npnpm = "12.5.1"\npython = "3.13"\n';
+    const contents = '[tools]\nnode = "26"\nswift = "6.4"\npnpm = "12.5.1"\nruby = "3.4"\n';
 
     expect(parseMiseTools(contents)).toStrictEqual({ node: '26', swift: '6.4', pnpm: '12.5.1' });
   });
@@ -223,6 +226,137 @@ describe('checkDevcontainerVersions', () => {
         expected: '/root/.local/share/mise/installs/swift/6.4/bin',
         found: '(missing)',
       },
+    ]);
+  });
+});
+
+describe('infrastructure version consistency', () => {
+  const root = 'infra/modules/tcg';
+  const production = 'infra/environments/production';
+
+  const constraints =
+    'terraform {\n  required_version = "= 1.17.1"\n  required_providers {\n    digitalocean = {\n      version = "= 2.106.0"\n    }\n  }\n}';
+
+  const lock =
+    'provider "registry.terraform.io/digitalocean/digitalocean" {\n  version = "2.106.0"\n  constraints = "2.106.0"\n}';
+
+  const files = {
+    [`${root}/versions.tf`]: constraints,
+    [`${production}/versions.tf`]: constraints,
+    [`${root}/.terraform.lock.hcl`]: lock,
+    [`${production}/.terraform.lock.hcl`]: lock,
+  };
+
+  it('accepts matching CLI constraints and independently generated provider locks', () => {
+    expect(checkInfrastructureVersions({ terraform: '1.17.1' }, files)).toStrictEqual([]);
+  });
+
+  it('reports a drifted production CLI pin, provider constraint, and lock', () => {
+    const drifted = {
+      ...files,
+      [`${production}/versions.tf`]: constraints.replace('1.17.1', '1.16.0').replace('2.106.0', '2.105.0'),
+      [`${production}/.terraform.lock.hcl`]: lock.replaceAll('2.106.0', '2.104.0'),
+    };
+
+    expect(checkInfrastructureVersions({ terraform: '1.17.1' }, drifted)).toStrictEqual([
+      { tool: 'terraform', source: `${production}/versions.tf`, expected: '1.17.1', found: '1.16.0' },
+      { tool: 'digitalocean', source: `${production}/versions.tf`, expected: '2.106.0', found: '2.105.0' },
+      { tool: 'digitalocean', source: `${production}/.terraform.lock.hcl`, expected: '2.106.0', found: '2.104.0' },
+      {
+        tool: 'digitalocean',
+        source: `${production}/.terraform.lock.hcl constraints`,
+        expected: '2.106.0',
+        found: '2.104.0',
+      },
+    ]);
+  });
+
+  it('fails when required infrastructure declarations disappear', () => {
+    expect(checkInfrastructureVersions({}, {})).toHaveLength(8);
+  });
+
+  it('reads Ansible and its controller tools from mise', () => {
+    expect(
+      parseMiseTools('[tools]\npython = "3.14"\nuv = "0.13.6"\n"pypi:ansible-core" = { version = "2.21.5" }'),
+    ).toStrictEqual({
+      python: '3.14',
+      uv: '0.13.6',
+      'pypi:ansible-core': '2.21.5',
+    });
+  });
+});
+
+describe('workflow action version consistency', () => {
+  it.each(['v7.0.1', '0123456789abcdef'])('rejects a non-major action reference %s', reference => {
+    expect(checkWorkflowActionVersions({ 'ci.yml': `- uses: actions/checkout@${reference}` })).toStrictEqual([
+      { tool: 'actions/checkout', source: 'ci.yml', expected: 'a major tag (vN)', found: reference },
+    ]);
+  });
+
+  it('accepts identical references and ignores local/container actions', () => {
+    expect(
+      checkWorkflowActionVersions({
+        'ci.yml': '- uses: actions/checkout@v7\n- uses: ./local\n- uses: docker://image:1',
+        'release.yml': '- uses: actions/checkout@v7',
+      }),
+    ).toStrictEqual([]);
+  });
+
+  it('rejects different major tags for the same action across workflows', () => {
+    expect(
+      checkWorkflowActionVersions({
+        'ci.yml': '- uses: actions/checkout@v7',
+        'release.yml': '- uses: actions/checkout@v6',
+      }),
+    ).toStrictEqual([{ tool: 'actions/checkout', source: 'release.yml', expected: 'v7', found: 'v6' }]);
+  });
+});
+
+describe('mise tool lock consistency', () => {
+  const mise = { terraform: '1.17.1', uv: '0.13.6', python: '3.14', 'pypi:ansible-core': '2.21.5' };
+
+  const lock = `[[tools.terraform]]
+version = "1.17.1"
+specifiers = ["1.17.1"]
+[[tools.uv]]
+version = "0.13.6"
+specifiers = ["0.13.6"]
+[[tools.python]]
+version = "3.14.10"
+specifiers = ["3.14"]
+[[tools."pypi:ansible-core"]]
+version = "2.21.5"
+specifiers = ["2.21.5"]
+`;
+
+  it('accepts exact tools and a Python patch resolving the configured minor', () => {
+    expect(checkMiseLockVersions(mise, lock)).toStrictEqual([]);
+  });
+
+  it('also checks existing Node and Swift prefix selections', () => {
+    expect(
+      checkMiseLockVersions(
+        { node: '26', swift: '6.4' },
+        `[[tools.node]]
+version = "26.10.0"
+specifiers = ["26"]
+[[tools.swift]]
+version = "6.4.0"
+specifiers = ["6.4"]
+`,
+      ),
+    ).toStrictEqual([]);
+  });
+
+  it('rejects a stale lock after updating the mise tool pin', () => {
+    expect(checkMiseLockVersions({ ...mise, uv: '0.13.7' }, lock)).toStrictEqual([
+      { tool: 'uv', source: 'mise.lock', expected: '0.13.7', found: '0.13.6' },
+    ]);
+  });
+
+  it('rejects a Python patch from a different minor', () => {
+    expect(checkMiseLockVersions(mise, lock.replace('3.14.10', '3.15.0'))).toStrictEqual([
+      { tool: 'python', source: 'mise.lock', expected: '3.14', found: '3.15.0' },
     ]);
   });
 });

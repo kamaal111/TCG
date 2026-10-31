@@ -1,0 +1,10 @@
+// Merge these entries into your existing tailnet policy; do not replace other access rules.
+{
+  "tagOwners": {
+    "tag:tcg-ci": ["autogroup:admin"],
+    "tag:tcg-server": ["autogroup:admin"],
+  },
+  "grants": [
+    { "src": ["tag:tcg-ci"], "dst": ["tag:tcg-server"], "ip": ["tcp:22"] },
+  ],
+}

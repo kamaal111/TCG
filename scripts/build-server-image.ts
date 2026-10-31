@@ -41,6 +41,11 @@ function isEditorHelper(helper: string | undefined): boolean {
 }
 
 async function buildServerImage(): Promise<number> {
+  const [target = 'runtime', ...extra] = process.argv.slice(2);
+  assert(
+    (target === 'runtime' || target === 'migration') && extra.length === 0,
+    'Expected runtime or migration image target.',
+  );
   const tools = parseMiseTools(await fs.readFile(path.join(repoRoot, 'mise.toml'), 'utf8'));
 
   if (tools.node === undefined || tools.pnpm === undefined) {
@@ -92,12 +97,13 @@ async function buildServerImage(): Promise<number> {
       'docker',
       [
         'build',
+        ...(target === 'migration' ? ['--target', 'migration'] : []),
         '--build-arg',
         `NODE_VERSION=${tools.node}`,
         '--build-arg',
         `PNPM_VERSION=${tools.pnpm}`,
         '--tag',
-        'tcg-server:local',
+        target === 'migration' ? 'tcg-server-migrations:local' : 'tcg-server:local',
         '.',
       ],
       { cwd: repoRoot, stdio: 'inherit', env },

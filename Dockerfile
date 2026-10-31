@@ -10,7 +10,7 @@ COPY server/package.json ./server/package.json
 COPY packages/scrydex/package.json ./packages/scrydex/package.json
 RUN pnpm install --prod --frozen-lockfile --ignore-scripts
 
-FROM node:${NODE_VERSION}-trixie-slim
+FROM node:${NODE_VERSION}-trixie-slim AS base
 
 ENV NODE_ENV=production
 WORKDIR /app
@@ -22,8 +22,16 @@ COPY packages/scrydex/package.json ./packages/scrydex/package.json
 COPY packages/scrydex/src ./packages/scrydex/src
 COPY package.json ./
 COPY server/src ./server/src
+COPY scripts/check-server-image-health.ts ./server/scripts/check-health.ts
 
 USER node
 EXPOSE 8080
 
+FROM base AS migration
+COPY server/drizzle ./server/drizzle
+COPY server/scripts/migrate.ts server/scripts/check-deployment.ts ./server/scripts/
+WORKDIR /app/server
+CMD ["node", "scripts/migrate.ts"]
+
+FROM base AS runtime
 CMD ["node", "server/src/index.ts"]

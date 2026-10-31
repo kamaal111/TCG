@@ -2,3 +2,7 @@
 node = "26"
 swift = "6.4"
 pnpm = "12.11.1"
+terraform = "1.17.1"
+uv = "0.13.6"
+python = "3.14"
+"pypi:ansible-core" = { version = "2.21.5", minimum_release_age = "24h" }

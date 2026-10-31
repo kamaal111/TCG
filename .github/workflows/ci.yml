@@ -85,9 +85,34 @@ jobs:
       - name: Smoke test server image
         run: just test-server-image
 
+      - name: Verify migration image against PostgreSQL
+        run: just test-migration-image
+
       - name: Run repository tooling tests
         if: needs.changes.outputs.app != 'true'
         run: just test-scripts
+
+  infrastructure:
+    name: Infrastructure checks
+    needs: changes
+    if: needs.changes.outputs.server == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/setup@v3
+        with:
+          node-version-file: .node-version
+          cache: true
+          require-lockfile: true
+      - uses: extractions/setup-just@v4
+      - uses: jdx/mise-action@v5
+        with:
+          install_args: terraform python uv pypi:ansible-core
+      - run: just infra-check
+      - name: Validate workflow definitions
+        uses: docker://rhysd/actionlint:1.7.12
+        with:
+          args: -shellcheck= -pyflakes=
 
   app-macos:
     name: macOS app checks
