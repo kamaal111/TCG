@@ -156,8 +156,9 @@ make-migrations: prepare-server
 
 # Run database migrations
 [working-directory("server")]
-migrate: prepare-server
-    node scripts/migrate.ts
+[positional-arguments]
+migrate database-url=DATABASE_URL: prepare-server
+    @DATABASE_URL="$1" node scripts/migrate.ts
 
 # Combine a selected migration range while preserving existing databases
 [working-directory("server")]
@@ -166,8 +167,9 @@ squash-migrations: prepare-server
 
 # Fetch and persist the latest daily ECB currency rates
 [working-directory("server")]
-fetch-daily-currencies:
-    node scripts/fetch-daily-currencies.ts
+[positional-arguments]
+fetch-daily-currencies database-url=DATABASE_URL:
+    @DATABASE_URL="$1" node scripts/fetch-daily-currencies.ts
 
 # Install the macOS daily currency job using an explicit environment file
 [positional-arguments]

@@ -61,7 +61,18 @@ schedule collection by itself.
 For other environments, run `just migrate`, then `just fetch-daily-currencies`
 from the repository root before using conversions. Schedule the latter once daily
 after 16:00 Europe/Frankfurt.
-It fetches the ECB daily XML feed and persists a validated EUR-based snapshot.
+
+Both commands accept an optional database URL for that invocation:
+
+```sh
+just migrate 'postgresql://tcg:secret@localhost:5433/tcg'
+just fetch-daily-currencies 'postgresql://tcg:secret@localhost:5433/tcg'
+```
+
+An explicit URL overrides `DATABASE_URL`. Omitting it keeps the existing
+environment and `.env` settings, including the local database defaults.
+
+The collector fetches the ECB daily XML feed and persists a validated EUR-based snapshot.
 Repeated or concurrent runs do not duplicate snapshots. Weekends and holidays
 retain the last published rates; collection errors preserve stored data and exit
 unsuccessfully. The script closes its database pool before exiting.
