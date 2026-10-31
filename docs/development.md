@@ -322,7 +322,9 @@ default to unsigned builds (`NO`).
 and the image smoke test run on Linux; macOS app tests and iOS snapshots run on
 `xcode-27`. Pushes to `main` run both areas. The
 [affected-area configuration](../.github/config/affected-areas.conf)
-determines which paths trigger each job.
+determines which paths trigger each job. On PRs, files ending in `.md` do not
+trigger server or app checks, including bundled app help resources. Markdown-only
+PRs run only change detection; mixed PRs run checks for their non-Markdown changes.
 
 ### Snapshot failures
 
