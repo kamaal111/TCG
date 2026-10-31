@@ -4,6 +4,7 @@
 
 - Run `just` from the repository root before working to discover the available recipes.
 - Run commands from the repository root unless a recipe specifies another directory.
+- Keep tracked files free of personal absolute paths and private machine details. Use repository-relative paths or portable home-directory references such as `$HOME`; quote shell path arguments so directories containing spaces work. Before committing, check the diff for personal paths copied from local commands or logs.
 - Use `pnpm` for Node.js work and `uv run` for Python code that needs project packages.
 - Prefer root `just` recipes for project workflows; do not start the server directly or in the background. Use `just dev-server` only when explicitly asked to start it.
 - Never invoke iOS `xcodebuild` tests directly. Use `just test-app-ios` or `just test-snapshots-ios`; these recipes serialize access to the shared CoreSimulator device across agents.
