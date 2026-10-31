@@ -40,6 +40,10 @@ app=false
 while IFS= read -r -d '' file; do
     printf 'Changed: %s\n' "$file"
 
+    if [[ "$file" == *.md ]]; then
+        continue
+    fi
+
     if matches_any "$file" "${BOTH[@]}"; then
         server=true
         app=true

@@ -30,11 +30,15 @@ run_pull_request_case() {
     local changed_path="$1"
     local expected_server="$2"
     local expected_app="$3"
+    shift 3
 
     git switch -q -C feature main
-    mkdir -p "$(dirname "$changed_path")"
-    printf 'changed\n' > "$changed_path"
-    git add -- "$changed_path"
+    local file
+    for file in "$changed_path" "$@"; do
+        mkdir -p "$(dirname "$file")"
+        printf 'changed\n' > "$file"
+        git add -- "$file"
+    done
     git commit -qm "Change $changed_path"
 
     : > "$fixture/output"
@@ -60,6 +64,16 @@ run_pull_request_case scripts/test-xcode-formatter.sh false true
 run_pull_request_case scripts/check-versions-in-sync.ts true false
 run_pull_request_case vitest.config.ts true false
 run_pull_request_case docs/ci.md false false
+run_pull_request_case README.md false false
+run_pull_request_case server/README.md false false
+run_pull_request_case server/docs/logging.md false false
+run_pull_request_case packages/scrydex/README.md false false
+run_pull_request_case app/README.md false false
+run_pull_request_case app/Modules/TCGFeatures/Sources/TCGSearch/Resources/en.lproj/pokemon-search-help.md false false
+run_pull_request_case .github/scripts/README.md false false
+run_pull_request_case server/docs/logging.md true false server/src/ci-test.ts
+run_pull_request_case app/README.md false true app/Modules/TCGClient/ci-test.swift
+run_pull_request_case README.md true true .github/workflows/ci.yml
 
 git switch -q main
 : > "$fixture/output"
