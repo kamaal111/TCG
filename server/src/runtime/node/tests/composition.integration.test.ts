@@ -1,5 +1,6 @@
 import { ok } from 'neverthrow';
 
+import { generateOpenAPISpec } from '../../../../scripts/openapi-spec.ts';
 import { createApp } from '../../../app.ts';
 import { processImagesLogger } from '../../../card-images/logging.ts';
 import { CardImageProcessor } from '../../../card-images/warmer.ts';
@@ -36,6 +37,20 @@ integrationTest(
     await composed.dispose();
   },
 );
+
+integrationTest('serves the same OpenAPI YAML as standalone spec generation', async ({ db, storageClient }) => {
+  const config = ApplicationConfigSchema.parse({ BETTER_AUTH_URL: 'http://localhost:8080' });
+  const composed = createNodeApplication({ db, storageClient, config });
+
+  try {
+    const response = await composed.app.request('/spec.yaml');
+
+    expect(response.status).toBe(200);
+    expect(await response.text()).toBe(generateOpenAPISpec());
+  } finally {
+    await composed.dispose();
+  }
+});
 
 integrationTest(
   'reads normalized authentication sessions and persisted verification keys through its adapter',

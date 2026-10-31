@@ -5,6 +5,12 @@ import path from 'node:path';
 
 const supervisor = path.resolve('scripts/run-ios-snapshots-ci.ts');
 
+const simulatorId = '24E299B4-C77B-4426-AC2B-71243825F07C';
+
+const simulatorDestination = 'platform=iOS Simulator,OS=27.0,name=iPhone 17';
+
+const resolvedDestination = `platform=iOS Simulator,id=${simulatorId}`;
+
 const fixtures: string[] = [];
 
 const processes: childProcess.ChildProcess[] = [];
@@ -13,6 +19,17 @@ function fixture(mode = 'success', prefix = 'tcg-ios-cancellation-'): string {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), prefix));
   fixtures.push(directory);
   fs.writeFileSync(path.join(directory, 'mode'), mode);
+  fs.writeFileSync(
+    path.join(directory, 'inventory.json'),
+    JSON.stringify({
+      devices: {
+        'com.apple.CoreSimulator.SimRuntime.iOS-27-0': [{ name: 'iPhone 17', udid: simulatorId, isAvailable: true }],
+        'com.apple.CoreSimulator.SimRuntime.iOS-27-2': [
+          { name: 'iPhone 17', udid: '4AD2086B-7B8F-4608-A742-AA422A0B8D74', isAvailable: true },
+        ],
+      },
+    }),
+  );
   fs.writeFileSync(path.join(directory, 'xcbeautify'), `#!${process.execPath}\nprocess.stdin.pipe(process.stdout);`, {
     mode: 0o755,
   });
@@ -35,6 +52,7 @@ import childProcess from 'node:child_process';
 import fs from 'node:fs';
 if (process.argv[2] === 'build-snapshots-ios') {
   fs.writeFileSync(process.env.FIXTURE + '/build.json', JSON.stringify(process.argv.slice(2)));
+  fs.writeFileSync(process.env.FIXTURE + '/build-destination.txt', process.env.TCG_APP_IOS_TEST_DESTINATION ?? '');
   const derivedData = process.argv[process.argv.indexOf('-derivedDataPath') + 1];
   const products = derivedData + '/Build/Products';
   fs.mkdirSync(products, { recursive: true });
@@ -53,6 +71,7 @@ if (process.argv[2] === 'build-snapshots-ios') {
 }
 fs.writeFileSync(process.env.FIXTURE + '/just.pid', String(process.pid));
 fs.writeFileSync(process.env.FIXTURE + '/args.json', JSON.stringify(process.argv.slice(2)));
+fs.writeFileSync(process.env.FIXTURE + '/test-destination.txt', process.env.TCG_APP_IOS_TEST_DESTINATION ?? '');
 fs.writeFileSync(process.env.FIXTURE + '/test-manifest.txt', process.env.TCG_APP_IOS_XCTESTRUN ?? '');
 console.log('test output');
 console.log('◇ Test run started.');
@@ -89,6 +108,10 @@ setInterval(() => {}, 1000);
     `#!${process.execPath}
 import childProcess from 'node:child_process';
 import fs from 'node:fs';
+if (process.argv[3] === 'list') {
+  process.stdout.write(fs.readFileSync(process.env.FIXTURE + '/inventory.json', 'utf8'));
+  process.exit(0);
+}
 if (process.argv[3] === 'bootstatus') {
   fs.writeFileSync(process.env.FIXTURE + '/boot.pid', String(process.pid));
   fs.writeFileSync(process.env.FIXTURE + '/boot.json', JSON.stringify(process.argv.slice(2)));
@@ -128,7 +151,7 @@ interface StartOptions {
   githubActions?: string;
   idleTimeoutSeconds?: string;
   startupTimeoutSeconds?: string;
-  simulator?: string;
+  destination?: string;
   cacheHit?: string;
   summaryPath?: string;
   formatted?: boolean;
@@ -141,7 +164,7 @@ function start({
   githubActions = 'true',
   idleTimeoutSeconds = '180',
   startupTimeoutSeconds = '600',
-  simulator = '',
+  destination = '',
   cacheHit = 'false',
   summaryPath = path.join(directory, 'summary.md'),
 }: StartOptions) {
@@ -161,7 +184,7 @@ function start({
       GITHUB_ACTIONS: githubActions,
       TCG_IOS_SNAPSHOT_IDLE_TIMEOUT_SECONDS: idleTimeoutSeconds,
       TCG_IOS_SNAPSHOT_STARTUP_TIMEOUT_SECONDS: startupTimeoutSeconds,
-      TCG_IOS_SNAPSHOT_SIMULATOR: simulator,
+      TCG_APP_IOS_TEST_DESTINATION: destination,
       TCG_SWIFT_PACKAGE_CACHE_HIT: cacheHit,
       GITHUB_STEP_SUMMARY: summaryPath,
     },
@@ -307,7 +330,7 @@ describe('iOS snapshot CI supervisor', () => {
 
   it('collects package and test metrics across separate build and test processes', async () => {
     const directory = fixture('metrics');
-    const run = start({ directory, simulator: 'iPhone 17', cacheHit: 'true' });
+    const run = start({ directory, destination: simulatorDestination, cacheHit: 'true' });
 
     expect(await run.exited).toBe(0);
     const summary = fs.readFileSync(path.join(directory, 'summary.md'), 'utf8');
@@ -319,13 +342,18 @@ describe('iOS snapshot CI supervisor', () => {
 
   it('builds first, waits for simulator boot, then tests without rebuilding', async () => {
     const directory = fixture();
-    const run = start({ directory, simulator: 'iPhone 17', args: ['-jobs', '2', '-resultBundlePath', '/tmp/results'] });
+
+    const run = start({
+      directory,
+      destination: simulatorDestination,
+      args: ['-jobs', '2', '-resultBundlePath', '/tmp/results'],
+    });
 
     expect(await run.exited).toBe(0);
     expect(JSON.parse(fs.readFileSync(path.join(directory, 'boot.json'), 'utf8'))).toEqual([
       'simctl',
       'bootstatus',
-      'iPhone 17',
+      simulatorId,
       '-b',
     ]);
     expect(run.output().indexOf('boot ready')).toBeLessThan(run.output().indexOf('test output'));
@@ -345,6 +373,8 @@ describe('iOS snapshot CI supervisor', () => {
       '/tmp/results',
     ]);
     expect(run.output()).toContain('Simulator boot completed');
+    expect(fs.readFileSync(path.join(directory, 'build-destination.txt'), 'utf8')).toBe(resolvedDestination);
+    expect(fs.readFileSync(path.join(directory, 'test-destination.txt'), 'utf8')).toBe(resolvedDestination);
     const derivedData = fs.readFileSync(path.join(directory, 'derived-data.txt'), 'utf8');
     expect(path.dirname(derivedData)).toBe(directory);
     expect(fs.readFileSync(path.join(directory, 'test-manifest.txt'), 'utf8')).toBe(
@@ -352,9 +382,62 @@ describe('iOS snapshot CI supervisor', () => {
     );
   });
 
+  it.each([
+    { name: 'missing runtime', devices: {}, count: 0 },
+    {
+      name: 'unavailable device',
+      devices: {
+        'com.apple.CoreSimulator.SimRuntime.iOS-27-0': [{ name: 'iPhone 17', udid: simulatorId, isAvailable: false }],
+      },
+      count: 0,
+    },
+    {
+      name: 'ambiguous devices',
+      devices: {
+        'com.apple.CoreSimulator.SimRuntime.iOS-27-0': [
+          { name: 'iPhone 17', udid: simulatorId, isAvailable: true },
+          { name: 'iPhone 17', udid: '4AD2086B-7B8F-4608-A742-AA422A0B8D74', isAvailable: true },
+        ],
+      },
+      count: 2,
+    },
+  ])('rejects $name before building or booting', async ({ devices, count }) => {
+    const directory = fixture();
+    fs.writeFileSync(path.join(directory, 'inventory.json'), JSON.stringify({ devices }));
+    const run = start({ directory, destination: simulatorDestination });
+
+    expect(await run.exited).toBe(1);
+    expect(run.output()).toContain(`found ${count}`);
+    expect(fs.existsSync(path.join(directory, 'build.json'))).toBe(false);
+    expect(fs.existsSync(path.join(directory, 'boot.pid'))).toBe(false);
+  });
+
+  it('rejects a second destination passed through Xcode arguments', async () => {
+    const directory = fixture();
+
+    const run = start({
+      directory,
+      destination: simulatorDestination,
+      args: ['-destination', 'platform=iOS Simulator,OS=27.2,name=iPhone 17'],
+    });
+
+    expect(await run.exited).toBe(1);
+    expect(run.output()).toContain('TCG_APP_IOS_TEST_DESTINATION only');
+    expect(fs.existsSync(path.join(directory, 'build.json'))).toBe(false);
+  });
+
+  it('rejects an unpinned simulator OS before querying devices', async () => {
+    const directory = fixture();
+    const run = start({ directory, destination: 'platform=iOS Simulator,OS=latest,name=iPhone 17' });
+
+    expect(await run.exited).toBe(1);
+    expect(run.output()).toContain('Could not resolve snapshot simulator');
+    expect(fs.existsSync(path.join(directory, 'build.json'))).toBe(false);
+  });
+
   it.each(['missing-manifest', 'ambiguous-manifest'])('rejects %s before booting or testing', async mode => {
     const directory = fixture(mode);
-    const run = start({ directory, simulator: 'iPhone 17' });
+    const run = start({ directory, destination: simulatorDestination });
 
     expect(await run.exited).toBe(1);
     expect(run.output()).toContain('Expected one TCG iOS Simulator test manifest');
@@ -365,7 +448,7 @@ describe('iOS snapshot CI supervisor', () => {
 
   it('hands off a fresh manifest when the temporary directory contains spaces', async () => {
     const spacedDirectory = fixture('success', 'tcg ios snapshots-');
-    const run = start({ directory: spacedDirectory, simulator: 'iPhone 17' });
+    const run = start({ directory: spacedDirectory, destination: simulatorDestination });
 
     expect(await run.exited).toBe(0);
     const derivedData = fs.readFileSync(path.join(spacedDirectory, 'derived-data.txt'), 'utf8');
@@ -377,7 +460,7 @@ describe('iOS snapshot CI supervisor', () => {
 
   it('preserves build failure without booting the simulator', async () => {
     const directory = fixture('build-failure');
-    const run = start({ directory, simulator: 'iPhone 17' });
+    const run = start({ directory, destination: simulatorDestination });
 
     expect(await run.exited).toBe(66);
     expect(fs.existsSync(path.join(directory, 'boot.pid'))).toBe(false);
@@ -386,7 +469,7 @@ describe('iOS snapshot CI supervisor', () => {
 
   it('preserves simulator services between boot and tests, then cleans them up', async () => {
     const directory = fixture('boot-service');
-    const run = start({ directory, simulator: 'iPhone 17' });
+    const run = start({ directory, destination: simulatorDestination });
 
     expect(await run.exited).toBe(0);
     expect(run.output()).toContain('boot service survived until tests');
@@ -395,7 +478,7 @@ describe('iOS snapshot CI supervisor', () => {
 
   it('preserves boot failure and skips tests', async () => {
     const directory = fixture('boot-failure');
-    const run = start({ directory, simulator: 'iPhone 17' });
+    const run = start({ directory, destination: simulatorDestination });
 
     expect(await run.exited).toBe(9);
     expect(fs.existsSync(path.join(directory, 'just.pid'))).toBe(false);
@@ -404,7 +487,7 @@ describe('iOS snapshot CI supervisor', () => {
 
   it('bounds boot even when the simulator keeps reporting progress', async () => {
     const directory = fixture('boot-hang');
-    const run = start({ directory, simulator: 'iPhone 17', idleTimeoutSeconds: '1' });
+    const run = start({ directory, destination: simulatorDestination, idleTimeoutSeconds: '1' });
 
     expect(await run.exited).toBe(124);
     expect(run.output()).toContain('Simulator boot exceeded 1 seconds');
@@ -414,7 +497,7 @@ describe('iOS snapshot CI supervisor', () => {
 
   it('cancels simulator boot without starting tests', async () => {
     const directory = fixture('boot-hang');
-    const run = start({ directory, simulator: 'iPhone 17' });
+    const run = start({ directory, destination: simulatorDestination });
     await vi.waitFor(() => expect(run.output()).toContain('boot ready'));
     run.child.kill('SIGTERM');
 

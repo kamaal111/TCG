@@ -1,0 +1,5 @@
+# actionlint uses this key to allow custom runs-on labels, regardless of hosting.
+# xcode-27 is used by the Apple CI jobs; this does not provision a runner.
+self-hosted-runner:
+  labels:
+    - xcode-27

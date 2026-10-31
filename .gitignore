@@ -371,3 +371,15 @@ xcuserdata/
 
 # Native Git worktrees managed by just create-worktree
 /.agents/worktrees/
+
+# Infrastructure state, review plans, credentials, and private environment inputs
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+*.tfvars
+*.tfvars.json
+infra/ansible/inventory*
+deploy/*.env
+deploy/config/
+*.pem
