@@ -49,6 +49,7 @@ new database migrations. The image does not run migrations on startup.
 - [API](docs/api.md) — routes, auth headers, owned-card payloads, pricing semantics, and errors.
 - [Logging](docs/logging.md) — how structured logging works here, the field vocabulary, and how to add an event.
 - [Card images](docs/card-images.md) — the image cache, its work queue, and how it behaves across instances.
+- [DigitalOcean database setup](docs/digitalocean-database.md) — allow this Mac to connect, configure TLS, apply migrations, and install daily currency collection.
 
 ## Daily currency rates
 
@@ -105,9 +106,10 @@ currency.
 ### Schedule collection on a macOS home server
 
 Use a dedicated, persistent checkout with dependencies installed (`just prepare-server`)
-and secure access to the intended PostgreSQL database, for example through a VPN.
-Keep PostgreSQL closed to the public internet. The scheduler does not create or
-maintain that connection or run migrations.
+and secure access to the intended PostgreSQL database, through a restricted public
+endpoint or a VPN. For DigitalOcean, follow the
+[database setup guide](docs/digitalocean-database.md) first. The scheduler does not
+create or maintain that connection, configure firewall rules, or run migrations.
 
 Create a private environment file outside the repository, for example
 `$HOME/.config/tcg/currencies.env`, containing:
@@ -143,13 +145,14 @@ requires one of these so the time remains after Frankfurt's publication window
 across daylight saving changes. Keep that timezone setting after installation.
 Reinstalling updates the same job rather than adding another. Installation does
 not fetch rates immediately. For an initial collection after the publication window,
-run the existing collector explicitly with the same environment file:
+run the collector recipe from the repository root with the same environment file:
 
 ```sh
-cd server
-env -i HOME="$HOME" NODE_ENV=production "$(command -v node)" \
-  --env-file="$HOME/.config/tcg/currencies.env" scripts/fetch-daily-currencies.ts
+just --dotenv-path "$HOME/.config/tcg/currencies.env" fetch-daily-currencies
 ```
+
+An already exported shell variable takes precedence over the environment file.
+If your shell exports a different `DATABASE_URL`, run `unset DATABASE_URL` first.
 
 The job continues after SSH disconnects and desktop logout. It needs the Mac
 awake, network access, and an accessible home directory; FileVault may require
