@@ -3,11 +3,17 @@ async function main(): Promise<void> {
     signal: AbortSignal.timeout(2000),
   });
 
-  if (!response.ok) {
-    process.exit(1);
+  const body = await response.text();
+
+  if (!response.ok || body !== '{"message":"PONG"}') {
+    process.exitCode = 1;
+
+    return;
   }
 
-  process.stdout.write(await response.text());
+  process.stdout.write(body);
 }
 
-void main();
+void main().catch(() => {
+  process.exitCode = 1;
+});

@@ -19,7 +19,7 @@ import { serverLogger } from '../../logging/server.ts';
 import { OPENAPI_YAML_SPEC_PATH } from '../../open-api.ts';
 import { createAuth } from '../../persistence/postgres/auth-client.ts';
 import { createPostgresPersistence } from '../../persistence/postgres/index.ts';
-import { S3ObjectStorageClient } from '../../storage/s3-client.ts';
+import { createConfiguredObjectStorage } from '../../storage/config.ts';
 
 const SIGNALS_TO_TERMINATE_ON: NodeJS.Signals[] = ['SIGINT', 'SIGTERM'];
 
@@ -130,19 +130,6 @@ function assertObjectStorageIsConfigured() {
   });
 }
 
-function storageOptions() {
-  return {
-    accessKeyId: env.OBJECT_STORAGE_ACCESS_KEY_ID,
-    secretAccessKey: env.OBJECT_STORAGE_SECRET_ACCESS_KEY,
-    bucket: env.OBJECT_STORAGE_BUCKET,
-    region: env.OBJECT_STORAGE_REGION,
-    endpoint: env.OBJECT_STORAGE_ENDPOINT,
-    forcePathStyle: env.OBJECT_STORAGE_FORCE_PATH_STYLE,
-    requestTimeoutMs: env.OBJECT_STORAGE_REQUEST_TIMEOUT_MS,
-    maxAttempts: env.OBJECT_STORAGE_MAX_ATTEMPTS,
-  };
-}
-
 export function createNodeApplication(overrides: AppOverrides = {}) {
   initializeNodeLogging();
   const config = overrides.config ?? ApplicationConfigSchema.parse(env);
@@ -159,7 +146,7 @@ export function createNodeApplication(overrides: AppOverrides = {}) {
   const persistence = createPostgresPersistence(db, config.PRICING_LOCK_TIMEOUT_MS, config);
   const forexClient = overrides.forexClient ?? new EcbForexClient();
   const pricingClient = overrides.pricingClient ?? createPricingClient(config);
-  const storageClient = overrides.storageClient ?? new S3ObjectStorageClient(storageOptions());
+  const storageClient = overrides.storageClient ?? createConfiguredObjectStorage(env);
 
   const imageOriginClient =
     overrides.imageOriginClient ??

@@ -1,0 +1,29 @@
+# Copy to ignored terraform.tfvars. Match existing resources exactly before importing.
+existing_droplet_id  = "REPLACE_WITH_EXISTING_DROPLET_ID"
+existing_database_id = "REPLACE_WITH_EXISTING_CLUSTER_UUID"
+configuration = {
+  name   = "tcg-production"
+  region = "ams3"
+  # Use the logical database from the URL migrated earlier. New clusters have defaultdb.
+  application_database = "defaultdb"
+  droplet = {
+    name     = "REPLACE_WITH_EXISTING_NAME"
+    size     = "REPLACE_WITH_EXISTING_SIZE"
+    image    = "debian-13-x64"
+    vpc_uuid = "REPLACE_WITH_EXISTING_VPC_UUID"
+    ssh_keys = []
+  }
+  database = {
+    name       = "REPLACE_WITH_EXISTING_NAME"
+    version    = "REPLACE_WITH_EXISTING_PG_VERSION"
+    size       = "REPLACE_WITH_EXISTING_SIZE"
+    node_count = 1
+    vpc_uuid   = "REPLACE_WITH_EXISTING_VPC_UUID"
+  }
+  # Documentation addresses only: replace with real administrator/collector addresses.
+  admin_ipv4_cidrs               = ["192.0.2.10/32"]
+  database_client_ipv4s          = ["192.0.2.10"]
+  bucket_name                   = "REPLACE_WITH_NEW_GLOBALLY_UNIQUE_BUCKET_NAME"
+  enable_storage_ip_restriction = false
+  api_hostname                  = ""
+}

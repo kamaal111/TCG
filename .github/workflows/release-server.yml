@@ -1,0 +1,137 @@
+name: Release server
+
+on:
+  workflow_dispatch:
+    inputs:
+      revision:
+        description: Commit or tag already merged into main
+        type: string
+        default: main
+      exposure:
+        description: Public requires a configured domain; private works without one
+        type: choice
+        options: [private, public]
+        default: private
+      schema_compatible_rollback:
+        description: Confirm the previous application supports the migrated schema
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tcg-production-mutation
+  cancel-in-progress: false
+
+jobs:
+  build:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      runtime: ${{ steps.refs.outputs.runtime }}
+      migration: ${{ steps.refs.outputs.migration }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          ref: ${{ inputs.revision }}
+      - name: Require a revision merged into main
+        run: |
+          git fetch origin main
+          git merge-base --is-ancestor HEAD origin/main
+      - uses: pnpm/setup@v3
+        with:
+          node-version-file: .node-version
+          cache: true
+          require-lockfile: true
+      - uses: extractions/setup-just@v4
+      - name: Verify the release
+        env:
+          DATABASE_URL: postgresql://unused:unused@127.0.0.1:1/unused
+          BETTER_AUTH_URL: http://localhost:8080
+          BETTER_AUTH_SECRET: release-verification-only
+        run: just ready-server
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Resolve image names and pinned build tools
+        id: names
+        shell: bash
+        run: |
+          echo "repository=ghcr.io/${GITHUB_REPOSITORY,,}-server" >> "$GITHUB_OUTPUT"
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          node --input-type=module -e 'import {parseMiseTools} from "./scripts/check-versions-in-sync.ts"; import fs from "node:fs"; const t=parseMiseTools(fs.readFileSync("mise.toml","utf8")); console.log(`node=${t.node}\npnpm=${t.pnpm}`)' >> "$GITHUB_OUTPUT"
+      - name: Build and publish runtime
+        id: runtime
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          target: runtime
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.names.outputs.repository }}:${{ steps.names.outputs.sha }}
+          labels: org.opencontainers.image.revision=${{ steps.names.outputs.sha }}
+          build-args: |
+            NODE_VERSION=${{ steps.names.outputs.node }}
+            PNPM_VERSION=${{ steps.names.outputs.pnpm }}
+      - name: Build and publish migrations
+        id: migration
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          target: migration
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.names.outputs.repository }}-migrations:${{ steps.names.outputs.sha }}
+          labels: org.opencontainers.image.revision=${{ steps.names.outputs.sha }}
+          build-args: |
+            NODE_VERSION=${{ steps.names.outputs.node }}
+            PNPM_VERSION=${{ steps.names.outputs.pnpm }}
+      - name: Record immutable image references
+        id: refs
+        env:
+          REPOSITORY: ${{ steps.names.outputs.repository }}
+          RUNTIME_DIGEST: ${{ steps.runtime.outputs.digest }}
+          MIGRATION_DIGEST: ${{ steps.migration.outputs.digest }}
+        run: |
+          echo "runtime=$REPOSITORY@$RUNTIME_DIGEST" >> "$GITHUB_OUTPUT"
+          echo "migration=$REPOSITORY-migrations@$MIGRATION_DIGEST" >> "$GITHUB_OUTPUT"
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: tailscale/github-action@v4
+        with:
+          oauth-client-id: ${{ secrets.TAILSCALE_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TAILSCALE_OAUTH_SECRET }}
+          tags: tag:tcg-ci
+          version: 1.104.4
+      - name: Deploy through verified private SSH
+        shell: bash
+        env:
+          DEPLOY_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
+          RUNTIME_IMAGE: ${{ needs.build.outputs.runtime }}
+          MIGRATION_IMAGE: ${{ needs.build.outputs.migration }}
+          EXPOSURE: ${{ inputs.exposure }}
+          ROLLBACK: ${{ inputs.schema_compatible_rollback }}
+        run: |
+          set -euo pipefail
+          umask 077
+          temporary=$(mktemp -d)
+          trap 'rm -rf "$temporary"' EXIT
+          printf '%s\n' "$DEPLOY_KEY" > "$temporary/key"
+          printf '%s\n' "$KNOWN_HOSTS" > "$temporary/known_hosts"
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=30 \
+            -o UserKnownHostsFile="$temporary/known_hosts" -i "$temporary/key" \
+            "tcg-deploy@$DEPLOY_HOST" "release $RUNTIME_IMAGE $MIGRATION_IMAGE $EXPOSURE $ROLLBACK"

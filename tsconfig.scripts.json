@@ -12,6 +12,8 @@
     "noUnusedParameters": true
   },
   "include": [
+    "scripts/check-infrastructure-plan.ts",
+    "scripts/deployment.test.ts",
     "vitest.config.ts",
     "oxlint.config.ts",
     "scripts/oxlint-*.ts",

@@ -1,0 +1,38 @@
+---
+- name: Verify runtime configuration rendering without connecting to a host
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    database_user: tcg
+    database_password: 'p@ss/word'
+    database_host: private-db.example.invalid
+    database_port: 25060
+    database_name: tcg
+    auth_secret:
+      content: "{{ 'test-only-auth-secret' | b64encode }}"
+    object_storage_endpoint: https://ams3.digitaloceanspaces.com
+    object_storage_bucket: tcg-test-images
+    object_storage_access_key: test-key
+    object_storage_secret_key: test-secret
+  tasks:
+    - name: Render private configuration without a domain
+      ansible.builtin.set_fact:
+        private_configuration: "{{ lookup('template', '../templates/server.env.j2') }}"
+      vars:
+        api_hostname: ''
+    - name: Verify encoded credentials and container certificate path
+      ansible.builtin.assert:
+        that:
+          - "'tcg:p%40ss%2Fword@private-db.example.invalid' in private_configuration"
+          - "'sslmode=verify-full&sslrootcert=/run/tcg/database-ca.crt' in private_configuration"
+          - "'BETTER_AUTH_URL=http://127.0.0.1:8080' in private_configuration"
+          - "'DEBUG=' not in private_configuration"
+    - name: Render public configuration
+      ansible.builtin.set_fact:
+        public_configuration: "{{ lookup('template', '../templates/server.env.j2') }}"
+      vars:
+        api_hostname: api.example.com
+    - name: Verify the public authentication origin
+      ansible.builtin.assert:
+        that: "'BETTER_AUTH_URL=https://api.example.com' in public_configuration"

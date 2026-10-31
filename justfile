@@ -176,6 +176,30 @@ fetch-daily-currencies database-url=DATABASE_URL:
 install-currency-schedule env-file:
     bash scripts/currency-schedule.sh install "$1"
 
+# Initialize the configured HCP Terraform workspace
+infra-init:
+    bash scripts/infrastructure.sh init
+
+# Validate infrastructure, mocked plans, host configuration, and deployment scripts
+infra-check:
+    bash scripts/infrastructure.sh check
+
+# Save and validate a reviewable infrastructure plan without applying it
+infra-plan:
+    bash scripts/infrastructure.sh plan
+
+# Apply only the saved infrastructure plan
+infra-apply:
+    bash scripts/infrastructure.sh apply
+
+# Configure the imported/provisioned host from private Terraform outputs
+infra-configure:
+    bash scripts/infrastructure.sh configure
+
+# Check the deployed server privately through Tailscale and verified SSH
+deployment-check:
+    bash scripts/deployment-check.sh
+
 # Inspect the macOS daily currency job
 currency-schedule-status:
     bash scripts/currency-schedule.sh status
@@ -217,7 +241,7 @@ ready-app: quality-app test-app test-scripts test-swift-member-spacing
 
 # Run all verification checks for server
 [parallel]
-ready-server: quality-server test-server test-server-image
+ready-server: quality-server test-server test-server-image test-migration-image
 
 # Run tests
 [parallel]
@@ -355,6 +379,14 @@ _test-server:
 build-server-image:
     node scripts/build-server-image.ts
 
+# Build the migration runner from the same Dockerfile and production dependencies
+build-migration-image:
+    node scripts/build-server-image.ts migration
+
+# Apply the migration image twice against an isolated PostgreSQL database
+test-migration-image: build-migration-image
+    bash scripts/test-migration-image.sh
+
 # Smoke test the production server image
 test-server-image: build-server-image
     #!/usr/bin/env bash
@@ -463,7 +495,7 @@ check-spec:
 
     node scripts/check-openapi-spec.ts {{ SERVER_RELATIVE_OUTPUT_SCHEMA_FILEPATH }}
 
-# Verify Node, pnpm and Swift versions stay in sync across mise.toml, Dockerfile, .node-version, package.json, Package.swift and devcontainer.json
+# Verify tool versions, Terraform constraints/provider locks, and shared workflow actions stay in sync
 check-versions:
     node scripts/check-versions-in-sync.ts
 
