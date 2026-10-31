@@ -103,9 +103,10 @@ Create a private environment file outside the repository, for example
 
 ```dotenv
 DATABASE_URL=postgresql://tcg:replace-with-production-password@private-db-host/tcg
-BETTER_AUTH_URL=https://api.example.com
 ```
 
+Only `DATABASE_URL` is required for collection; `BETTER_AUTH_URL` is not used.
+Optional settings are `DATABASE_CONNECTION_TIMEOUT_MS`, `LOG_LEVEL`, `MODE`, and `DEBUG`.
 Set its permissions with `chmod 600 "$HOME/.config/tcg/currencies.env"`.
 Omit `DEBUG`: the current boolean parser treats even `DEBUG=false` as enabled,
 and the installer rejects it. These settings are loaded directly from this file;
