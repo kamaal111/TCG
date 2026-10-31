@@ -99,14 +99,14 @@ Keep PostgreSQL closed to the public internet. The scheduler does not create or
 maintain that connection or run migrations.
 
 Create a private environment file outside the repository, for example
-`/Users/kamaal/.config/tcg/currencies.env`, containing:
+`$HOME/.config/tcg/currencies.env`, containing:
 
 ```dotenv
 DATABASE_URL=postgresql://tcg:replace-with-production-password@private-db-host/tcg
 BETTER_AUTH_URL=https://api.example.com
 ```
 
-Set its permissions with `chmod 600 /Users/kamaal/.config/tcg/currencies.env`.
+Set its permissions with `chmod 600 "$HOME/.config/tcg/currencies.env"`.
 Omit `DEBUG`: the current boolean parser treats even `DEBUG=false` as enabled,
 and the installer rejects it. These settings are loaded directly from this file;
 the checkout's `.env` and interactive shell environment are not used by the job.
@@ -118,8 +118,8 @@ system operations only:
 
 ```sh
 # Preview the plist without installing or fetching anything.
-bash scripts/currency-schedule.sh preview /Users/kamaal/.config/tcg/currencies.env
-just install-currency-schedule /Users/kamaal/.config/tcg/currencies.env
+bash scripts/currency-schedule.sh preview "$HOME/.config/tcg/currencies.env"
+just install-currency-schedule "$HOME/.config/tcg/currencies.env"
 just currency-schedule-status
 just uninstall-currency-schedule
 ```
@@ -136,7 +136,7 @@ run the existing collector explicitly with the same environment file:
 ```sh
 cd server
 env -i HOME="$HOME" NODE_ENV=production "$(command -v node)" \
-  --env-file=/Users/kamaal/.config/tcg/currencies.env scripts/fetch-daily-currencies.ts
+  --env-file="$HOME/.config/tcg/currencies.env" scripts/fetch-daily-currencies.ts
 ```
 
 The job continues after SSH disconnects and desktop logout. It needs the Mac
