@@ -383,3 +383,4 @@ infra/ansible/inventory*
 deploy/*.env
 deploy/config/
 *.pem
+infrastructure.env
