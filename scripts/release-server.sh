@@ -48,13 +48,17 @@ trap 'exit 143' TERM
 context="$temporary/source"
 mkdir "$context"
 git archive --format=tar "--output=$temporary/source.tar" "$sha"
-tar -xf "$temporary/source.tar" -C "$context"
+(
+    umask 022
+    tar -xf "$temporary/source.tar" -C "$context"
+)
 versions="$(node "$script_directory/release-metadata.ts" build "$context" "$sha")"
 node_version="${versions%%$'\n'*}"
 pnpm_version="${versions#*$'\n'}"
 
 echo 'Verifying against isolated test services. Production migrations require a separate explicit command.'
 (
+    umask 022
     cd "$context"
     export HUSKY=0 MISE_TRUSTED_CONFIG_PATHS="$context"
     mise exec --locked node pnpm -- pnpm install --frozen-lockfile
