@@ -2,35 +2,13 @@
 
 [Back to server README](../README.md)
 
-Use the [infrastructure and release guide](../../infra/README.md) for the complete
-setup. Infrastructure configuration lives in `infra/`; application runtime files
-live in `deploy/`. The guide covers adoption of an existing Droplet/database,
-private Spaces storage, Docker, Tailscale, private testing without a domain,
-reviewed infrastructure changes, and manually triggered GitHub releases.
+Choose the guide for what you want to do:
 
-The Debian 13 x86_64 Droplet and PostgreSQL cluster already created should be
-imported, not replaced. Ansible adopts the Docker installation and makes host
-configuration repeatable. Docker remains installed across SSH disconnects and
-reboots; the daemon and application restart policy are managed by code.
+1. **[Prepare the release flow](../../infra/setup.md)** — one-time setup.
+2. **[Release from the Mac mini](../../infra/release.md)** — each local release.
+3. **[Release with GitHub Actions](../../infra/github-actions.md)** — Actions setup and releases.
 
-The empty Space with the malformed `/32` deny policy was deleted. Create its
-replacement through Terraform using a new globally unique name. Do not repeat
-the earlier manual blanket-deny policy: source-IP restriction starts disabled,
-is derived from the Droplet resource when enabled, and preserves credentialed
-policy-management access for recovery.
+For public HTTPS, token renewal, infrastructure workflows, and recovery, use the
+[technical reference](../../infra/reference.md).
 
-The existing Mac [daily currency job](digitalocean-database.md) remains separate
-and continues to use its private configuration file. Keep that Mac's public IP
-in Terraform's database trusted-source inputs.
-
-Start with the one-time account/credential setup in the guide, then:
-
-```sh
-just --dotenv-path "$HOME/.config/tcg/infrastructure.env" infra-init
-just --dotenv-path "$HOME/.config/tcg/infrastructure.env" infra-plan
-```
-
-Review the plan before running `infra-apply`. Routine releases use GitHub
-**Actions → Release server → Run workflow** after the workflows are merged into
-main and the host has been configured. No live infrastructure is changed merely
-by adding these files to the repository.
+The Mac's [daily currency job](digitalocean-database.md) is independent of releases.

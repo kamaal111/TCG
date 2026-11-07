@@ -57,7 +57,20 @@ const path = require('node:path');
 const tool = path.basename(process.argv[1]);
 const args = process.argv.slice(2);
 const entry = { tool, args };
-if (tool === 'docker' && args[1] === 'build') entry.contextFiles = fs.readdirSync(args.at(-1));
+if (tool === 'pnpm' && args[0] === 'install') {
+  fs.mkdirSync('node_modules', { recursive: true });
+  fs.writeFileSync('node_modules/package.json', '{}');
+}
+if (tool === 'docker' && args[1] === 'build') {
+  const context = args.at(-1);
+  const temporary = path.dirname(context);
+  entry.contextFiles = fs.readdirSync(context);
+  entry.sourceMode = fs.statSync(path.join(context, 'mise.toml')).mode & 0o777;
+  entry.dependencyDirectoryMode = fs.statSync(path.join(context, 'node_modules')).mode & 0o777;
+  entry.dependencyMode = fs.statSync(path.join(context, 'node_modules/package.json')).mode & 0o777;
+  entry.temporaryMode = fs.statSync(temporary).mode & 0o777;
+  entry.archiveMode = fs.statSync(path.join(temporary, 'source.tar')).mode & 0o777;
+}
 if (tool === 'gpg') {
   entry.passphraseMatches = fs.readFileSync(3, 'utf8') === process.env.PLAN_KEY + '\\n';
   if (!process.env.FAIL_GPG) fs.copyFileSync(args.at(-1), args[args.indexOf('--output') + 1]);
@@ -166,7 +179,7 @@ test('a local release verifies archived main sources and deploys both immutable 
   expect(result.status).toBe(0);
   expect(await f.commands()).toContain(`"--is-ancestor","${sha}","origin/main"`);
   expect(await f.commands()).toContain('"archive","--format=tar"');
-  expect(await f.commands()).toContain('"contextFiles":["mise.toml"]');
+  expect(await f.commands()).toContain('"contextFiles":["mise.toml","node_modules"]');
   expect(await f.commands()).toContain('"install","--frozen-lockfile"');
   expect(await f.commands()).toContain('"args":["ready-server"]');
   expect(await f.commands()).toContain('"--platform","linux/amd64"');
@@ -174,6 +187,20 @@ test('a local release verifies archived main sources and deploys both immutable 
   expect(await f.commands()).toContain(
     `release ghcr.io/example/tcg-server@sha256:${'a'.repeat(64)} ghcr.io/example/tcg-server-migrations@sha256:${'b'.repeat(64)} private false`,
   );
+  expect(await fs.readdir(f.runner)).toStrictEqual([]);
+});
+
+test('a local release makes build inputs readable while keeping its directory and archive private', async t => {
+  const f = await fixture(t);
+  const result = f.localRelease();
+  const commands = await f.commands();
+
+  expect(result.status).toBe(0);
+  expect(commands).toContain('"sourceMode":420');
+  expect(commands).toContain('"dependencyDirectoryMode":493');
+  expect(commands).toContain('"dependencyMode":420');
+  expect(commands).toContain('"temporaryMode":448');
+  expect(commands).toContain('"archiveMode":384');
   expect(await fs.readdir(f.runner)).toStrictEqual([]);
 });
 
