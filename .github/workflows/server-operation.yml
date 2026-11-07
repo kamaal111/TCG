@@ -1,0 +1,52 @@
+name: Server operation
+
+on:
+  workflow_call:
+    inputs:
+      operation:
+        type: string
+        required: true
+      runtime:
+        type: string
+        default: ''
+      migration:
+        type: string
+        required: true
+      exposure:
+        type: string
+        default: private
+      schema_compatible_rollback:
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  operate:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: tailscale/github-action@v4
+        with:
+          oauth-client-id: ${{ secrets.TAILSCALE_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TAILSCALE_OAUTH_SECRET }}
+          tags: tag:tcg-ci
+          version: 1.104.4
+          log-mode: quiet
+      - name: Run the explicit operation through verified private SSH
+        shell: bash
+        env:
+          OPERATION: ${{ inputs.operation }}
+          DEPLOY_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          RUNTIME_IMAGE: ${{ inputs.runtime }}
+          MIGRATION_IMAGE: ${{ inputs.migration }}
+          EXPOSURE: ${{ inputs.exposure }}
+          ROLLBACK: ${{ inputs.schema_compatible_rollback }}
+        run: bash .github/scripts/release-server.sh

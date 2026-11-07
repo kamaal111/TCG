@@ -8,9 +8,14 @@
 .agents
 .codex
 app
-server/drizzle
 server/docs
-server/scripts
+server/scripts/*
+!server/scripts/migrate.ts
+!server/scripts/check-deployment.ts
+!server/scripts/check-migrations.ts
+!server/scripts/deployment-database.ts
+infra
+deploy
 server/src/tests
 **/*.test.ts
 **/tests

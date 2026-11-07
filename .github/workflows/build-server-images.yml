@@ -1,0 +1,91 @@
+name: Build server images
+
+on:
+  workflow_call:
+    inputs:
+      revision:
+        type: string
+        required: true
+    outputs:
+      runtime:
+        value: ${{ jobs.build.outputs.runtime }}
+      migration:
+        value: ${{ jobs.build.outputs.migration }}
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      runtime: ${{ steps.refs.outputs.runtime }}
+      migration: ${{ steps.refs.outputs.migration }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Require a revision merged into main
+        env:
+          RELEASE_REVISION: ${{ inputs.revision }}
+        run: bash .github/scripts/release-server.sh checkout-revision
+      - uses: pnpm/setup@v3
+        with:
+          node-version-file: .node-version
+          cache: true
+          require-lockfile: true
+      - uses: extractions/setup-just@v4
+      - name: Verify the release
+        env:
+          DATABASE_URL: postgresql://unused:unused@127.0.0.1:1/unused
+          BETTER_AUTH_URL: http://localhost:8080
+          BETTER_AUTH_SECRET: release-verification-only
+        run: just ready-server
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Resolve image names and pinned build tools
+        id: names
+        shell: bash
+        run: node scripts/release-metadata.ts names
+      - name: Build and publish runtime
+        id: runtime
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          target: runtime
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.names.outputs.repository }}:${{ steps.names.outputs.sha }}
+          labels: org.opencontainers.image.revision=${{ steps.names.outputs.sha }}
+          build-args: |
+            NODE_VERSION=${{ steps.names.outputs.node }}
+            PNPM_VERSION=${{ steps.names.outputs.pnpm }}
+      - name: Build and publish migrations
+        id: migration
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          target: migration
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.names.outputs.repository }}-migrations:${{ steps.names.outputs.sha }}
+          labels: org.opencontainers.image.revision=${{ steps.names.outputs.sha }}
+          build-args: |
+            NODE_VERSION=${{ steps.names.outputs.node }}
+            PNPM_VERSION=${{ steps.names.outputs.pnpm }}
+      - name: Record immutable image references
+        id: refs
+        env:
+          REPOSITORY: ${{ steps.names.outputs.repository }}
+          RUNTIME_DIGEST: ${{ steps.runtime.outputs.digest }}
+          MIGRATION_DIGEST: ${{ steps.migration.outputs.digest }}
+        run: node scripts/release-metadata.ts refs

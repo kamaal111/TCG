@@ -1,0 +1,33 @@
+name: Run database migrations
+
+on:
+  workflow_dispatch:
+    inputs:
+      revision:
+        description: Commit or tag already merged into main
+        type: string
+        default: main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tcg-production-mutation
+  cancel-in-progress: false
+
+jobs:
+  build:
+    uses: ./.github/workflows/build-server-images.yml
+    permissions:
+      contents: read
+      packages: write
+    with:
+      revision: ${{ inputs.revision }}
+
+  migrate:
+    needs: build
+    uses: ./.github/workflows/server-operation.yml
+    secrets: inherit
+    with:
+      operation: migrate
+      migration: ${{ needs.build.outputs.migration }}

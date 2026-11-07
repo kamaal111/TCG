@@ -5,17 +5,9 @@ import url from 'node:url';
 import * as toml from 'smol-toml';
 import z from 'zod';
 
+import { type MiseTools, parseMiseTools } from './mise-tools.ts';
+
 const repoRoot = path.dirname(path.dirname(url.fileURLToPath(import.meta.url)));
-
-const MiseToolsSchema = z.object({
-  tools: z.object({
-    node: z.string().optional(),
-    swift: z.string().optional(),
-    pnpm: z.string().optional(),
-  }),
-});
-
-type MiseTools = z.infer<typeof MiseToolsSchema>['tools'];
 
 const PackageJsonSchema = z.object({
   devEngines: z.object({
@@ -47,10 +39,6 @@ interface Mismatch {
   source: string;
   expected: string;
   found: string;
-}
-
-export function parseMiseTools(contents: string): MiseTools {
-  return MiseToolsSchema.parse(toml.parse(contents)).tools;
 }
 
 export function parseSwiftToolsVersion(contents: string): string | undefined {
@@ -140,6 +128,96 @@ export function checkDockerfileVersions(mise: MiseTools, contents: string): Mism
   return mismatches;
 }
 
+// Mise owns controller tools; Terraform must also declare exact language/provider
+// constraints, and provider lockfiles are generated independently in both roots.
+export function checkInfrastructureVersions(mise: MiseTools, files: Readonly<Record<string, string>>): Mismatch[] {
+  const mismatches: Mismatch[] = [];
+  const modulePath = 'infra/modules/tcg/versions.tf';
+  const providerVersion = files[modulePath]?.match(/^\s*version\s*=\s*"= ([0-9.]+)"/m)?.[1];
+
+  const check = (tool: string, source: string, expected: string | undefined, found: string | undefined): void => {
+    if (expected === undefined || found !== expected) {
+      mismatches.push({ tool, source, expected: expected ?? '(a pinned version)', found: found ?? '(missing)' });
+    }
+  };
+
+  for (const root of ['infra/modules/tcg', 'infra/environments/production']) {
+    const constraintPath = `${root}/versions.tf`;
+    const contents = files[constraintPath] ?? '';
+    check('terraform', constraintPath, mise.terraform, contents.match(/required_version\s*=\s*"= ([0-9.]+)"/)?.[1]);
+    check('digitalocean', constraintPath, providerVersion, contents.match(/^\s*version\s*=\s*"= ([0-9.]+)"/m)?.[1]);
+    const lockPath = `${root}/.terraform.lock.hcl`;
+
+    const lock =
+      files[lockPath]?.match(/provider "registry\.terraform\.io\/digitalocean\/digitalocean"\s*\{([^}]+)\}/)?.[1] ?? '';
+
+    check('digitalocean', lockPath, providerVersion, lock.match(/version\s*=\s*"([0-9.]+)"/)?.[1]);
+    check('digitalocean', `${lockPath} constraints`, providerVersion, lock.match(/constraints\s*=\s*"([0-9.]+)"/)?.[1]);
+  }
+
+  return mismatches;
+}
+
+export function checkMiseLockVersions(mise: MiseTools, contents: string): Mismatch[] {
+  const lock = z
+    .object({
+      tools: z.record(z.string(), z.array(z.object({ version: z.string(), specifiers: z.array(z.string()) }))),
+    })
+    .parse(toml.parse(contents));
+
+  const mismatches: Mismatch[] = [];
+
+  for (const [tool, expected] of Object.entries(mise)) {
+    const entry = lock.tools[tool]?.[0];
+
+    const matchesVersion =
+      expected !== undefined &&
+      entry !== undefined &&
+      (entry.version === expected ||
+        (['node', 'swift', 'python'].includes(tool) && entry.version.startsWith(`${expected}.`)));
+
+    if (!matchesVersion || expected === undefined || !entry?.specifiers.includes(expected)) {
+      mismatches.push({
+        tool,
+        source: 'mise.lock',
+        expected: expected ?? '(a pinned version)',
+        found: entry?.version ?? '(missing)',
+      });
+    }
+  }
+
+  return mismatches;
+}
+
+export function checkWorkflowActionVersions(files: Readonly<Record<string, string>>): Mismatch[] {
+  const versions = new Map<string, string>();
+  const mismatches: Mismatch[] = [];
+
+  for (const [source, contents] of Object.entries(files)) {
+    for (const match of contents.matchAll(/^\s*(?:-\s*)?uses:\s*['"]?([\w.-]+\/[\w./-]+)@([^\s#'"]+)/gm)) {
+      const [, action, found] = match;
+
+      if (action === undefined || found === undefined) {
+        continue;
+      }
+
+      if (!/^v\d+$/.test(found)) {
+        mismatches.push({ tool: action, source, expected: 'a major tag (vN)', found });
+      }
+
+      const expected = versions.get(action);
+
+      if (expected !== undefined && found !== expected) {
+        mismatches.push({ tool: action, source, expected, found });
+      } else {
+        versions.set(action, found);
+      }
+    }
+  }
+
+  return mismatches;
+}
+
 async function collectPackageSwiftFiles(): Promise<string[]> {
   const packageFiles: string[] = [];
 
@@ -158,16 +236,32 @@ async function collectPackageSwiftFiles(): Promise<string[]> {
 async function checkVersionsInSync(): Promise<Mismatch[]> {
   const mismatches: Mismatch[] = [];
 
-  const [miseContents, nodeVersionContents, packageJsonContents, devcontainerContents, dockerfileContents] =
-    await Promise.all([
-      fs.readFile(path.join(repoRoot, 'mise.toml'), 'utf8'),
-      fs.readFile(path.join(repoRoot, '.node-version'), 'utf8'),
-      fs.readFile(path.join(repoRoot, 'package.json'), 'utf8'),
-      fs.readFile(path.join(repoRoot, '.devcontainer/devcontainer.json'), 'utf8'),
-      fs.readFile(path.join(repoRoot, 'Dockerfile'), 'utf8'),
-    ]);
+  const [mise, nodeVersionContents, packageJsonContents, devcontainerContents, dockerfileContents] = await Promise.all([
+    parseMiseTools(path.join(repoRoot, 'mise.toml')),
+    fs.readFile(path.join(repoRoot, '.node-version'), 'utf8'),
+    fs.readFile(path.join(repoRoot, 'package.json'), 'utf8'),
+    fs.readFile(path.join(repoRoot, '.devcontainer/devcontainer.json'), 'utf8'),
+    fs.readFile(path.join(repoRoot, 'Dockerfile'), 'utf8'),
+  ]);
 
-  const mise = parseMiseTools(miseContents);
+  const infrastructureFiles: Record<string, string> = {};
+
+  for (const root of ['infra/modules/tcg', 'infra/environments/production']) {
+    for (const name of ['versions.tf', '.terraform.lock.hcl']) {
+      const file = `${root}/${name}`;
+      infrastructureFiles[file] = await fs.readFile(path.join(repoRoot, file), 'utf8');
+    }
+  }
+
+  const workflowFiles: Record<string, string> = {};
+
+  for await (const file of fs.glob('.github/workflows/*.{yml,yaml}', { cwd: repoRoot })) {
+    workflowFiles[file] = await fs.readFile(path.join(repoRoot, file), 'utf8');
+  }
+
+  mismatches.push(...checkInfrastructureVersions(mise, infrastructureFiles));
+  mismatches.push(...checkMiseLockVersions(mise, await fs.readFile(path.join(repoRoot, 'mise.lock'), 'utf8')));
+  mismatches.push(...checkWorkflowActionVersions(workflowFiles));
   const nodeVersion = nodeVersionContents.trim();
   const packageManagerVersion = parsePackageManagerVersion(packageJsonContents);
 
@@ -232,5 +326,7 @@ if (import.meta.url === url.pathToFileURL(process.argv[1] ?? '').href) {
     process.exit(1);
   }
 
-  console.log('✅ Node, pnpm and Swift versions are in sync, including Docker images and dev container paths.');
+  console.log(
+    '✅ Tool versions, Terraform constraints/provider locks, and shared workflow action references are in sync.',
+  );
 }

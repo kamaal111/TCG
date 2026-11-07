@@ -2,7 +2,7 @@ import fs from 'node:fs/promises';
 
 import z from 'zod';
 
-import App from '../src/runtime/node/app.ts';
+import { generateOpenAPISpec } from './openapi-spec.ts';
 
 const ArgsSchema = z.tuple([
   z
@@ -12,10 +12,8 @@ const ArgsSchema = z.tuple([
 ]);
 
 async function checkOpenAPISpec(outputFile: string) {
-  const app = new App();
   console.log('🔄 Generating OpenAPI spec from the server app...');
-  const generatedSpec = await app.generateSpec();
-  await app.close();
+  const generatedSpec = generateOpenAPISpec();
   const existingSpec = await fs.readFile(outputFile, 'utf8');
 
   if (generatedSpec === existingSpec) {

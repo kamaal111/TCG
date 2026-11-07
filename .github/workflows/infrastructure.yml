@@ -1,0 +1,91 @@
+name: Infrastructure
+
+on:
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: Apply the reviewed plan after the production environment approval
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tcg-production-mutation
+  cancel-in-progress: false
+
+env:
+  TF_IN_AUTOMATION: 'true'
+  TF_CLOUD_ORGANIZATION: ${{ vars.TF_CLOUD_ORGANIZATION }}
+  TF_WORKSPACE: ${{ vars.TF_WORKSPACE }}
+  TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
+  DIGITALOCEAN_TOKEN: ${{ secrets.DIGITALOCEAN_TOKEN }}
+  SPACES_ACCESS_KEY_ID: ${{ secrets.SPACES_ADMIN_ACCESS_KEY_ID }}
+  SPACES_SECRET_ACCESS_KEY: ${{ secrets.SPACES_ADMIN_SECRET_ACCESS_KEY }}
+
+jobs:
+  plan:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    outputs:
+      plan_hash: ${{ steps.plan.outputs.plan_hash }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/setup@v3
+        with:
+          node-version-file: .node-version
+          cache: true
+          require-lockfile: true
+      - uses: extractions/setup-just@v4
+      - uses: jdx/mise-action@v5
+        with:
+          install_args: terraform
+      - name: Initialize and save a plan
+        id: plan
+        shell: bash
+        env:
+          TF_INPUTS: ${{ secrets.TF_PRODUCTION_VARS_JSON }}
+        run: bash .github/scripts/infrastructure.sh plan
+      - name: Encrypt the plan before storing it for approval
+        env:
+          PLAN_KEY: ${{ secrets.INFRA_PLAN_ENCRYPTION_KEY }}
+        run: bash .github/scripts/infrastructure.sh encrypt
+      - uses: actions/upload-artifact@v7
+        with:
+          name: encrypted-infrastructure-plan
+          path: ${{ runner.temp }}/plan.gpg
+          retention-days: 1
+      - name: Remove plaintext plan files
+        if: always()
+        run: bash .github/scripts/infrastructure.sh cleanup
+
+  apply:
+    if: inputs.apply
+    needs: plan
+    runs-on: ubuntu-latest
+    environment: production-infrastructure
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/setup@v3
+        with:
+          node-version-file: .node-version
+          cache: true
+          require-lockfile: true
+      - uses: extractions/setup-just@v4
+      - uses: jdx/mise-action@v5
+        with:
+          install_args: terraform
+      - uses: actions/download-artifact@v8
+        with:
+          name: encrypted-infrastructure-plan
+          path: ${{ runner.temp }}
+      - name: Apply the exact reviewed plan
+        shell: bash
+        env:
+          PLAN_KEY: ${{ secrets.INFRA_PLAN_ENCRYPTION_KEY }}
+          EXPECTED_HASH: ${{ needs.plan.outputs.plan_hash }}
+        run: bash .github/scripts/infrastructure.sh apply
+      - name: Remove plaintext plan files
+        if: always()
+        run: bash .github/scripts/infrastructure.sh cleanup
