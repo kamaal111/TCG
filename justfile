@@ -211,9 +211,9 @@ infra-configure:
 deployment-check:
     bash scripts/deployment-check.sh
 
-# Build, publish, and deploy a merged revision from isolated sources using private local settings
-release-server revision="origin/main" exposure="private" schema-compatible-rollback="false":
-    bash scripts/release-server.sh "{{ revision }}" "{{ exposure }}" "{{ schema-compatible-rollback }}"
+# Guide a merged server release through infrastructure, migration, and deployment approvals
+release-server *args:
+    node scripts/release-cli.ts "$@"
 
 # Inspect the macOS daily currency job
 currency-schedule-status:

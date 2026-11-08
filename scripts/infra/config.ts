@@ -102,7 +102,7 @@ async function exists(file: string): Promise<boolean> {
   }
 }
 
-async function contents(file: string): Promise<string> {
+export async function readSettingsFile(file: string): Promise<string> {
   try {
     const info = await fs.lstat(file);
 
@@ -153,7 +153,7 @@ export class ConfigStore {
 
   async readEnvironment(kind: 'infrastructure' | 'release'): Promise<EnvironmentDocument> {
     const file = this.paths[kind];
-    const source = await contents(file);
+    const source = await readSettingsFile(file);
     const keys = assignmentKeys(source);
 
     if (new Set(keys).size !== keys.length) {
@@ -239,8 +239,8 @@ export class ConfigStore {
     const base = path.join(this.paths.terraformDirectory, 'terraform.tfvars');
     const nativeExists = await exists(base);
     const jsonExists = await exists(`${base}.json`);
-    const native = await contents(base);
-    const json = await contents(`${base}.json`);
+    const native = await readSettingsFile(base);
+    const json = await readSettingsFile(`${base}.json`);
 
     if (nativeExists && jsonExists) {
       failure(
@@ -334,7 +334,7 @@ export class ConfigStore {
           .join('\n')}\n`;
 
     if (document.contents) {
-      if ((await contents(document.file)) !== document.contents) {
+      if ((await readSettingsFile(document.file)) !== document.contents) {
         failure('Settings changed in another process. Rerun the wizard before saving.');
       }
 
@@ -359,7 +359,7 @@ export class ConfigStore {
 
   async saveKnownHosts(hostname: string, key: string): Promise<void> {
     const file = this.paths.knownHosts;
-    const source = await contents(file);
+    const source = await readSettingsFile(file);
     const lines = source.split(/\r?\n/).filter(line => !line.split(/\s+/)[0]?.split(',').includes(hostname));
     const next = [...lines.filter(Boolean), `${hostname} ${key}`].join('\n') + '\n';
     await this.write({ file, previous: source, next });
@@ -382,7 +382,7 @@ export class ConfigStore {
     try {
       await fs.writeFile(temporary, next, { flag: 'wx', mode: 0o600 });
 
-      if ((await contents(file)) !== previous) {
+      if ((await readSettingsFile(file)) !== previous) {
         failure('Settings changed in another process. Rerun the wizard before saving.');
       }
 

@@ -27,7 +27,7 @@ export interface Prompts {
 
 function answer<T>(schema: z.ZodType<T>, value: string | boolean | string[] | symbol): T {
   if (clack.isCancel(value)) {
-    throw new InfraFailure('Cancelled. Completed setup sections remain saved; unfinished changes were discarded.', 130);
+    throw new InfraFailure('Cancelled. Completed steps remain saved; unfinished changes were discarded.', 130);
   }
 
   const parsed = schema.safeParse(value);

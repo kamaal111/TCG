@@ -5,6 +5,10 @@ umask 077
 fail() { echo "$1" >&2; exit 1; }
 directory="${TCG_DEPLOY_DIRECTORY:-/opt/tcg}"
 cd "$directory"
+status_tool="${TCG_STATUS_TOOL:-/usr/local/sbin/tcg-status}"
+if [[ "${1:-}" == status && $# == 1 ]]; then
+    exec python3 "$status_tool"
+fi
 lock="$directory/.deployment-lock"
 mkdir "$lock" 2>/dev/null || fail 'Another host configuration or deployment is running.'
 temporary=''
@@ -14,14 +18,30 @@ cleanup() {
 }
 trap cleanup EXIT
 
+if [[ "${1:-}" == release-checked && $# == 6 ]]; then
+    python3 "$status_tool" "$6"
+    set -- release "$2" "$3" "$4" "$5"
+elif [[ "${1:-}" == migrate-checked && $# == 3 ]]; then
+    python3 "$status_tool" "$3"
+    set -- migrate "$2"
+fi
+
 compose() {
     docker compose --env-file host.env --env-file release.env "$@"
+}
+
+hostname="$(sed -n 's/^API_HOSTNAME=//p' host.env)"
+public_health() {
+    if [[ -n "$hostname" ]]; then
+        curl --fail --silent --show-error --retry 12 --retry-delay 5 --retry-all-errors --max-time 10 "https://$hostname/health/ping"
+    fi
 }
 
 if [[ "${1:-}" == check && $# == 1 ]]; then
     [[ -f release.env ]] || fail 'No release is installed.'
     compose run --rm --no-deps tools node scripts/check-deployment.ts
     curl --fail --silent --show-error --max-time 10 http://127.0.0.1:8080/health/ping
+    public_health
     exit 0
 fi
 
@@ -32,15 +52,20 @@ validate_migration_image() {
     [[ "$1" == "$repository-migrations@"* && "${1#*@}" =~ ^${digest_pattern}$ ]] || fail 'Migration must be an allowed immutable GHCR digest.'
 }
 
-if [[ "${1:-}" == migrate && $# == 2 ]]; then
+if [[ ( "${1:-}" == migrate || "${1:-}" == migration-status ) && $# == 2 ]]; then
     migration="$2"
     validate_migration_image "$migration"
-    docker pull "$migration"
+    docker pull "$migration" >&2
     revision="$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$migration")"
     [[ "$revision" =~ ^[a-f0-9]{40}$ ]] || fail 'Migration image must identify its source commit.'
     temporary="$(mktemp -d "$directory/.migration.XXXXXX")"
     # Only the tools service runs; both variables satisfy Compose interpolation.
     printf 'TCG_RUNTIME_IMAGE=%s\nTCG_MIGRATION_IMAGE=%s\n' "$migration" "$migration" > "$temporary/release.env"
+    if [[ "$1" == migration-status ]]; then
+        docker compose --env-file host.env --env-file "$temporary/release.env" \
+            run --rm --no-deps tools node scripts/check-migrations.ts --json
+        exit 0
+    fi
     docker compose --env-file host.env --env-file "$temporary/release.env" \
         run --rm --no-deps tools node scripts/migrate.ts
     docker compose --env-file host.env --env-file "$temporary/release.env" \
@@ -59,7 +84,6 @@ validate_migration_image "$migration"
 [[ "$exposure" == private || "$exposure" == public ]] || fail 'Unknown exposure mode.'
 [[ "$rollback" == true || "$rollback" == false ]] || fail 'Rollback compatibility must be explicitly true or false.'
 
-hostname="$(sed -n 's/^API_HOSTNAME=//p' host.env)"
 if [[ "$exposure" == public ]]; then
     [[ "$hostname" =~ ^[a-z0-9][a-z0-9.-]*\.[a-z]{2,}$ ]] || fail 'Public deployment requires a configured API hostname.'
     grep -Fxq "BETTER_AUTH_URL=https://$hostname" server.env || fail 'Authentication URL does not match the public hostname.'
@@ -96,7 +120,7 @@ start_release() {
     compose up --detach --wait --wait-timeout 120 server || return 1
     if [[ "$exposure" == public ]]; then
         compose --profile public up --detach --wait --wait-timeout 120 proxy || return 1
-        curl --fail --silent --show-error --retry 12 --retry-delay 5 --retry-all-errors --max-time 10 "https://$hostname/health/ping" || return 1
+        public_health || return 1
     else
         compose --profile public stop proxy || return 1
     fi
