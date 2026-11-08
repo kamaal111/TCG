@@ -22,6 +22,12 @@ if [[ ${#overrides[@]} -gt 0 ]]; then
     done
 fi
 
+artifacts_file=''
+if [[ "${1:-}" == --prepare ]]; then
+    [[ $# == 3 ]] || { echo 'Expected --prepare OUTPUT_FILE REVISION.' >&2; exit 64; }
+    artifacts_file="$2"
+    shift 2
+fi
 revision="${1-origin/main}"
 exposure="${2-private}"
 rollback="${3-false}"
@@ -77,5 +83,10 @@ publish runtime "$TCG_IMAGE_REPOSITORY"
 publish migration "$TCG_IMAGE_REPOSITORY-migrations"
 runtime="$(cat "$temporary/runtime.digest")"
 migration="$(cat "$temporary/migration.digest")"
+if [[ -n "$artifacts_file" ]]; then
+    node -e 'require("node:fs").writeFileSync(process.argv[1], JSON.stringify({runtime: process.argv[2], migration: process.argv[3]}), {mode: 0o600, flag: "wx"})' \
+        "$artifacts_file" "$TCG_IMAGE_REPOSITORY@$runtime" "$TCG_IMAGE_REPOSITORY-migrations@$migration"
+    exit 0
+fi
 bash scripts/deployment-ssh.sh \
     "release $TCG_IMAGE_REPOSITORY@$runtime $TCG_IMAGE_REPOSITORY-migrations@$migration $exposure $rollback"

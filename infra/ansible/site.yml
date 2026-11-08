@@ -202,8 +202,15 @@
           loop:
             - { source: '../../deploy/compose.yml', dest: '{{ deploy_directory }}/compose.yml', mode: '0600' }
             - { source: '../../deploy/Caddyfile', dest: '{{ deploy_directory }}/Caddyfile', mode: '0600' }
+            - { source: '../../deploy/status.py', dest: /usr/local/sbin/tcg-status, mode: '0755' }
             - { source: '../../deploy/release.sh', dest: /usr/local/sbin/tcg-release, mode: '0755' }
             - { source: '../../deploy/command.sh', dest: /usr/local/sbin/tcg-deploy-command, mode: '0755' }
+        - name: Record the configured operations revision
+          ansible.builtin.copy:
+            content: "{{ lookup('ansible.builtin.pipe', 'git rev-parse HEAD') | trim }}\n"
+            dest: '{{ deploy_directory }}/operations-revision'
+            mode: '0600'
+
         - name: Install public hostname configuration
           ansible.builtin.copy:
             dest: '{{ deploy_directory }}/host.env'

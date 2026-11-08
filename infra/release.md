@@ -1,96 +1,79 @@
 # Release from the Mac mini
 
-[All release guides](README.md) · [One-time setup](setup.md) · [Use GitHub Actions instead](github-actions.md)
+[All release guides](README.md) · [One-time setup](setup.md) · [GitHub Actions](github-actions.md)
 
-Use this after setup. Run commands on the Mac mini from the repository root.
-Merge the code into `main` first. Uncommitted changes are not released.
-
-## 1. Check the Mac is ready
-
-Keep Docker running and Tailscale connected:
-
-```sh
-docker info
-tailscale status
-```
-
-For your first local release, sign Docker into GHCR with a GitHub **personal access
-token (classic)** that has `write:packages` and package access. Enter the token at
-the password prompt:
-
-```sh
-docker login ghcr.io --username "$(gh api user --jq .login)"
-```
-
-Repeat login when the token expires or Docker reports an authentication error.
-`just rotate-keys` includes publishing-token creation and login instructions;
-the publishing token stays managed by Docker.
-[GitHub registry authentication](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry).
-
-## 2. Apply database migrations if this release needs them
-
-Releasing does **not** apply migrations. If the database already has this release's
-migrations, continue to step 3.
-
-For a release with migrations, use a clean checkout of the same merged commit you
-will release. Back up the production database and confirm the currently running
-application can use the new schema before applying it.
-
-Use your existing private production database configuration. For example, if the
-currency collector's `currencies.env` points to this same database:
-
-```sh
-env -u DATABASE_URL just --dotenv-path "$HOME/.config/tcg/currencies.env" migrate
-```
-
-Continue only after `Database migrations completed.` If you do not have a database
-configuration yet, follow [database connection setup, steps 1–3](../server/docs/digitalocean-database.md#1-allow-the-mac-to-connect).
-Use its public direct connection URL and verified TLS certificate on the Mac.
-The [GitHub migration workflow](github-actions.md#2-apply-migrations-if-needed)
-can also apply migrations using the Droplet's credentials once Actions is set up.
-
-## 3. Release
-
-For the latest code merged into `main`:
+After setup, merge your changes into `main`. Keep Docker running and Tailscale
+connected on the Mac mini, then run this from the repository root:
 
 ```sh
 just release-server
 ```
 
-For a specific commit already merged into `main`:
+The CLI guides you through the release:
+
+1. Fetch `main` and show the exact commit and target server.
+2. Offer an infrastructure plan. You can skip it for ordinary app changes.
+   Applying a plan and configuring the host each need your approval.
+3. Run server checks, build the Linux images, and upload them to GHCR.
+4. Check the database. If migrations are pending, ask before applying them.
+5. Ask before restarting the app, then verify the live release, database and storage.
+
+Wait for **Release checks passed.** A configured API hostname automatically selects
+public HTTPS; otherwise the server stays private.
+
+## First guided release
+
+An existing server may need updated release tools. The CLI offers to configure it
+using your saved infrastructure settings. Approve this once. Infrastructure steps
+need the credentials in `$HOME/.config/tcg/infrastructure.env`; ordinary releases
+only need `$HOME/.config/tcg/release.env` and your Docker registry login.
+
+If Docker is not signed into GHCR, create a GitHub personal access token (classic)
+with `write:packages` and package access, then use that **token as the password**:
+
+```sh
+docker login ghcr.io --username "$(gh api user --jq .login)"
+```
+
+`just rotate-keys` guides you through renewing expired credentials. Changed host
+credentials need host configuration again; the release CLI offers that step after
+an infrastructure plan.
+
+## If a release fails
+
+Fix the reported problem and run `just release-server` again. The CLI offers to
+resume an unfinished release, verifies saved images and checks the actual server
+and database again. It never treats a database connection error as permission to
+run migrations. Failed infrastructure applies always require a fresh plan.
+
+Detailed output stays in a private log under `$HOME/.config/tcg/releases`.
+A stopped release keeps its published images available for retry.
+
+Before approving migrations, back up the production database and confirm the
+running app supports the new schema. Migrations are never automatically reversed.
+The guided flow does not automatically roll back application images.
+
+## Optional commands
+
+Release a specific commit already merged into `main`:
 
 ```sh
 just release-server YOUR_FULL_COMMIT_SHA
 ```
 
-If you applied migrations in step 2, use that same commit SHA here.
-The command reads `$HOME/.config/tcg/release.env`, runs server checks, builds and
-uploads the images, and deploys them. Wait for:
-
-```text
-Release checks passed.
-```
-
-## 4. Verify
+Use another settings directory:
 
 ```sh
-just --dotenv-path "$HOME/.config/tcg/release.env" deployment-check
+just release-server --config-dir "$HOME/.config/another-tcg"
 ```
 
-The command must exit successfully. This checks the application and its database
-and storage dependencies. Private releases listen on the Droplet's loopback
-interface; they do not provide a public API URL.
+For automation, the existing non-interactive release is still available. It checks
+migration readiness but never applies migrations:
 
-## If a release fails
+```sh
+just release-server --non-interactive origin/main private false
+# For a configured public hostname, replace private with public.
+```
 
-- **Pending migrations:** complete step 2, then retry the same commit.
-- **Registry authentication:** renew the Mac's publishing token or the Droplet's download token as appropriate. A changed Droplet token needs `infra-configure` again.
-- **SSH failure:** check Tailscale, the deployment key, and the hostname/host-key pairing in `release.env`.
-- **Failure after switching images:** inspect the Droplet using the [recovery commands](reference.md#verification-and-recovery). Automatic rollback is disabled by default.
-
-Do not enable rollback unless the previous application supports the current schema.
-Migrations are never automatically reversed. Releases cause a brief restart.
-
-For public HTTPS, complete [domain setup](reference.md#add-public-https) first,
-then use `just release-server origin/main public` (or the exact commit SHA instead
-of `origin/main`).
+Existing GitHub Actions workflows keep their separate migration and deployment
+approvals. See [GitHub Actions](github-actions.md).

@@ -8,6 +8,8 @@ import type { TestContext } from 'vitest';
 
 const release = url.fileURLToPath(new URL('../deploy/release.sh', import.meta.url));
 
+const statusTool = url.fileURLToPath(new URL('../deploy/status.py', import.meta.url));
+
 const guard = url.fileURLToPath(new URL('./check-infrastructure-plan.ts', import.meta.url));
 
 const runtime = `ghcr.io/example/tcg-server@sha256:${'a'.repeat(64)}`;
@@ -34,6 +36,10 @@ const fs = require('node:fs');
 const args = process.argv.slice(2);
 const command = args.join(' ');
 fs.appendFileSync(process.env.COMMAND_LOG, JSON.stringify(args) + '\\n');
+if (args[0] === 'pull') console.log('Digest: sha256:fixture-image-download');
+if (args[0] === 'inspect') console.log(JSON.stringify([{Id: 'container-123', Image: 'sha256:actual', Config: {Image: process.env.RUNNING_RUNTIME || ${JSON.stringify('ghcr.io/example/tcg-server@sha256:' + 'c'.repeat(64))}, Labels: {'org.opencontainers.image.revision': 'd'.repeat(40)}}, State: {Status: 'running'}}]));
+if (args.includes('ps')) console.log('container-123');
+if (args.includes('--json')) console.log(JSON.stringify({protocol: 1, status: 'ready', pending: 0}));
 if (args[0] === 'image') console.log((process.env.MISMATCH && command.includes('-migrations@') ? 'e' : 'd').repeat(40));
 if (process.env.FAIL_PHASE && command.includes(process.env.FAIL_PHASE)) {
   const marker = process.env.COMMAND_LOG + '.failed';
@@ -45,7 +51,17 @@ if (process.env.FAIL_PHASE && command.includes(process.env.FAIL_PHASE)) {
 `,
     { mode: 0o755 },
   );
-  await fs.writeFile(path.join(bin, 'curl'), '#!/bin/sh\nprintf \'{"message":"PONG"}\'\n', { mode: 0o755 });
+  await fs.writeFile(
+    path.join(bin, 'curl'),
+    `#!/bin/sh
+printf '%s\\n' "$*" >> "$COMMAND_LOG"
+case "$*" in
+  *https://*) [ -z "$FAIL_HTTPS" ] || exit 35 ;;
+esac
+printf '{"message":"PONG"}'
+`,
+    { mode: 0o755 },
+  );
 
   return {
     root,
@@ -56,6 +72,7 @@ if (process.env.FAIL_PHASE && command.includes(process.env.FAIL_PHASE)) {
         env: {
           ...process.env,
           TCG_DEPLOY_DIRECTORY: root,
+          TCG_STATUS_TOOL: statusTool,
           PATH: `${bin}:${process.env.PATH}`,
           COMMAND_LOG: log,
           ...extra,
@@ -197,4 +214,69 @@ test('rejects runtime and migration images from different commits before migrati
   expect(result.status).toBe(1);
   expect(result.stderr).toContain('same commit');
   expect(await f.log()).not.toContain('scripts/migrate.ts');
+});
+
+test('status reports the actual running image and busy state without taking the deployment lock', async t => {
+  const f = await fixture(t);
+  await fs.writeFile(
+    path.join(f.root, 'release.env'),
+    `TCG_RUNTIME_IMAGE=${runtime}\nTCG_MIGRATION_IMAGE=${migration}\n`,
+  );
+  await fs.mkdir(path.join(f.root, '.deployment-lock'));
+  const result = f.run(['status']);
+  expect(result.status).toBe(0);
+  expect(JSON.parse(result.stdout)).toMatchObject({
+    protocol: 1,
+    busy: true,
+    runtime: `ghcr.io/example/tcg-server@sha256:${'c'.repeat(64)}`,
+  });
+  expect(await f.log()).not.toContain('"pull"');
+  expect(await f.log()).not.toContain('"run"');
+});
+
+test('a checked deployment rejects changed host settings before pulling or replacing images', async t => {
+  const f = await fixture(t);
+  const before = JSON.parse(f.run(['status']).stdout);
+  await fs.writeFile(path.join(f.root, 'server.env'), 'BETTER_AUTH_URL=http://changed.example.com\n');
+  const result = f.run(['release-checked', runtime, migration, 'private', 'false', before.fingerprint]);
+  expect(result.status).toBe(65);
+  expect(result.stderr).toContain('host changed since approval');
+  expect(await f.release()).toBe(oldRelease);
+  expect(await f.log()).not.toContain('"pull"');
+});
+
+test('a checked migration rejects a changed running image without applying SQL', async t => {
+  const f = await fixture(t);
+  const before = JSON.parse(f.run(['status']).stdout);
+  const result = f.run(['migrate-checked', migration, before.fingerprint], { RUNNING_RUNTIME: runtime });
+  expect(result.status).toBe(65);
+  expect(await f.log()).not.toContain('scripts/migrate.ts');
+});
+
+test('a checked deployment accepts an unchanged reviewed host while holding the lock', async t => {
+  const f = await fixture(t);
+  const before = JSON.parse(f.run(['status']).stdout);
+  const result = f.run(['release-checked', runtime, migration, 'private', 'false', before.fingerprint]);
+  expect(result.status).toBe(0);
+  expect(await f.release()).toContain(runtime);
+});
+
+test('migration inspection uses the candidate tools without restarting or migrating', async t => {
+  const f = await fixture(t);
+  const result = f.run(['migration-status', migration]);
+  expect(result.status).toBe(0);
+  expect(JSON.parse(result.stdout)).toEqual({ protocol: 1, status: 'ready', pending: 0 });
+  expect(result.stderr).toContain('Digest: sha256:fixture-image-download');
+  expect(await f.log()).not.toContain('scripts/migrate.ts');
+  expect(await f.log()).not.toContain('"up"');
+  expect(await f.release()).toBe(oldRelease);
+});
+
+test('public deployment checks fail when HTTPS is unavailable even if the app is healthy locally', async t => {
+  const f = await fixture(t);
+  await fs.writeFile(path.join(f.root, 'host.env'), 'API_HOSTNAME=api.example.com\n');
+  const result = f.run(['check'], { FAIL_HTTPS: '1' });
+  expect(result.status).toBe(35);
+  expect(await f.log()).toContain('https://api.example.com/health/ping');
+  expect(await f.release()).toBe(oldRelease);
 });

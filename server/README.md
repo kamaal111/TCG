@@ -39,8 +39,10 @@ just test-server-image  # build and smoke test the image; needs a Docker daemon
 
 The image starts the HTTP server on port 8080. Supply `DATABASE_URL`, `BETTER_AUTH_URL`,
 `BETTER_AUTH_SECRET`, and the object storage credentials at runtime; see `.env.example` for
-the remaining settings. Run `just migrate` separately before deploying a version that needs
-new database migrations. The image does not run migrations on startup.
+the remaining settings. The image does not run migrations on startup.
+For remote releases, `just release-server` checks migration readiness and asks for
+approval before applying pending migrations. For manual deployments, use
+`just migrate` separately before deploying a version that needs new migrations.
 
 ## Documentation
 
