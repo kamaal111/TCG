@@ -1,0 +1,2 @@
+// Copy to Remote.local.xcconfig and replace this example hostname.
+TCG_API_HOST = api.example.com

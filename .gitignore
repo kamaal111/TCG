@@ -385,3 +385,6 @@ deploy/config/
 *.pem
 infrastructure.env
 release.env
+
+# Private app API hostname
+/app/Configuration/Remote.local.xcconfig

@@ -18,7 +18,7 @@ public struct TCGScene: Scene {
         client: TCGClient.default().auth,
         configuration: KamaalAuthConfiguration(
             appName: "TCG",
-            storageNamespace: "\(Bundle.main.bundleIdentifier ?? "io.kamaal.TCG").TCGAuth"
+            storageNamespace: TCGClient.authenticationStorageNamespace
         )
     )
     @State private var currencyState = TCGCurrency()
