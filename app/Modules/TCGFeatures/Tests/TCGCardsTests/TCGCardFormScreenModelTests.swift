@@ -369,6 +369,7 @@ struct TCGCardFormScreenModelTests {
             game: .pokemon,
             name: "Pikachu",
             cardNumber: "58/102",
+            illustrator: nil,
             pricedOn: .distantPast,
             fetchedAt: .distantPast
         )
@@ -626,6 +627,7 @@ struct TCGCardFormScreenModelTests {
             game: .pokemon,
             name: "Pikachu",
             cardNumber: "58",
+            illustrator: nil,
             market: MarketPrice(currency: .usd, low: 10),
             pricedOn: .now,
             fetchedAt: .now

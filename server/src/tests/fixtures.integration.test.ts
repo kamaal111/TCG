@@ -56,9 +56,12 @@ integrationTest(
     const defaultSearch = vi.spyOn(pricingClient, 'searchCards');
     const alternate = createApp({ pricingClient: override });
 
-    const response = await alternate.request(`${SEARCH_PRICING_ROUTE_PATH}?game=pokemon&query=Giratina`, {
-      headers: authenticatedHeaders,
-    });
+    const response = await alternate.request(
+      `${SEARCH_PRICING_ROUTE_PATH}?search_by=card&game=pokemon&query=Giratina`,
+      {
+        headers: authenticatedHeaders,
+      },
+    );
 
     expect(response.status).toBe(200);
     expect(overriddenSearch).toHaveBeenCalledOnce();

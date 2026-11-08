@@ -10,6 +10,29 @@ import Testing
 @MainActor
 struct TCGCardDetailScreenSnapshotTests {
     @Test
+    func `Renders known illustrator while current pricing is unavailable`() async {
+        let source = PreviewTCGCardsClient.sampleCards[1]
+        let card = Card(
+            id: source.id,
+            game: .pokemon,
+            name: source.name,
+            setName: source.setName,
+            cardNumber: source.cardNumber,
+            notes: nil,
+            createdAt: source.createdAt,
+            updatedAt: source.updatedAt,
+            collectionID: nil,
+            allocationAdjustments: nil,
+            illustrator: "Mitsuhiro Arita"
+        )
+        let model = TCGCardDetailScreenModel(
+            card: .init(card: card, price: .init(cardId: card.id, status: .unavailable))
+        )
+        #expect(model.card.card.illustrator == "Mitsuhiro Arita")
+        await assertScreenSnapshot(testName: #function) { makeScreen(model) }
+    }
+
+    @Test
     func `Renders purchase batch costs`() async {
         let source = PreviewTCGCardsClient.sampleCards[0]
         let card = Card(
@@ -36,7 +59,8 @@ struct TCGCardDetailScreenSnapshotTests {
                 ),
             ],
             collectionID: nil,
-            allocationAdjustments: nil
+            allocationAdjustments: nil,
+            illustrator: nil
         )
         let model = TCGCardDetailScreenModel(card: .init(card: card, price: PreviewTCGCardsClient.price(for: card)))
         #expect(model.card.card.purchases.count == 2)

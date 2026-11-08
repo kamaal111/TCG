@@ -49,10 +49,12 @@ export const SEARCH_PRICING_ROUTE_PATH = `${APP_API_ROUTE_NAME}${PRICING_ROUTE_N
 const searchPricingRoute = defineOpenAPIRoute<HonoEnvironment, typeof routeConfig>({
   route: routeConfig,
   handler: async c => {
-    const { game, query, languages } = c.req.valid('query');
+    const { game, query, languages, search_by } = c.req.valid('query');
 
     const [result, display] = await Promise.all([
-      c.get('cardPricingService').searchAndPrice(game, query, parseCardLanguages(languages)),
+      c
+        .get('cardPricingService')
+        .searchAndPrice(game, query, { languages: parseCardLanguages(languages), searchBy: search_by }),
       c.get('forexService').displayContext(),
     ]);
 

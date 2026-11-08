@@ -10,7 +10,8 @@ struct TCGSearchPresentationTests {
     @Test
     func `Opening details retains the selected card after clearing search`() async throws {
         let feature = TCGSearch(client: .preview(pricingOutcome: .success), history: TCGSearchHistoryStore())
-        try await feature.search(game: .pokemon, query: "Giratina").get()
+        try await feature.search(.init(game: .pokemon, query: "Giratina", languages: [], mode: .card))
+            .get()
         let card = try #require(feature.results.first)
         let model = TCGSearchScreenModel(preferences: nil)
         model.showDetails(of: card)
@@ -45,6 +46,7 @@ struct TCGSearchPresentationTests {
             game: .onePiece,
             name: "Nami",
             cardNumber: "OP01-016",
+            illustrator: nil,
             pricedOn: .distantPast,
             fetchedAt: .distantPast
         )
@@ -58,6 +60,7 @@ struct TCGSearchPresentationTests {
             game: .pokemon,
             name: "Giratina",
             cardNumber: "186/196",
+            illustrator: nil,
             imageURL: URL(string: "https://images.example.com/card.png")!,
             pricedOn: .distantPast,
             fetchedAt: .distantPast

@@ -17,7 +17,7 @@ describe('RealScrydexClient', () => {
       });
     });
 
-    const result = await client.searchCards('one_piece', 'p-110');
+    const result = await client.searchCards('one_piece', 'p-110', { languages: [], searchBy: 'card' });
     assert(result.isOk());
 
     expect(result.value.records.map(record => record.card)).toEqual([
@@ -44,7 +44,7 @@ describe('RealScrydexClient', () => {
       });
     });
 
-    const result = await client.searchCards('one_piece', 'OP14-069');
+    const result = await client.searchCards('one_piece', 'OP14-069', { languages: [], searchBy: 'card' });
     assert(result.isOk());
 
     expect(result.value).toMatchObject({ providerResultCount: 1, rejectedCount: 0, missingBaseVariantCount: 0 });
@@ -82,7 +82,7 @@ describe('RealScrydexClient', () => {
         ),
       );
 
-      const search = await client.searchCards('one_piece', 'OP14-069');
+      const search = await client.searchCards('one_piece', 'OP14-069', { languages: [], searchBy: 'card' });
       assert(search.isOk());
       expect(search.value.rejectedCount).toBe(0);
       expect(search.value.records).toHaveLength(1);
@@ -98,7 +98,7 @@ describe('RealScrydexClient', () => {
   it('treats an empty Scrydex envelope as a successful search', async () => {
     const client = makeClient(async () => jsonResponse({ status: 'success', data: [], totalCount: 0 }));
 
-    const result = await client.searchCards('one_piece', 'OP99-999');
+    const result = await client.searchCards('one_piece', 'OP99-999', { languages: [], searchBy: 'card' });
     assert(result.isOk());
 
     expect(result.value).toEqual({
@@ -118,7 +118,7 @@ describe('RealScrydexClient', () => {
       return jsonResponse({ data: [], total_count: 0 });
     });
 
-    const result = await client.searchCards('pokemon', 'Charizard ex 199');
+    const result = await client.searchCards('pokemon', 'Charizard ex 199', { languages: [], searchBy: 'card' });
     assert(result.isOk());
 
     const requestURL = new URL(requestedURLs[0] ?? 'invalid:');
@@ -176,7 +176,7 @@ describe('RealScrydexClient', () => {
   it('reports HTTP failures without exposing response bodies', async () => {
     const client = makeClient(async () => jsonResponse({ secret: 'provider-body' }, 429));
 
-    const result = await client.searchCards('pokemon', 'Charizard');
+    const result = await client.searchCards('pokemon', 'Charizard', { languages: [], searchBy: 'card' });
     assert(result.isErr());
 
     expect(result.error).toEqual({
@@ -191,7 +191,7 @@ describe('RealScrydexClient', () => {
   it('reports malformed successful responses', async () => {
     const client = makeClient(async () => jsonResponse({ data: 'not-an-array' }));
 
-    const result = await client.searchCards('pokemon', 'Charizard');
+    const result = await client.searchCards('pokemon', 'Charizard', { languages: [], searchBy: 'card' });
     assert(result.isErr());
 
     expect(result.error).toMatchObject({ reason: 'invalid_response', isRetryable: false });
@@ -200,7 +200,7 @@ describe('RealScrydexClient', () => {
   it('combines schema and normalization rejections while counting accepted cards without base variants', async () => {
     const withoutBaseVariant = { id: 'alt', name: 'Alternate', number: '2', variants: [{ name: 'mangaAltArt' }] };
     const client = makeClient(async () => jsonResponse({ data: [onePieceCard(), null, {}, withoutBaseVariant] }));
-    const result = await client.searchCards('one_piece', 'query');
+    const result = await client.searchCards('one_piece', 'query', { languages: [], searchBy: 'card' });
     assert(result.isOk());
     expect(result.value).toMatchObject({ providerResultCount: 4, rejectedCount: 2, missingBaseVariantCount: 1 });
     expect(result.value.records.map(record => record.card.id)).toEqual(['OP14-069', 'alt']);
@@ -238,7 +238,7 @@ describe('RealScrydexClient', () => {
       requestTimeoutMs: 100,
     });
 
-    const result = await client.searchCards('pokemon', 'Charizard');
+    const result = await client.searchCards('pokemon', 'Charizard', { languages: [], searchBy: 'card' });
     assert(result.isErr());
 
     expect(result.error).toMatchObject({ reason: 'missing_credentials', isRetryable: false });

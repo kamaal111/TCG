@@ -103,7 +103,8 @@ final class TCGCardsImportReviewModel {
             updatedAt: original.updatedAt,
             purchases: purchases,
             collectionID: original.collectionID,
-            allocationAdjustments: nil
+            allocationAdjustments: nil,
+            illustrator: nil
         )
         let oldRows = cards[index].rows
         let includedRows = oldRows.filter(\.isIncluded)

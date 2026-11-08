@@ -4,6 +4,17 @@ import { buildScrydexQuery } from '../scrydex/query.ts';
 import { buildSearchQuery, normalizeCardNumber, normalizeName, queryKey } from '../utils/query.ts';
 
 describe('card pricing query utilities', () => {
+  it('escapes illustrator input and separates search modes in cache identities', () => {
+    expect(buildScrydexQuery('pokemon', 'Mitsuhiro Arita', { searchBy: 'illustrator', languages: [] })).toBe(
+      'artist:"Mitsuhiro Arita"',
+    );
+    expect(buildScrydexQuery('pokemon', 'Arita (Studio)', { searchBy: 'illustrator', languages: ['ja'] })).toBe(
+      '(artist:"Arita \\(Studio\\)") AND (!language_code:JA)',
+    );
+    expect(queryKey('pokemon', 'Arita', { searchBy: 'illustrator', languages: [] })).not.toBe(
+      queryKey('pokemon', 'Arita', { languages: [], searchBy: 'card' }),
+    );
+  });
   it.each([
     ['en', ['en']],
     ['ja', ['ja']],
@@ -12,27 +23,41 @@ describe('card pricing query utilities', () => {
     ['en,en', ['en']],
   ])('normalizes language selection %s', (value, expected) => {
     expect(normalizeCardLanguages('pokemon', parseCardLanguages(value))).toEqual(expected);
-    expect(PricingSearchQuerySchema.safeParse({ game: 'pokemon', query: 'Shiftry', languages: value }).success).toBe(
-      true,
-    );
+    expect(
+      PricingSearchQuerySchema.safeParse({ search_by: 'card', game: 'pokemon', query: 'Shiftry', languages: value })
+        .success,
+    ).toBe(true);
   });
 
   it.each(['fr', 'EN', 'en,', 'en,unknown'])('rejects invalid language selection %s', languages => {
-    expect(PricingSearchQuerySchema.safeParse({ game: 'pokemon', query: 'Shiftry', languages }).success).toBe(false);
+    expect(
+      PricingSearchQuerySchema.safeParse({ search_by: 'card', game: 'pokemon', query: 'Shiftry', languages }).success,
+    ).toBe(false);
   });
 
   it('rejects Japanese for One Piece', () => {
-    expect(PricingSearchQuerySchema.safeParse({ game: 'one_piece', query: 'Nami', languages: 'ja' }).success).toBe(
-      false,
-    );
+    expect(
+      PricingSearchQuerySchema.safeParse({ search_by: 'card', game: 'one_piece', query: 'Nami', languages: 'ja' })
+        .success,
+    ).toBe(false);
   });
 
   it('shares unrestricted cache keys and isolates partial language selections', () => {
-    expect(queryKey('pokemon', 'Shiftry', [])).toBe(queryKey('pokemon', 'Shiftry'));
-    expect(queryKey('pokemon', 'Shiftry', ['ja', 'en', 'ja'])).toBe(queryKey('pokemon', 'Shiftry'));
-    expect(queryKey('pokemon', 'Shiftry', ['en'])).not.toBe(queryKey('pokemon', 'Shiftry', ['ja']));
-    expect(queryKey('pokemon', 'Shiftry', ['en', 'en'])).toBe(queryKey('pokemon', 'Shiftry', ['en']));
-    expect(queryKey('one_piece', 'Nami', ['en'])).toBe(queryKey('one_piece', 'Nami'));
+    expect(queryKey('pokemon', 'Shiftry', { languages: [], searchBy: 'card' })).toBe(
+      queryKey('pokemon', 'Shiftry', { languages: [], searchBy: 'card' }),
+    );
+    expect(queryKey('pokemon', 'Shiftry', { languages: ['ja', 'en', 'ja'], searchBy: 'card' })).toBe(
+      queryKey('pokemon', 'Shiftry', { languages: [], searchBy: 'card' }),
+    );
+    expect(queryKey('pokemon', 'Shiftry', { languages: ['en'], searchBy: 'card' })).not.toBe(
+      queryKey('pokemon', 'Shiftry', { languages: ['ja'], searchBy: 'card' }),
+    );
+    expect(queryKey('pokemon', 'Shiftry', { languages: ['en', 'en'], searchBy: 'card' })).toBe(
+      queryKey('pokemon', 'Shiftry', { languages: ['en'], searchBy: 'card' }),
+    );
+    expect(queryKey('one_piece', 'Nami', { languages: ['en'], searchBy: 'card' })).toBe(
+      queryKey('one_piece', 'Nami', { languages: [], searchBy: 'card' }),
+    );
   });
 
   it.each([
@@ -45,19 +70,25 @@ describe('card pricing query utilities', () => {
     ['sv5m_ja 072', ['ja'], '(!expansion.id:sv5m_ja AND !number:72) AND (!language_code:JA)'],
     ['Shiftry', ['ja', 'en'], 'name:"Shiftry"'],
   ])('constrains the complete provider search for %s', (query, languages, expected) => {
-    expect(buildScrydexQuery('pokemon', query, parseCardLanguages(languages.join(',')))).toBe(expected);
+    expect(
+      buildScrydexQuery('pokemon', query, { languages: parseCardLanguages(languages.join(',')), searchBy: 'card' }),
+    ).toBe(expected);
   });
 
   it('normalizes card names and numbers without removing hyphens', () => {
     expect(normalizeName('  Marshall.D.Teach   Alt  ')).toBe('Marshall.D.Teach Alt');
     expect(normalizeCardNumber(' op09-093 ')).toBe('OP09-093');
     expect(buildSearchQuery('  Charizard ex ', ' 199 ')).toBe('Charizard ex 199');
-    expect(queryKey('pokemon', '  Charizard   EX 199 ')).toBe('pokemon|v4|charizard ex 199');
+    expect(queryKey('pokemon', '  Charizard   EX 199 ', { languages: [], searchBy: 'card' })).toBe(
+      'pokemon|v4|charizard ex 199',
+    );
   });
 
   it('builds exact Scrydex card-number searches', () => {
-    expect(buildScrydexQuery('one_piece', 'OP14-069')).toBe('!id:OP14-069');
-    expect(buildScrydexQuery('pokemon', 'Charizard ex 199')).toBe('name:"Charizard ex" AND !number:199');
+    expect(buildScrydexQuery('one_piece', 'OP14-069', { languages: [], searchBy: 'card' })).toBe('!id:OP14-069');
+    expect(buildScrydexQuery('pokemon', 'Charizard ex 199', { languages: [], searchBy: 'card' })).toBe(
+      'name:"Charizard ex" AND !number:199',
+    );
   });
 
   it.each([
@@ -69,22 +100,30 @@ describe('card pricing query utilities', () => {
     ['Luffy (Promo) P-110', 'name:"Luffy \\(Promo\\)" AND !id:P-110'],
     ['P-110*', '!id:P\\-110\\*'],
   ])('builds safe One Piece number queries for %s', (input, expected) => {
-    expect(buildScrydexQuery('one_piece', input)).toBe(expected);
+    expect(buildScrydexQuery('one_piece', input, { languages: [], searchBy: 'card' })).toBe(expected);
   });
 
   it('versions One Piece searches while sharing normalized promo cache keys', () => {
-    expect(queryKey('one_piece', 'p-110')).toBe('one_piece|v2|p-110');
-    expect(queryKey('one_piece', ' P-110 ', ['en'])).toBe(queryKey('one_piece', 'p-110'));
-    expect(queryKey('one_piece', ' Monkey.D.Luffy   P-110 ')).toBe('one_piece|v2|monkey.d.luffy p-110');
+    expect(queryKey('one_piece', 'p-110', { languages: [], searchBy: 'card' })).toBe('one_piece|v2|p-110');
+    expect(queryKey('one_piece', ' P-110 ', { languages: ['en'], searchBy: 'card' })).toBe(
+      queryKey('one_piece', 'p-110', { languages: [], searchBy: 'card' }),
+    );
+    expect(queryKey('one_piece', ' Monkey.D.Luffy   P-110 ', { languages: [], searchBy: 'card' })).toBe(
+      'one_piece|v2|monkey.d.luffy p-110',
+    );
   });
 
   it('versions unrestricted and language-filtered Pokémon promo cache keys', () => {
-    expect(queryKey('pokemon', ' MEP   056 ')).toBe('pokemon|v4|mep 056');
-    expect(queryKey('pokemon', 'mep 056', ['en'])).toBe('pokemon|v4|languages-v1|en|mep 056');
+    expect(queryKey('pokemon', ' MEP   056 ', { languages: [], searchBy: 'card' })).toBe('pokemon|v4|mep 056');
+    expect(queryKey('pokemon', 'mep 056', { languages: ['en'], searchBy: 'card' })).toBe(
+      'pokemon|v4|languages-v1|en|mep 056',
+    );
   });
 
   it('escapes reserved Scrydex search characters', () => {
-    expect(buildScrydexQuery('pokemon', 'Pikachu (V)')).toBe('name:"Pikachu \\(V\\)"');
+    expect(buildScrydexQuery('pokemon', 'Pikachu (V)', { languages: [], searchBy: 'card' })).toBe(
+      'name:"Pikachu \\(V\\)"',
+    );
   });
 
   it.each([
@@ -114,17 +153,17 @@ describe('card pricing query utilities', () => {
       '(!expansion.id:swsh12pt5gg OR !expansion.id:swsh12pt5gg_ja) AND !printed_number:"GG69/GG70"',
     ],
   ])('translates Pokémon input %s into the expected provider filters', (input, expected) => {
-    expect(buildScrydexQuery('pokemon', input)).toBe(expected);
+    expect(buildScrydexQuery('pokemon', input, { languages: [], searchBy: 'card' })).toBe(expected);
   });
 
   it('applies language filters to prefixed printed numbers', () => {
-    expect(buildScrydexQuery('pokemon', 'gg69/gg70', ['en'])).toBe(
+    expect(buildScrydexQuery('pokemon', 'gg69/gg70', { languages: ['en'], searchBy: 'card' })).toBe(
       '(!printed_number:"GG69/GG70") AND (!language_code:EN)',
     );
   });
 
   it('preserves standalone One Piece set-number searches with versioned cache keys', () => {
-    expect(buildScrydexQuery('one_piece', 'OP14-069')).toBe('!id:OP14-069');
-    expect(queryKey('one_piece', ' OP14-069 ')).toBe('one_piece|v2|op14-069');
+    expect(buildScrydexQuery('one_piece', 'OP14-069', { languages: [], searchBy: 'card' })).toBe('!id:OP14-069');
+    expect(queryKey('one_piece', ' OP14-069 ', { languages: [], searchBy: 'card' })).toBe('one_piece|v2|op14-069');
   });
 });

@@ -1,3 +1,4 @@
+import type { CardLanguage } from './languages.ts';
 import type { CARD_GAMES } from '../cards/types.ts';
 import type { Currency } from '../forex/currencies.ts';
 import type { GetRecordValues } from '../utils/type-utils.ts';
@@ -26,7 +27,15 @@ export interface PriceMovement {
   percentChange: number;
 }
 
+export type PricingSearchMode = 'card' | 'illustrator';
+
+export interface PricingSearchOptions {
+  languages: readonly CardLanguage[];
+  searchBy: PricingSearchMode;
+}
+
 export interface NormalizedPricing {
+  illustrator?: string;
   setName?: string;
   market?: {
     condition: 'near_mint';

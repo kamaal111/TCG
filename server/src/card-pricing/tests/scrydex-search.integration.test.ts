@@ -365,7 +365,9 @@ describe('Scrydex search through the authenticated pricing API', () => {
         });
         expect(
           await db.query.cardPriceSearch.findFirst({
-            where: { queryKey: queryKey('pokemon', 'mep 056', parseCardLanguages(languages)) },
+            where: {
+              queryKey: queryKey('pokemon', 'mep 056', { languages: parseCardLanguages(languages), searchBy: 'card' }),
+            },
           }),
         ).toMatchObject({ pricingCardIds: ['mep-56'] });
 
@@ -390,7 +392,9 @@ describe('Scrydex search through the authenticated pricing API', () => {
     expect(PricingSearchResponseSchema.parse(await response.json()).matches).toHaveLength(1);
     expect(search.transport.queries).toEqual([expectedQuery]);
     expect(
-      await db.query.cardPriceSearch.findFirst({ where: { queryKey: queryKey('pokemon', 'Shiftry', ['en']) } }),
+      await db.query.cardPriceSearch.findFirst({
+        where: { queryKey: queryKey('pokemon', 'Shiftry', { languages: ['en'], searchBy: 'card' }) },
+      }),
     ).toMatchObject({ pricingCardIds: [card.id] });
   });
 
@@ -405,7 +409,9 @@ describe('Scrydex search through the authenticated pricing API', () => {
     expect(PricingSearchResponseSchema.parse(await response.json()).matches).toHaveLength(1);
     expect(search.transport.queries).toEqual([expectedQuery]);
     expect(
-      await db.query.cardPriceSearch.findFirst({ where: { queryKey: queryKey('pokemon', 'Shiftry', ['ja']) } }),
+      await db.query.cardPriceSearch.findFirst({
+        where: { queryKey: queryKey('pokemon', 'Shiftry', { languages: ['ja'], searchBy: 'card' }) },
+      }),
     ).toMatchObject({ pricingCardIds: [card.id] });
   });
 
@@ -441,7 +447,9 @@ describe('Scrydex search through the authenticated pricing API', () => {
         raw: { ...SHIFTRY, expansion: { ...SHIFTRY.expansion, name: 'Wild Force' } },
       });
       expect(
-        await db.query.cardPriceSearch.findFirst({ where: { queryKey: queryKey('pokemon', 'sv5m 072/071') } }),
+        await db.query.cardPriceSearch.findFirst({
+          where: { queryKey: queryKey('pokemon', 'sv5m 072/071', { languages: [], searchBy: 'card' }) },
+        }),
       ).toMatchObject({
         pricingSource: 'scrydex_real',
         pricingCardIds: ['sv5m_ja-72'],
@@ -634,9 +642,12 @@ function createSearchApp({ createApp, user, expectedQuery, cards, game = 'pokemo
     user,
     transport,
     request: (query: string, languages = '') =>
-      app.request(`${SEARCH_PRICING_ROUTE_PATH}?${new URLSearchParams({ game, query, languages })}`, {
-        headers: sessionHeaders(user.sessionToken),
-      }),
+      app.request(
+        `${SEARCH_PRICING_ROUTE_PATH}?${new URLSearchParams({ game, query, languages, search_by: 'card' })}`,
+        {
+          headers: sessionHeaders(user.sessionToken),
+        },
+      ),
   };
 }
 

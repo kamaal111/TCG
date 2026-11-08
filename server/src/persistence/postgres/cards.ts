@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
 
 import { omit } from '@kamaalio/kamaal/objects';
-import { and, eq, getColumns, ilike, inArray, isNull, notInArray, or, sql } from 'drizzle-orm';
+import { and, eq, getColumns, ilike, inArray, isNotNull, isNull, notInArray, or, sql } from 'drizzle-orm';
 
 import { placeCardInBinder } from './collection-placement.ts';
 import {
@@ -32,7 +32,7 @@ import { marketPurchaseAmount } from '../../cards/utils/purchase-price.ts';
 import { purchaseQuantities } from '../../cards/utils/quantities.ts';
 import { DEFAULT_COLLECTION_POLICY, DEFAULT_IMPORT_POLICY, type ApplicationConfig } from '../../config.ts';
 import type { Database } from '../../db/index.ts';
-import { card, cardConditionQuantity, cardPurchaseBatch } from '../../db/schema/cards.ts';
+import { card, cardMetadata, cardConditionQuantity, cardPurchaseBatch } from '../../db/schema/cards.ts';
 import type { AuthenticatedIdentity, RepositoryDiagnostics } from '../contracts.ts';
 
 type Transaction = Parameters<Parameters<Database['transaction']>[0]>[0];
@@ -94,15 +94,48 @@ export class PostgresCardRepository implements CardRepository {
 
         const sets = await tx.selectDistinct({ name: card.setName }).from(card).where(ownership).orderBy(card.setName);
 
+        const metadataIdentity = and(
+          eq(cardMetadata.game, card.game),
+          eq(cardMetadata.pricingSource, card.pricingSource),
+          eq(cardMetadata.pricingCardId, card.pricingCardId),
+        );
+
+        const ownedIdentities = tx
+          .selectDistinct({ game: card.game, pricingSource: card.pricingSource, pricingCardId: card.pricingCardId })
+          .from(card)
+          .where(and(ownership, eq(card.game, 'pokemon'), isNotNull(card.pricingCardId)))
+          .as('owned_identities');
+
+        const illustratorRows = await tx
+          .selectDistinct({ name: cardMetadata.illustrator })
+          .from(ownedIdentities)
+          .innerJoin(
+            cardMetadata,
+            and(
+              eq(cardMetadata.game, ownedIdentities.game),
+              eq(cardMetadata.pricingSource, ownedIdentities.pricingSource),
+              eq(cardMetadata.pricingCardId, ownedIdentities.pricingCardId),
+            ),
+          )
+          .where(isNotNull(cardMetadata.illustrator))
+          .orderBy(cardMetadata.illustrator);
+
+        const selectedIllustrators = [...new Set(options.illustrators.map(name => name.toLowerCase()))];
+
         const rows = await tx
           .select({
             ...getColumns(card),
+            illustrator: cardMetadata.illustrator,
             cursorCreatedAt: sql<string>`to_char(${card.createdAt}, 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`,
           })
           .from(card)
+          .leftJoin(cardMetadata, metadataIdentity)
           .where(
             and(
               ownership,
+              selectedIllustrators.length > 0
+                ? and(eq(card.game, 'pokemon'), inArray(sql`lower(${cardMetadata.illustrator})`, selectedIllustrators))
+                : undefined,
               searchPattern !== undefined
                 ? or(
                     ilike(card.name, searchPattern),
@@ -163,6 +196,7 @@ export class PostgresCardRepository implements CardRepository {
         return {
           cards,
           availableSetNames: sets.map(set => set.name),
+          availableIllustrators: illustratorRows.flatMap(row => (row.name == null ? [] : [row.name])),
           nextCursor:
             rows.length > limit && last != null
               ? encodeCardCursor({ createdAt: last.cursorCreatedAt, id: last.id })
@@ -179,11 +213,17 @@ export class PostgresCardRepository implements CardRepository {
    * @param cardId Card identifier.
    * @returns The card with its purchases, or undefined when absent.
    */
-  get(cardId: string): Promise<CardWithPurchases | undefined> {
-    return this.db.query.card.findFirst({
+  async get(cardId: string): Promise<CardWithPurchases | undefined> {
+    const found = await this.db.query.card.findFirst({
       where: { id: cardId, userId: this.userId },
-      with: { purchaseBatches: true },
+      with: { purchaseBatches: true, metadata: { columns: { illustrator: true } } },
     });
+
+    if (found == null) {
+      return undefined;
+    }
+
+    return { ...omit(found, 'metadata'), illustrator: found.metadata?.illustrator };
   }
 
   /**

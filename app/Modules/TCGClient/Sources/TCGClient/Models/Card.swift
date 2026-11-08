@@ -63,6 +63,7 @@ public struct Card: Codable, Hashable, Identifiable, Sendable {
     public let name: String
     public let setName: String
     public let cardNumber: String
+    public let illustrator: String?
     public let notes: String?
     public let purchases: [CardPurchase]
     public let purchasePriceChangePercent: Double?
@@ -90,7 +91,8 @@ public struct Card: Codable, Hashable, Identifiable, Sendable {
         purchasePriceChangePercent: Double? = nil,
         displayCurrency: Currency? = nil,
         collectionID: UUID?,
-        allocationAdjustments: Int?
+        allocationAdjustments: Int?,
+        illustrator: String?
     ) {
         self.collectionID = collectionID
         self.allocationAdjustments = allocationAdjustments
@@ -98,6 +100,7 @@ public struct Card: Codable, Hashable, Identifiable, Sendable {
         self.game = game
         self.name = name
         self.setName = setName
+        self.illustrator = illustrator
         self.cardNumber = cardNumber
         self.notes = notes
         self.purchases = purchases
@@ -130,6 +133,7 @@ public struct Card: Codable, Hashable, Identifiable, Sendable {
         case purchasePriceChangePercent = "purchase_price_change_percent"
         case displayCurrency = "display_currency"
         case setName = "set_name"
+        case illustrator
         case cardNumber = "card_number"
         case createdAt = "created_at"
         case updatedAt = "updated_at"

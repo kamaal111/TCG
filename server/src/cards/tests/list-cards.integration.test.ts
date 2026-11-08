@@ -77,6 +77,7 @@ describe('List cards integration', () => {
     expect(CardsListResponseSchema.parse(await response.json())).toEqual({
       cards: [],
       available_set_names: [],
+      available_illustrators: [],
       next_cursor: null,
     });
   });
@@ -227,9 +228,10 @@ describe('List cards integration', () => {
       expect(CardsListResponseSchema.parse(await response.json())).toEqual({
         cards: [],
         available_set_names: ['Romance Dawn'],
+        available_illustrators: [],
         next_cursor: null,
       });
-      expect(statements.filter(statement => statement.includes('from "card"'))).toHaveLength(2);
+      expect(statements.filter(statement => statement.includes('from "card"'))).toHaveLength(3);
     },
   );
 
@@ -248,6 +250,7 @@ describe('List cards integration', () => {
       expect(CardsListResponseSchema.parse(await response.json())).toEqual({
         cards: [],
         available_set_names: [],
+        available_illustrators: [],
         next_cursor: null,
       });
     },

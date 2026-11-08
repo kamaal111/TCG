@@ -51,6 +51,9 @@
     "Card search" : {
 
     },
+    "Cards" : {
+
+    },
     "Change your set filter to see more cards." : {
 
     },
@@ -90,6 +93,12 @@
     "How to search" : {
 
     },
+    "Illustrator" : {
+
+    },
+    "Illustrator name" : {
+
+    },
     "Japanese" : {
 
     },
@@ -123,6 +132,9 @@
     "Search again for current prices" : {
 
     },
+    "Search by" : {
+
+    },
     "Search cards" : {
 
     },
@@ -154,6 +166,9 @@
 
     },
     "Try a name and card number, like Charizard ex 199, or a set and printed number, like sv5m 072/071." : {
+
+    },
+    "Try an illustrator name, like Mitsuhiro Arita." : {
 
     }
   },

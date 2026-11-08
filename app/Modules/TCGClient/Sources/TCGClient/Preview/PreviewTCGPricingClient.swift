@@ -8,16 +8,20 @@ import Foundation
 struct PreviewTCGPricingClient: TCGPricingClient {
     let outcome: PreviewTCGPricingOutcome
 
-    func search(game: ClientCardGame, query: String, languages: Set<ClientCardLanguage>) async -> Result<
+    func search(_ request: PricingSearchQuery) async -> Result<
         CardSearchResult, SearchPricingErrors
     > {
-        let selected = ClientCardLanguage.normalized(languages, for: game)
+        let game = request.game
+        let selected = ClientCardLanguage.normalized(request.languages, for: game)
         return switch outcome {
         case .success:
             .success(
                 CardSearchResult(
                     matches: Self.samplePricedCards.filter {
                         $0.game == game && (selected.isEmpty || selected.contains(.english))
+                            && (request.mode == .card
+                                || (game == .pokemon
+                                    && $0.illustrator?.localizedCaseInsensitiveContains(request.query) == true))
                     }
                 )
             )
@@ -40,6 +44,7 @@ struct PreviewTCGPricingClient: TCGPricingClient {
             cardNumber: "OP09-093",
             setName: "Emperors in the New World",
             rarity: "Manga Rare",
+            illustrator: nil,
             imageURL: URL(string: "https://example.com/cards/marshall-d-teach.png"),
             headline: .init(amount: 8.75, currency: .usd),
             market: .init(
@@ -59,6 +64,7 @@ struct PreviewTCGPricingClient: TCGPricingClient {
             cardNumber: "GG69",
             setName: "Crown Zenith",
             rarity: "Secret Rare",
+            illustrator: "Akira Egawa",
             imageURL: URL(string: "https://example.com/cards/giratina-vstar.png"),
             headline: .init(amount: 146.69, currency: .usd),
             market: .init(

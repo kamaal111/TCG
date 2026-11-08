@@ -84,6 +84,7 @@ public struct TCGSearchScreen: View {
                 LazyVStack(alignment: .leading, spacing: 16) {
                     TCGSearchInput(
                         query: queryBinding,
+                        mode: modeBinding,
                         game: model.game,
                         languages: languagesBinding,
                         gameSelection: gameBinding,
@@ -102,6 +103,7 @@ public struct TCGSearchScreen: View {
             List {
                 TCGSearchInput(
                     query: queryBinding,
+                    mode: modeBinding,
                     game: model.game,
                     languages: languagesBinding,
                     gameSelection: gameBinding,
@@ -116,6 +118,10 @@ public struct TCGSearchScreen: View {
                 searchResults
             }
         #endif
+    }
+
+    private var modeBinding: Binding<ClientCardSearchMode> {
+        Binding(get: { model.mode }, set: { model.updateMode($0, using: search) })
     }
 
     private var gameBinding: Binding<CardGame> {
@@ -183,7 +189,7 @@ public struct TCGSearchScreen: View {
 
     @ViewBuilder
     private var historySuggestions: some View {
-        let suggestions = search.history.suggestions(for: model.query, game: model.game)
+        let suggestions = search.history.suggestions(for: model.query, game: model.game, mode: model.mode)
         if model.isSearchFocused && !suggestions.isEmpty {
             Text("Recent searches", bundle: .module)
                 .font(.headline)
@@ -255,11 +261,15 @@ public struct TCGSearchScreen: View {
             },
             description: {
                 Text(
-                    model.game == .pokemon
-                        ? LocalizedStringKey(
-                            "Enter a card name, number, or set + number to see current market pricing."
-                        )
-                        : LocalizedStringKey("Enter a card name or full card number to see current market pricing."),
+                    model.mode == .illustrator
+                        ? LocalizedStringKey("Try an illustrator name, like Mitsuhiro Arita.")
+                        : model.game == .pokemon
+                            ? LocalizedStringKey(
+                                "Enter a card name, number, or set + number to see current market pricing."
+                            )
+                            : LocalizedStringKey(
+                                "Enter a card name or full card number to see current market pricing."
+                            ),
                     bundle: .module
                 )
             }
@@ -299,13 +309,15 @@ public struct TCGSearchScreen: View {
             },
             description: {
                 Text(
-                    model.game == .pokemon
-                        ? LocalizedStringKey(
-                            "Try a name and card number, like Charizard ex 199, or a set and printed number, like sv5m 072/071."
-                        )
-                        : LocalizedStringKey(
-                            "Try a card number, like OP14-069, or a name and card number, like Nami OP01-016."
-                        ),
+                    model.mode == .illustrator
+                        ? LocalizedStringKey("Try an illustrator name, like Mitsuhiro Arita.")
+                        : model.game == .pokemon
+                            ? LocalizedStringKey(
+                                "Try a name and card number, like Charizard ex 199, or a set and printed number, like sv5m 072/071."
+                            )
+                            : LocalizedStringKey(
+                                "Try a card number, like OP14-069, or a name and card number, like Nami OP01-016."
+                            ),
                     bundle: .module
                 )
             }

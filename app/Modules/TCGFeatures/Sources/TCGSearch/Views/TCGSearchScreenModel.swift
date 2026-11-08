@@ -12,9 +12,13 @@ import TCGDesignSystem
 @Observable
 final class TCGSearchScreenModel {
     var query = ""
+    var mode: ClientCardSearchMode = .card
     var setNames: Set<String> = []
     var game: ClientCardGame = .pokemon {
-        didSet { languages = loadLanguages(for: game) }
+        didSet {
+            languages = loadLanguages(for: game)
+            if game != .pokemon { mode = .card }
+        }
     }
     var languages: Set<ClientCardLanguage> = [] {
         didSet {
@@ -62,7 +66,7 @@ final class TCGSearchScreenModel {
 
     var isSearchFocused = false
 
-    @ObservationIgnored private var candidate: (query: String, game: ClientCardGame)?
+    @ObservationIgnored private var candidate: (query: String, game: ClientCardGame, mode: ClientCardSearchMode)?
     @ObservationIgnored private var revision = UUID()
     @ObservationIgnored private let debounce: Duration
 
@@ -78,6 +82,14 @@ final class TCGSearchScreenModel {
         }
         setNames = []
         query = value
+        scheduleSearch(using: search)
+    }
+
+    func updateMode(_ value: ClientCardSearchMode, using search: TCGSearch) {
+        guard mode != value else { return }
+        finishEditing(using: search)
+        mode = game == .pokemon ? value : .card
+        setNames = []
         scheduleSearch(using: search)
     }
 
@@ -135,6 +147,7 @@ final class TCGSearchScreenModel {
 
         let request = SearchRequest(
             game: game,
+            mode: mode,
             query: normalizedQuery,
             languages: languages,
             revision: revision,
@@ -153,6 +166,7 @@ final class TCGSearchScreenModel {
         guard normalizedQuery.count >= 2 else { return }
         let request = SearchRequest(
             game: game,
+            mode: mode,
             query: normalizedQuery,
             languages: languages,
             revision: revision,
@@ -163,9 +177,12 @@ final class TCGSearchScreenModel {
 
     func selectHistory(_ entry: TCGSearchHistoryEntry, using search: TCGSearch) async {
         finishEditing(using: search)
-        if game != entry.game || query.trimmingCharacters(in: .whitespacesAndNewlines) != entry.query {
+        if mode != entry.mode || game != entry.game
+            || query.trimmingCharacters(in: .whitespacesAndNewlines) != entry.query
+        {
             setNames = []
         }
+        mode = entry.mode
         query = entry.query
         if game != entry.game { game = entry.game }
         isSearchFocused = false
@@ -174,7 +191,7 @@ final class TCGSearchScreenModel {
 
     func finishEditing(using search: TCGSearch) {
         if let candidate {
-            search.history.record(query: candidate.query, game: candidate.game)
+            search.history.record(query: candidate.query, game: candidate.game, mode: candidate.mode)
         }
         candidate = nil
         revision = UUID()
@@ -186,7 +203,9 @@ final class TCGSearchScreenModel {
 
     func removeHistory(_ entry: TCGSearchHistoryEntry, using search: TCGSearch) {
         if let candidate {
-            if candidate.game == entry.game && candidate.query.caseInsensitiveCompare(entry.query) == .orderedSame {
+            if candidate.game == entry.game && candidate.mode == entry.mode
+                && candidate.query.caseInsensitiveCompare(entry.query) == .orderedSame
+            {
                 self.candidate = nil
             }
         }
@@ -203,7 +222,7 @@ final class TCGSearchScreenModel {
         candidate = nil
         searchTask?.cancel()
         searchTask = nil
-        let identity = TCGSearch.SearchIdentity(game: game, query: query, languages: languages)
+        let identity = TCGSearch.SearchIdentity(.init(game: game, query: query, languages: languages, mode: mode))
         if identity.query.count < 2 || identity != search.completedSearch {
             search.clear()
         } else {
@@ -219,6 +238,7 @@ final class TCGSearchScreenModel {
 
     private struct SearchRequest {
         let game: ClientCardGame
+        let mode: ClientCardSearchMode
         let query: String
         let languages: Set<ClientCardLanguage>
         let revision: UUID
@@ -227,9 +247,12 @@ final class TCGSearchScreenModel {
 
     private func performSearch(_ request: SearchRequest, using search: TCGSearch) async {
         let result = await search.searchWithOutcome(
-            game: request.game,
-            query: request.query,
-            languages: request.languages
+            .init(
+                game: request.game,
+                query: request.query,
+                languages: request.languages,
+                mode: request.mode
+            )
         )
         guard request.revision == revision else { return }
         guard !Task.isCancelled else { return }
@@ -239,9 +262,9 @@ final class TCGSearchScreenModel {
             guard applied else { return }
             dismissToast()
             guard !search.results.isEmpty else { return }
-            candidate = (request.query, request.game)
+            candidate = (request.query, request.game, request.mode)
             if request.recordImmediately {
-                search.history.record(query: request.query, game: request.game)
+                search.history.record(query: request.query, game: request.game, mode: request.mode)
                 candidate = nil
             }
         }

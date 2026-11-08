@@ -31,3 +31,7 @@ sv5m_ja 72
 A full set ID targets that expansion. The `_ja` suffix identifies a Japanese set.
 
 English and Japanese cards are searched together. English names can also match translated names when available.
+
+## Search by illustrator
+
+Choose **Illustrator**, then enter a name such as **Mitsuhiro Arita**. Language filters still apply. Search returns up to 20 cards.

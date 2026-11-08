@@ -20,6 +20,7 @@ final class TCGCardsListScreenModel {
             guard !isRestoringFilters else { return }
             guard gameFilter != oldValue else { return }
             setNames = []
+            illustrators = []
             preferences?.set(gameFilter?.rawValue, forKey: PreferenceKey.game)
         }
     }
@@ -27,6 +28,12 @@ final class TCGCardsListScreenModel {
         didSet {
             guard !isRestoringFilters else { return }
             preferences?.set(setNames.sorted(), forKey: PreferenceKey.setNames)
+        }
+    }
+    var illustrators: Set<String> = [] {
+        didSet {
+            guard !isRestoringFilters else { return }
+            preferences?.set(illustrators.sorted(), forKey: PreferenceKey.illustrators)
         }
     }
     var query = ""
@@ -39,13 +46,16 @@ final class TCGCardsListScreenModel {
     @ObservationIgnored private var toastTask: Task<Void, Never>?
     @ObservationIgnored private var loadedFilters: FilterSelection?
 
-    var filters: FilterSelection { FilterSelection(game: gameFilter, setNames: setNames, query: query) }
+    var filters: FilterSelection {
+        FilterSelection(game: gameFilter, setNames: setNames, query: query, illustrators: illustrators)
+    }
 
     init(preferences: UserDefaults? = .standard) {
         self.preferences = preferences
         let saved = Self.loadFilters(from: preferences)
         gameFilter = saved.game
         setNames = saved.setNames
+        illustrators = saved.illustrators
         isRestoringFilters = false
     }
 
@@ -53,19 +63,26 @@ final class TCGCardsListScreenModel {
         var game: ClientCardGame?
         if let storedGame = preferences?.object(forKey: PreferenceKey.game) {
             guard let rawValue = storedGame as? String else {
-                return FilterSelection(game: nil, setNames: [], query: "")
+                return FilterSelection(game: nil, setNames: [], query: "", illustrators: [])
             }
             guard let parsed = ClientCardGame(rawValue: rawValue) else {
-                return FilterSelection(game: nil, setNames: [], query: "")
+                return FilterSelection(game: nil, setNames: [], query: "", illustrators: [])
             }
             game = parsed
         }
         let setNames = preferences?.object(forKey: PreferenceKey.setNames) as? [String] ?? []
-        return FilterSelection(game: game, setNames: Set(setNames), query: "")
+        return FilterSelection(
+            game: game,
+            setNames: Set(setNames),
+            query: "",
+            illustrators: game == .onePiece
+                ? [] : Set(preferences?.stringArray(forKey: PreferenceKey.illustrators) ?? [])
+        )
     }
 
     private enum PreferenceKey {
         static let game = "TCGCards.filters.game"
+        static let illustrators = "TCGCards.filters.illustrators"
         static let setNames = "TCGCards.filters.setNames"
     }
 
@@ -88,7 +105,12 @@ final class TCGCardsListScreenModel {
 
     func load(using cards: TCGCards) async {
         let requested = filters
-        switch await cards.load(game: requested.game, setNames: requested.setNames, query: requested.searchQuery) {
+        switch await cards.load(
+            game: requested.game,
+            setNames: requested.setNames,
+            query: requested.searchQuery,
+            illustrators: requested.illustrators
+        ) {
         case .success:
             if requested == filters && !Task.isCancelled { loadedFilters = requested }
         case .failure(let error):
@@ -98,6 +120,10 @@ final class TCGCardsListScreenModel {
 
     func availableSetNames(using cards: TCGCards) -> [String] {
         cards.availableSetNames.union(setNames).sorted()
+    }
+
+    func availableIllustrators(using cards: TCGCards) -> [String] {
+        cards.availableIllustrators.union(illustrators).sorted()
     }
 
     func delete(at offsets: IndexSet, using cards: TCGCards) async {
@@ -152,6 +178,7 @@ final class TCGCardsListScreenModel {
         let game: ClientCardGame?
         let setNames: Set<String>
         let query: String
+        let illustrators: Set<String>
 
         var searchQuery: String? {
             let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)

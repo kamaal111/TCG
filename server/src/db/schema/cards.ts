@@ -9,6 +9,7 @@ import {
   date,
   pgEnum,
   pgTable,
+  primaryKey,
   text,
   timestamp,
   uniqueIndex,
@@ -24,6 +25,21 @@ import { MAX_BINDER_DIMENSION } from '../../collections/constants.ts';
 export const cardGameEnum = pgEnum('card_game', CARD_GAMES);
 
 export const cardConditionEnum = pgEnum('card_condition', CARD_CONDITIONS);
+
+export const cardMetadata = pgTable(
+  'card_metadata',
+  {
+    pricingSource: text('pricing_source').notNull(),
+    game: cardGameEnum('game').notNull(),
+    pricingCardId: text('pricing_card_id').notNull(),
+    illustrator: text('illustrator'),
+    updatedAt: timestamp('updated_at')
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+  table => [primaryKey({ columns: [table.pricingSource, table.game, table.pricingCardId] })],
+);
 
 export const cardCollection = pgTable(
   'card_collection',
@@ -179,19 +195,27 @@ export const cardPurchaseBatch = pgTable(
   ],
 );
 
-export const cardsRelations = defineRelationsPart({ user, card, cardConditionQuantity, cardPurchaseBatch }, r => ({
-  card: {
-    user: r.one.user({ from: r.card.userId, to: r.user.id }),
-    purchaseBatches: r.many.cardPurchaseBatch({ from: r.card.id, to: r.cardPurchaseBatch.cardId }),
-    quantities: r.many.cardConditionQuantity({
-      from: r.card.id,
-      to: r.cardConditionQuantity.cardId,
-    }),
-  },
-  cardPurchaseBatch: {
-    card: r.one.card({ from: r.cardPurchaseBatch.cardId, to: r.card.id }),
-  },
-  cardConditionQuantity: {
-    card: r.one.card({ from: r.cardConditionQuantity.cardId, to: r.card.id }),
-  },
-}));
+export const cardsRelations = defineRelationsPart(
+  { user, card, cardMetadata, cardConditionQuantity, cardPurchaseBatch },
+  r => ({
+    card: {
+      metadata: r.one.cardMetadata({
+        from: [r.card.pricingSource, r.card.game, r.card.pricingCardId],
+        to: [r.cardMetadata.pricingSource, r.cardMetadata.game, r.cardMetadata.pricingCardId],
+      }),
+      user: r.one.user({ from: r.card.userId, to: r.user.id }),
+      purchaseBatches: r.many.cardPurchaseBatch({ from: r.card.id, to: r.cardPurchaseBatch.cardId }),
+      quantities: r.many.cardConditionQuantity({
+        from: r.card.id,
+        to: r.cardConditionQuantity.cardId,
+      }),
+    },
+    cardMetadata: {},
+    cardPurchaseBatch: {
+      card: r.one.card({ from: r.cardPurchaseBatch.cardId, to: r.card.id }),
+    },
+    cardConditionQuantity: {
+      card: r.one.card({ from: r.cardConditionQuantity.cardId, to: r.card.id }),
+    },
+  }),
+);

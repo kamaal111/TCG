@@ -86,7 +86,7 @@ no pagination parameter.
 
 ## Pricing behavior
 
-`GET /app-api/pricing/search?game=pokemon&query=Charizard` returns
+`GET /app-api/pricing/search?game=pokemon&query=Charizard&search_by=card` returns
 `{"matches":[...]}`. Queries are trimmed and must be 2–200 characters. Each
 priced match includes a UUID for that day's cached price, game, name, card number, pricing date,
 fetch timestamp, and optional rarity, proxy image URL, headline, and market data.
@@ -232,3 +232,20 @@ purchases and collection membership alongside complete layouts.
 changes without importing. `POST /app-api/collections/import` merges it atomically,
 resolves source identities within the authenticated account, maps Unfiled to that
 account's system collection, and preserves unrelated cards and collections.
+
+### Illustrator metadata and search
+
+Priced cards and owned-card responses include an optional `illustrator` when it
+is known. Missing provider metadata leaves the field absent.
+
+Pokémon pricing search accepts `search_by=illustrator`, for example
+`GET /app-api/pricing/search?game=pokemon&query=Mitsuhiro%20Arita&search_by=illustrator`.
+`search_by` is required: use `card` for card-name/number search. Illustrator search uses the
+same language filters and 20-result limit; One Piece rejects this mode.
+
+Owned-card listing accepts repeated `illustrator` parameters, matched exactly
+and case-insensitively. Selected names match with OR and combine with the other
+collection filters before pagination. `available_illustrators` contains sorted
+known names from the authorized game/collection scope, independent of pagination
+and other filters. Names come from existing provider caches and normal card
+refreshes; cards without known metadata do not match an illustrator selection.

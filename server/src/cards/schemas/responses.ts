@@ -6,6 +6,7 @@ import { CurrencySchema } from '../../forex/currencies.ts';
 import { ApiCommonDatetime, ApiCountSchema, UuidSchema } from '../../schemas/common.ts';
 
 export const CardSchema = CardCoreFieldsSchema.extend({
+  illustrator: z.string().optional(),
   collection_id: UuidSchema.nullish(),
   allocation_adjustments: ApiCountSchema.optional(),
   id: UuidSchema.meta({
@@ -94,6 +95,9 @@ export const CardsListResponseSchema = z
   .object({
     cards: z.array(CardWithPriceSchema).meta({ description: 'Owned card entries with daily pricing, newest first' }),
     next_cursor: NextCardsCursorSchema,
+    available_illustrators: z.array(z.string()).meta({
+      description: 'Known illustrators in the owned game/collection scope, independent of other filters and pagination',
+    }),
     available_set_names: z.array(CardCoreFieldsSchema.shape.set_name).meta({
       description: 'Distinct owned set names in alphabetical order, scoped by game but independent of the set filter',
     }),
@@ -102,7 +106,7 @@ export const CardsListResponseSchema = z
     $id: 'CardsListResponse',
     title: 'Cards List Response',
     description: "One page of the authenticated user's card collection with complete game-scoped set choices",
-    example: { cards: [], available_set_names: [], next_cursor: null },
+    example: { cards: [], available_set_names: [], available_illustrators: [], next_cursor: null },
   });
 
 export type CardResponse = z.infer<typeof CardSchema>;

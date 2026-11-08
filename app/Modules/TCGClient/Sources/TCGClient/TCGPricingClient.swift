@@ -6,17 +6,10 @@
 import OpenAPIRuntime
 
 public protocol TCGPricingClient: Sendable {
-    /// Searches card prices with a language selection; for example, `search(game: .pokemon, query: "Shiftry", languages: [.japanese])`.
-    func search(game: ClientCardGame, query: String, languages: Set<ClientCardLanguage>) async -> Result<
+    /// Searches using an explicit game, query, language selection, and search mode.
+    func search(_ request: PricingSearchQuery) async -> Result<
         CardSearchResult, SearchPricingErrors
     >
-}
-
-extension TCGPricingClient {
-    /// Searches across all card languages, for example `await search(game: .pokemon, query: "Pikachu")`.
-    public func search(game: ClientCardGame, query: String) async -> Result<CardSearchResult, SearchPricingErrors> {
-        await search(game: game, query: query, languages: [])
-    }
 }
 
 struct TCGPricingClientImpl: TCGPricingClient {
@@ -26,15 +19,21 @@ struct TCGPricingClientImpl: TCGPricingClient {
         self.client = client
     }
 
-    func search(game: ClientCardGame, query: String, languages: Set<ClientCardLanguage>) async -> Result<
+    func search(_ request: PricingSearchQuery) async -> Result<
         CardSearchResult, SearchPricingErrors
     > {
-        let selected = ClientCardLanguage.normalized(languages, for: game)
+        let game = request.game
+        let selected = ClientCardLanguage.normalized(request.languages, for: game)
         let languageQuery = selected.isEmpty ? nil : selected.map(\.rawValue).joined(separator: ",")
         let response: Operations.GetAppApiPricingSearch.Output
         do {
             response = try await client.getAppApiPricingSearch(
-                query: .init(languages: languageQuery, game: Self.makeSearchGame(game), query: query)
+                query: .init(
+                    searchBy: Self.makeSearchMode(request.mode),
+                    languages: languageQuery,
+                    game: Self.makeSearchGame(game),
+                    query: request.query
+                )
             )
         } catch {
             return .failure(.unknown(status: 503, payload: nil, cause: error))
@@ -64,6 +63,16 @@ struct TCGPricingClientImpl: TCGPricingClient {
         CardSearchResult(
             matches: result.matches.map { PricedCardMapper.makePricedCard($0) }
         )
+    }
+
+    private static func makeSearchMode(_ mode: ClientCardSearchMode)
+        -> Operations.GetAppApiPricingSearch.Input.Query
+        .SearchByPayload
+    {
+        switch mode {
+        case .card: .card
+        case .illustrator: .illustrator
+        }
     }
 
     private static func makeSearchGame(

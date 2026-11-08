@@ -392,7 +392,8 @@ enum CardsCSV {
             updatedAt: date(first[.updatedAt]) ?? now,
             purchases: purchases,
             collectionID: nil,
-            allocationAdjustments: nil
+            allocationAdjustments: nil,
+            illustrator: nil
         )
     }
 

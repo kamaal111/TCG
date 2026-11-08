@@ -4,6 +4,7 @@ import z from 'zod';
 import { CurrencySchema } from '../../forex/currencies.ts';
 import type { CardGame, Currency, NormalizedPricing, NormalizedPricingCard, PriceMovement } from '../types.ts';
 import { CARD_GAME_MAP } from '../types.ts';
+import { IllustratorNameSchema } from '../utils/illustrator.ts';
 
 const RequiredCardSchema = z.object({
   id: z.coerce.string().min(1),
@@ -43,6 +44,11 @@ export function normalizeScrydexCard(game: CardGame, raw: ScrydexRawCard): Scryd
   const image = imageURL(baseVariant?.images) ?? imageURL(raw.images);
   const rarity = stringValue(raw.rarity);
   const pricing: NormalizedPricingCard['pricing'] = {};
+  const illustrator = IllustratorNameSchema.safeParse(raw.artist);
+
+  if (illustrator.success) {
+    pricing.illustrator = illustrator.data;
+  }
 
   if (raw.expansion?.name != null) {
     pricing.setName = raw.expansion.name;

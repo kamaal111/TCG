@@ -1,4 +1,5 @@
-import { normalizeCardLanguages, type CardLanguage } from '../languages.ts';
+import { normalizeCardLanguages } from '../languages.ts';
+import type { PricingSearchOptions } from '../types.ts';
 import type { CardGame } from '../types.ts';
 import { CARD_GAME_MAP } from '../types.ts';
 
@@ -12,9 +13,13 @@ const PRINTED_CARD_NUMBER = /^[A-Z]*\d+\/[A-Z]*\d+$/i;
 
 const RESERVED_CHARACTERS = /([+\-!(){}[\]^"~*?:\\/]|&&|\|\|)/g;
 
-export function buildScrydexQuery(game: CardGame, query: string, languages: readonly CardLanguage[] = []): string {
-  const search = buildCardQuery(game, query);
-  const selected = normalizeCardLanguages(game, languages);
+export function buildScrydexQuery(game: CardGame, query: string, options: PricingSearchOptions): string {
+  const search =
+    options.searchBy === 'illustrator'
+      ? `artist:"${escapeScrydexValue(query.trim().replace(/\s+/g, ' '))}"`
+      : buildCardQuery(game, query);
+
+  const selected = normalizeCardLanguages(game, options.languages);
 
   if (selected.length === 0) {
     return search;

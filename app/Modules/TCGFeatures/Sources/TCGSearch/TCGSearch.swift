@@ -24,12 +24,15 @@ public final class TCGSearch {
     struct SearchIdentity: Equatable {
         let game: ClientCardGame
         let query: String
+        let mode: ClientCardSearchMode
         let languages: [ClientCardLanguage]
 
-        init(game: ClientCardGame, query: String, languages: Set<ClientCardLanguage>) {
+        init(_ request: PricingSearchQuery) {
+            let game = request.game
+            self.mode = request.mode
             self.game = game
-            self.query = query.trimmingCharacters(in: .whitespacesAndNewlines)
-            self.languages = ClientCardLanguage.normalized(languages, for: game)
+            self.query = request.query.trimmingCharacters(in: .whitespacesAndNewlines)
+            self.languages = ClientCardLanguage.normalized(request.languages, for: game)
         }
     }
 
@@ -71,22 +74,22 @@ public final class TCGSearch {
         guard let request = lastSearch else { return }
         let identity = displayIdentity
         displayRefreshError = nil
-        let result = await search(game: request.game, query: request.query, languages: Set(request.languages))
+        let result = await searchWithOutcome(
+            .init(game: request.game, query: request.query, languages: Set(request.languages), mode: request.mode)
+        )
         guard displayIdentity == identity, !Task.isCancelled else { return }
         if case .failure(let error) = result { displayRefreshError = error }
     }
 
-    func search(game: ClientCardGame, query: String, languages: Set<ClientCardLanguage> = []) async -> Result<
-        Void, TCGSearchOperationError
-    > {
-        await searchWithOutcome(game: game, query: query, languages: languages).map { _ in () }
+    func search(_ request: PricingSearchQuery) async -> Result<Void, TCGSearchOperationError> {
+        await searchWithOutcome(request).map { _ in () }
     }
 
-    func searchWithOutcome(game: ClientCardGame, query: String, languages: Set<ClientCardLanguage>) async -> Result<
-        Bool, TCGSearchOperationError
-    > {
+    func searchWithOutcome(_ request: PricingSearchQuery) async -> Result<Bool, TCGSearchOperationError> {
+        let game = request.game
+        let query = request.query
         let searchID = UUID()
-        lastSearch = SearchIdentity(game: game, query: query, languages: languages)
+        lastSearch = SearchIdentity(request)
         activeSearchID = searchID
         isSearching = true
         defer {
@@ -96,7 +99,7 @@ public final class TCGSearch {
             }
         }
 
-        let result = await client.pricing.search(game: game, query: query, languages: languages)
+        let result = await client.pricing.search(request)
         guard !Task.isCancelled, activeSearchID == searchID else {
             logger.info(
                 "Cancelled a superseded card pricing search; game=\(game.rawValue); queryLength=\(query.count)"
@@ -109,7 +112,7 @@ public final class TCGSearch {
             .map { result in
                 results = result.matches
                 hasSearched = true
-                completedSearch = SearchIdentity(game: game, query: query, languages: languages)
+                completedSearch = SearchIdentity(request)
                 return true
             }
             .mapError { error -> TCGSearchOperationError in

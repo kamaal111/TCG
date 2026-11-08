@@ -17,6 +17,9 @@ struct TCGSearchHistoryRows: View {
                     Text(verbatim: entry.query)
                         .foregroundStyle(.primary)
                         .multilineTextAlignment(.leading)
+                    if entry.mode == .illustrator {
+                        Text("Illustrator", bundle: .module).font(.caption).foregroundStyle(.secondary)
+                    }
                     Spacer(minLength: 0)
                 }
                 .frame(minHeight: 44)

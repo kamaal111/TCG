@@ -52,6 +52,7 @@ const exportCardsRoute = defineOpenAPIRoute<HonoEnvironment, typeof routeConfig>
     const { cards, nextCursor } = await c.get('cardRepository').listCollection({
       ...c.req.valid('query'),
       setNames: [],
+      illustrators: [],
     });
 
     const response = {

@@ -56,15 +56,16 @@ export const LIST_CARDS_ROUTE_PATH = `${APP_API_ROUTE_NAME}${CARDS_ROUTE_NAME}` 
 const listCardsRoute = defineOpenAPIRoute<HonoEnvironment, typeof routeConfig>({
   route: routeConfig,
   handler: async c => {
-    const { game, set_name, ...pagination } = c.req.valid('query');
+    const { game, set_name, illustrator, ...pagination } = c.req.valid('query');
 
     const repository = c.get('cardRepository');
 
-    const [{ cards, availableSetNames, nextCursor }, display] = await Promise.all([
+    const [{ cards, availableSetNames, availableIllustrators, nextCursor }, display] = await Promise.all([
       repository.listCollection({
         ...pagination,
         game,
         setNames: set_name ?? [],
+        illustrators: illustrator ?? [],
       }),
       c.get('forexService').displayContext(),
     ]);
@@ -84,6 +85,16 @@ const listCardsRoute = defineOpenAPIRoute<HonoEnvironment, typeof routeConfig>({
     const response = {
       cards: cardsWithPrices.flatMap(([card, price]) => [serializeCardWithPrice(card, price, display.value)]),
       available_set_names: availableSetNames,
+      available_illustrators: [
+        ...new Set([
+          ...availableIllustrators,
+          ...prices.flatMap(price =>
+            price.priced_card?.game === 'pokemon' && price.priced_card.illustrator != null
+              ? [price.priced_card.illustrator]
+              : [],
+          ),
+        ]),
+      ].sort(),
       next_cursor: nextCursor,
     };
 

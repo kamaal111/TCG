@@ -22,6 +22,7 @@ export interface OwnedCard {
   cardNumber: string;
   pricingCardId: string | null;
   pricingSource: string | null;
+  illustrator?: string | null;
   notes: string | null;
   createdAt: Date;
   updatedAt: Date;
@@ -47,5 +48,6 @@ export type CardWithPurchases = OwnedCard & { purchaseBatches: PurchaseBatch[] }
 export interface CardCollection {
   cards: CardWithPurchases[];
   availableSetNames: string[];
+  availableIllustrators: string[];
   nextCursor: string | null;
 }

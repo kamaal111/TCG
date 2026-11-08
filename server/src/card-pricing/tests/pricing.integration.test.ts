@@ -54,9 +54,12 @@ describe('Card pricing integration', () => {
           }),
         );
 
-        const search = await composed.app.request(`${SEARCH_PRICING_ROUTE_PATH}?game=pokemon&query=Charizard`, {
-          headers,
-        });
+        const search = await composed.app.request(
+          `${SEARCH_PRICING_ROUTE_PATH}?search_by=card&game=pokemon&query=Charizard`,
+          {
+            headers,
+          },
+        );
 
         expect(await expectErrorResponse(search, 503)).toEqual({
           code: 'PRICING_LOCK_UNAVAILABLE',
@@ -82,7 +85,7 @@ describe('Card pricing integration', () => {
       const pricingClient = new CountingPricingClient();
       const app = createApp({ pricingClient });
 
-      const path = `${SEARCH_PRICING_ROUTE_PATH}?game=pokemon&query=Giratina`;
+      const path = `${SEARCH_PRICING_ROUTE_PATH}?search_by=card&game=pokemon&query=Giratina`;
 
       const unrestricted = await app.request(path, { headers });
       const empty = await app.request(`${path}&languages=`, { headers });
@@ -115,13 +118,19 @@ describe('Card pricing integration', () => {
   integrationTest(
     'returns language validation errors for unknown codes and unsupported games',
     async ({ app, db, authenticatedHeaders: headers }) => {
-      const unknown = await app.request(`${SEARCH_PRICING_ROUTE_PATH}?game=pokemon&query=Shiftry&languages=fr`, {
-        headers,
-      });
+      const unknown = await app.request(
+        `${SEARCH_PRICING_ROUTE_PATH}?search_by=card&game=pokemon&query=Shiftry&languages=fr`,
+        {
+          headers,
+        },
+      );
 
-      const unsupported = await app.request(`${SEARCH_PRICING_ROUTE_PATH}?game=one_piece&query=Nami&languages=ja`, {
-        headers,
-      });
+      const unsupported = await app.request(
+        `${SEARCH_PRICING_ROUTE_PATH}?search_by=card&game=one_piece&query=Nami&languages=ja`,
+        {
+          headers,
+        },
+      );
 
       await expectValidationIssueForField(unknown, 'languages');
       await expectValidationIssueForField(unsupported, 'languages');
@@ -131,9 +140,12 @@ describe('Card pricing integration', () => {
   );
 
   integrationTest('searches and returns normalized market pricing', async ({ app, authenticatedHeaders }) => {
-    const response = await app.request(`${SEARCH_PRICING_ROUTE_PATH}?game=pokemon&query=Giratina%20VSTAR%20GG69`, {
-      headers: authenticatedHeaders,
-    });
+    const response = await app.request(
+      `${SEARCH_PRICING_ROUTE_PATH}?search_by=card&game=pokemon&query=Giratina%20VSTAR%20GG69`,
+      {
+        headers: authenticatedHeaders,
+      },
+    );
 
     expect(response.status).toBe(CONTENTFUL_STATUS_CODES.OK);
     const body = PricingSearchResponseSchema.parse(await response.json());
@@ -153,7 +165,7 @@ describe('Card pricing integration', () => {
   integrationTest(
     'returns One Piece set metadata from fresh and cached pricing',
     async ({ app, authenticatedHeaders }) => {
-      const path = `${SEARCH_PRICING_ROUTE_PATH}?game=one_piece&query=OP09-093`;
+      const path = `${SEARCH_PRICING_ROUTE_PATH}?search_by=card&game=one_piece&query=OP09-093`;
       const first = await app.request(path, { headers: authenticatedHeaders });
       expect(first.status).toBe(200);
       const firstBody = PricingSearchResponseSchema.parse(await first.json());
@@ -168,7 +180,7 @@ describe('Card pricing integration', () => {
   integrationTest(
     'omits set name from legacy cached pricing without normalized metadata',
     async ({ app, db, authenticatedHeaders }) => {
-      const path = `${SEARCH_PRICING_ROUTE_PATH}?game=pokemon&query=Giratina`;
+      const path = `${SEARCH_PRICING_ROUTE_PATH}?search_by=card&game=pokemon&query=Giratina`;
       const first = await app.request(path, { headers: authenticatedHeaders });
       expect(first.status).toBe(200);
       const cachedRow = await db.query.cardPrice.findFirst();
@@ -188,7 +200,7 @@ describe('Card pricing integration', () => {
   integrationTest(
     'registers images when serving legacy cached pricing results',
     async ({ app, db, authenticatedHeaders }) => {
-      const path = `${SEARCH_PRICING_ROUTE_PATH}?game=pokemon&query=Giratina%20VSTAR%20GG69`;
+      const path = `${SEARCH_PRICING_ROUTE_PATH}?search_by=card&game=pokemon&query=Giratina%20VSTAR%20GG69`;
       const first = await app.request(path, { headers: authenticatedHeaders });
       const firstBody = PricingSearchResponseSchema.parse(await first.json());
       const originURL = 'https://images.example.com/giratina-vstar-gg69.png';
@@ -208,11 +220,11 @@ describe('Card pricing integration', () => {
   );
 
   integrationTest('returns no-results and rejects invalid search queries', async ({ app, authenticatedHeaders }) => {
-    const noResults = await app.request(`${SEARCH_PRICING_ROUTE_PATH}?game=pokemon&query=no%20results`, {
+    const noResults = await app.request(`${SEARCH_PRICING_ROUTE_PATH}?search_by=card&game=pokemon&query=no%20results`, {
       headers: authenticatedHeaders,
     });
 
-    const invalid = await app.request(`${SEARCH_PRICING_ROUTE_PATH}?game=pokemon&query=x`, {
+    const invalid = await app.request(`${SEARCH_PRICING_ROUTE_PATH}?search_by=card&game=pokemon&query=x`, {
       headers: authenticatedHeaders,
     });
 
@@ -228,9 +240,12 @@ describe('Card pricing integration', () => {
       const pricingClient = new DuplicateSearchPricingClient();
       const app = createApp({ pricingClient });
 
-      const response = await app.request(`${SEARCH_PRICING_ROUTE_PATH}?game=pokemon&query=Giratina%20VSTAR%20GG69`, {
-        headers: authenticatedHeaders,
-      });
+      const response = await app.request(
+        `${SEARCH_PRICING_ROUTE_PATH}?search_by=card&game=pokemon&query=Giratina%20VSTAR%20GG69`,
+        {
+          headers: authenticatedHeaders,
+        },
+      );
 
       expect(response.status).toBe(CONTENTFUL_STATUS_CODES.OK);
       expect(PricingSearchResponseSchema.parse(await response.json()).matches).toHaveLength(1);
@@ -280,9 +295,12 @@ describe('Card pricing integration', () => {
     async ({ app, getLogsForRequestId, withRequestId, authenticatedHeaders }) => {
       const { headers, requestId } = withRequestId(authenticatedHeaders);
 
-      const response = await app.request(`${SEARCH_PRICING_ROUTE_PATH}?game=pokemon&query=Sensitive%20Search%20Term`, {
-        headers,
-      });
+      const response = await app.request(
+        `${SEARCH_PRICING_ROUTE_PATH}?search_by=card&game=pokemon&query=Sensitive%20Search%20Term`,
+        {
+          headers,
+        },
+      );
 
       expect(response.status).toBe(CONTENTFUL_STATUS_CODES.OK);
       const lockEvents = getLogsForRequestId(requestId).filter(log => log.event === 'pricing.lock.completed');
@@ -309,7 +327,7 @@ describe('Card pricing integration', () => {
       const secondApp = createApp({ pricingClient });
 
       const secondUser = await createUser();
-      const path = `${SEARCH_PRICING_ROUTE_PATH}?game=pokemon&query=Charizard%20ex%20199`;
+      const path = `${SEARCH_PRICING_ROUTE_PATH}?search_by=card&game=pokemon&query=Charizard%20ex%20199`;
 
       const firstRequest = firstApp.request(path, { headers: authenticatedHeaders });
       await pricingClient.started;
@@ -332,7 +350,7 @@ describe('Card pricing integration', () => {
       const app = createApp({ pricingClient });
 
       const query = 'Charizard ex 199';
-      const lockKey = `pricing:search:scrydex_static:${todayUTC()}:pokemon:${queryKey('pokemon', query)}`;
+      const lockKey = `pricing:search:scrydex_static:${todayUTC()}:pokemon:${queryKey('pokemon', query, { languages: [], searchBy: 'card' })}`;
       const lockHolder = new Client({ connectionString });
       await lockHolder.connect();
 
@@ -340,9 +358,12 @@ describe('Card pricing integration', () => {
         await lockHolder.query('begin');
         await lockHolder.query('select pg_advisory_xact_lock(hashtextextended($1, 0))', [lockKey]);
 
-        const response = await app.request(`${SEARCH_PRICING_ROUTE_PATH}?game=pokemon&query=Charizard%20ex%20199`, {
-          headers: authenticatedHeaders,
-        });
+        const response = await app.request(
+          `${SEARCH_PRICING_ROUTE_PATH}?search_by=card&game=pokemon&query=Charizard%20ex%20199`,
+          {
+            headers: authenticatedHeaders,
+          },
+        );
 
         expect(await expectErrorResponse(response, CONTENTFUL_STATUS_CODES.SERVICE_UNAVAILABLE)).toEqual({
           code: 'PRICING_LOCK_TIMEOUT',
@@ -365,7 +386,7 @@ describe('Card pricing integration', () => {
       const secondApp = createApp({ pricingClient });
 
       const secondUser = await createUser();
-      const path = `${SEARCH_PRICING_ROUTE_PATH}?game=pokemon&query=Giratina%20VSTAR%20GG69`;
+      const path = `${SEARCH_PRICING_ROUTE_PATH}?search_by=card&game=pokemon&query=Giratina%20VSTAR%20GG69`;
 
       const first = await firstApp.request(path, { headers: authenticatedHeaders });
       const second = await secondApp.request(path, { headers: sessionHeaders(secondUser.sessionToken) });
@@ -384,9 +405,12 @@ describe('Card pricing integration', () => {
 
       const { headers, requestId } = withRequestId(authenticatedHeaders);
 
-      const response = await app.request(`${SEARCH_PRICING_ROUTE_PATH}?game=pokemon&query=Giratina%20VSTAR%20GG69`, {
-        headers,
-      });
+      const response = await app.request(
+        `${SEARCH_PRICING_ROUTE_PATH}?search_by=card&game=pokemon&query=Giratina%20VSTAR%20GG69`,
+        {
+          headers,
+        },
+      );
 
       expect(await expectErrorResponse(response, CONTENTFUL_STATUS_CODES.SERVICE_UNAVAILABLE)).toMatchObject({
         code: 'PRICING_PROVIDER_UNAVAILABLE',
@@ -417,12 +441,15 @@ describe('Card pricing integration', () => {
 
       const secondUser = await createUser();
 
-      const firstRequest = firstApp.request(`${SEARCH_PRICING_ROUTE_PATH}?game=pokemon&query=Charizard%20ex%20199`, {
-        headers: authenticatedHeaders,
-      });
+      const firstRequest = firstApp.request(
+        `${SEARCH_PRICING_ROUTE_PATH}?search_by=card&game=pokemon&query=Charizard%20ex%20199`,
+        {
+          headers: authenticatedHeaders,
+        },
+      );
 
       const secondRequest = secondApp.request(
-        `${SEARCH_PRICING_ROUTE_PATH}?game=pokemon&query=Giratina%20VSTAR%20GG69`,
+        `${SEARCH_PRICING_ROUTE_PATH}?search_by=card&game=pokemon&query=Giratina%20VSTAR%20GG69`,
         {
           headers: sessionHeaders(secondUser.sessionToken),
         },
@@ -452,7 +479,7 @@ class CountingPricingClient implements PricingClient {
   searchCards(
     game: Parameters<PricingClient['searchCards']>[0],
     query: string,
-    languages: Parameters<PricingClient['searchCards']>[2] = [],
+    languages: Parameters<PricingClient['searchCards']>[2],
   ) {
     this.searchCallCount += 1;
 
@@ -479,7 +506,7 @@ class UnavailablePricingClient extends StaticScrydexClient {
 
 class DuplicateSearchPricingClient extends StaticScrydexClient {
   override async searchCards(game: Parameters<PricingClient['searchCards']>[0], query: string) {
-    const result = await super.searchCards(game, query);
+    const result = await super.searchCards(game, query, { languages: [], searchBy: 'card' });
 
     return result.map(search => ({
       ...search,
@@ -503,7 +530,7 @@ class BlockingPricingClient extends CountingPricingClient {
       await this.gate.promise;
     }
 
-    return super.searchCards(game, query);
+    return super.searchCards(game, query, { languages: [], searchBy: 'card' });
   }
 
   override async getCardById(game: Parameters<PricingClient['getCardById']>[0], id: string) {
@@ -527,7 +554,7 @@ class FailOncePricingClient extends CountingPricingClient {
       throw new Error('Simulated upstream failure');
     }
 
-    return super.searchCards(game, query);
+    return super.searchCards(game, query, { languages: [], searchBy: 'card' });
   }
 }
 
@@ -545,7 +572,7 @@ class TwoCallBarrierPricingClient extends CountingPricingClient {
 
     await this.gate.promise;
 
-    return new StaticScrydexClient().searchCards(game, query);
+    return new StaticScrydexClient().searchCards(game, query, { languages: [], searchBy: 'card' });
   }
 
   release() {

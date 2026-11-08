@@ -1,3 +1,4 @@
+import { cachedIllustrator } from './illustrator.ts';
 import { proxyURLForOriginURL } from '../../card-images/keys.ts';
 import { toISO8601String } from '../../utils/strings.ts';
 import type { CardPriceRow } from '../repository.ts';
@@ -47,6 +48,7 @@ export function serializePricedCard(game: CardGame, row: CardPriceRow, baseURL: 
     set_name: row.prices.setName,
     card_number: row.cardNumber,
     rarity: row.prices.rarity,
+    illustrator: cachedIllustrator(row),
     image_url: imageUrl,
     headline,
     market,
