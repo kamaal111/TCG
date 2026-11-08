@@ -179,14 +179,16 @@ integrationTest('logs the deletion', async ({ app, getLogsForRequestId, withRequ
 
 `pricing.lock.completed` distinguishes acquisition failures from failures of the
 protected operation. Acquisition timeouts use `PRICING_LOCK_TIMEOUT`; other
-acquisition failures use `PRICING_PROVIDER_UNAVAILABLE`. Once acquired, provider
+acquisition failures use `PRICING_LOCK_UNAVAILABLE`. Once acquired, provider
 failures retain `lock_status: acquired` and use `PRICING_PROVIDER_UNAVAILABLE`;
 unexpected operation failures use `PRICING_OPERATION_FAILED`. Provider warnings
 remain visible when collection listing returns affected prices as `unavailable`.
 
-Unexpected acquisition and operation failures log at error level, retaining the
-original diagnostic cause in `err`. Their returned API exceptions expose the safe
-`INTERNAL_SERVER_ERROR` response. Timeouts and provider failures remain warnings.
+Unexpected operation failures log at error level, retaining the original cause in
+`err`, and return `INTERNAL_SERVER_ERROR`. Acquisition failures, timeouts, and provider
+failures are retryable 503 responses and remain warnings. Owned-card reads may return
+affected prices as unavailable. `pricing.lock.pool_error` records lost idle lock
+connections at error level; locks use a separate pool capped at two connections.
 
 ## Currency workflows
 

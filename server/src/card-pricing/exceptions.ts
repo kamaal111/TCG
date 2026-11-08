@@ -6,11 +6,13 @@ type CardPricingExceptionCode = (typeof CARD_PRICING_EXCEPTION_CODES)[keyof type
 
 export const CARD_PRICING_EXCEPTION_CODES = {
   PRICING_LOCK_TIMEOUT: 'PRICING_LOCK_TIMEOUT',
+  PRICING_LOCK_UNAVAILABLE: 'PRICING_LOCK_UNAVAILABLE',
   PRICING_PROVIDER_UNAVAILABLE: 'PRICING_PROVIDER_UNAVAILABLE',
 } as const;
 
 const MESSAGE_BY_CODE: Record<CardPricingExceptionCode, string> = {
   PRICING_LOCK_TIMEOUT: 'Pricing is busy; try again shortly.',
+  PRICING_LOCK_UNAVAILABLE: 'Card pricing is temporarily unavailable; try again shortly.',
   PRICING_PROVIDER_UNAVAILABLE: 'Card pricing data is temporarily unavailable; try again shortly.',
 };
 
@@ -53,8 +55,12 @@ class PricingInternalFailure extends InternalServerError {
   }
 }
 
-export class PricingLockUnavailable extends PricingInternalFailure {
+export class PricingLockUnavailable extends CardPriceException {
   readonly reason = 'lock_unavailable';
+
+  constructor(c: ExceptionContext, cause?: Error) {
+    super(c, { code: CARD_PRICING_EXCEPTION_CODES.PRICING_LOCK_UNAVAILABLE, cause });
+  }
 }
 
 export class PricingOperationFailed extends PricingInternalFailure {

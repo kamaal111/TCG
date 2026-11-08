@@ -11,7 +11,8 @@ definePersistenceContracts('PostgreSQL and S3', async () => {
   const database = await createTestDatabase('./drizzle');
   const storage = await createTestObjectStorage();
   const persistence = createPostgresPersistence(database.db, env.PRICING_LOCK_TIMEOUT_MS);
-  const app = new NodeApp({ db: database.db, storageClient: storage }).app;
+  const application = new NodeApp({ db: database.db, storageClient: storage });
+  const app = application.app;
 
   return {
     images: persistence.cardImageRepository,
@@ -31,6 +32,10 @@ definePersistenceContracts('PostgreSQL and S3', async () => {
 
       return { cards: repositories.cardRepository, preferences: repositories.userPreferencesRepository };
     },
-    cleanup: database.cleanup,
+    cleanup: async () => {
+      await application.close();
+      await persistence.close();
+      await database.cleanup();
+    },
   };
 });

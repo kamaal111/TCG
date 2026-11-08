@@ -193,6 +193,7 @@ struct TCGCardsClientImpl: TCGCardsClient {
                 )
             )
         } catch {
+            RequestDiagnosticsMiddleware.processingFailure(error, operation: "cards.list")
             return .failure(.unknown(status: HTTPResponse.Status.serviceUnavailable.code, payload: nil, cause: error))
         }
 
@@ -221,8 +222,12 @@ struct TCGCardsClientImpl: TCGCardsClient {
                             nextCursor: collection.nextCursor
                         )
                     }
-                    .mapError { .unknown(status: HTTPResponse.Status.serviceUnavailable.code, payload: nil, cause: $0) }
+                    .mapError { error in
+                        RequestDiagnosticsMiddleware.mappingFailure(operation: "cards.list")
+                        return .unknown(status: HTTPResponse.Status.serviceUnavailable.code, payload: nil, cause: error)
+                    }
             } catch {
+                RequestDiagnosticsMiddleware.processingFailure(error, operation: "cards.list")
                 return .failure(
                     .unknown(status: HTTPResponse.Status.serviceUnavailable.code, payload: nil, cause: error)
                 )

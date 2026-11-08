@@ -161,7 +161,7 @@ public struct TCGClient: Sendable {
             serverURL: serverURL,
             configuration: configuration,
             transport: transport,
-            middlewares: [AuthorizationMiddleware(tokenProvider: tokenProvider)]
+            middlewares: [RequestDiagnosticsMiddleware(), AuthorizationMiddleware(tokenProvider: tokenProvider)]
         )
         let auth = KamaalAuthClientImpl(
             hooks: TCGAuthRequestHooks(client: client, tokenClient: tokenClient),
