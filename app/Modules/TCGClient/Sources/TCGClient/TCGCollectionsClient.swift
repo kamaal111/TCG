@@ -258,7 +258,10 @@ struct TCGCollectionsClientImpl: TCGCollectionsClient {
                 let value = try response.body.json
                 return ResultMapping.map(value.cards, transform: TCGCardsClientImpl.makeCardWithPrice)
                     .map { BinderPageCards(cards: $0) }
-                    .mapError { _ in .unavailable }
+                    .mapError { _ in
+                        RequestDiagnosticsMiddleware.mappingFailure(operation: "collections.page")
+                        return .unavailable
+                    }
             case .badRequest(let response):
                 return .failure(.validation(TCGClientValidationErrorParser.parseIssues(from: try? response.body.json)))
             case .unauthorized: return .failure(.unauthorized)
@@ -271,7 +274,10 @@ struct TCGCollectionsClientImpl: TCGCollectionsClient {
                 return .failure(Self.serviceError(code: (try? response.body.json)?.code))
             case .internalServerError, .undocumented: return .failure(.unavailable)
             }
-        } catch { return .failure(.unavailable) }
+        } catch {
+            RequestDiagnosticsMiddleware.processingFailure(error, operation: "collections.page")
+            return .failure(.unavailable)
+        }
     }
 
     func export(ids: [UUID]?) async -> Result<CollectionBackup, CollectionsError> {

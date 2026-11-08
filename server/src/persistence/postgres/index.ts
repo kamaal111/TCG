@@ -10,10 +10,13 @@ import type { Database } from '../../db/index.ts';
 import type { Persistence } from '../contracts.ts';
 
 export function createPostgresPersistence(db: Database, timeoutMs: number, config?: ApplicationConfig): Persistence {
+  const coordinator = new PostgresPricingCoordinator(db, timeoutMs);
+
   return {
+    close: coordinator.close,
     forexRepository: new PostgresForexRepository(db),
     cardImageRepository: new PostgresCardImageRepository(db, config),
-    pricingCoordinator: new PostgresPricingCoordinator(db, timeoutMs),
+    pricingCoordinator: coordinator,
     forRequest: (identity, diagnostics) => {
       const cardRepository = new PostgresCardRepository(db, identity, diagnostics, config);
 

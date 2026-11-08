@@ -185,6 +185,7 @@ export function createNodeApplication(overrides: AppOverrides = {}) {
     lifecycle,
     dispose: async () => {
       await cardImageWarmer.idle();
+      await persistence.close();
 
       if (overrides.db == null) {
         await db.$client.end();

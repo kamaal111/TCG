@@ -19,8 +19,14 @@ export function trackPoolShutdown(pool: PoolLifecycle): () => Promise<void> {
     });
   });
 
-  return async () => {
-    await pool.end();
-    await Promise.all(pending);
+  let closing: Promise<void> | undefined;
+
+  return () => {
+    closing ??= (async () => {
+      await pool.end();
+      await Promise.all(pending);
+    })();
+
+    return closing;
   };
 }

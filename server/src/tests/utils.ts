@@ -5,13 +5,13 @@ import type { Hono } from 'hono';
 import { Client } from 'pg';
 import { inject } from 'vitest';
 
-import { trackPoolShutdown } from './pool-shutdown.ts';
 import { SIGN_UP_ROUTE_PATH } from '../auth/constants.ts';
 import { CONTENTFUL_STATUS_CODES } from '../constants/http.ts';
 import { MIME_TYPES } from '../constants/request.ts';
 import type { HonoEnvironment } from '../context.ts';
 import { createDatabase, type Database } from '../db/index.ts';
 import env from '../env.ts';
+import { trackPoolShutdown } from '../utils/pool-shutdown.ts';
 
 export const createTestDatabase = async (
   migrationsFolder: string,

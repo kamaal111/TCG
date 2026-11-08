@@ -26,6 +26,7 @@ export interface RequestRepositories {
 }
 
 export interface Persistence {
+  close(): Promise<void>;
   forexRepository: ForexRepository;
   cardImageRepository: CardImageRepository;
   forRequest(identity: AuthenticatedIdentity, diagnostics: RepositoryDiagnostics): RequestRepositories;

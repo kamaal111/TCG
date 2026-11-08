@@ -7,6 +7,7 @@ export const PRICING_EVENTS = [
   'pricing.search.cache',
   'pricing.owned.cache',
   'pricing.lock.completed',
+  'pricing.lock.pool_error',
   'pricing.provider.request_completed',
 ] as const;
 

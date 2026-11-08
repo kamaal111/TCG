@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 
 import type { PricingClient, PricingClientError, PricingSearchResult } from './client.ts';
-import { PricingLockTimeout, PricingProviderUnavailable } from './exceptions.ts';
+import { PricingLockTimeout, PricingLockUnavailable, PricingProviderUnavailable } from './exceptions.ts';
 import { normalizeCardLanguages, type CardLanguage } from './languages.ts';
 import { type PricingLogFields, pricingLogger } from './logging.ts';
 import { PricingOperation } from './operation.ts';
@@ -145,7 +145,7 @@ export class CardPricingService {
    * Prices owned cards, resolving provider identities when missing or owned by another source.
    *
    * @param cards Owned cards to price.
-   * @param options.allowUnavailable When true, a per-card pricing lock timeout or provider failure is reported as
+   * @param options.allowUnavailable When true, a per-card pricing lock acquisition or provider failure is reported as
    * `UNAVAILABLE` for that card instead of failing the whole batch.
    * @returns Price responses for each card, in the same order as `cards`.
    */
@@ -153,22 +153,30 @@ export class CardPricingService {
     cards: NonEmptyArray<CardWithPurchases>,
     options: { allowUnavailable?: boolean } = {},
   ): Promise<NonEmptyArray<OwnedCardPriceResponse>> {
-    const [priced, ...rest] = await Promise.all(
-      cards.map(async card => {
+    const pending = cards.entries();
+    const prices: OwnedCardPriceResponse[] = [];
+
+    const worker = async () => {
+      for (const [index, card] of pending) {
         try {
-          return await this.priceOwnedCard(card);
+          prices[index] = await this.priceOwnedCard(card);
         } catch (error) {
           if (
             options.allowUnavailable &&
-            (error instanceof PricingLockTimeout || error instanceof PricingProviderUnavailable)
+            (error instanceof PricingLockTimeout ||
+              error instanceof PricingLockUnavailable ||
+              error instanceof PricingProviderUnavailable)
           ) {
-            return { card_id: card.id, status: OWNED_CARD_PRICE_STATUSES.UNAVAILABLE };
+            prices[index] = { card_id: card.id, status: OWNED_CARD_PRICE_STATUSES.UNAVAILABLE };
+          } else {
+            throw error;
           }
-
-          throw error;
         }
-      }),
-    );
+      }
+    };
+
+    await Promise.all(Array.from({ length: Math.min(4, cards.length) }, worker));
+    const [priced, ...rest] = prices;
 
     assert(priced != null, 'Owned card pricing did not return a result for at least one card');
 

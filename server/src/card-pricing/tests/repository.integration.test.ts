@@ -1,18 +1,16 @@
 import assert from 'node:assert/strict';
 
-import { drizzle } from 'drizzle-orm/node-postgres';
 import { Context } from 'hono';
 import { ResultAsync } from 'neverthrow';
-import { Client, Pool } from 'pg';
+import { Client } from 'pg';
 
 import type { HonoEnvironment } from '../../context.ts';
 import type { Database } from '../../db/index.ts';
-import { appRelations } from '../../db/schema/index.ts';
 import env from '../../env.ts';
 import { APIException } from '../../exceptions/index.ts';
 import { createRequestLogger } from '../../logging/index.ts';
 import { createPostgresPersistence } from '../../persistence/postgres/index.ts';
-import { integrationTest } from '../../tests/fixtures.ts';
+import { integrationTest as baseIntegrationTest } from '../../tests/fixtures.ts';
 import {
   PricingLockTimeout,
   PricingLockUnavailable,
@@ -51,12 +49,18 @@ function pricingLock() {
   } as const;
 }
 
+const integrationTest = baseIntegrationTest.extend('pricing', async ({ db, createTestRequestId }, { onCleanup }) => {
+  const requestId = createTestRequestId();
+  const fixture = createRepository(db, requestId);
+  onCleanup(() => fixture.c.get('persistence').close());
+
+  return { ...fixture, requestId };
+});
+
 describe('Pricing repository lock results', () => {
   integrationTest(
     'returns Ok after the locked operation succeeds',
-    async ({ db, createTestRequestId, getLogsForRequestId }) => {
-      const requestId = createTestRequestId();
-      const { repository } = createRepository(db, requestId);
+    async ({ pricing: { requestId, repository }, getLogsForRequestId }) => {
       const value = { matched: true };
       const pending = repository.withPricingLock(pricingLock(), async () => value);
       expect(pending).toBeInstanceOf(ResultAsync);
@@ -77,9 +81,7 @@ describe('Pricing repository lock results', () => {
 
   integrationTest(
     'wraps unexpected failures in an API exception and releases the lock',
-    async ({ db, createTestRequestId, getLogsForRequestId }) => {
-      const requestId = createTestRequestId();
-      const { repository } = createRepository(db, requestId);
+    async ({ pricing: { requestId, repository }, getLogsForRequestId }) => {
       const lock = pricingLock();
       const failure = new Error('Operation failed');
 
@@ -115,9 +117,7 @@ describe('Pricing repository lock results', () => {
 
   integrationTest(
     'returns a provider failure without replacing its identity',
-    async ({ db, createTestRequestId, getLogsForRequestId }) => {
-      const requestId = createTestRequestId();
-      const { c, repository } = createRepository(db, requestId);
+    async ({ pricing: { c, requestId, repository }, getLogsForRequestId }) => {
       const failure = new PricingProviderUnavailable(c);
 
       const result = await repository.withPricingLock(pricingLock(), async () => {
@@ -142,12 +142,8 @@ describe('Pricing repository lock results', () => {
 
   integrationTest(
     'returns a typed acquisition failure without running the operation',
-    async ({ connectionString, createTestRequestId, getLogsForRequestId }) => {
-      const requestId = createTestRequestId();
-      const pool = new Pool({ connectionString });
-      const db = drizzle<typeof appRelations>({ client: pool, relations: appRelations });
-      await pool.end();
-      const { repository } = createRepository(db, requestId);
+    async ({ pricing: { c, requestId, repository }, getLogsForRequestId }) => {
+      await c.get('persistence').close();
       let ran = false;
 
       const result = await repository.withPricingLock(pricingLock(), async () => {
@@ -159,7 +155,8 @@ describe('Pricing repository lock results', () => {
       assert(result.isErr());
       expect(result.error).toBeInstanceOf(APIException);
       expect(result.error).toBeInstanceOf(PricingLockUnavailable);
-      expect(result.error.status).toBe(500);
+      expect(result.error.status).toBe(503);
+      expect(result.error.getResponse().headers.get('Retry-After')).toBe('1');
       expect(result.error.cause).toBeInstanceOf(Error);
       expect(ran).toBe(false);
       expect(getLogsForRequestId(requestId)).toEqual(
@@ -167,7 +164,7 @@ describe('Pricing repository lock results', () => {
           expect.objectContaining({
             event: 'pricing.lock.completed',
             lock_status: 'failed',
-            error_code: 'PRICING_PROVIDER_UNAVAILABLE',
+            error_code: 'PRICING_LOCK_UNAVAILABLE',
           }),
         ]),
       );
@@ -176,9 +173,7 @@ describe('Pricing repository lock results', () => {
 
   integrationTest(
     'returns Err for a lock timeout without running the operation',
-    async ({ db, connectionString, createTestRequestId, getLogsForRequestId }) => {
-      const requestId = createTestRequestId();
-      const { repository } = createRepository(db, requestId);
+    async ({ pricing: { requestId, repository }, connectionString, getLogsForRequestId }) => {
       const lock = pricingLock();
       const holder = new Client({ connectionString });
       await holder.connect();

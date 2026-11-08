@@ -1,7 +1,7 @@
 import events from 'node:events';
 import timers from 'node:timers/promises';
 
-import { trackPoolShutdown } from './pool-shutdown.ts';
+import { trackPoolShutdown } from '../utils/pool-shutdown.ts';
 
 class TestPool extends events.EventEmitter {
   shutdown = Promise.withResolvers<undefined>();
@@ -81,6 +81,19 @@ describe('tracked pool shutdown', () => {
     client.emit('end');
     await closing;
     expect(completed).toHaveBeenCalledOnce();
+  });
+
+  test('shares a single shutdown across repeated disposal calls', async () => {
+    const pool = new TestPool();
+    const close = trackPoolShutdown(pool);
+    const first = close();
+    const second = close();
+
+    expect(second).toBe(first);
+    pool.shutdown.resolve(undefined);
+    await Promise.all([first, second]);
+    await close();
+    expect(pool.end).toHaveBeenCalledOnce();
   });
 
   test('propagates pool shutdown errors', async () => {

@@ -10,6 +10,7 @@ import { createCardRequest } from '../../cards/tests/utils.ts';
 import { CONTENTFUL_STATUS_CODES } from '../../constants/http.ts';
 import { cardImage } from '../../db/schema/card-images.ts';
 import { cardPrice } from '../../db/schema/card-pricing.ts';
+import { createNodeApplication } from '../../runtime/node/app.ts';
 import { deferred } from '../../tests/async.ts';
 import { expectErrorResponse, expectValidationIssueForField, sessionHeaders } from '../../tests/auth.ts';
 import { integrationTest } from '../../tests/fixtures.ts';
@@ -20,6 +21,54 @@ import { StaticScrydexClient } from '../scrydex/static-client.ts';
 import { queryKey, todayUTC } from '../utils/query.ts';
 
 describe('Card pricing integration', () => {
+  integrationTest(
+    'keeps owned cards visible when the lock pool is unavailable and returns a retryable search failure',
+    async ({ app, db, user, authenticatedHeaders, storageClient, getLogsForRequestId, withRequestId }) => {
+      const created = await createCardRequest(app, user.sessionToken, {
+        game: 'pokemon',
+        name: 'Giratina VSTAR',
+        set_name: 'Crown Zenith',
+        card_number: 'GG69',
+        purchases: [{ condition: 'near_mint', quantity: 1, purchase_price: null, currency: null }],
+      });
+
+      expect(created.status).toBe(201);
+      await db.delete(cardPrice);
+      const composed = createNodeApplication({ db, storageClient, pricingClient: new StaticScrydexClient() });
+      await composed.dependencies.persistence.close();
+
+      try {
+        const { headers, requestId } = withRequestId(authenticatedHeaders);
+        const listed = await composed.app.request(LIST_CARDS_ROUTE_PATH, { headers });
+
+        expect(listed.status).toBe(200);
+        expect(await listed.json()).toMatchObject({
+          cards: [{ name: 'Giratina VSTAR', price: { status: 'unavailable' } }],
+        });
+        expect(getLogsForRequestId(requestId)).toContainEqual(
+          expect.objectContaining({
+            event: 'pricing.lock.completed',
+            outcome: 'failure',
+            lock_status: 'failed',
+            error_code: 'PRICING_LOCK_UNAVAILABLE',
+          }),
+        );
+
+        const search = await composed.app.request(`${SEARCH_PRICING_ROUTE_PATH}?game=pokemon&query=Charizard`, {
+          headers,
+        });
+
+        expect(await expectErrorResponse(search, 503)).toEqual({
+          code: 'PRICING_LOCK_UNAVAILABLE',
+          message: 'Card pricing is temporarily unavailable; try again shortly.',
+        });
+        expect(search.headers.get('Retry-After')).toBe('1');
+      } finally {
+        await composed.dispose();
+      }
+    },
+  );
+
   integrationTest('requires an authenticated session', async ({ app }) => {
     const response = await app.request(SEARCH_PRICING_ROUTE_PATH);
     expect(await expectErrorResponse(response, CONTENTFUL_STATUS_CODES.UNAUTHORIZED)).toMatchObject({

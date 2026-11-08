@@ -56,7 +56,7 @@ export class PricingOperation {
           lockStatus = 'timeout';
         } else if (!acquired) {
           failure = new PricingLockUnavailable(this.c, cause);
-          errorCode = CARD_PRICING_EXCEPTION_CODES.PRICING_PROVIDER_UNAVAILABLE;
+          errorCode = CARD_PRICING_EXCEPTION_CODES.PRICING_LOCK_UNAVAILABLE;
           lockStatus = 'failed';
         } else if (cause instanceof PricingProviderUnavailable) {
           failure = cause;
@@ -113,7 +113,7 @@ export class PricingOperation {
       return;
     }
 
-    if (failure instanceof PricingOperationFailed || failure instanceof PricingLockUnavailable) {
+    if (failure instanceof PricingOperationFailed) {
       logger.error(
         { ...fields, outcome, error_code: errorCode, err: failure },
         'Failed a card pricing lock operation unexpectedly.',
