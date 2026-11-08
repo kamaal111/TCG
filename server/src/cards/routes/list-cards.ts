@@ -88,11 +88,11 @@ const listCardsRoute = defineOpenAPIRoute<HonoEnvironment, typeof routeConfig>({
       available_illustrators: [
         ...new Set([
           ...availableIllustrators,
-          ...prices.flatMap(price =>
-            price.priced_card?.game === 'pokemon' && price.priced_card.illustrator != null
+          ...prices.flatMap(price => {
+            return price.priced_card?.game === 'pokemon' && price.priced_card.illustrator != null
               ? [price.priced_card.illustrator]
-              : [],
-          ),
+              : [];
+          }),
         ]),
       ].sort(),
       next_cursor: nextCursor,

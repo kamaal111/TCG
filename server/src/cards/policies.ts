@@ -54,27 +54,27 @@ export function importMatches(existing: OwnedCard, purchases: PurchaseBatch[], i
   }
 
   const stored = purchases
-    .map(purchase =>
-      JSON.stringify([
+    .map(purchase => {
+      return JSON.stringify([
         purchase.condition,
         purchase.quantity,
         purchase.purchasePrice,
         purchase.currency,
         purchase.automaticPriceDate,
-      ]),
-    )
+      ]);
+    })
     .sort();
 
   const incoming = input.purchases
-    .map(purchase =>
-      JSON.stringify([
+    .map(purchase => {
+      return JSON.stringify([
         purchase.condition,
         purchase.quantity,
         purchase.purchase_price != null ? decimalScale(purchase.purchase_price) : null,
         purchase.currency,
         purchase.automatic_price_date,
-      ]),
-    )
+      ]);
+    })
     .sort();
 
   return stored.length === incoming.length && stored.every((value, index) => value === incoming[index]);

@@ -55,18 +55,20 @@ export const cardCollection = pgTable(
     rows: integer('rows').notNull().default(3),
     revision: integer('revision').notNull().default(0),
   },
-  t => [
-    index('collection_user_id_idx').on(t.userId, t.id),
-    uniqueIndex('collection_id_user_idx').on(t.id, t.userId),
-    uniqueIndex('collection_user_source_idx').on(t.userId, t.importSourceId),
-    uniqueIndex('collection_user_unfiled_idx')
-      .on(t.userId)
-      .where(sql`${t.isUnfiled}`),
-    check(
-      'collection_dimensions_check',
-      sql`${t.columns} between 1 and ${sql.raw(String(MAX_BINDER_DIMENSION))} and ${t.rows} between 1 and ${sql.raw(String(MAX_BINDER_DIMENSION))}`,
-    ),
-  ],
+  t => {
+    return [
+      index('collection_user_id_idx').on(t.userId, t.id),
+      uniqueIndex('collection_id_user_idx').on(t.id, t.userId),
+      uniqueIndex('collection_user_source_idx').on(t.userId, t.importSourceId),
+      uniqueIndex('collection_user_unfiled_idx')
+        .on(t.userId)
+        .where(sql`${t.isUnfiled}`),
+      check(
+        'collection_dimensions_check',
+        sql`${t.columns} between 1 and ${sql.raw(String(MAX_BINDER_DIMENSION))} and ${t.rows} between 1 and ${sql.raw(String(MAX_BINDER_DIMENSION))}`,
+      ),
+    ];
+  },
 );
 
 export const card = pgTable(
@@ -91,20 +93,22 @@ export const card = pgTable(
       .$onUpdate(() => new Date())
       .notNull(),
   },
-  table => [
-    uniqueIndex('card_id_user_idx').on(table.id, table.userId),
-    foreignKey({
-      columns: [table.collectionId, table.userId],
-      foreignColumns: [cardCollection.id, cardCollection.userId],
-    }),
-    index('card_user_collection_idx').on(table.userId, table.collectionId, table.createdAt.desc(), table.id.desc()),
-    uniqueIndex('card_userId_importSourceId_idx').on(table.userId, table.importSourceId),
-    index('card_userId_createdAt_id_idx').on(table.userId, table.createdAt.desc(), table.id.desc()),
-    check(
-      'card_pricing_identity_pair_check',
-      sql`(${table.pricingCardId} is null and ${table.pricingSource} is null) or (${table.pricingCardId} is not null and ${table.pricingSource} is not null)`,
-    ),
-  ],
+  table => {
+    return [
+      uniqueIndex('card_id_user_idx').on(table.id, table.userId),
+      foreignKey({
+        columns: [table.collectionId, table.userId],
+        foreignColumns: [cardCollection.id, cardCollection.userId],
+      }),
+      index('card_user_collection_idx').on(table.userId, table.collectionId, table.createdAt.desc(), table.id.desc()),
+      uniqueIndex('card_userId_importSourceId_idx').on(table.userId, table.importSourceId),
+      index('card_userId_createdAt_id_idx').on(table.userId, table.createdAt.desc(), table.id.desc()),
+      check(
+        'card_pricing_identity_pair_check',
+        sql`(${table.pricingCardId} is null and ${table.pricingSource} is null) or (${table.pricingCardId} is not null and ${table.pricingSource} is not null)`,
+      ),
+    ];
+  },
 );
 
 export const binderPage = pgTable(
@@ -133,11 +137,13 @@ export const binderSlot = pgTable(
     column: integer('column').notNull(),
     quantity: integer('quantity').notNull(),
   },
-  t => [
-    uniqueIndex('binder_slot_position_idx').on(t.pageId, t.row, t.column),
-    index('binder_slot_card_idx').on(t.cardId),
-    check('binder_slot_positive_check', sql`${t.row} > 0 and ${t.column} > 0 and ${t.quantity} > 0`),
-  ],
+  t => {
+    return [
+      uniqueIndex('binder_slot_position_idx').on(t.pageId, t.row, t.column),
+      index('binder_slot_card_idx').on(t.cardId),
+      check('binder_slot_positive_check', sql`${t.row} > 0 and ${t.column} > 0 and ${t.quantity} > 0`),
+    ];
+  },
 );
 
 export const cardConditionQuantity = pgTable(
@@ -176,23 +182,28 @@ export const cardPurchaseBatch = pgTable(
       .$onUpdate(() => new Date())
       .notNull(),
   },
-  table => [
-    index('card_purchase_batch_cardId_idx').on(table.cardId, table.id),
-    check(
-      'card_purchase_batch_quantity_check',
-      sql`${table.quantity} between 1 and ${sql.raw(String(MAX_COPIES_PER_CONDITION))}`,
-    ),
-    check(
-      'card_purchase_batch_price_check',
-      sql`${table.purchasePrice} >= 0 and ${table.purchasePrice} < 'Infinity'::numeric`,
-    ),
-    check('card_purchase_batch_currency_check', sql`${table.currency} in ${currencyConstraint}`),
-    check('card_purchase_batch_price_pair_check', sql`(${table.purchasePrice} is null) = (${table.currency} is null)`),
-    check(
-      'card_purchase_batch_date_check',
-      sql`${table.automaticPriceDate} is null or ${table.purchasePrice} is not null`,
-    ),
-  ],
+  table => {
+    return [
+      index('card_purchase_batch_cardId_idx').on(table.cardId, table.id),
+      check(
+        'card_purchase_batch_quantity_check',
+        sql`${table.quantity} between 1 and ${sql.raw(String(MAX_COPIES_PER_CONDITION))}`,
+      ),
+      check(
+        'card_purchase_batch_price_check',
+        sql`${table.purchasePrice} >= 0 and ${table.purchasePrice} < 'Infinity'::numeric`,
+      ),
+      check('card_purchase_batch_currency_check', sql`${table.currency} in ${currencyConstraint}`),
+      check(
+        'card_purchase_batch_price_pair_check',
+        sql`(${table.purchasePrice} is null) = (${table.currency} is null)`,
+      ),
+      check(
+        'card_purchase_batch_date_check',
+        sql`${table.automaticPriceDate} is null or ${table.purchasePrice} is not null`,
+      ),
+    ];
+  },
 );
 
 export const cardsRelations = defineRelationsPart(

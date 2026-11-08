@@ -45,9 +45,9 @@ export function createGetPageRoute({ common, errors }: CollectionRouteDependenci
         ? await c.get('cardPricingService').priceOwnedCards(result.cards, { allowUnavailable: true })
         : [];
 
-      const cards = zip([...result.cards], [...prices], true).map(([card, price]) =>
-        serializeCardWithPrice(card, price, display.value),
-      );
+      const cards = zip([...result.cards], [...prices], true).map(([card, price]) => {
+        return serializeCardWithPrice(card, price, display.value);
+      });
 
       return c.json({ cards }, { status: CONTENTFUL_STATUS_CODES.OK });
     },

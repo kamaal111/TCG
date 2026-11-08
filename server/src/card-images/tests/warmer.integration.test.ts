@@ -10,11 +10,11 @@ describe('CardImageWarmer', () => {
       const warmer = createImageWarmer({ concurrency: 1 });
 
       await db.insert(cardImage).values(
-        ['a', 'b', 'c'].map(prefix =>
-          imageRecord({
+        ['a', 'b', 'c'].map(prefix => {
+          return imageRecord({
             imageKey: prefix.repeat(64),
-          }),
-        ),
+          });
+        }),
       );
 
       warmer.notifyRegistered(3);

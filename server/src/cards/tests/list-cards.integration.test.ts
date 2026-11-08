@@ -165,14 +165,14 @@ describe('List cards integration', () => {
       expect(body.cards.map(card => card.id)).toEqual([second.id, first.id]);
       expect(body.cards.map(card => card.price.card_id)).toEqual([second.id, first.id]);
       expect(
-        body.cards.map(card =>
-          card.purchases.map(({ condition, quantity }) => ({
+        body.cards.map(card => {
+          return card.purchases.map(({ condition, quantity }) => ({
             condition,
             quantity,
             purchase_price: null,
             currency: null,
-          })),
-        ),
+          }));
+        }),
       ).toEqual([
         expect.arrayContaining(validCardPayload.purchases),
         expect.arrayContaining(validCardPayload.purchases),

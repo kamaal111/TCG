@@ -64,12 +64,13 @@ exec "$REAL_JUST" "$@"
     SETUP_EXIT: '0',
   };
 
-  const run = (overrides: NodeJS.ProcessEnv = {}, branch = env.BRANCH, args: string[] = []) =>
-    childProcess.spawnSync(env.REAL_JUST, ['herdr-worktree', branch, ...args], {
+  const run = (overrides: NodeJS.ProcessEnv = {}, branch = env.BRANCH, args: string[] = []) => {
+    return childProcess.spawnSync(env.REAL_JUST, ['herdr-worktree', branch, ...args], {
       cwd: main,
       env: { ...env, ...overrides },
       encoding: 'utf8',
     });
+  };
 
   return { main: await fs.realpath(main), checkout, log, run, git };
 }

@@ -14,16 +14,16 @@ integrationTest(
 
     try {
       const results = await Promise.all(
-        Array.from({ length: 6 }, (_, index) =>
-          coordinator.runExclusive(
+        Array.from({ length: 6 }, (_, index) => {
+          return coordinator.runExclusive(
             { game: 'pokemon', key: `pricing:pool:${index}`, keyType: 'card', pricedOn: '2026-11-08' },
             async () => {
               const result = await pool.query<{ value: number }>('select 42 as value');
 
               return result.rows[0]?.value;
             },
-          ),
-        ),
+          );
+        }),
       );
 
       expect(results.map(result => result._unsafeUnwrap())).toEqual([42, 42, 42, 42, 42, 42]);
@@ -45,8 +45,8 @@ integrationTest(
     const identity = { game: 'pokemon', key: 'pricing:deadline', keyType: 'card', pricedOn: '2026-11-08' } as const;
     const operation = vi.fn<() => Promise<string>>(async () => 'expired');
 
-    const holders = [0, 1].map(index =>
-      coordinator.runExclusive({ ...identity, key: `pricing:holder:${index}` }, async () => {
+    const holders = [0, 1].map(index => {
+      return coordinator.runExclusive({ ...identity, key: `pricing:holder:${index}` }, async () => {
         active += 1;
 
         if (active === 2) {
@@ -56,8 +56,8 @@ integrationTest(
         await gate.promise;
 
         return 'released';
-      }),
-    );
+      });
+    });
 
     try {
       await started.promise;

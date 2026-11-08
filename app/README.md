@@ -7,7 +7,7 @@ currently declares iOS 18.6 and macOS 27 minimums, while the reusable packages d
 macOS 15 minimums. All packages use Swift tools version 6.4. Use an Xcode toolchain
 that supports that version and the configured app SDKs.
 
-## Swift spacing
+## Swift quality
 
 Run `just lint-app` to check spacing around Swift initializers and methods. Each
 must be separated from adjacent members by a blank line, including one-line
@@ -27,8 +27,12 @@ depend on geometry or closure arguments. Conditional bindings such as `if let`
 remain allowed.
 
 The syntax check runs automatically through `just lint`, `just format-check-app`,
-`just quality`, and app CI. Run `just test-swift-member-spacing` for its regression
-tests; these also run through `just ready-app`.
+`just quality`, and app CI. The checker is provided by
+`@kamaal111/kamaal-quality-config` through `pnpm exec kqc swift-lint app`.
+Its regression tests are maintained in the shared package.
+
+`just format-app` and `just format-check-app` use the installed package's
+`swift-format.json` explicitly, keeping formatting consistent across apps.
 
 ## Run the app
 

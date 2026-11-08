@@ -33,15 +33,17 @@ function fixture(t: TestContext) {
   const fileList = path.join(output, 'Search.SwiftFileList');
   fs.writeFileSync(fileList, quote(source) + '\n');
 
-  const extract = (keys: JSONValue[], table = 'Localizable', sourceFile = source, directory = output) =>
-    write(path.join(directory, `${path.basename(sourceFile, '.swift')}.stringsdata`), {
+  const extract = (keys: JSONValue[], table = 'Localizable', sourceFile = source, directory = output) => {
+    return write(path.join(directory, `${path.basename(sourceFile, '.swift')}.stringsdata`), {
       source: sourceFile,
       tables: { [table]: keys.map(key => ({ key })) },
       version: 1,
     });
+  };
 
-  const catalog = (entries: Record<string, JSONValue>, table = 'Localizable') =>
-    write(path.join(owner, `${table}.xcstrings`), { sourceLanguage: 'en', strings: entries, version: '1.0' });
+  const catalog = (entries: Record<string, JSONValue>, table = 'Localizable') => {
+    return write(path.join(owner, `${table}.xcstrings`), { sourceLanguage: 'en', strings: entries, version: '1.0' });
+  };
 
   extract(['How to search']);
 

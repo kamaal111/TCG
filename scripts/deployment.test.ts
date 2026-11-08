@@ -51,8 +51,8 @@ if (process.env.FAIL_PHASE && command.includes(process.env.FAIL_PHASE)) {
     root,
     log: () => fs.readFile(log, 'utf8'),
     release: () => fs.readFile(path.join(root, 'release.env'), 'utf8'),
-    run: (args: string[], extra: NodeJS.ProcessEnv = {}) =>
-      childProcess.spawnSync('bash', [release, ...args], {
+    run: (args: string[], extra: NodeJS.ProcessEnv = {}) => {
+      return childProcess.spawnSync('bash', [release, ...args], {
         env: {
           ...process.env,
           TCG_DEPLOY_DIRECTORY: root,
@@ -61,7 +61,8 @@ if (process.env.FAIL_PHASE && command.includes(process.env.FAIL_PHASE)) {
           ...extra,
         },
         encoding: 'utf8',
-      }),
+      });
+    },
   };
 }
 

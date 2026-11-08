@@ -18,7 +18,7 @@ function log(message: string): void {
 const SimulatorDestinationSchema = z.strictObject({
   platform: z.literal('iOS Simulator'),
   OS: z.string().regex(/^\d+(?:\.\d+)+$/),
-  name: z.string().min(1),
+  name: z.string().nonempty(),
 });
 
 const SimulatorInventorySchema = z.object({
@@ -177,8 +177,9 @@ function run(): void {
   function summarize(): void {
     milestone('Snapshot step completed');
 
-    const seconds = (value: number | undefined) =>
-      value === undefined ? 'Unavailable' : `${(value / 1000).toFixed(1)}s`;
+    const seconds = (value: number | undefined) => {
+      return value === undefined ? 'Unavailable' : `${(value / 1000).toFixed(1)}s`;
+    };
 
     const resolutionStart = milestones.get('Package resolution started');
     const resolutionEnd = milestones.get('Package resolution completed');

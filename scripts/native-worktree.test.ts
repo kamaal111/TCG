@@ -36,8 +36,9 @@ async function nativeFixture() {
     { mode: 0o600 },
   );
 
-  const run = (args: string[], cwd = f.main) =>
-    childProcess.spawnSync('just', args, { cwd, encoding: 'utf8', env: process.env });
+  const run = (args: string[], cwd = f.main) => {
+    return childProcess.spawnSync('just', args, { cwd, encoding: 'utf8', env: process.env });
+  };
 
   const target = path.join(f.main, '.agents', 'worktrees', 'feature', 'cards');
 

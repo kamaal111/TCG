@@ -154,19 +154,17 @@ integrationTest(
     await db.insert(cardCollection).values(named);
     const target = z.object({ id: z.string() }).parse(named[0]);
 
-    const entries = Array.from(
-      { length: 5001 },
-      () =>
-        ({
-          id: crypto.randomUUID(),
-          userId: user.userId,
-          collectionId: target.id,
-          game: 'one_piece',
-          name: 'Card',
-          setName: 'Set',
-          cardNumber: '1',
-        }) as const,
-    );
+    const entries = Array.from({ length: 5001 }, () => {
+      return {
+        id: crypto.randomUUID(),
+        userId: user.userId,
+        collectionId: target.id,
+        game: 'one_piece',
+        name: 'Card',
+        setName: 'Set',
+        cardNumber: '1',
+      } as const;
+    });
 
     for (let start = 0; start < entries.length; start += 500) {
       const batch = entries.slice(start, start + 500);

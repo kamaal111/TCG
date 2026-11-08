@@ -275,13 +275,13 @@ integrationTest(
     ).toBe(400);
 
     const results = await Promise.all(
-      ['First', 'Second'].map(async name =>
-        app.request(`/app-api/collections/${collection.id}`, {
+      ['First', 'Second'].map(async name => {
+        return app.request(`/app-api/collections/${collection.id}`, {
           method: 'PATCH',
           headers,
           body: JSON.stringify({ revision: 0, name }),
-        }),
-      ),
+        });
+      }),
     );
 
     expect(results.map(r => r.status).sort((a, b) => a - b)).toEqual([200, 409]);
@@ -344,13 +344,13 @@ integrationTest(
     };
 
     const responses = await Promise.all(
-      [1, 2].map(async () =>
-        app.request(`/app-api/collections/${collection.id}/layout`, {
+      [1, 2].map(async () => {
+        return app.request(`/app-api/collections/${collection.id}/layout`, {
           method: 'PUT',
           headers,
           body: JSON.stringify(layout),
-        }),
-      ),
+        });
+      }),
     );
 
     const statuses = responses.map(response => response.status).sort((a, b) => a - b);

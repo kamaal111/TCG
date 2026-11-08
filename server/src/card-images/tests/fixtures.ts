@@ -13,30 +13,28 @@ export const integrationTest = baseIntegrationTest
 
     return origin;
   })
-  .extend(
-    'imageMaterializer',
-    ({ imageRepository, storageClient, imageOrigin }) =>
-      new CardImageMaterializer({ repository: imageRepository, storageClient, imageOriginClient: imageOrigin }),
-  )
-  .extend('createImage', ({ db }) => async (overrides: Partial<typeof cardImage.$inferInsert> = {}) => {
-    await db.insert(cardImage).values(imageRecord(overrides));
+  .extend('imageMaterializer', ({ imageRepository, storageClient, imageOrigin }) => {
+    return new CardImageMaterializer({ repository: imageRepository, storageClient, imageOriginClient: imageOrigin });
   })
-  .extend(
-    'createImageWarmer',
-    ({ imageRepository, imageMaterializer, imageOrigin }, { onCleanup }) =>
-      (options: Pick<ConstructorParameters<typeof CardImageWarmer>[0], 'concurrency'> = {}) => {
-        const warmer = new CardImageWarmer({
-          repository: imageRepository,
-          materializer: imageMaterializer,
-          ...options,
-        });
+  .extend('createImage', ({ db }) => {
+    return async (overrides: Partial<typeof cardImage.$inferInsert> = {}) => {
+      await db.insert(cardImage).values(imageRecord(overrides));
+    };
+  })
+  .extend('createImageWarmer', ({ imageRepository, imageMaterializer, imageOrigin }, { onCleanup }) => {
+    return (options: Pick<ConstructorParameters<typeof CardImageWarmer>[0], 'concurrency'> = {}) => {
+      const warmer = new CardImageWarmer({
+        repository: imageRepository,
+        materializer: imageMaterializer,
+        ...options,
+      });
 
-        onCleanup(async () => {
-          imageOrigin.release();
-          warmer.stop();
-          await warmer.idle();
-        });
+      onCleanup(async () => {
+        imageOrigin.release();
+        warmer.stop();
+        await warmer.idle();
+      });
 
-        return warmer;
-      },
-  );
+      return warmer;
+    };
+  });

@@ -10,15 +10,16 @@ import { APIException, InvalidValidation } from '../exceptions/index.ts';
 
 function loggingMiddleware() {
   return structuredLogger<HonoEnvironment, RequestLogger>({
-    createLogger: c =>
-      createRequestLogger({
+    createLogger: c => {
+      return createRequestLogger({
         requestId: c.get('requestId'),
         method: c.req.method,
         path: c.req.path,
         url: getUrlForLog(c),
         mode: c.get('config').MODE,
         userAgent: c.req.header('User-Agent'),
-      }),
+      });
+    },
     onResponse: (_logger, c, elapsedMs) => {
       requestLogger(c).info(
         {

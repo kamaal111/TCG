@@ -1,11 +1,7 @@
 import kamaalOxlintConfig from '@kamaal111/kamaal-quality-config/oxlint';
 import { defineConfig } from 'oxlint';
 
-const nodeDefaultImports = {
-  regex: '^node:',
-  allowImportNames: ['default'],
-  message: "Use a default import for Node.js modules, for example: import path from 'node:path';",
-};
+const [importSeverity, sharedImportRestrictions] = kamaalOxlintConfig.rules['no-restricted-imports'];
 
 const vitestGlobalImports = {
   name: 'vitest',
@@ -35,28 +31,9 @@ const vitestGlobalImports = {
 
 export default defineConfig({
   extends: [kamaalOxlintConfig],
-  jsPlugins: ['@stylistic/eslint-plugin', './scripts/oxlint-prefer-nullish.ts'],
   ignorePatterns: ['**/dist/**', '**/node_modules/**', '**/*.swift'],
   rules: {
-    'tcg-zod/prefer-nullish': 'error',
-    '@stylistic/lines-between-class-members': [
-      'error',
-      {
-        enforce: [
-          { blankLine: 'always', prev: '*', next: 'method' },
-          { blankLine: 'always', prev: 'method', next: '*' },
-        ],
-      },
-    ],
-    'no-restricted-imports': ['error', { paths: [vitestGlobalImports], patterns: [nodeDefaultImports] }],
-    'no-restricted-properties': [
-      'error',
-      {
-        object: 'Object',
-        property: 'assign',
-        message: 'Use explicit typed assignments or object spread instead of Object.assign.',
-      },
-    ],
+    'no-restricted-imports': [importSeverity, { ...sharedImportRestrictions, paths: [vitestGlobalImports] }],
     'vitest/no-standalone-expect': ['error', { additionalTestBlockFunctions: ['integrationTest'] }],
   },
   overrides: [
@@ -71,11 +48,12 @@ export default defineConfig({
       excludeFiles: ['server/src/tests/**', 'server/src/**/tests/**', 'server/src/**/*.test.ts'],
       rules: {
         'no-restricted-imports': [
-          'error',
+          importSeverity,
           {
+            ...sharedImportRestrictions,
             paths: [vitestGlobalImports],
             patterns: [
-              nodeDefaultImports,
+              ...sharedImportRestrictions.patterns,
               {
                 group: ['**/tests/**'],
                 message: 'Production code must not import test-only modules such as InMemoryObjectStorageClient.',

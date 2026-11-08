@@ -641,13 +641,14 @@ function createSearchApp({ createApp, user, expectedQuery, cards, game = 'pokemo
     app,
     user,
     transport,
-    request: (query: string, languages = '') =>
-      app.request(
+    request: (query: string, languages = '') => {
+      return app.request(
         `${SEARCH_PRICING_ROUTE_PATH}?${new URLSearchParams({ game, query, languages, search_by: 'card' })}`,
         {
           headers: sessionHeaders(user.sessionToken),
         },
-      ),
+      );
+    },
   };
 }
 

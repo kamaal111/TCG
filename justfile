@@ -9,6 +9,7 @@ PNX := PN + " exec"
 
 APP_PROJECT := "TCG.xcodeproj"
 APP_SCHEME := "TCG"
+SWIFT_FORMAT_CONFIG := "node_modules/@kamaal111/kamaal-quality-config/swift-format.json"
 # Update this value from `just app-destinations` when the simulator changes.
 APP_IOS_TEST_DESTINATION := env("TCG_APP_IOS_TEST_DESTINATION", "platform=iOS Simulator,OS=27.0,name=TCG Test iPhone")
 # Package tests do not need the app's development provisioning profiles.
@@ -246,7 +247,7 @@ heavy: quality test-heavy
 
 # Run all verification checks for app
 [parallel]
-ready-app: quality-app test-app test-scripts test-swift-member-spacing
+ready-app: quality-app test-app test-scripts
 
 # Run all verification checks for server
 [parallel]
@@ -473,13 +474,9 @@ typecheck-scripts:
 # Lint the project
 lint: lint-js lint-app
 
-# Check Swift member spacing and multiline call chains
+# Check Swift member spacing, multiline call chains, and view body declarations
 lint-app:
-    swift run --package-path app/Tools/SwiftMemberSpacing swift-member-spacing app
-
-# Test the Swift spacing checker
-test-swift-member-spacing:
-    swift test --package-path app/Tools/SwiftMemberSpacing
+    {{ PNX }} kqc swift-lint app
 
 # Lint js code
 lint-js:
@@ -514,7 +511,7 @@ format-check-js:
 # Check app code formatting
 [working-directory("app")]
 format-check-app: lint-app
-    swift format lint --strict -r .
+    swift format lint --strict -r . --configuration "../{{ SWIFT_FORMAT_CONFIG }}"
 
 # Format code
 [parallel]
@@ -527,7 +524,7 @@ format-js:
 # Format app code
 [working-directory("app")]
 format-app:
-    swift format --in-place -r .
+    swift format --in-place -r . --configuration "../{{ SWIFT_FORMAT_CONFIG }}"
 
 # Bootstrap project
 bootstrap: prepare install-xcbeautify

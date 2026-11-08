@@ -14,7 +14,7 @@ const FeedSchema = z.object({
     Cube: z.object({
       Cube: z.object({
         time: z.iso.date(),
-        Cube: z.array(z.object({ currency: z.string(), rate: z.coerce.number().positive() })).min(1),
+        Cube: z.array(z.object({ currency: z.string(), rate: z.coerce.number().positive() })).nonempty(),
       }),
     }),
   }),
@@ -82,8 +82,8 @@ export class EcbForexClient implements ForexClient {
       }
 
       return response.text();
-    }).mapErr(cause =>
-      cause instanceof ForexRequestFailed ? cause : new ForexRequestFailed('ECB request failed', { cause }),
-    );
+    }).mapErr(cause => {
+      return cause instanceof ForexRequestFailed ? cause : new ForexRequestFailed('ECB request failed', { cause });
+    });
   }
 }

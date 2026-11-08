@@ -23,83 +23,102 @@ struct TCGCurrencyClientImpl: TCGCurrencyClient {
         CurrencyPreference, CurrencyClientError
     > {
         let operation = "initialize"
+        let output: Operations.PostAppApiAuthPreferences.Output
         do {
-            switch try await client.postAppApiAuthPreferences(
+            output = try await client.postAppApiAuthPreferences(
                 body: .json(
                     .init(
                         preferredCurrency: PricedCardMapper.generatedCurrency(payload.preferredCurrency)
                     )
                 )
-            ) {
-            case .ok(let response):
+            )
+        } catch { return .failure(diagnose(error, operation: operation)) }
+
+        switch output {
+        case .ok(let response):
+            do {
                 let payload = try response.body.json
                 return .success(
                     Self.preference(
                         currency: payload.value2.user.preferredCurrency
                     )
                 )
-            case .badRequest(let response):
-                return .failure(
-                    diagnose(
-                        .badRequest(
-                            validations: TCGClientValidationErrorParser.parseIssues(from: try? response.body.json)
-                        ),
-                        operation: operation,
-                        reason: .validation,
-                        status: 400
-                    )
-                )
-            case .unauthorized:
-                return .failure(diagnose(.unauthorized, operation: operation, reason: .unauthorized, status: 401))
-            case .undocumented(let status, _):
-                return .failure(diagnose(.unknown, operation: operation, reason: .unexpectedStatus, status: status))
+            } catch {
+                return .failure(diagnose(error, operation: operation))
             }
-        } catch { return .failure(diagnose(error, operation: operation)) }
+        case .badRequest(let response):
+            return .failure(
+                diagnose(
+                    .badRequest(
+                        validations: TCGClientValidationErrorParser.parseIssues(from: try? response.body.json)
+                    ),
+                    operation: operation,
+                    reason: .validation,
+                    status: 400
+                )
+            )
+        case .unauthorized:
+            return .failure(diagnose(.unauthorized, operation: operation, reason: .unauthorized, status: 401))
+        case .undocumented(let status, _):
+            return .failure(diagnose(.unknown, operation: operation, reason: .unexpectedStatus, status: status))
+        }
     }
 
     func update(_ payload: CurrencyPreferencePayload) async -> Result<
         CurrencyPreference, CurrencyClientError
     > {
         let operation = "update"
+        let output: Operations.PatchAppApiAuthPreferences.Output
         do {
-            switch try await client.patchAppApiAuthPreferences(
+            output = try await client.patchAppApiAuthPreferences(
                 body: .json(
                     .init(
                         preferredCurrency: PricedCardMapper.generatedCurrency(payload.preferredCurrency)
                     )
                 )
-            ) {
-            case .ok(let response):
+            )
+        } catch { return .failure(diagnose(error, operation: operation)) }
+
+        switch output {
+        case .ok(let response):
+            do {
                 let payload = try response.body.json
                 return .success(
                     Self.preference(
                         currency: payload.value2.user.preferredCurrency
                     )
                 )
-            case .badRequest(let response):
-                return .failure(
-                    diagnose(
-                        .badRequest(
-                            validations: TCGClientValidationErrorParser.parseIssues(from: try? response.body.json)
-                        ),
-                        operation: operation,
-                        reason: .validation,
-                        status: 400
-                    )
-                )
-            case .unauthorized:
-                return .failure(diagnose(.unauthorized, operation: operation, reason: .unauthorized, status: 401))
-            case .undocumented(let status, _):
-                return .failure(diagnose(.unknown, operation: operation, reason: .unexpectedStatus, status: status))
+            } catch {
+                return .failure(diagnose(error, operation: operation))
             }
-        } catch { return .failure(diagnose(error, operation: operation)) }
+        case .badRequest(let response):
+            return .failure(
+                diagnose(
+                    .badRequest(
+                        validations: TCGClientValidationErrorParser.parseIssues(from: try? response.body.json)
+                    ),
+                    operation: operation,
+                    reason: .validation,
+                    status: 400
+                )
+            )
+        case .unauthorized:
+            return .failure(diagnose(.unauthorized, operation: operation, reason: .unauthorized, status: 401))
+        case .undocumented(let status, _):
+            return .failure(diagnose(.unknown, operation: operation, reason: .unexpectedStatus, status: status))
+        }
     }
 
     func latestRates() async -> Result<ExchangeRates, CurrencyClientError> {
         let operation = "latest_rates"
+        let output: Operations.GetAppApiForexLatest.Output
         do {
-            switch try await client.getAppApiForexLatest() {
-            case .ok(let response):
+            output = try await client.getAppApiForexLatest()
+        } catch { return .failure(diagnose(error, operation: operation)) }
+
+        switch output {
+        case .ok(let response):
+            do {
                 let snapshot = try response.body.json
                 let rates = snapshot.rates.additionalProperties
                 guard rates["EUR"] == 1 else {
@@ -109,14 +128,16 @@ struct TCGCurrencyClientImpl: TCGCurrencyClient {
                     return .failure(diagnose(.unknown, operation: operation, reason: .invalidRates, status: 200))
                 }
                 return .success(.init(date: snapshot.date, rates: rates.mapValues { Decimal($0) }))
-            case .unauthorized:
-                return .failure(diagnose(.unauthorized, operation: operation, reason: .unauthorized, status: 401))
-            case .serviceUnavailable:
-                return .failure(diagnose(.unavailable, operation: operation, reason: .unavailable, status: 503))
-            case .undocumented(let status, _):
-                return .failure(diagnose(.unknown, operation: operation, reason: .unexpectedStatus, status: status))
+            } catch {
+                return .failure(diagnose(error, operation: operation))
             }
-        } catch { return .failure(diagnose(error, operation: operation)) }
+        case .unauthorized:
+            return .failure(diagnose(.unauthorized, operation: operation, reason: .unauthorized, status: 401))
+        case .serviceUnavailable:
+            return .failure(diagnose(.unavailable, operation: operation, reason: .unavailable, status: 503))
+        case .undocumented(let status, _):
+            return .failure(diagnose(.unknown, operation: operation, reason: .unexpectedStatus, status: status))
+        }
     }
 
     private enum FailureReason: String {

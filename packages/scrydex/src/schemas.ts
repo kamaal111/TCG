@@ -48,7 +48,7 @@ export const ScrydexRawCardSchema = z
     number: z.unknown().optional(),
     printed_number: z.unknown().optional(),
     expansion: z
-      .object({ name: z.string().trim().min(1).optional().catch(undefined) })
+      .object({ name: z.string().trim().nonempty().optional().catch(undefined) })
       .catchall(z.unknown())
       .optional()
       .catch(undefined),

@@ -38,7 +38,7 @@ const ConfigurationSchema = z.looseObject({
     node_count: z.number().int().positive(),
     vpc_uuid: z.string().nonempty(),
   }),
-  admin_ipv4_cidrs: z.array(z.string()).min(1),
+  admin_ipv4_cidrs: z.array(z.string()).nonempty(),
   database_client_ipv4s: z.array(z.string()),
   bucket_name: z.string().regex(/^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$/),
   enable_storage_ip_restriction: z.boolean(),
@@ -69,25 +69,24 @@ interface StoreOptions {
   configDirectory: string;
 }
 
-const HclLiteralSchema: z.ZodType<string, unknown> = z.lazy(() =>
-  z.union([
-    z.string().transform(value =>
-      JSON.stringify(value)
+const HclLiteralSchema: z.ZodType<string, unknown> = z.lazy(() => {
+  return z.union([
+    z.string().transform(value => {
+      return JSON.stringify(value)
         .replace(/\$\{/g, () => '$${')
-        .replace(/%\{/g, () => '%%{'),
-    ),
+        .replace(/%\{/g, () => '%%{');
+    }),
     z.number().transform(value => String(value)),
     z.boolean().transform(value => String(value)),
     z.null().transform(() => 'null'),
     z.array(HclLiteralSchema).transform(values => `[${values.join(', ')}]`),
-    z.record(z.string(), HclLiteralSchema).transform(
-      values =>
-        `{\n${Object.entries(values)
-          .map(([key, value]) => `  ${JSON.stringify(key)} = ${value.replace(/\n/g, '\n  ')}`)
-          .join('\n')}\n}`,
-    ),
-  ]),
-);
+    z.record(z.string(), HclLiteralSchema).transform(values => {
+      return `{\n${Object.entries(values)
+        .map(([key, value]) => `  ${JSON.stringify(key)} = ${value.replace(/\n/g, '\n  ')}`)
+        .join('\n')}\n}`;
+    }),
+  ]);
+});
 
 async function exists(file: string): Promise<boolean> {
   try {

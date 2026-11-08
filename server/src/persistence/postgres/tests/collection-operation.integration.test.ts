@@ -13,13 +13,14 @@ integrationTest(
     const poolSize = z.number().int().positive().parse(db.$client.options.max);
     const heldConnections: PoolClient[] = [];
 
-    const operation = () =>
-      runCollectionOperation({
+    const operation = () => {
+      return runCollectionOperation({
         db,
         identity,
         policy: DEFAULT_COLLECTION_POLICY,
         action: async () => 'completed',
       });
+    };
 
     try {
       for (let index = 0; index < poolSize; index += 1) {

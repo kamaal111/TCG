@@ -14,10 +14,14 @@ const LintOutputSchema = z.object({
   diagnostics: z.array(z.object({ code: z.string(), message: z.string() })),
 });
 
-export async function createLintFixture(source: string): Promise<string> {
-  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'tcg-oxlint-'));
+export async function createLintFixture(source: string, relativeDirectory?: string): Promise<string> {
+  const directory = await fs.mkdtemp(
+    path.join(relativeDirectory === undefined ? os.tmpdir() : path.join(ROOT, relativeDirectory), 'tcg-oxlint-'),
+  );
+
   onTestFinished(() => fs.rm(directory, { recursive: true, force: true }));
-  const filename = path.join(directory, 'fixture.ts');
+
+  const filename = path.join(directory, relativeDirectory === undefined ? 'fixture.ts' : 'fixture.js');
   await fs.writeFile(filename, source);
 
   return filename;

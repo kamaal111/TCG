@@ -67,11 +67,11 @@ export function withOpenAPIDocumentation<E extends Env = Env, S extends Schema =
   const appWithSpecs = $(
     app
       .get(OPENAPI_JSON_SPEC_PATH, c => c.json(buildSpecification(app, baseURL)))
-      .get(OPENAPI_YAML_SPEC_PATH, c =>
-        c.text(renderOpenAPIYaml(app, baseURL), CONTENTFUL_STATUS_CODES.OK, {
+      .get(OPENAPI_YAML_SPEC_PATH, c => {
+        return c.text(renderOpenAPIYaml(app, baseURL), CONTENTFUL_STATUS_CODES.OK, {
           'Content-Type': MIME_TYPES.YAML,
-        }),
-      ),
+        });
+      }),
   );
 
   return $(appWithSpecs.get('/doc', swaggerUI({ url: SPEC_SOURCE_OF_TRUTH_URL })));

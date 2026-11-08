@@ -52,12 +52,13 @@ describe('Card backup integration', () => {
   integrationTest(
     'imports purchases and timestamps and skips repeat imports',
     async ({ app, db, user, authenticatedHeaders }) => {
-      const request = () =>
-        app.request(IMPORT_CARDS_ROUTE_PATH, {
+      const request = () => {
+        return app.request(IMPORT_CARDS_ROUTE_PATH, {
           method: 'POST',
           headers: authenticatedHeaders,
           body: JSON.stringify({ cards: [backupCard] }),
         });
+      };
 
       const response = await request();
       expect(response.status).toBe(CONTENTFUL_STATUS_CODES.OK);
@@ -137,13 +138,13 @@ describe('Card backup integration', () => {
     'handles concurrent imports without duplicate purchases',
     async ({ app, db, user, authenticatedHeaders }) => {
       const requests = await Promise.all(
-        [1, 2].map(async () =>
-          app.request(IMPORT_CARDS_ROUTE_PATH, {
+        [1, 2].map(async () => {
+          return app.request(IMPORT_CARDS_ROUTE_PATH, {
             method: 'POST',
             headers: authenticatedHeaders,
             body: JSON.stringify({ cards: [backupCard] }),
-          }),
-        ),
+          });
+        }),
       );
 
       expect(requests.map(response => response.status)).toEqual([
@@ -427,12 +428,13 @@ describe('Card backup integration', () => {
   integrationTest(
     'updates imported source IDs, removes absent purchases, and ignores purchase order on retry',
     async ({ app, db, user, authenticatedHeaders }) => {
-      const request = (cards: unknown[]) =>
-        app.request(IMPORT_CARDS_ROUTE_PATH, {
+      const request = (cards: unknown[]) => {
+        return app.request(IMPORT_CARDS_ROUTE_PATH, {
           method: 'POST',
           headers: authenticatedHeaders,
           body: JSON.stringify({ cards }),
         });
+      };
 
       expect((await request([backupCard])).status).toBe(200);
       const reordered = { ...backupCard, purchases: backupCard.purchases.toReversed() };
@@ -533,12 +535,13 @@ describe('Card backup integration', () => {
   integrationTest(
     'rolls back replacement fields, deleted purchases, and quantities when purchase persistence fails',
     async ({ app, db, user, authenticatedHeaders }) => {
-      const request = (cards: unknown[]) =>
-        app.request(IMPORT_CARDS_ROUTE_PATH, {
+      const request = (cards: unknown[]) => {
+        return app.request(IMPORT_CARDS_ROUTE_PATH, {
           method: 'POST',
           headers: authenticatedHeaders,
           body: JSON.stringify({ cards }),
         });
+      };
 
       expect((await request([backupCard])).status).toBe(200);
 

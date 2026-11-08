@@ -440,9 +440,9 @@ export class PostgresCardRepository implements CardRepository {
                 })
                 .where(and(eq(card.id, target.id), eq(card.userId, this.userId)));
 
-              const retainedIds = input.purchases.flatMap(purchase =>
-                previousIds.has(purchase.id) ? [purchase.id] : [],
-              );
+              const retainedIds = input.purchases.flatMap(purchase => {
+                return previousIds.has(purchase.id) ? [purchase.id] : [];
+              });
 
               await clearReplacedPurchases(tx, target.id, retainedIds);
               reconciliations.push({

@@ -17,14 +17,12 @@ catalog:
   '@hono/node-server': '^2.1.4'
   '@hono/structured-logger': '^1.0.0'
   '@hono/swagger-ui': '~0.6.1'
-  '@kamaal111/kamaal-quality-config': '^0.3.0'
+  '@kamaal111/kamaal-quality-config': '^0.10.0'
   '@kamaalio/hono-standard-openapi': '^0.0.24'
   '@kamaalio/kamaal': '~0.13.0'
   '@kamaalio/kamaal-auth-core': '~0.0.15'
   '@kamaalio/kamaal-auth-hono': '~0.0.15'
-  '@oxlint/plugins': 1.87.0
   '@standard-schema/spec': '^1.1.0'
-  '@stylistic/eslint-plugin': 5.10.0
   '@types/node': '^26.6.4'
   '@types/pg': '^8.23.1'
   '@vitest/coverage-v8': '^5.0.3'
@@ -53,4 +51,4 @@ catalog:
   'zod': '^4.6.5'
 
 minimumReleaseAgeExclude:
-  - '@kamaalio/hono-standard-openapi@0.0.24'
+  - '@kamaal111/kamaal-quality-config@0.10.0'

@@ -89,12 +89,13 @@ export function dropletSizeChoices({
   disk: number;
 }): Choice[] {
   const choices = sizes
-    .filter(
-      size =>
+    .filter(size => {
+      return (
         size.slug === saved ||
         size.slug === running ||
-        (size.available && size.regions.includes(region) && size.disk >= disk),
-    )
+        (size.available && size.regions.includes(region) && size.disk >= disk)
+      );
+    })
     .toSorted((a, b) => a.price_monthly - b.price_monthly)
     .map(size => ({
       value: size.slug,

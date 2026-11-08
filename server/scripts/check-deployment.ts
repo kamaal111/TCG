@@ -3,18 +3,10 @@ import crypto from 'node:crypto';
 
 import { withDeploymentDatabase } from './deployment-database.ts';
 import { EnvSchema } from '../src/config.ts';
+import type { ObjectStorageClient } from '../src/storage/client.ts';
 import { createConfiguredObjectStorage } from '../src/storage/config.ts';
 
-// An operational CLI, deliberately printing no connection strings or captured errors.
-try {
-  const env = EnvSchema.parse(process.env);
-  await withDeploymentDatabase(env.DATABASE_URL, async client => {
-    await client.query('SELECT 1');
-    console.log('Database connection verified.');
-  });
-
-  const storage = createConfiguredObjectStorage(env);
-
+async function verifyStorage(storage: ObjectStorageClient): Promise<void> {
   const key = `.deployment-check/${crypto.randomUUID()}`;
   const body = Buffer.from('TCG deployment storage check');
   const checksum = crypto.createHash('sha256').update(body).digest('hex');
@@ -29,6 +21,19 @@ try {
     const removed = await storage.delete(key);
     assert(removed.isOk(), 'Storage check cleanup failed');
   }
+}
+
+// An operational CLI, deliberately printing no connection strings or captured errors.
+try {
+  const env = EnvSchema.parse(process.env);
+  await withDeploymentDatabase(env.DATABASE_URL, async client => {
+    await client.query('SELECT 1');
+    console.log('Database connection verified.');
+  });
+
+  const storage = createConfiguredObjectStorage(env);
+
+  await verifyStorage(storage);
 
   console.log('Storage upload, download, and deletion verified.');
 } catch {

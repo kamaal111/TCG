@@ -61,12 +61,13 @@ async function main(): Promise<void> {
     ...Object.keys(release.values),
   ]);
 
-  const conflicts = [...managedKeys].filter(
-    key =>
+  const conflicts = [...managedKeys].filter(key => {
+    return (
       process.env[key] !== undefined &&
       process.env[key] !== document.values[key] &&
-      process.env[key] !== release.values[key],
-  );
+      process.env[key] !== release.values[key]
+    );
+  });
 
   if (conflicts.length) {
     terminalPrompts.note(

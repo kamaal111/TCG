@@ -8,7 +8,7 @@ import { MAX_COLLECTION_NAME_LENGTH } from '../constants.ts';
 import type { CollectionPolicy } from '../types.ts';
 
 export const CreateCollectionSchema = z
-  .object({ name: z.string().trim().min(1).max(MAX_COLLECTION_NAME_LENGTH) })
+  .object({ name: z.string().trim().nonempty().max(MAX_COLLECTION_NAME_LENGTH) })
   .meta({
     $id: 'CreateCollection',
     title: 'Create Collection',
@@ -53,7 +53,7 @@ export function createCollectionRequestSchemas(policy: CollectionPolicy) {
       }),
     export: z
       .object({
-        collection_ids: z.array(UuidSchema).min(1).max(policy.COLLECTION_MAX_COLLECTIONS).optional(),
+        collection_ids: z.array(UuidSchema).nonempty().max(policy.COLLECTION_MAX_COLLECTIONS).optional(),
       })
       .meta({
         $id: 'ExportCollections',
