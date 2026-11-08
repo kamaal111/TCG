@@ -41,7 +41,8 @@
         "nefrob.vscode-just-syntax",
         "yoavbls.pretty-ts-errors",
         "eamodio.gitlens",
-        "streetsidesoftware.code-spell-checker"
+        "streetsidesoftware.code-spell-checker",
+        "hashicorp.terraform"
       ],
       "settings": {
         "swift.path": "/root/.local/share/mise/installs/swift/6.4/bin",
