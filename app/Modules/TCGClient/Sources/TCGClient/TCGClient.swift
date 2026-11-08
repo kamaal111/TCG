@@ -103,6 +103,7 @@ public struct TCGClient: Sendable {
         cardsOutcome: PreviewTCGCardsOutcome,
         pricingOutcome: PreviewTCGPricingOutcome
     ) -> TCGClient {
+        let credentialsKeychainKey = "\(ModuleConfig.identifier).preview.credentials"
         let credentialsStore = InMemoryCredentialsStore()
         if hasValidCredentials {
             try? credentialsStore.store(Self.previewCredentials, forKey: credentialsKeychainKey)
@@ -127,7 +128,21 @@ public struct TCGClient: Sendable {
     }
 
     static func `default`(transport: ClientTransport) -> TCGClient {
-        `default`(transport: transport, credentialsKeychainKey: credentialsKeychainKey)
+        `default`(server: serverConfiguration, transport: transport, credentialsStore: KeychainCredentialsStore())
+    }
+
+    static func `default`(
+        server: ServerConfiguration,
+        transport: ClientTransport,
+        credentialsStore: any CredentialsStore
+    ) -> TCGClient {
+        let namespace = ModuleConfig.storageNamespace(server: server, bundleIdentifier: ModuleConfig.bundleIdentifier)
+        return `default`(
+            server: server,
+            transport: transport,
+            credentialsKeychainKey: "\(namespace).TCGClient.credentials",
+            credentialsStore: credentialsStore
+        )
     }
 
     static func `default`(transport: ClientTransport, credentialsKeychainKey: String) -> TCGClient {
@@ -143,8 +158,22 @@ public struct TCGClient: Sendable {
         credentialsKeychainKey: String,
         credentialsStore: any CredentialsStore
     ) -> TCGClient {
+        `default`(
+            server: serverConfiguration,
+            transport: transport,
+            credentialsKeychainKey: credentialsKeychainKey,
+            credentialsStore: credentialsStore
+        )
+    }
+
+    static func `default`(
+        server: ServerConfiguration,
+        transport: ClientTransport,
+        credentialsKeychainKey: String,
+        credentialsStore: any CredentialsStore
+    ) -> TCGClient {
         let tokenClient = Client(
-            serverURL: serverURL,
+            serverURL: server.url,
             configuration: configuration,
             transport: transport,
             middlewares: [
@@ -158,7 +187,7 @@ public struct TCGClient: Sendable {
             credentialsStore: credentialsStore,
         ) { await AuthTokenIssuer.issue(using: tokenClient) }
         let client = Client(
-            serverURL: serverURL,
+            serverURL: server.url,
             configuration: configuration,
             transport: transport,
             middlewares: [RequestDiagnosticsMiddleware(), AuthorizationMiddleware(tokenProvider: tokenProvider)]
@@ -181,7 +210,10 @@ public struct TCGClient: Sendable {
         )
     }
 
-    private static let credentialsKeychainKey = ModuleConfig.credentialsKeychainKey
+    /// Session storage belongs to the same app and server as the network client's credentials.
+    public static var authenticationStorageNamespace: String {
+        "\(ModuleConfig.storageNamespace(server: serverConfiguration, bundleIdentifier: ModuleConfig.bundleIdentifier)).TCGAuth"
+    }
 
     /// Kept stable so previews and the screen snapshot baselines do not move.
     private static let previewSession = AuthSession(
@@ -204,11 +236,14 @@ public struct TCGClient: Sendable {
 
     private static let configuration = Configuration(dateTranscoder: .iso8601WithFractionalSeconds)
 
-    private static let serverURL: URL = {
+    private static let serverConfiguration: ServerConfiguration = {
         do {
-            return try Servers.Server1.url()
+            return try ServerConfiguration(
+                baseURL: Bundle.main.object(forInfoDictionaryKey: "TCGAPIBaseURL") as? String,
+                environment: Bundle.main.object(forInfoDictionaryKey: "TCGAPIEnvironment") as? String
+            )
         } catch {
-            fatalError("Failed to resolve the default server URL: \(error)")
+            fatalError("Failed to configure the app server: \(error)")
         }
     }()
 }

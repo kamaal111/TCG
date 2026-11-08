@@ -466,6 +466,7 @@ function checkDiscoveredCatalogs(root: string, platform: 'macos' | 'ios'): strin
       '-destination',
       platform === 'macos' ? 'platform=macOS' : 'generic/platform=iOS Simulator',
       '-json',
+      'test',
       'CODE_SIGNING_ALLOWED=NO',
       ...(sourcePackages ? ['-clonedSourcePackagesDirPath', sourcePackages] : []),
     ],

@@ -8,6 +8,10 @@
 import Foundation
 
 enum ModuleConfig {
-    static let identifier = "\(Bundle.main.bundleIdentifier ?? "io.kamaal.TCG").TCGClient"
-    static let credentialsKeychainKey = "\(identifier).credentials"
+    static let bundleIdentifier = Bundle.main.bundleIdentifier ?? "io.kamaal.TCG"
+    static let identifier = "\(bundleIdentifier).TCGClient"
+
+    static func storageNamespace(server: ServerConfiguration, bundleIdentifier: String) -> String {
+        "\(bundleIdentifier).server.\(server.origin)"
+    }
 }

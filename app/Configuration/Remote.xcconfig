@@ -1,0 +1,5 @@
+#include "App.xcconfig"
+TCG_API_HOST =
+#include? "Remote.local.xcconfig"
+TCG_API_SCHEME = https
+TCG_API_ENVIRONMENT = remote

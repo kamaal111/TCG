@@ -36,15 +36,44 @@ Its regression tests are maintained in the shared package.
 
 ## Run the app
 
-Start the local API with `just dev-server` from the repository root, then:
+The default **TCG** scheme connects to your remote API. Configure it once:
 
 ```sh
-just xcode
+cp app/Configuration/Remote.example.xcconfig app/Configuration/Remote.local.xcconfig
+vim app/Configuration/Remote.local.xcconfig
 ```
 
-Select the `TCG` scheme and a supported macOS or iOS simulator destination in
-Xcode. Resolve package dependencies and trust the Swift OpenAPI build plugin
-when prompted. Run the app and create an account or sign in.
+Replace the example with your API hostname, without `https://` or a path:
+
+```xcconfig
+TCG_API_HOST = api.example.com
+```
+
+This private file is ignored by Git. Its hostname becomes an HTTPS URL in the
+built app, so it also works when you open the installed app without Xcode.
+The URL is part of the installed app; it is not a secret embedded securely.
+Missing remote configuration stops the build and explains which file to create.
+
+Open Xcode with `just xcode`, then choose a scheme:
+
+| Scheme | Installed app | Server |
+| --- | --- | --- |
+| `TCG` | TCG | Your private HTTPS hostname |
+| `TCG Local` | TCG Local | `http://localhost:8080` |
+
+Build and run the selected scheme on macOS or iOS. Both apps can be installed
+at once and keep separate logins and app data. TCG keeps the existing app identity;
+TCG Local starts with a new identity. Sign in again the first time you use the
+remote app: old localhost credentials are not reused. Accounts and collections
+are not copied between servers.
+
+For local development, start the API with `just dev-server`, then run **TCG Local**
+on the Mac or iOS simulator. On a physical iPhone, localhost means the phone itself;
+use the remote scheme when taking the app outside. Switching schemes requires
+rebuilding, but no configuration edits. Scheme Test actions use local configuration,
+so automated tests do not need the private hostname or a running API.
+
+Resolve package dependencies and trust the Swift OpenAPI build plugin if prompted.
 
 The app provides Collection and Search tabs. Collection supports a game filter,
 add/edit forms, condition quantities, notes, deletion, and pricing rows. Search
@@ -304,7 +333,7 @@ When the build uses an explicit `OBJROOT`, pass it to the checker to avoid anoth
 Xcode build-settings query:
 
 ```sh
-just check-localizations-ios --build-root /tmp/tcg-ios-intermediates --configuration Debug-iphonesimulator
+just check-localizations-ios --build-root /tmp/tcg-ios-intermediates --configuration DebugLocal-iphonesimulator
 ```
 
 Both options are required together and must describe the current build's compiler

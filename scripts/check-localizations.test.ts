@@ -4,7 +4,9 @@ import os from 'node:os';
 import path from 'node:path';
 import url from 'node:url';
 
+import { load as loadYaml } from 'js-yaml';
 import type { TestContext } from 'vitest';
+import z from 'zod';
 
 import { checkCatalogs, translated, type JSONValue } from './check-localizations.ts';
 
@@ -378,8 +380,8 @@ function fakeXcode(t: TestContext, body: string) {
 }
 
 for (const { platform, configuration, destination } of [
-  { platform: 'macos', configuration: 'Debug', destination: 'platform=macOS' },
-  { platform: 'ios', configuration: 'Debug-iphonesimulator', destination: 'generic/platform=iOS Simulator' },
+  { platform: 'macos', configuration: 'DebugLocal', destination: 'platform=macOS' },
+  { platform: 'ios', configuration: 'DebugLocal-iphonesimulator', destination: 'generic/platform=iOS Simulator' },
 ]) {
   test(`CLI selects TCG settings and ${platform} configuration`, t => {
     const f = fakeXcode(t, 'console.log(process.env.SETTINGS);');
@@ -393,7 +395,7 @@ for (const { platform, configuration, destination } of [
       ...f.env,
       SETTINGS: JSON.stringify([
         { target: 'Other', buildSettings: {} },
-        { target: 'TCG', buildSettings: { CONFIGURATION: 'Debug', OBJROOT: f.build } },
+        { target: 'TCG', buildSettings: { CONFIGURATION: 'DebugLocal', OBJROOT: f.build } },
       ]),
     });
 
@@ -411,6 +413,7 @@ for (const { platform, configuration, destination } of [
       '-destination',
       destination,
       '-json',
+      'test',
       'CODE_SIGNING_ALLOWED=NO',
     ]);
   });
@@ -490,4 +493,45 @@ test('treats shell expansions as literal source paths', t => {
   f.catalog({ 'How to search': {} });
   expect(f.check()).toStrictEqual([]);
   expect(fs.existsSync(path.join(f.root, 'sentinel'))).toBe(false);
+});
+
+test('iOS CI verifies the configuration actually built by the scheme Test action', t => {
+  const f = fixture(t);
+  const scheme = fs.readFileSync(path.join(repo, 'app/TCG.xcodeproj/xcshareddata/xcschemes/TCG.xcscheme'), 'utf8');
+
+  const configuration = z
+    .string()
+    .nonempty()
+    .parse(scheme.match(/<TestAction\b[^>]*\bbuildConfiguration\s*=\s*"([^"]+)"/)?.[1]);
+
+  const workflow = z
+    .object({
+      jobs: z.object({
+        'app-ios': z.object({ steps: z.array(z.object({ name: z.string().optional(), run: z.string().optional() })) }),
+      }),
+    })
+    .parse(loadYaml(fs.readFileSync(path.join(repo, '.github/workflows/ci.yml'), 'utf8')));
+
+  const run = z
+    .string()
+    .nonempty()
+    .parse(workflow.jobs['app-ios'].steps.find(step => step.name === 'Verify iOS localization coverage')?.run);
+
+  const runnerTemporary = path.join(f.root, 'runner temp');
+  const summary = path.join(f.root, 'step summary');
+  const output = path.join(runnerTemporary, 'ios-intermediates', `${configuration}-iphonesimulator`);
+  fs.mkdirSync(output, { recursive: true });
+  const source = path.join(repo, 'app/TCG/AbsentFixture.swift');
+  fs.writeFileSync(path.join(output, 'TCG.SwiftFileList'), quote(source) + '\n');
+  f.write(path.join(output, 'TCG.stringsdata'), { source, tables: {} });
+
+  const result = childProcess.spawnSync('bash', ['-c', run], {
+    cwd: repo,
+    encoding: 'utf8',
+    env: { ...process.env, RUNNER_TEMP: runnerTemporary, GITHUB_STEP_SUMMARY: summary },
+  });
+
+  expect(result.status).toBe(0);
+  expect(result.stdout).toContain('Localization catalogs cover all compiler-extracted ios keys');
+  expect(fs.readFileSync(summary, 'utf8')).toContain('(exit 0).');
 });
