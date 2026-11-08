@@ -176,6 +176,16 @@ fetch-daily-currencies database-url=DATABASE_URL:
 install-currency-schedule env-file:
     bash scripts/currency-schedule.sh install "$1"
 
+# Explain and collect private infrastructure and release settings
+[positional-arguments]
+setup-infra *args:
+    node scripts/infra-cli.ts setup "$@"
+
+# Save replacement credentials and explain how to activate them
+[positional-arguments]
+rotate-keys *args:
+    node scripts/infra-cli.ts rotate-keys "$@"
+
 # Initialize the configured HCP Terraform workspace
 infra-init:
     bash scripts/infrastructure.sh init

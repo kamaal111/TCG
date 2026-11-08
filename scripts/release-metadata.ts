@@ -9,7 +9,7 @@ import z from 'zod';
 
 import { parseMiseTools } from './mise-tools.ts';
 
-const ReleaseRepositorySchema = z.string().regex(/^ghcr\.io\/[a-z0-9._-]+\/[a-z0-9._-]+$/);
+export const ReleaseRepositorySchema = z.string().regex(/^ghcr\.io\/[a-z0-9._-]+\/[a-z0-9._-]+$/);
 
 const Sha256DigestSchema = z.string().regex(/^sha256:[a-f0-9]{64}$/);
 

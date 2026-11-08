@@ -23,6 +23,8 @@ docker login ghcr.io --username "$(gh api user --jq .login)"
 ```
 
 Repeat login when the token expires or Docker reports an authentication error.
+`just rotate-keys` includes publishing-token creation and login instructions;
+the publishing token stays managed by Docker.
 [GitHub registry authentication](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry).
 
 ## 2. Apply database migrations if this release needs them

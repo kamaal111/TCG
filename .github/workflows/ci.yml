@@ -88,6 +88,11 @@ jobs:
       - name: Verify migration image against PostgreSQL
         run: just test-migration-image
 
+      - name: Set up Terraform for repository tooling
+        uses: jdx/mise-action@v5
+        with:
+          install_args: terraform
+
       - name: Run repository tooling tests
         if: needs.changes.outputs.app != 'true'
         run: just test-scripts
@@ -138,6 +143,11 @@ jobs:
 
       - name: Install xcbeautify if needed
         run: just install-xcbeautify
+
+      - name: Set up Terraform for repository tooling
+        uses: jdx/mise-action@v5
+        with:
+          install_args: terraform
 
       - name: Run repository tooling tests
         run: just test-scripts
