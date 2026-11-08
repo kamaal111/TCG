@@ -55,6 +55,15 @@ Settings contains card CSV import/export, sign-out confirmation, and app version
 iOS tab and a separate macOS Settings scene. The macOS Settings command appears
 only while signed in.
 
+## App icon artwork
+
+The app target selects `TCG/Assets.xcassets/AppIcon.appiconset` in both
+Debug and Release. Keep the iOS and iPadOS `AppIcon-1024.png` square,
+fully opaque, and without pre-rounded corners; the system applies its mask.
+Only macOS entries use the `AppIcon-macOS-*.png` renditions, which include
+rounded corners and transparent padding. Do not share the macOS renditions
+with the iOS entry when updating the artwork.
+
 ## Card CSV backups
 
 In Settings, choose **Export Cards** to save the complete collection, including all
