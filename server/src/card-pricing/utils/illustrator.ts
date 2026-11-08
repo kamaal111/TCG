@@ -2,7 +2,7 @@ import z from 'zod';
 
 import type { CardPriceRow } from '../types.ts';
 
-export const IllustratorNameSchema = z.string().trim().min(1);
+export const IllustratorNameSchema = z.string().trim().nonempty();
 
 const MetadataSchema = z.object({ artist: IllustratorNameSchema.optional().catch(undefined) });
 

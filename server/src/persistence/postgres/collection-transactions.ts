@@ -19,11 +19,12 @@ export async function lockCollections(tx: Transaction, identity: AuthenticatedId
 export async function ensureUnfiled(tx: Transaction, identity: AuthenticatedIdentity) {
   const userId = identity.requireUserId();
 
-  const find = () =>
-    tx
+  const find = () => {
+    return tx
       .select()
       .from(cardCollection)
       .where(and(eq(cardCollection.userId, userId), eq(cardCollection.isUnfiled, true)));
+  };
 
   const [existing] = await find();
 

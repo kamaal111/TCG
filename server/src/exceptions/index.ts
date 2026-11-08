@@ -64,9 +64,9 @@ export class InvalidValidation extends InvalidPayload<{
       context: {
         validations: validations.map(issue => ({
           code: z.object({ code: z.string().catch('validation_error') }).parse(issue).code,
-          path: (issue.path ?? []).map(segment =>
-            String(segment instanceof Object && 'key' in segment ? segment.key : segment),
-          ),
+          path: (issue.path ?? []).map(segment => {
+            return String(segment instanceof Object && 'key' in segment ? segment.key : segment);
+          }),
           message: issue.message,
         })),
       },

@@ -28,13 +28,13 @@ async function fixture(t: TestContext) {
 
   const commandFixture = url.fileURLToPath(new URL('./fixtures/currency-schedule/command.ts', import.meta.url));
   await Promise.all(
-    ['uname', 'id', 'date', 'launchctl', 'sudo', 'plutil'].map(name =>
-      fs.writeFile(
+    ['uname', 'id', 'date', 'launchctl', 'sudo', 'plutil'].map(name => {
+      return fs.writeFile(
         path.join(root, 'bin', name),
         '#!/bin/sh\nexec "$CURRENCY_TEST_NODE" "$CURRENCY_TEST_COMMAND" "$0" "$@"\n',
         { mode: 0o755 },
-      ),
-    ),
+      );
+    }),
   );
   await fs.symlink(process.execPath, path.join(root, 'bin/node'));
   await fs.copyFile(

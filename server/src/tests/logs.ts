@@ -30,12 +30,12 @@ export function getLogsForRequestId(requestId: string) {
 }
 
 function getStructuredLogs(): StructuredLog[] {
-  return rawLogs.flatMap(chunk =>
-    chunk
+  return rawLogs.flatMap(chunk => {
+    return chunk
       .split('\n')
       .filter(line => line.trim().length > 0)
-      .flatMap(parseStructuredLog),
-  );
+      .flatMap(parseStructuredLog);
+  });
 }
 
 function parseStructuredLog(line: string): StructuredLog[] {

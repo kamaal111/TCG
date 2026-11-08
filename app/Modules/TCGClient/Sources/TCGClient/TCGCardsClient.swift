@@ -48,9 +48,16 @@ struct TCGCardsClientImpl: TCGCardsClient {
                 return .failure(.unknown(status: HTTPResponse.Status.serviceUnavailable.code))
             }
 
+            let output: Operations.GetAppApiCardsExport.Output
             do {
-                switch try await client.getAppApiCardsExport(query: .init(cursor: cursor)) {
-                case .ok(let response):
+                output = try await client.getAppApiCardsExport(query: .init(cursor: cursor))
+            } catch {
+                return .failure(.unknown(status: HTTPResponse.Status.serviceUnavailable.code))
+            }
+
+            switch output {
+            case .ok(let response):
+                do {
                     let page = try response.body.json
                     guard !Task.isCancelled else {
                         return .failure(.unknown(status: HTTPResponse.Status.serviceUnavailable.code))
@@ -74,21 +81,21 @@ struct TCGCardsClientImpl: TCGCardsClient {
                     case .failure: return .failure(.unknown(status: HTTPResponse.Status.serviceUnavailable.code))
                     }
                     cursor = page.nextCursor
-                case .badRequest(let response):
-                    return .failure(
-                        .badRequest(
-                            validations: TCGClientValidationErrorParser.parseIssues(from: try? response.body.json)
-                        )
-                    )
-                case .unauthorized:
-                    return .failure(.unauthorized)
-                case .internalServerError:
-                    return .failure(.unknown(status: 500))
-                case .undocumented(let status, _):
-                    return .failure(.unknown(status: status))
+                } catch {
+                    return .failure(.unknown(status: HTTPResponse.Status.serviceUnavailable.code))
                 }
-            } catch {
-                return .failure(.unknown(status: HTTPResponse.Status.serviceUnavailable.code))
+            case .badRequest(let response):
+                return .failure(
+                    .badRequest(
+                        validations: TCGClientValidationErrorParser.parseIssues(from: try? response.body.json)
+                    )
+                )
+            case .unauthorized:
+                return .failure(.unauthorized)
+            case .internalServerError:
+                return .failure(.unknown(status: 500))
+            case .undocumented(let status, _):
+                return .failure(.unknown(status: status))
             }
         } while cursor != nil
 
@@ -99,10 +106,17 @@ struct TCGCardsClientImpl: TCGCardsClient {
         let attemptID = UUID()
         logger.info("event=cards.import.submission; attempt_id=\(attemptID); card_count=\(payload.cards.count)")
 
+        let generated = Components.Schemas.ImportCards(cards: payload.cards.map(Self.makeGeneratedImportCard))
+        let output: Operations.PostAppApiCardsImport.Output
         do {
-            let generated = Components.Schemas.ImportCards(cards: payload.cards.map(Self.makeGeneratedImportCard))
-            switch try await client.postAppApiCardsImport(body: .json(generated)) {
-            case .ok(let response):
+            output = try await client.postAppApiCardsImport(body: .json(generated))
+        } catch {
+            return .failure(Self.importFailure(error, attemptID: attemptID))
+        }
+
+        switch output {
+        case .ok(let response):
+            do {
                 let result = try response.body.json
                 logger.info(
                     "event=cards.import.confirmed; attempt_id=\(attemptID); http_status=200; imported_count=\(result.importedCount); updated_count=\(result.updatedCount); skipped_count=\(result.skippedCount)"
@@ -116,54 +130,58 @@ struct TCGCardsClientImpl: TCGCardsClient {
                         allocationAdjustments: result.allocationAdjustments
                     )
                 )
-            case .badRequest(let response):
-                let issues = TCGClientValidationErrorParser.parseIssues(from: try? response.body.json)
-                logger.warning(
-                    "event=cards.import.rejected; attempt_id=\(attemptID); http_status=400; issue_count=\(issues.count)"
-                )
-                for issue in issues {
-                    logger.warning(
-                        "event=cards.import.validation; attempt_id=\(attemptID); code=\(issue.code); path=\(issue.path.joined(separator: ".")); message=\(issue.message)"
-                    )
-                }
-
-                return .failure(.badRequest(validations: issues))
-            case .unauthorized:
-                logger.warning("event=cards.import.rejected; attempt_id=\(attemptID); http_status=401")
-                return .failure(.unauthorized)
-            case .internalServerError:
-                logger.error("event=cards.import.failed; attempt_id=\(attemptID); http_status=500")
-                return .failure(.unknown(status: 500))
-            case .undocumented(let status, _):
-                logger.error("event=cards.import.failed; attempt_id=\(attemptID); http_status=\(status)")
-                return .failure(.unknown(status: status))
+            } catch {
+                return .failure(Self.importFailure(error, attemptID: attemptID))
             }
-        } catch {
-            guard let clientError = error as? ClientError else {
-                logger.error(
-                    "event=cards.import.failed; attempt_id=\(attemptID); stage=request; cause=\(type(of: error))"
-                )
-                return .failure(.requestFailed)
-            }
-
-            guard let response = clientError.response else {
-                logger.error(
-                    "event=cards.import.failed; attempt_id=\(attemptID); stage=request; cause=\(type(of: clientError.underlyingError))"
-                )
-                return .failure(.requestFailed)
-            }
-
-            let status = response.status.code
-            logger.error(
-                "event=cards.import.failed; attempt_id=\(attemptID); stage=response_decoding; http_status=\(status); cause=\(type(of: clientError.underlyingError)); path=\(Self.decodingPath(clientError.underlyingError))"
+        case .badRequest(let response):
+            let issues = TCGClientValidationErrorParser.parseIssues(from: try? response.body.json)
+            logger.warning(
+                "event=cards.import.rejected; attempt_id=\(attemptID); http_status=400; issue_count=\(issues.count)"
             )
-
-            switch status {
-            case 400: return .failure(.badRequest(validations: []))
-            case 401: return .failure(.unauthorized)
-            case 200: return .failure(.invalidResponse(status: status))
-            default: return .failure(.unknown(status: status))
+            for issue in issues {
+                logger.warning(
+                    "event=cards.import.validation; attempt_id=\(attemptID); code=\(issue.code); path=\(issue.path.joined(separator: ".")); message=\(issue.message)"
+                )
             }
+
+            return .failure(.badRequest(validations: issues))
+        case .unauthorized:
+            logger.warning("event=cards.import.rejected; attempt_id=\(attemptID); http_status=401")
+            return .failure(.unauthorized)
+        case .internalServerError:
+            logger.error("event=cards.import.failed; attempt_id=\(attemptID); http_status=500")
+            return .failure(.unknown(status: 500))
+        case .undocumented(let status, _):
+            logger.error("event=cards.import.failed; attempt_id=\(attemptID); http_status=\(status)")
+            return .failure(.unknown(status: status))
+        }
+    }
+
+    private static func importFailure(_ error: any Error, attemptID: UUID) -> CardBackupErrors {
+        guard let clientError = error as? ClientError else {
+            logger.error(
+                "event=cards.import.failed; attempt_id=\(attemptID); stage=request; cause=\(type(of: error))"
+            )
+            return .requestFailed
+        }
+
+        guard let response = clientError.response else {
+            logger.error(
+                "event=cards.import.failed; attempt_id=\(attemptID); stage=request; cause=\(type(of: clientError.underlyingError))"
+            )
+            return .requestFailed
+        }
+
+        let status = response.status.code
+        logger.error(
+            "event=cards.import.failed; attempt_id=\(attemptID); stage=response_decoding; http_status=\(status); cause=\(type(of: clientError.underlyingError)); path=\(Self.decodingPath(clientError.underlyingError))"
+        )
+
+        switch status {
+        case 400: return .badRequest(validations: [])
+        case 401: return .unauthorized
+        case 200: return .invalidResponse(status: status)
+        default: return .unknown(status: status)
         }
     }
 

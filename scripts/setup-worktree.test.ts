@@ -54,13 +54,13 @@ describe('worktreeEnv', () => {
   });
 
   it('rejects nonlocal service URLs before rewriting the environment', () => {
-    expect(() =>
-      worktreeEnv(
+    expect(() => {
+      return worktreeEnv(
         unitSource.replace('localhost:5432', 'db.example.com:5432'),
         { app: 8100, db: 5500, storage: 9100 },
         'tcg-wt-0123456789ab',
-      ),
-    ).toThrow(/DATABASE_URL must use localhost/);
+      );
+    }).toThrow(/DATABASE_URL must use localhost/);
   });
 });
 
@@ -69,8 +69,9 @@ async function fixture() {
   git(['worktree', 'add', '--detach', checkout]);
   await fs.writeFile(path.join(main, '.env'), source, { mode: 0o600 });
 
-  const run = (cwd = checkout, env = process.env) =>
-    childProcess.spawnSync('bash', [script], { cwd, env, encoding: 'utf8' });
+  const run = (cwd = checkout, env = process.env) => {
+    return childProcess.spawnSync('bash', [script], { cwd, env, encoding: 'utf8' });
+  };
 
   const read = () => fs.readFile(path.join(checkout, '.env'), 'utf8');
 

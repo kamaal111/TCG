@@ -81,12 +81,13 @@ integrationTest(
     const destination = await createBinder(app, headers, 2, 1);
     const entry = await addCard(app, user.sessionToken, source.id);
 
-    const move = (collectionId: string | null) =>
-      app.request(`/app-api/cards/${entry.id}`, {
+    const move = (collectionId: string | null) => {
+      return app.request(`/app-api/cards/${entry.id}`, {
         method: 'PUT',
         headers,
         body: JSON.stringify({ ...validCardPayload, collection_id: collectionId }),
       });
+    };
 
     expect((await move(destination.id)).status).toBe(200);
     expect((await readCollection(app, headers, source.id)).pages).toMatchObject([{ slots: [] }]);

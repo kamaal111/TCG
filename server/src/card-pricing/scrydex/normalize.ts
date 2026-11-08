@@ -7,11 +7,11 @@ import { CARD_GAME_MAP } from '../types.ts';
 import { IllustratorNameSchema } from '../utils/illustrator.ts';
 
 const RequiredCardSchema = z.object({
-  id: z.coerce.string().min(1),
-  name: z.string().min(1),
+  id: z.coerce.string().nonempty(),
+  name: z.string().nonempty(),
 });
 
-const NonEmptyStringSchema = z.string().trim().min(1);
+const NonEmptyStringSchema = z.string().trim().nonempty();
 
 const FiniteNumberSchema = z.number();
 

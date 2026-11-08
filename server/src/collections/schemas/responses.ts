@@ -15,7 +15,7 @@ import { COLLECTION_BACKUP_VERSION, MAX_COLLECTION_NAME_LENGTH } from '../consta
 export const CollectionSummarySchema = z
   .object({
     id: UuidSchema,
-    name: z.string().min(1).max(MAX_COLLECTION_NAME_LENGTH),
+    name: z.string().nonempty().max(MAX_COLLECTION_NAME_LENGTH),
     is_unfiled: z.boolean(),
     revision: RevisionSchema,
   })

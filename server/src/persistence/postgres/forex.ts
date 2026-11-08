@@ -22,12 +22,12 @@ export class PostgresForexRepository implements ForexRepository {
   }
 
   latestCollection(): ResultAsync<ForexCollection | undefined, ForexError> {
-    return tryCatch(async () =>
-      this.db.query.exchangeRate.findFirst({
+    return tryCatch(async () => {
+      return this.db.query.exchangeRate.findFirst({
         columns: { date: true, rates: true, collectedAt: true },
         orderBy: { date: 'desc' },
-      }),
-    )
+      });
+    })
       .mapErr(cause => new ForexReadFailed(cause))
       .andThen(row => {
         if (row == null) {

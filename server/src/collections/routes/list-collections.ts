@@ -23,7 +23,11 @@ export function createListCollectionsRoute({ common, errors }: CollectionRouteDe
 
   return defineOpenAPIRoute<HonoEnvironment, typeof routeConfig>({
     route: routeConfig,
-    handler: async c =>
-      c.json({ collections: await c.get('collectionRepository').list() }, { status: CONTENTFUL_STATUS_CODES.OK }),
+    handler: async c => {
+      return c.json(
+        { collections: await c.get('collectionRepository').list() },
+        { status: CONTENTFUL_STATUS_CODES.OK },
+      );
+    },
   });
 }

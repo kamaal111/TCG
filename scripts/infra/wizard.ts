@@ -508,8 +508,9 @@ async function setupRelease({ store, prompts }: WizardOptions, infrastructure: E
     prompts,
     message: 'Release image repository',
     initialValue: document.values.TCG_IMAGE_REPOSITORY ?? infrastructure.values.TCG_IMAGE_REPOSITORY,
-    valid: value =>
-      ReleaseRepositorySchema.safeParse(value).success && value === infrastructure.values.TCG_IMAGE_REPOSITORY,
+    valid: value => {
+      return ReleaseRepositorySchema.safeParse(value).success && value === infrastructure.values.TCG_IMAGE_REPOSITORY;
+    },
     error: 'Use the same image repository as the infrastructure settings.',
   });
 

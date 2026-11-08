@@ -20,20 +20,22 @@ export const cardPrice = pgTable(
     pricingSource: text('pricing_source').$type<PricingSource>().notNull(),
     fetchedAt: timestamp('fetched_at').defaultNow().notNull(),
   },
-  table => [
-    uniqueIndex('card_price_source_game_cardId_pricedOn_idx').on(
-      table.pricingSource,
-      table.game,
-      table.pricingCardId,
-      table.pricedOn,
-    ),
-    index('card_price_source_game_cardNumber_pricedOn_idx').on(
-      table.pricingSource,
-      table.game,
-      table.cardNumber,
-      table.pricedOn,
-    ),
-  ],
+  table => {
+    return [
+      uniqueIndex('card_price_source_game_cardId_pricedOn_idx').on(
+        table.pricingSource,
+        table.game,
+        table.pricingCardId,
+        table.pricedOn,
+      ),
+      index('card_price_source_game_cardNumber_pricedOn_idx').on(
+        table.pricingSource,
+        table.game,
+        table.cardNumber,
+        table.pricedOn,
+      ),
+    ];
+  },
 );
 
 export const cardPriceSearch = pgTable(
@@ -47,14 +49,16 @@ export const cardPriceSearch = pgTable(
     pricingSource: text('pricing_source').$type<PricingSource>().notNull(),
     fetchedAt: timestamp('fetched_at').defaultNow().notNull(),
   },
-  table => [
-    uniqueIndex('card_price_search_source_game_queryKey_pricedOn_idx').on(
-      table.pricingSource,
-      table.game,
-      table.queryKey,
-      table.pricedOn,
-    ),
-  ],
+  table => {
+    return [
+      uniqueIndex('card_price_search_source_game_queryKey_pricedOn_idx').on(
+        table.pricingSource,
+        table.game,
+        table.queryKey,
+        table.pricedOn,
+      ),
+    ];
+  },
 );
 
 export const cardPricingRelations = defineRelationsPart({ cardPrice, cardPriceSearch });

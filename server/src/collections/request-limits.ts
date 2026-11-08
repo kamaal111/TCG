@@ -19,6 +19,17 @@ const PageEnvelopeSchema = z.object({ slots: z.array(z.unknown()) });
 
 const CardEnvelopeSchema = z.object({ purchases: z.array(z.unknown()).optional().catch(undefined) });
 
+function parseEnvelope(body: Buffer): z.infer<typeof EnvelopeSchema> | undefined {
+  try {
+    const parsed = EnvelopeSchema.safeParse(JSON.parse(body.toString('utf8')));
+
+    return parsed.success ? parsed.data : undefined;
+  } catch {
+    // The route validator owns malformed JSON responses.
+    return undefined;
+  }
+}
+
 function checkCounts(data: z.infer<typeof EnvelopeSchema>, policy: CollectionPolicy) {
   if (
     (data.collection_ids?.length ?? 0) > policy.COLLECTION_MAX_COLLECTIONS ||
@@ -131,17 +142,7 @@ export function collectionRequestLimits(policy: CollectionPolicy): MiddlewareHan
       }
 
       const body = buffer.subarray(0, size);
-      let envelope: z.infer<typeof EnvelopeSchema> | undefined;
-
-      try {
-        const parsed = EnvelopeSchema.safeParse(JSON.parse(body.toString('utf8')));
-
-        if (parsed.success) {
-          envelope = parsed.data;
-        }
-      } catch {
-        // The route validator owns malformed JSON responses.
-      }
+      const envelope = parseEnvelope(body);
 
       if (envelope != null) {
         checkCounts(envelope, policy);

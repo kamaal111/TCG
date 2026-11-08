@@ -45,12 +45,11 @@ export const integrationTest = test
   .extend('db', ({ _fixturesSetup }) => _fixturesSetup.db)
   .extend('app', ({ _fixturesSetup }) => _fixturesSetup.app)
   .extend('createApp', ({ _fixturesSetup }) => _fixturesSetup.createApp)
-  .extend(
-    'createUser',
-    ({ app, db }) =>
-      (overrides: Parameters<typeof createTestUser>[2] = {}) =>
-        createTestUser(app, db, overrides),
-  )
+  .extend('createUser', ({ app, db }) => {
+    return (overrides: Parameters<typeof createTestUser>[2] = {}) => {
+      return createTestUser(app, db, overrides);
+    };
+  })
   .extend('user', ({ createUser }) => createUser())
   .extend('authenticatedHeaders', ({ user }) => sessionHeaders(user.sessionToken))
   .extend('connectionString', ({ _fixturesSetup }) => _fixturesSetup.connectionString)

@@ -19,7 +19,7 @@ export const CardsPaginationQuerySchema = z.object({
   }),
   cursor: z
     .string()
-    .min(1)
+    .nonempty()
     .max(256)
     .regex(/^[A-Za-z0-9_-]+$/)
     .transform((value, context) => {
@@ -52,7 +52,7 @@ export const CardsListQuerySchema = CardsPaginationQuerySchema.extend({
 
         return parsed.success ? [parsed.data] : value;
       },
-      z.array(z.string().trim().min(1).max(200)).optional(),
+      z.array(z.string().trim().nonempty().max(200)).optional(),
     )
     .meta({
       type: 'array',

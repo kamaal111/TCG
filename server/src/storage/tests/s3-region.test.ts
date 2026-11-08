@@ -19,8 +19,8 @@ test('signs object requests with the configured Spaces region and uses its endpo
     forcePathStyle: false,
     requestTimeoutMs: 1000,
     maxAttempts: 1,
-    clientFactory: configuration =>
-      new S3Client({
+    clientFactory: configuration => {
+      return new S3Client({
         ...configuration,
         requestHandler: {
           handle: async (request: StorageRequest) => {
@@ -29,7 +29,8 @@ test('signs object requests with the configured Spaces region and uses its endpo
             return { response: { statusCode: 200, headers: { 'content-length': '1', 'content-type': 'image/png' } } };
           },
         },
-      }),
+      });
+    },
   });
 
   expect((await storage.head('card.png')).isOk()).toBe(true);

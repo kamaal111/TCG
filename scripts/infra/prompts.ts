@@ -40,8 +40,9 @@ function answer<T>(schema: z.ZodType<T>, value: string | boolean | string[] | sy
 }
 
 export const terminalPrompts: Prompts = {
-  text: async question =>
-    answer(z.string(), await clack.text({ ...question, validate: value => question.validate?.(value ?? '') })),
+  text: async question => {
+    return answer(z.string(), await clack.text({ ...question, validate: value => question.validate?.(value ?? '') }));
+  },
   password: async message => answer(z.string(), await clack.password({ message, mask: '*' })),
   select: async question => answer(z.string(), await clack.select(question)),
   multiselect: async question => answer(z.array(z.string()), await clack.multiselect({ ...question, required: false })),

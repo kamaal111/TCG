@@ -178,9 +178,9 @@ describe('Scrydex search decoding', () => {
     { counts: {}, expected: 3 },
     { counts: { totalCount: 0 }, expected: 0 },
   ])('preserves provider totals independently of rejected records: $counts', async ({ counts, expected }) => {
-    const result = await makeClient(async () =>
-      Response.json({ data: [card, null, { variants: 'invalid' }], ...counts }),
-    ).searchCards('pokemon', 'query');
+    const result = await makeClient(async () => {
+      return Response.json({ data: [card, null, { variants: 'invalid' }], ...counts });
+    }).searchCards('pokemon', 'query');
 
     assert(result.isOk());
     expect(result.value).toEqual({ cards: [card], providerResultCount: expected, rejectedCount: 2 });

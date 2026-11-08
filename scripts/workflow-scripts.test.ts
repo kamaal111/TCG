@@ -113,8 +113,8 @@ if ((tool === 'gpg' && process.env.FAIL_GPG) || (tool === 'ssh' && process.env.F
     await fs.writeFile(path.join(bin, name), command, { mode: 0o755 });
   }
 
-  const run = (file: string, actions: string[], extra: NodeJS.ProcessEnv = {}) =>
-    childProcess.spawnSync(file.endsWith('.ts') ? process.execPath : 'bash', [file, ...actions], {
+  const run = (file: string, actions: string[], extra: NodeJS.ProcessEnv = {}) => {
+    return childProcess.spawnSync(file.endsWith('.ts') ? process.execPath : 'bash', [file, ...actions], {
       cwd: root,
       env: {
         ...process.env,
@@ -131,6 +131,7 @@ if ((tool === 'gpg' && process.env.FAIL_GPG) || (tool === 'ssh' && process.env.F
       },
       encoding: 'utf8',
     });
+  };
 
   return {
     root,
@@ -139,14 +140,17 @@ if ((tool === 'gpg' && process.env.FAIL_GPG) || (tool === 'ssh' && process.env.F
     commands: () => fs.readFile(log, 'utf8'),
     output: () => fs.readFile(output, 'utf8'),
     summary: () => fs.readFile(summary, 'utf8'),
-    infra: (action: string, env?: NodeJS.ProcessEnv) =>
-      run(path.join(root, '.github/scripts/infrastructure.sh'), [action], env),
-    release: (action: string, env?: NodeJS.ProcessEnv) =>
-      run(path.join(repo, '.github/scripts/release-server.sh'), [action], env),
-    metadata: (action: string, env?: NodeJS.ProcessEnv) =>
-      run(path.join(repo, 'scripts/release-metadata.ts'), [action], env),
-    localRelease: (env?: NodeJS.ProcessEnv, args: string[] = []) =>
-      run(path.join(repo, 'scripts/release-server.sh'), args, {
+    infra: (action: string, env?: NodeJS.ProcessEnv) => {
+      return run(path.join(root, '.github/scripts/infrastructure.sh'), [action], env);
+    },
+    release: (action: string, env?: NodeJS.ProcessEnv) => {
+      return run(path.join(repo, '.github/scripts/release-server.sh'), [action], env);
+    },
+    metadata: (action: string, env?: NodeJS.ProcessEnv) => {
+      return run(path.join(repo, 'scripts/release-metadata.ts'), [action], env);
+    },
+    localRelease: (env?: NodeJS.ProcessEnv, args: string[] = []) => {
+      return run(path.join(repo, 'scripts/release-server.sh'), args, {
         TCG_RELEASE_ENV_FILE: path.join(root, 'release.env'),
         TCG_DEPLOY_HOST: undefined,
         TCG_IMAGE_REPOSITORY: undefined,
@@ -154,7 +158,8 @@ if ((tool === 'gpg' && process.env.FAIL_GPG) || (tool === 'ssh' && process.env.F
         TCG_KNOWN_HOSTS: undefined,
         TMPDIR: runner,
         ...env,
-      }),
+      });
+    },
   };
 }
 

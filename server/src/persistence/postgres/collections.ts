@@ -230,9 +230,15 @@ export class PostgresCollectionRepository implements CollectionRepository {
       }
     }
 
-    const slots = values.pages.flatMap(p =>
-      p.slots.map(s => ({ pageId: p.id, row: s.row, column: s.column, cardId: s.card_id, quantity: s.quantity })),
-    );
+    const slots = values.pages.flatMap(p => {
+      return p.slots.map(s => ({
+        pageId: p.id,
+        row: s.row,
+        column: s.column,
+        cardId: s.card_id,
+        quantity: s.quantity,
+      }));
+    });
 
     for (let start = 0; start < slots.length; start += COLLECTION_BATCH_SIZE) {
       await tx.insert(binderSlot).values(slots.slice(start, start + COLLECTION_BATCH_SIZE));

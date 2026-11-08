@@ -76,11 +76,11 @@ describe('RealScrydexClient', () => {
     async ({ expansion, expectedSetName }) => {
       const card = expansion === undefined ? onePieceCard() : { ...onePieceCard(), expansion };
 
-      const client = makeClient(async input =>
-        jsonResponse(
+      const client = makeClient(async input => {
+        return jsonResponse(
           new URL(stringifyRequestURL(input)).pathname.endsWith('/cards') ? { data: [card] } : { data: card },
-        ),
-      );
+        );
+      });
 
       const search = await client.searchCards('one_piece', 'OP14-069', { languages: [], searchBy: 'card' });
       assert(search.isOk());

@@ -44,8 +44,8 @@ export class PostgresPricingCoordinator implements PricingCoordinator {
     const deadline = performance.now() + this.timeoutMs;
     let acquired = false;
 
-    return tryCatch(() =>
-      this.db.transaction(async tx => {
+    return tryCatch(() => {
+      return this.db.transaction(async tx => {
         const remainingMs = Math.ceil(deadline - performance.now());
 
         if (remainingMs <= 0) {
@@ -63,8 +63,8 @@ export class PostgresPricingCoordinator implements PricingCoordinator {
         await tx.execute(sql`select set_config('lock_timeout', '0', true)`);
 
         return operation();
-      }),
-    ).mapErr(cause => {
+      });
+    }).mapErr(cause => {
       if (acquired) {
         return new PricingCoordinationFailure('operation_failed', cause);
       }

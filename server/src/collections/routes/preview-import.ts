@@ -24,7 +24,10 @@ export function createPreviewImportRoute({ common, errors, schemas }: Collection
 
   return defineOpenAPIRoute<HonoEnvironment, typeof routeConfig>({
     route: routeConfig,
-    handler: async c =>
-      c.json(await c.get('collectionRepository').preview(c.req.valid('json')), { status: CONTENTFUL_STATUS_CODES.OK }),
+    handler: async c => {
+      return c.json(await c.get('collectionRepository').preview(c.req.valid('json')), {
+        status: CONTENTFUL_STATUS_CODES.OK,
+      });
+    },
   });
 }

@@ -113,7 +113,7 @@ const BaseEnvSchema = z.object({
 
   PORT: z.coerce.number().gte(1000).lt(10_000).default(DEFAULT_APPLICATION_CONFIG.PORT),
   DATABASE_URL: z.string(),
-  BETTER_AUTH_SECRET: z.string().min(1).optional(),
+  BETTER_AUTH_SECRET: z.string().nonempty().optional(),
   MODE: z.enum(Object.values(SERVER_MODES)).default(DEFAULT_APPLICATION_CONFIG.MODE),
   DEBUG: z.coerce.boolean().default(DEFAULT_APPLICATION_CONFIG.DEBUG),
   LOG_LEVEL: z.enum(Object.values(LOG_LEVELS)).default(DEFAULT_APPLICATION_CONFIG.LOG_LEVEL),
@@ -138,8 +138,8 @@ const BaseEnvSchema = z.object({
     .positive()
     .default(DEFAULT_IMPORT_POLICY.CARD_IMPORT_PURCHASE_BATCH_SIZE),
   SCRYDEX_CLIENT: z.enum(Object.values(PRICING_CLIENT_MODES)).default(DEFAULT_APPLICATION_CONFIG.SCRYDEX_CLIENT),
-  SCRYDEX_API_KEY: z.string().min(1).optional(),
-  SCRYDEX_TEAM_ID: z.string().min(1).optional(),
+  SCRYDEX_API_KEY: z.string().nonempty().optional(),
+  SCRYDEX_TEAM_ID: z.string().nonempty().optional(),
   SCRYDEX_BASE_URL: z.url().default(DEFAULT_APPLICATION_CONFIG.SCRYDEX_BASE_URL),
   SCRYDEX_REQUEST_TIMEOUT_MS: z.coerce
     .number()
@@ -152,10 +152,10 @@ const BaseEnvSchema = z.object({
     .positive()
     .default(DEFAULT_APPLICATION_CONFIG.PRICING_LOCK_TIMEOUT_MS),
   OBJECT_STORAGE_ENDPOINT: z.url().optional(),
-  OBJECT_STORAGE_REGION: z.string().min(1).default('us-east-1'),
-  OBJECT_STORAGE_BUCKET: z.string().min(1).default('tcg-card-images'),
-  OBJECT_STORAGE_ACCESS_KEY_ID: z.string().min(1).optional(),
-  OBJECT_STORAGE_SECRET_ACCESS_KEY: z.string().min(1).optional(),
+  OBJECT_STORAGE_REGION: z.string().nonempty().default('us-east-1'),
+  OBJECT_STORAGE_BUCKET: z.string().nonempty().default('tcg-card-images'),
+  OBJECT_STORAGE_ACCESS_KEY_ID: z.string().nonempty().optional(),
+  OBJECT_STORAGE_SECRET_ACCESS_KEY: z.string().nonempty().optional(),
   OBJECT_STORAGE_FORCE_PATH_STYLE: z.stringbool().default(true),
   OBJECT_STORAGE_REQUEST_TIMEOUT_MS: z.coerce
     .number()

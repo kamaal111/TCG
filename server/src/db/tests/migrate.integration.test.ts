@@ -217,8 +217,8 @@ test('preserves real users, cards, collections, binder slots, quantities and pur
       VALUES ('33333333-3333-4333-8333-333333333333', '22222222-2222-4222-8222-222222222222', 1, 1, 2);
   `);
 
-  const snapshot = async () =>
-    Promise.all([
+  const snapshot = async () => {
+    return Promise.all([
       database.db.$client.query('SELECT to_jsonb(t) AS record, tableoid FROM "user" t ORDER BY id'),
       database.db.$client.query('SELECT to_jsonb(t) AS record, tableoid FROM card_collection t ORDER BY id'),
       database.db.$client.query('SELECT to_jsonb(t) AS record, tableoid FROM card t ORDER BY id'),
@@ -227,6 +227,7 @@ test('preserves real users, cards, collections, binder slots, quantities and pur
       database.db.$client.query('SELECT to_jsonb(t) AS record, tableoid FROM binder_page t ORDER BY id'),
       database.db.$client.query('SELECT to_jsonb(t) AS record, tableoid FROM binder_slot t ORDER BY id'),
     ]).then(results => results.map(result => result.rows));
+  };
 
   const before = await snapshot();
   await squashMigrations({

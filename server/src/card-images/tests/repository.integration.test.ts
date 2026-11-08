@@ -96,11 +96,11 @@ describe('CardImageRepository.claimBatch', () => {
   integrationTest('never hands the same image to two claimers', async ({ db, imageRepository: repository }) => {
     const imageKeys = Array.from({ length: 10 }, (_, index) => String(index).repeat(64));
     await db.insert(cardImage).values(
-      imageKeys.map(imageKey =>
-        imageRecord({
+      imageKeys.map(imageKey => {
+        return imageRecord({
           imageKey,
-        }),
-      ),
+        });
+      }),
     );
 
     const [first, second] = await Promise.all([
@@ -191,11 +191,11 @@ describe('CardImageRepository retry backoff', () => {
     async ({ db, imageRepository: repository }) => {
       const imageKeys = ['1', '2', '3'].map(prefix => prefix.repeat(63).concat('a'));
       await db.insert(cardImage).values(
-        imageKeys.map(imageKey =>
-          imageRecord({
+        imageKeys.map(imageKey => {
+          return imageRecord({
             imageKey,
-          }),
-        ),
+          });
+        }),
       );
 
       const delays = await Promise.all(

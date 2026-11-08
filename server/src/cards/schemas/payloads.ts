@@ -22,7 +22,7 @@ const CardInputSchema = CardCoreFieldsSchema.extend({
     }),
   purchases: z
     .array(CardPurchaseInputSchema)
-    .min(1)
+    .nonempty()
     .max(MAX_CONDITIONS * MAX_COPIES_PER_CONDITION)
     .meta({
       description:
@@ -114,7 +114,7 @@ export const ImportCardSchema = CardInputSchema.extend({
           }
         }),
     )
-    .min(1)
+    .nonempty()
     .max(MAX_CONDITIONS * MAX_COPIES_PER_CONDITION)
     .meta({ description: 'Purchase batches preserved from the backup, including exact costs and currencies' }),
 })

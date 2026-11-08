@@ -260,9 +260,9 @@ describe('xcbeautify runner', () => {
     expect(await exited).toBe(exitCode);
     const workerPid = fs.readFileSync(pidFile, 'utf8');
     await expect
-      .poll(() =>
-        childProcess.spawnSync('/bin/ps', ['-p', workerPid, '-o', 'stat='], { encoding: 'utf8' }).stdout.trim(),
-      )
+      .poll(() => {
+        return childProcess.spawnSync('/bin/ps', ['-p', workerPid, '-o', 'stat='], { encoding: 'utf8' }).stdout.trim();
+      })
       .toBe('');
   });
 });

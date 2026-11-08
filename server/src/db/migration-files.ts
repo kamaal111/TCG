@@ -9,7 +9,7 @@ import { InternalServerError } from '../exceptions/index.ts';
 
 const MigrationSchema = z.object({
   name: z.string().regex(/^\d{14}_[a-zA-Z0-9_-]+$/),
-  sql: z.string().min(1),
+  sql: z.string().nonempty(),
   hash: z.string().regex(/^[a-f0-9]{64}$/),
   timestamp: z.number().int(),
 });
@@ -115,14 +115,14 @@ export async function readMigrationCatalog(folder: string): Promise<MigrationCat
 }
 
 async function readCatalog(folder: string): Promise<MigrationCatalog> {
-  const active = readMigrationFiles({ migrationsFolder: folder }).map(meta =>
-    MigrationSchema.parse({
+  const active = readMigrationFiles({ migrationsFolder: folder }).map(meta => {
+    return MigrationSchema.parse({
       name: meta.name,
       sql: meta.sql.join('--> statement-breakpoint'),
       timestamp: meta.folderMillis,
       hash: meta.hash,
-    }),
-  );
+    });
+  });
 
   const archivePath = path.join(folder, 'compatibility', 'manifest.json');
 

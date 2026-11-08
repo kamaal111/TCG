@@ -11,7 +11,7 @@ test.each([
   const filename = await createLintFixture(`export const schema = ${expression};`);
   const result = lintFixture(filename);
   expect(result.status).toBe(1);
-  expect(result.diagnostics).toEqual([{ code: 'tcg-zod(prefer-nullish)', message: MESSAGE }]);
+  expect(result.diagnostics).toEqual([{ code: 'kamaal-zod(prefer-nullish)', message: MESSAGE }]);
 });
 
 test.each([

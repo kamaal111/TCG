@@ -63,7 +63,7 @@ const ACTION_MAP = {
     console.log(metadata['containerimage.digest']);
   },
   names: async (): Promise<void> => {
-    const output = z.string().min(1).parse(process.env.GITHUB_OUTPUT);
+    const output = z.string().nonempty().parse(process.env.GITHUB_OUTPUT);
 
     const source = z
       .string()
@@ -77,7 +77,7 @@ const ACTION_MAP = {
     );
   },
   refs: async (): Promise<void> => {
-    const output = z.string().min(1).parse(process.env.GITHUB_OUTPUT);
+    const output = z.string().nonempty().parse(process.env.GITHUB_OUTPUT);
 
     const refs = releaseReferences(
       ReleaseReferenceInputSchema.parse({

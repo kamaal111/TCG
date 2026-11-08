@@ -25,9 +25,10 @@ export function createGetCollectionRoute({ common, errors }: CollectionRouteDepe
 
   return defineOpenAPIRoute<HonoEnvironment, typeof routeConfig>({
     route: routeConfig,
-    handler: async c =>
-      c.json(await c.get('collectionRepository').get(c.req.valid('param').collectionId), {
+    handler: async c => {
+      return c.json(await c.get('collectionRepository').get(c.req.valid('param').collectionId), {
         status: CONTENTFUL_STATUS_CODES.OK,
-      }),
+      });
+    },
   });
 }

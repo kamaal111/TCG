@@ -33,42 +33,38 @@ final class TCGSearchHistoryStore {
         self.defaults = defaults
         self.now = now
         guard let data = defaults?.data(forKey: Self.storageKey) else { return }
-        do {
-            let decoder = JSONDecoder()
-            let version = try decoder.decode(ArchiveVersion.self, from: data).version
-            let storedEntries: [TCGSearchHistoryEntry]
-            switch version {
-            case 1:
-                let archive = try decoder.decode(ArchiveV1.self, from: data)
-                storedEntries = archive.entries.map {
-                    .init(id: $0.id, game: $0.game, query: $0.query, lastUsedAt: $0.lastUsedAt, mode: .card)
-                }
-            case 2:
-                storedEntries = try decoder.decode(ArchiveV2.self, from: data).entries
-            default: return
+        guard let version = Self.decodeArchive(ArchiveVersion.self, from: data)?.version else { return }
+        let storedEntries: [TCGSearchHistoryEntry]
+        switch version {
+        case 1:
+            guard let archive = Self.decodeArchive(ArchiveV1.self, from: data) else { return }
+            storedEntries = archive.entries.map {
+                .init(id: $0.id, game: $0.game, query: $0.query, lastUsedAt: $0.lastUsedAt, mode: .card)
             }
-            entries = storedEntries.sorted { $0.lastUsedAt > $1.lastUsedAt }
-            var retained: [TCGSearchHistoryEntry] = []
-            for entry in entries {
-                let query = entry.query.trimmingCharacters(in: .whitespacesAndNewlines)
-                guard query.count >= 2 else { continue }
-                guard retained.filter({ $0.game == entry.game }).count < 100 else { continue }
-                guard
-                    !retained.contains(where: {
-                        $0.game == entry.game && $0.mode == entry.mode && Self.matches($0.query, query)
-                    })
-                else {
-                    continue
-                }
-                guard !retained.contains(where: { $0.id == entry.id }) else { continue }
-                retained.append(
-                    .init(id: entry.id, game: entry.game, query: query, lastUsedAt: entry.lastUsedAt, mode: entry.mode)
-                )
-            }
-            entries = retained
-        } catch {
-            Self.logger.warning("Could not load local search history; starting with an empty history")
+        case 2:
+            guard let archive = Self.decodeArchive(ArchiveV2.self, from: data) else { return }
+            storedEntries = archive.entries
+        default: return
         }
+        entries = storedEntries.sorted { $0.lastUsedAt > $1.lastUsedAt }
+        var retained: [TCGSearchHistoryEntry] = []
+        for entry in entries {
+            let query = entry.query.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard query.count >= 2 else { continue }
+            guard retained.filter({ $0.game == entry.game }).count < 100 else { continue }
+            guard
+                !retained.contains(where: {
+                    $0.game == entry.game && $0.mode == entry.mode && Self.matches($0.query, query)
+                })
+            else {
+                continue
+            }
+            guard !retained.contains(where: { $0.id == entry.id }) else { continue }
+            retained.append(
+                .init(id: entry.id, game: entry.game, query: query, lastUsedAt: entry.lastUsedAt, mode: entry.mode)
+            )
+        }
+        entries = retained
     }
 
     func entries(for game: ClientCardGame) -> [TCGSearchHistoryEntry] {
@@ -112,6 +108,15 @@ final class TCGSearchHistoryStore {
     func clear(game: ClientCardGame) {
         entries.removeAll { $0.game == game }
         persist()
+    }
+
+    private static func decodeArchive<Archive: Decodable>(_ type: Archive.Type, from data: Data) -> Archive? {
+        do {
+            return try JSONDecoder().decode(type, from: data)
+        } catch {
+            logger.warning("Could not load local search history; starting with an empty history")
+            return nil
+        }
     }
 
     private func persist() {

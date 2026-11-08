@@ -55,6 +55,9 @@ run_pull_request_case deploy/compose.yml true false
 run_pull_request_case app/Modules/TCGClient/ci-test.swift false true
 run_pull_request_case .github/workflows/ci.yml true true
 run_pull_request_case mise.toml true true
+run_pull_request_case package.json true true
+run_pull_request_case pnpm-lock.yaml true true
+run_pull_request_case pnpm-workspace.yaml true true
 run_pull_request_case scripts/check-localizations.ts false true
 run_pull_request_case scripts/check-localizations.test.ts false true
 run_pull_request_case scripts/run-ios-snapshots-ci.ts false true
