@@ -2,6 +2,39 @@
 
 [All release guides](README.md)
 
+## Guided setup
+
+From the repository root on the Mac mini, run:
+
+```sh
+just setup-infra
+```
+
+The wizard explains each question, saves private settings, and shows existing
+answers as defaults. Choose resources and capacity using names such as
+**Basic — 1 CPU, 1 GB RAM, 25 GB disk**; you do not need to find size slugs.
+Saved capacity remains selected even when the running server still has a different
+size. Review the before/after summary before saving changes.
+
+Setup saves configuration only. It does not apply infrastructure, configure the
+Droplet, log Docker in, or release the application. It prints the next commands.
+If the server has not joined Tailscale yet, defer release access and rerun the
+wizard after host configuration. Completed sections remain saved when cancelled.
+
+Existing HCL and JSON Terraform files are supported. Unchanged settings are not
+rewritten. Before a confirmed resource edit, the wizard keeps a private backup;
+HCL formatting and comments may be regenerated. If both Terraform input formats
+exist, it asks you to keep only one active file first.
+
+Settings are saved in `~/.config/tcg` by default. No path argument is needed.
+Use `just setup-infra --help` for prerequisites. The optional `--config-dir` flag
+is only for using a different settings directory.
+Install repository dependencies first with `just install-js-modules` and tools
+with `mise install` if needed. Run `just rotate-keys` to replace local credentials.
+Secrets are masked and existing secrets are retained without displaying them.
+
+The steps below are the manual fallback.
+
 Do this once on the **Mac mini**. The server will run on your existing
 **DigitalOcean Droplet**. Run terminal commands from the repository root.
 Complete one numbered step before moving to the next. Keep credentials in private

@@ -12,6 +12,7 @@ allowBuilds:
 catalog:
   '@aws-sdk/client-s3': '^3.1148.0'
   '@better-auth/drizzle-adapter': '1.7.7'
+  '@clack/prompts': '1.8.1'
   '@devcontainers/cli': '0.89.0'
   '@hono/node-server': '^2.1.4'
   '@hono/structured-logger': '^1.0.0'

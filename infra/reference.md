@@ -37,6 +37,29 @@ and advisories before updating them.
 
 ## Token expiration and replacement
 
+Use the guided replacement menu:
+
+```sh
+just rotate-keys
+```
+
+Select one or more local credentials. Setup and rotation share the same retrieval
+instructions and required permissions. Replacements are saved only after
+confirmation; cancellation leaves the old credentials unchanged. The command
+prints the activation steps and does not run them or revoke old keys.
+
+The GitHub publishing-token option explains manual Docker login without collecting
+or storing that token. At Docker's `Password:` prompt paste the publishing token,
+not the GitHub account password. Replacing a Tailscale bootstrap key does not
+change an already connected machine's identity. GitHub Actions secrets must still
+be updated separately.
+
+Use `--config-dir` for a different private directory. Existing exported environment
+variables can override saved files when running infrastructure commands; the
+wizard warns about conflicting names without printing their values.
+
+For manual replacement:
+
 Record each token's purpose and expiration date in your password manager, and set
 a reminder before it expires. This applies to both the DigitalOcean personal access
 token and the HCP Terraform user API token. Save newly generated tokens immediately;
