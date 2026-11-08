@@ -26,6 +26,7 @@ enum PricedCardMapper {
             cardNumber: card.cardNumber,
             setName: card.setName,
             rarity: card.rarity,
+            illustrator: card.illustrator,
             imageURL: card.imageUrl.flatMap(URL.init(string:)),
             headline: card.headline.map(makeHeadline),
             market: card.market.map(makeMarket),

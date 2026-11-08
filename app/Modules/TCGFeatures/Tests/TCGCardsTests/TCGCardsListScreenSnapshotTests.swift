@@ -18,6 +18,17 @@ import Testing
 @MainActor
 struct TCGCardsListScreenSnapshotTests {
     @Test
+    func `Renders selected illustrator filter`() async {
+        let feature = TCGCards(client: .preview(cardsOutcome: .success(cards: PreviewTCGCardsClient.sampleCards)))
+        let model = TCGCardsListScreenModel(preferences: nil)
+        model.gameFilter = .pokemon
+        model.illustrators = ["Mitsuhiro Arita"]
+        await model.load(using: feature)
+        #expect(feature.cards.count == 1)
+        await assertScreenSnapshot(testName: #function) { makeScreen(feature: feature, model: model) }
+    }
+
+    @Test
     func `Renders purchase gains losses and stable cards`() async {
         let samples = [
             purchaseCard(id: CardsTestIDs.primary, change: 25),
@@ -60,7 +71,8 @@ struct TCGCardsListScreenSnapshotTests {
             purchases: source.purchases,
             purchasePriceChangePercent: change,
             collectionID: nil,
-            allocationAdjustments: nil
+            allocationAdjustments: nil,
+            illustrator: nil
         )
     }
 

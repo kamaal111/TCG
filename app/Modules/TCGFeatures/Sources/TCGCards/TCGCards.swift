@@ -18,6 +18,7 @@ private let logger = KamaalLogger(from: TCGCards.self)
 @Observable
 public final class TCGCards {
     private(set) var cards: [CardWithPrice] = []
+    private(set) var availableIllustrators: Set<String> = []
     private(set) var availableSetNames: Set<String> = []
     private(set) var isLoadingNextPage = false
     private(set) var nextPageError: TCGCardsOperationError?
@@ -27,7 +28,7 @@ public final class TCGCards {
     var onCollectionMutation: (@MainActor () async -> Void)?
     private(set) var selectedCollection: CardBinderCollection?
     private let client: TCGClient
-    private var collectionState = CollectionState()
+    private var collectionState = CollectionState(illustrators: [])
     private var displayIdentity: TCGCurrency.DisplayIdentity?
 
     var isLoading: Bool { collectionState.status == .loading }
@@ -46,7 +47,7 @@ public final class TCGCards {
         selectedCollection = collection
         if changed || !hasLoadedCurrentCollection {
             invalidateDisplayPrices()
-            _ = await load(game: nil)
+            _ = await load(game: nil, setNames: [], query: nil, illustrators: [])
         }
     }
 
@@ -64,7 +65,7 @@ public final class TCGCards {
         repeat {
             guard selectedCollection?.id == identity else { return .failure(.serverUnavailable) }
             switch await client.cards.listPage(
-                .init(game: nil, setNames: [], cursor: cursor, collectionID: identity, query: nil)
+                .init(game: nil, setNames: [], cursor: cursor, collectionID: identity, query: nil, illustrators: [])
             ) {
             case .failure: return .failure(.serverUnavailable)
             case .success(let page):
@@ -80,8 +81,9 @@ public final class TCGCards {
     public func resetDisplayPrices() {
         displayIdentity = nil
         invalidateDisplayPrices()
-        collectionState = CollectionState(generation: collectionState.generation)
+        collectionState = CollectionState(illustrators: [], generation: collectionState.generation)
         availableSetNames = []
+        availableIllustrators = []
     }
 
     public func refreshDisplayPrices(for identity: TCGCurrency.DisplayIdentity) async {
@@ -107,14 +109,19 @@ public final class TCGCards {
         displayRefreshError = nil
     }
 
-    func load(game: ClientCardGame?, setNames: Set<String> = [], query: String? = nil) async -> Result<
-        Void, TCGCardsOperationError
-    > {
+    func load(game: ClientCardGame?, setNames: Set<String>, query: String?, illustrators: Set<String>)
+        async -> Result<
+            Void, TCGCardsOperationError
+        >
+    {
         let pageCount =
             game == collectionState.game && setNames == collectionState.setNames && query == collectionState.query
+                && illustrators == collectionState.illustrators
             ? max(1, collectionState.pageCount) : 1
 
-        return await loadCollection(.init(game: game, setNames: setNames, query: query, pageCount: pageCount))
+        return await loadCollection(
+            .init(game: game, setNames: setNames, query: query, pageCount: pageCount, illustrators: illustrators)
+        )
     }
 
     func loadNextPage() async -> Result<Void, TCGCardsOperationError> {
@@ -146,10 +153,14 @@ public final class TCGCards {
     }
 
     private func loadCollection(_ request: CollectionRequest) async -> Result<Void, TCGCardsOperationError> {
-        if request.game != collectionState.game { availableSetNames = [] }
+        if request.game != collectionState.game {
+            availableSetNames = []
+            availableIllustrators = []
+        }
         collectionState = CollectionState(
             game: request.game,
             setNames: request.setNames,
+            illustrators: request.illustrators,
             query: request.query,
             generation: collectionState.generation + 1,
             status: .loading,
@@ -160,7 +171,7 @@ public final class TCGCards {
         nextPageError = nil
         setCards(cards)
 
-        var pages = CollectionPages()
+        var pages = CollectionPages(cards: [], state: .init(illustrators: []))
 
         repeat {
             let result = await loadPage(into: &pages, generation: generation)
@@ -195,7 +206,8 @@ public final class TCGCards {
                 setNames: collectionState.setNames,
                 cursor: pages.nextCursor,
                 collectionID: selectedCollection?.id,
-                query: collectionState.query
+                query: collectionState.query,
+                illustrators: collectionState.illustrators
             )
         )
 
@@ -219,6 +231,7 @@ public final class TCGCards {
     private func publish(_ pages: CollectionPages) {
         setCards(pages.cards)
         availableSetNames = pages.availableSetNames
+        availableIllustrators = pages.availableIllustrators
         collectionState.nextCursor = pages.nextCursor
         collectionState.visitedCursors = pages.visitedCursors
         collectionState.pageCount = pages.pageCount
@@ -228,7 +241,7 @@ public final class TCGCards {
     func purchaseDefault(game: ClientCardGame, name: String, cardNumber: String) async -> Result<
         CardSearchResult, SearchPricingErrors
     > {
-        await client.pricing.search(game: game, query: "\(name) \(cardNumber)")
+        await client.pricing.search(.init(game: game, query: "\(name) \(cardNumber)", languages: [], mode: .card))
     }
 
     func addCard(_ values: CardFormValues) async -> Result<Void, TCGCardsOperationError> {
@@ -336,17 +349,32 @@ public final class TCGCards {
                 game: collectionState.game,
                 setNames: collectionState.setNames,
                 query: collectionState.query,
-                pageCount: max(1, collectionState.pageCount)
+                pageCount: max(1, collectionState.pageCount),
+                illustrators: collectionState.illustrators
             )
         )
     }
 
     private func setCards(_ cards: [CardWithPrice]) {
-        self.cards = cards.filter {
-            (selectedCollection == nil
-                || $0.card.collectionID == (selectedCollection?.isUnfiled == true ? nil : selectedCollection?.id))
-                && (collectionState.game == nil || $0.card.game == collectionState.game)
-                && (collectionState.setNames.isEmpty || collectionState.setNames.contains($0.card.setName))
+        self.cards = cards.filter { entry in
+            if let selectedCollection {
+                let collectionID = selectedCollection.isUnfiled ? nil : selectedCollection.id
+                guard entry.card.collectionID == collectionID else { return false }
+            }
+
+            if let game = collectionState.game {
+                guard entry.card.game == game else { return false }
+            }
+
+            let matchesSet = collectionState.setNames.isEmpty || collectionState.setNames.contains(entry.card.setName)
+            guard matchesSet else { return false }
+
+            guard !collectionState.illustrators.isEmpty else { return true }
+            guard entry.card.game == .pokemon else { return false }
+
+            return collectionState.illustrators.contains {
+                $0.caseInsensitiveCompare(entry.card.illustrator ?? "") == .orderedSame
+            }
         }
     }
 
@@ -361,6 +389,7 @@ public final class TCGCards {
     private struct CollectionState {
         var game: ClientCardGame?
         var setNames: Set<String> = []
+        var illustrators: Set<String>
         var query: String?
         var generation = 0
         var status: Status = .idle
@@ -378,13 +407,14 @@ public final class TCGCards {
     private struct CollectionPages {
         var cards: [CardWithPrice]
         var availableSetNames: Set<String> = []
+        var availableIllustrators: Set<String> = []
         var nextCursor: String?
         var visitedCursors: Set<String>
         var pageCount: Int
 
         private var cardIDs: Set<UUID>
 
-        init(cards: [CardWithPrice] = [], state: CollectionState = .init()) {
+        init(cards: [CardWithPrice], state: CollectionState) {
             self.cards = cards
             nextCursor = state.nextCursor
             visitedCursors = state.visitedCursors
@@ -400,6 +430,7 @@ public final class TCGCards {
 
             cards.append(contentsOf: page.cards.filter { cardIDs.insert($0.card.id).inserted })
             availableSetNames = page.availableSetNames
+            availableIllustrators = page.availableIllustrators
             nextCursor = page.nextCursor
             pageCount += 1
             return true
@@ -411,6 +442,7 @@ public final class TCGCards {
         let setNames: Set<String>
         let query: String?
         let pageCount: Int
+        let illustrators: Set<String>
     }
 
     private func mapCreateError(_ error: CreateCardErrors) -> TCGCardsOperationError {

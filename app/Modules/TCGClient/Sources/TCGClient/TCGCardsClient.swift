@@ -186,6 +186,7 @@ struct TCGCardsClientImpl: TCGCardsClient {
             response = try await client.getAppApiCards(
                 query: .init(
                     cursor: query.cursor,
+                    illustrator: query.illustrators.isEmpty ? nil : query.illustrators.sorted(),
                     collectionId: query.collectionID.map(UUIDCoding.encode),
                     query: query.query,
                     game: query.game.map(Self.makeListGame),
@@ -219,7 +220,8 @@ struct TCGCardsClientImpl: TCGCardsClient {
                         CardCollectionPage(
                             cards: cards,
                             availableSetNames: Set(collection.availableSetNames),
-                            nextCursor: collection.nextCursor
+                            nextCursor: collection.nextCursor,
+                            availableIllustrators: Set(collection.availableIllustrators)
                         )
                     }
                     .mapError { error in
@@ -446,7 +448,8 @@ struct TCGCardsClientImpl: TCGCardsClient {
                                     purchasePriceChangePercent: card.purchasePriceChangePercent,
                                     displayCurrency: card.displayCurrency.map(PricedCardMapper.makeCurrency),
                                     collectionID: collectionID,
-                                    allocationAdjustments: card.allocationAdjustments
+                                    allocationAdjustments: card.allocationAdjustments,
+                                    illustrator: card.illustrator
                                 )
                             }
                     }

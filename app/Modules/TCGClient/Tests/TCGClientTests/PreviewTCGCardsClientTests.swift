@@ -21,13 +21,7 @@ struct PreviewTCGCardsClientTests {
         let client = TCGClient.preview(cardsOutcome: .success(cards: cards))
         let first = try await listCards(client).get()
         let second = try await client.cards.listPage(
-            .init(
-                game: nil,
-                setNames: [],
-                cursor: first.nextCursor,
-                collectionID: nil,
-                query: nil
-            )
+            .init(game: nil, setNames: [], cursor: first.nextCursor, collectionID: nil, query: nil, illustrators: [])
         )
         .get()
         #expect(first.cards.count == 50)
@@ -47,7 +41,8 @@ struct PreviewTCGCardsClientTests {
                 setNames: ["Base Set", "Romance Dawn"],
                 cursor: nil,
                 collectionID: nil,
-                query: nil
+                query: nil,
+                illustrators: []
             )
         )
         .get()
@@ -57,7 +52,8 @@ struct PreviewTCGCardsClientTests {
                 setNames: ["Romance Dawn"],
                 cursor: nil,
                 collectionID: nil,
-                query: nil
+                query: nil,
+                illustrators: []
             )
         )
         .get()
@@ -75,23 +71,11 @@ struct PreviewTCGCardsClientTests {
         }
         let client = TCGClient.preview(cardsOutcome: .successWithPrices(cards))
         let selected = try await client.cards.listPage(
-            .init(
-                game: nil,
-                setNames: ["Base Set"],
-                cursor: nil,
-                collectionID: nil,
-                query: nil
-            )
+            .init(game: nil, setNames: ["Base Set"], cursor: nil, collectionID: nil, query: nil, illustrators: [])
         )
         .get()
         let differentlyCased = try await client.cards.listPage(
-            .init(
-                game: nil,
-                setNames: ["base set"],
-                cursor: nil,
-                collectionID: nil,
-                query: nil
-            )
+            .init(game: nil, setNames: ["base set"], cursor: nil, collectionID: nil, query: nil, illustrators: [])
         )
         .get()
 
@@ -142,13 +126,7 @@ struct PreviewTCGCardsClientTests {
     func `Empty starts with no cards`() async throws {
         #expect(
             try await TCGClient.preview(cardsOutcome: .empty).cards.listPage(
-                .init(
-                    game: nil,
-                    setNames: [],
-                    cursor: nil,
-                    collectionID: nil,
-                    query: nil
-                )
+                .init(game: nil, setNames: [], cursor: nil, collectionID: nil, query: nil, illustrators: [])
             )
             .get()
             .cards == []
@@ -301,7 +279,9 @@ struct PreviewTCGCardsClientTests {
     private func listCards(_ client: TCGClient, game: ClientCardGame? = nil) async -> Result<
         CardCollectionPage, ListCardsErrors
     > {
-        await client.cards.listPage(.init(game: game, setNames: [], cursor: nil, collectionID: nil, query: nil))
+        await client.cards.listPage(
+            .init(game: game, setNames: [], cursor: nil, collectionID: nil, query: nil, illustrators: [])
+        )
     }
 
 }

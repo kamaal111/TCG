@@ -126,7 +126,7 @@ public struct TCGCardsListScreen: View {
     }
 
     private var gameFilterMenu: some View {
-        TCGFilterMenu(gameTitle: gameFilterTitle, summary: TCGSetFilterSection.summary(for: model.setNames)) {
+        TCGFilterMenu(gameTitle: gameFilterTitle, summary: filterSummary) {
             Picker(selection: gameFilterBinding) {
                 Text("All games", bundle: .module).tag(CardGame?.none)
                 ForEach(CardGame.allCases, id: \.self) { game in
@@ -135,12 +135,38 @@ public struct TCGCardsListScreen: View {
             } label: {
                 Text("Game", bundle: .module)
             }
+            if model.gameFilter != .onePiece && !model.availableIllustrators(using: cardCollection).isEmpty {
+                Menu {
+                    ForEach(model.availableIllustrators(using: cardCollection), id: \.self) { name in
+                        Toggle(
+                            isOn: Binding(
+                                get: { model.illustrators.contains(name) },
+                                set: { selected in
+                                    if selected {
+                                        model.illustrators.insert(name)
+                                    } else {
+                                        model.illustrators.remove(name)
+                                    }
+                                }
+                            )
+                        ) { Text(verbatim: name) }
+                    }
+                } label: {
+                    Text("Illustrators", bundle: .module)
+                }
+            }
             TCGSetFilterSection(
                 availableSetNames: model.availableSetNames(using: cardCollection),
                 selection: $model.setNames,
                 presentation: .submenu
             )
         }
+    }
+
+    private var filterSummary: Text {
+        let sets = TCGSetFilterSection.summary(for: model.setNames)
+        guard !model.illustrators.isEmpty else { return sets }
+        return Text("\(sets) · \(model.illustrators.sorted().joined(separator: ", "))", bundle: .module)
     }
 
     private var gameFilterTitle: Text {
@@ -182,7 +208,9 @@ public struct TCGCardsListScreen: View {
 
     @ViewBuilder
     private var emptyCollection: some View {
-        if model.gameFilter != nil || !model.setNames.isEmpty || model.filters.searchQuery != nil {
+        if model.gameFilter != nil || !model.setNames.isEmpty || !model.illustrators.isEmpty
+            || model.filters.searchQuery != nil
+        {
             ContentUnavailableView {
                 Label {
                     Text("No matching cards", bundle: .module)

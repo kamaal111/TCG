@@ -27,7 +27,8 @@ struct TCGCardDetailScreenModelTests {
     @Test
     func `Editing a card out of the selected set keeps updated details and refreshes the filtered list`() async throws {
         let feature = TCGCards(client: .preview(cardsOutcome: .success(cards: PreviewTCGCardsClient.sampleCards)))
-        try await feature.load(game: .pokemon, setNames: ["Base Set"]).get()
+        try await feature.load(game: .pokemon, setNames: ["Base Set"], query: nil, illustrators: [])
+            .get()
         let model = TCGCardDetailScreenModel(card: try #require(feature.cards.first))
         model.edit()
         let editor = try #require(model.editor)
@@ -59,7 +60,8 @@ struct TCGCardDetailScreenModelTests {
     @Test
     func `Saving returns to updated details and resets the next edit baseline`() async throws {
         let feature = TCGCards(client: .preview(cardsOutcome: .success(cards: PreviewTCGCardsClient.sampleCards)))
-        try await feature.load(game: nil).get()
+        try await feature.load(game: nil, setNames: [], query: nil, illustrators: [])
+            .get()
         let model = TCGCardDetailScreenModel(card: try #require(feature.cards.first))
         model.edit()
         let editor = try #require(model.editor)

@@ -8,6 +8,24 @@ import Testing
 @MainActor
 struct TCGCardsListScreenModelTests {
     @Test
+    func `Restores illustrator filters and clears them when switching game`() async throws {
+        let suiteName = "TCGCardsTests.\(UUID().uuidString)"
+        let preferences = try #require(UserDefaults(suiteName: suiteName))
+        defer { preferences.removePersistentDomain(forName: suiteName) }
+        let model = TCGCardsListScreenModel(preferences: preferences)
+        model.gameFilter = .pokemon
+        model.illustrators = ["Mitsuhiro Arita"]
+        let restored = TCGCardsListScreenModel(preferences: preferences)
+        #expect(restored.illustrators == ["Mitsuhiro Arita"])
+        let feature = TCGCards(client: .preview(cardsOutcome: .success(cards: PreviewTCGCardsClient.sampleCards)))
+        await restored.load(using: feature)
+        #expect(feature.cards.count == 1)
+        #expect(feature.availableIllustrators == ["Mitsuhiro Arita"])
+        restored.gameFilter = .onePiece
+        #expect(restored.illustrators.isEmpty)
+    }
+
+    @Test
     func `Failed collection loads preserve saved selections`() async throws {
         let suiteName = "TCGCardsTests.\(UUID().uuidString)"
         let preferences = try #require(UserDefaults(suiteName: suiteName))

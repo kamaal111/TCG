@@ -12,6 +12,7 @@ export interface CardRepository {
     options: CardsPaginationQuery & {
       game?: CardGame;
       setNames: string[];
+      illustrators: string[];
       collection_id?: string;
       query?: string;
     },

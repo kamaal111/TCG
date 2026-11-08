@@ -16,7 +16,8 @@ enum ClientCardFixtures {
             updatedAt: original.updatedAt,
             purchases: original.purchases,
             collectionID: original.collectionID,
-            allocationAdjustments: nil
+            allocationAdjustments: nil,
+            illustrator: nil
         )
     }
 }

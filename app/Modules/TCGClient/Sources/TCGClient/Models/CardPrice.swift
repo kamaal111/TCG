@@ -268,6 +268,7 @@ public struct PricedCardDisplay: Codable, Hashable, Sendable {
 ///       game: .pokemon,
 ///       name: "Charizard",
 ///       cardNumber: "4",
+///       illustrator: nil,
 ///       pricedOn: .now,
 ///       fetchedAt: .now
 ///   )
@@ -278,6 +279,7 @@ public struct PricedCard: Codable, Hashable, Identifiable, Sendable {
     public let name: String
     public let setName: String?
     public let cardNumber: String
+    public let illustrator: String?
     public let rarity: String?
     public let imageURL: URL?
     public let headline: PriceHeadline?
@@ -292,6 +294,7 @@ public struct PricedCard: Codable, Hashable, Identifiable, Sendable {
     ///   ```swift
     ///   let card = PricedCard(
     ///       id: "price-id", game: .pokemon, name: "Charizard", cardNumber: "4",
+    ///       illustrator: nil,
     ///       pricedOn: .now, fetchedAt: .now
     ///   )
     ///   ```
@@ -302,6 +305,7 @@ public struct PricedCard: Codable, Hashable, Identifiable, Sendable {
         cardNumber: String,
         setName: String? = nil,
         rarity: String? = nil,
+        illustrator: String?,
         imageURL: URL? = nil,
         headline: PriceHeadline? = nil,
         market: MarketPrice? = nil,
@@ -312,6 +316,7 @@ public struct PricedCard: Codable, Hashable, Identifiable, Sendable {
         self.id = id
         self.game = game
         self.name = name
+        self.illustrator = illustrator
         self.cardNumber = cardNumber
         self.setName = setName
         self.rarity = rarity
@@ -331,6 +336,7 @@ public struct PricedCard: Codable, Hashable, Identifiable, Sendable {
         case market, display
         case id
         case setName = "set_name"
+        case illustrator
         case cardNumber = "card_number"
         case imageURL = "image_url"
         case pricedOn = "priced_on"

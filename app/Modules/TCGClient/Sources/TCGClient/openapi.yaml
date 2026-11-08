@@ -648,6 +648,19 @@ paths:
           name: cursor
           in: query
         - schema:
+            type: array
+            items:
+              type: string
+            description: >-
+              Exact illustrator names; repeat for multiple selections. Pokémon
+              only.
+          required: false
+          description: >-
+            Exact illustrator names; repeat for multiple selections. Pokémon
+            only.
+          name: illustrator
+          in: query
+        - schema:
             type: string
             format: uuid
             description: UUID identifier, normalized to lowercase
@@ -1604,6 +1617,16 @@ paths:
       parameters:
         - schema:
             type: string
+            enum:
+              - card
+              - illustrator
+            description: Search card names/numbers, or illustrator names for Pokémon only
+          required: true
+          description: Search card names/numbers, or illustrator names for Pokémon only
+          name: search_by
+          in: query
+        - schema:
+            type: string
             description: >-
               Comma-separated language codes: en, ja for Pokémon; en for One
               Piece. Empty or all supported languages means unrestricted.
@@ -1629,10 +1652,10 @@ paths:
             type: string
             minLength: 2
             maxLength: 200
-            description: Card name, ideally including its card number
+            description: Card name/number, or illustrator name when search_by=illustrator
             example: Charizard ex 199
           required: true
-          description: Card name, ideally including its card number
+          description: Card name/number, or illustrator name when search_by=illustrator
           name: query
           in: query
       responses:
@@ -2145,6 +2168,8 @@ components:
           maxLength: 50
           description: Card number
           example: OP01-003
+        illustrator:
+          type: string
         collection_id:
           type:
             - 'null'
@@ -2592,6 +2617,10 @@ components:
           type: string
           description: Card number
           example: GG69
+        illustrator:
+          type: string
+          description: Illustrator when provided
+          example: Mitsuhiro Arita
         rarity:
           type: string
           description: Card rarity when provided
@@ -2803,6 +2832,13 @@ components:
             - 'null'
           description: Opaque cursor for the next page; null when this is the final page
           example: null
+        available_illustrators:
+          type: array
+          items:
+            type: string
+          description: >-
+            Known illustrators in the owned game/collection scope, independent
+            of other filters and pagination
         available_set_names:
           type: array
           items:
@@ -2817,6 +2853,7 @@ components:
       required:
         - cards
         - next_cursor
+        - available_illustrators
         - available_set_names
       title: Cards List Response
       description: >-
@@ -2825,6 +2862,7 @@ components:
       example:
         cards: []
         available_set_names: []
+        available_illustrators: []
         next_cursor: null
     CardNotFoundErrorResponse:
       type: object

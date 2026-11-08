@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 
 import type { PricingClient, PricingClientError, PricingSearchResult } from './client.ts';
 import { PricingLockTimeout, PricingLockUnavailable, PricingProviderUnavailable } from './exceptions.ts';
-import { normalizeCardLanguages, type CardLanguage } from './languages.ts';
+import { normalizeCardLanguages } from './languages.ts';
 import { type PricingLogFields, pricingLogger } from './logging.ts';
 import { PricingOperation } from './operation.ts';
 import type { CardPriceRow, CardPricingRepository } from './repository.ts';
@@ -11,7 +11,7 @@ import {
   type OwnedCardPriceResponse,
   type PricedCardResponse,
 } from './schemas/responses.ts';
-import type { CardGame, PricingCardRecord } from './types.ts';
+import type { CardGame, PricingCardRecord, PricingSearchOptions } from './types.ts';
 import { imageKeyForOriginURL, storageKeyForImageKey } from '../card-images/keys.ts';
 import { imagesLogger } from '../card-images/logging.ts';
 import type { CardImageRow } from '../card-images/repository.ts';
@@ -52,11 +52,11 @@ export class CardPricingService {
   async searchAndPrice(
     game: CardGame,
     query: string,
-    languages: readonly CardLanguage[] = [],
+    options: PricingSearchOptions,
   ): Promise<{ normalizedQuery: string; matches: PricedCardResponse[] }> {
     const normalizedQuery = normalizeName(query);
-    const selectedLanguages = normalizeCardLanguages(game, languages);
-    const normalizedQueryKey = queryKey(game, normalizedQuery, selectedLanguages);
+    const selectedLanguages = normalizeCardLanguages(game, options.languages);
+    const normalizedQueryKey = queryKey(game, normalizedQuery, { ...options, languages: selectedLanguages });
     const pricedOn = todayUTC();
     const cached = await this.cachedSearch(game, normalizedQuery, normalizedQueryKey, pricedOn);
 
@@ -81,7 +81,11 @@ export class CardPricingService {
         }
 
         const providerStartedAt = performance.now();
-        const searchResult = await this.client.searchCards(game, normalizedQuery, selectedLanguages);
+
+        const searchResult = await this.client.searchCards(game, normalizedQuery, {
+          ...options,
+          languages: selectedLanguages,
+        });
 
         if (searchResult.isErr()) {
           this.throwProviderUnavailable('search', game, searchResult.error, providerStartedAt);
@@ -191,7 +195,7 @@ export class CardPricingService {
     }
 
     const query = buildSearchQuery(card.name, card.cardNumber);
-    const search = await this.searchAndPrice(card.game, query);
+    const search = await this.searchAndPrice(card.game, query, { languages: [], searchBy: 'card' });
     const normalizedNumber = normalizeCardNumber(card.cardNumber);
 
     const numberMatch = search.matches.find(

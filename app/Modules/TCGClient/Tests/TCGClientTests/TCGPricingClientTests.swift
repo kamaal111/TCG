@@ -14,6 +14,27 @@ import Testing
 @Suite("TCGClient Pricing Tests")
 struct TCGPricingClientTests {
     @Test
+    func `Searches illustrators through the generated client and decodes their names`() async throws {
+        let body = Data(
+            """
+            {"matches":[{"id":"illustrator-card","game":"pokemon","name":"Giratina VSTAR","card_number":"GG69",
+              "illustrator":"Akira Egawa","priced_on":"2026-10-16T00:00:00.000Z","fetched_at":"2026-10-16T10:00:00.000Z"}]}
+            """.utf8
+        )
+        let transport = PricingRequestTransport(status: .ok, body: body)
+        let result = try await makeClient(transport: transport).pricing.search(
+            .init(game: .pokemon, query: "Akira Egawa", languages: [.japanese], mode: .illustrator)
+        )
+        .get()
+        let request = try #require(await transport.request)
+        #expect(
+            request.path
+                == "/app-api/pricing/search?search_by=illustrator&languages=ja&game=pokemon&query=Akira%20Egawa"
+        )
+        #expect(result.matches.first?.illustrator == "Akira Egawa")
+    }
+
+    @Test
     func `Decodes preferred-currency display prices without replacing source market amounts`() async throws {
         let body = Data(
             """
@@ -30,7 +51,10 @@ struct TCGPricingClientTests {
             """.utf8
         )
         let transport = PricingRequestTransport(status: .ok, body: body)
-        let result = try await makeClient(transport: transport).pricing.search(game: .pokemon, query: "Pikachu").get()
+        let result = try await makeClient(transport: transport).pricing.search(
+            .init(game: .pokemon, query: "Pikachu", languages: [], mode: .card)
+        )
+        .get()
         let card = try #require(result.matches.first)
         #expect(card.headline?.currency == .usd)
         #expect(card.market?.market == 25)
@@ -56,12 +80,12 @@ struct TCGPricingClientTests {
     func `Searches through the generated pricing operation`() async throws {
         let transport = PricingRequestTransport(status: .ok, body: searchJSON)
         let result = try await makeClient(transport: transport).pricing
-            .search(game: .pokemon, query: "Giratina VSTAR GG69")
+            .search(.init(game: .pokemon, query: "Giratina VSTAR GG69", languages: [], mode: .card))
             .get()
         let request = try #require(await transport.request)
 
         #expect(request.method == .get)
-        #expect(request.path == "/app-api/pricing/search?game=pokemon&query=Giratina%20VSTAR%20GG69")
+        #expect(request.path == "/app-api/pricing/search?search_by=card&game=pokemon&query=Giratina%20VSTAR%20GG69")
         #expect(request.operationID == "get/app-api/pricing/search")
         #expect(result.matches == [expectedPricedCard])
     }
@@ -70,11 +94,14 @@ struct TCGPricingClientTests {
     func `Serializes a partial language selection`(language: ClientCardLanguage) async throws {
         let transport = PricingRequestTransport(status: .ok, body: searchJSON)
         let result = try await makeClient(transport: transport).pricing
-            .search(game: .pokemon, query: "Giratina", languages: [language])
+            .search(.init(game: .pokemon, query: "Giratina", languages: [language], mode: .card))
             .get()
         let request = try #require(await transport.request)
 
-        #expect(request.path == "/app-api/pricing/search?languages=\(language.rawValue)&game=pokemon&query=Giratina")
+        #expect(
+            request.path
+                == "/app-api/pricing/search?search_by=card&languages=\(language.rawValue)&game=pokemon&query=Giratina"
+        )
         #expect(result.matches == [expectedPricedCard])
     }
 
@@ -82,11 +109,11 @@ struct TCGPricingClientTests {
     func `Omits unrestricted language selections`(languages: Set<ClientCardLanguage>) async throws {
         let transport = PricingRequestTransport(status: .ok, body: searchJSON)
         let result = try await makeClient(transport: transport).pricing
-            .search(game: .pokemon, query: "Giratina", languages: languages)
+            .search(.init(game: .pokemon, query: "Giratina", languages: languages, mode: .card))
             .get()
         let request = try #require(await transport.request)
 
-        #expect(request.path == "/app-api/pricing/search?game=pokemon&query=Giratina")
+        #expect(request.path == "/app-api/pricing/search?search_by=card&game=pokemon&query=Giratina")
         #expect(result.matches == [expectedPricedCard])
     }
 
@@ -94,11 +121,11 @@ struct TCGPricingClientTests {
     func `Selecting the only One Piece language is unrestricted`() async throws {
         let transport = PricingRequestTransport(status: .ok, body: searchJSON)
         let result = try await makeClient(transport: transport).pricing
-            .search(game: .onePiece, query: "Nami", languages: [.english])
+            .search(.init(game: .onePiece, query: "Nami", languages: [.english], mode: .card))
             .get()
         let request = try #require(await transport.request)
 
-        #expect(request.path == "/app-api/pricing/search?game=one_piece&query=Nami")
+        #expect(request.path == "/app-api/pricing/search?search_by=card&game=one_piece&query=Nami")
         #expect(result.matches == [expectedPricedCard])
     }
 
@@ -112,7 +139,10 @@ struct TCGPricingClientTests {
                 ).utf8
         )
         let transport = PricingRequestTransport(status: .ok, body: body)
-        let result = try await makeClient(transport: transport).pricing.search(game: .pokemon, query: "Giratina").get()
+        let result = try await makeClient(transport: transport).pricing.search(
+            .init(game: .pokemon, query: "Giratina", languages: [], mode: .card)
+        )
+        .get()
         let card = try #require(result.matches.first)
         #expect(card.setName == nil)
         #expect(card.name == "Giratina VSTAR")
@@ -123,7 +153,10 @@ struct TCGPricingClientTests {
         let searchTransport = PricingRequestTransport(status: .badRequest, body: validationJSON)
 
         await #expect(throws: SearchPricingErrors.badRequest(validations: [validationIssue])) {
-            try await makeClient(transport: searchTransport).pricing.search(game: .pokemon, query: "x").get()
+            try await makeClient(transport: searchTransport).pricing.search(
+                .init(game: .pokemon, query: "x", languages: [], mode: .card)
+            )
+            .get()
         }
     }
 
@@ -133,7 +166,7 @@ struct TCGPricingClientTests {
 
         await #expect(throws: SearchPricingErrors.unauthorized) {
             try await makeClient(transport: searchTransport).pricing
-                .search(game: .pokemon, query: "Giratina")
+                .search(.init(game: .pokemon, query: "Giratina", languages: [], mode: .card))
                 .get()
         }
     }
@@ -143,7 +176,10 @@ struct TCGPricingClientTests {
         let searchTransport = PricingRequestTransport(status: .serviceUnavailable, body: errorJSON)
 
         await #expect(throws: SearchPricingErrors.unavailable) {
-            try await makeClient(transport: searchTransport).pricing.search(game: .pokemon, query: "Giratina").get()
+            try await makeClient(transport: searchTransport).pricing.search(
+                .init(game: .pokemon, query: "Giratina", languages: [], mode: .card)
+            )
+            .get()
         }
     }
 
@@ -204,6 +240,7 @@ private let expectedPricedCard = PricedCard(
     cardNumber: "GG69",
     setName: "Crown Zenith",
     rarity: "Secret Rare",
+    illustrator: nil,
     headline: .init(amount: 146.69, currency: .usd),
     market: .init(
         currency: .usd,

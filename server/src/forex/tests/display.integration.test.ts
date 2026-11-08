@@ -15,7 +15,7 @@ integrationTest(
     await setPreferredCurrency(app, authenticatedHeaders, 'EUR');
     await setPreferredCurrency(app, sessionHeaders(second.sessionToken), 'JPY');
     const provider = vi.spyOn(pricingClient, 'searchCards');
-    const path = `${SEARCH_PRICING_ROUTE_PATH}?game=pokemon&query=Giratina`;
+    const path = `${SEARCH_PRICING_ROUTE_PATH}?search_by=card&game=pokemon&query=Giratina`;
     const eurResponse = await app.request(path, { headers: authenticatedHeaders });
     const eur = PricingSearchResponseSchema.parse(await eurResponse.json()).matches[0];
     assert(eur?.headline != null);
@@ -76,7 +76,11 @@ integrationTest(
   'missing rates retain source prices and log display fallbacks',
   async ({ app, getLogsForRequestId, authenticatedHeaders: headers }) => {
     await setPreferredCurrency(app, headers, 'EUR');
-    const response = await app.request(`${SEARCH_PRICING_ROUTE_PATH}?game=pokemon&query=Giratina`, { headers });
+
+    const response = await app.request(`${SEARCH_PRICING_ROUTE_PATH}?search_by=card&game=pokemon&query=Giratina`, {
+      headers,
+    });
+
     expect(response.status).toBe(200);
     const card = PricingSearchResponseSchema.parse(await response.json()).matches[0];
     assert(card?.headline != null);

@@ -25,7 +25,8 @@ struct TCGCardsImportReviewModelTests {
         #expect(feature.cards.isEmpty)
         #expect(model.completion == nil)
         #expect(model.canImport)
-        try await feature.load(game: nil).get()
+        try await feature.load(game: nil, setNames: [], query: nil, illustrators: [])
+            .get()
         #expect(feature.cards.isEmpty)
     }
 

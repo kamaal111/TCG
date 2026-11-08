@@ -10,9 +10,10 @@ import type {
   CardPriceSearchRow,
   CardPriceUpsertValues,
 } from '../../card-pricing/types.ts';
+import { cachedIllustrator } from '../../card-pricing/utils/illustrator.ts';
 import type { Database } from '../../db/index.ts';
 import { cardPrice, cardPriceSearch } from '../../db/schema/card-pricing.ts';
-import { card } from '../../db/schema/cards.ts';
+import { card, cardMetadata } from '../../db/schema/cards.ts';
 import { isNonEmpty, type NonEmptyArray } from '../../utils/type-utils.ts';
 import type { AuthenticatedIdentity } from '../contracts.ts';
 
@@ -108,36 +109,68 @@ export class PostgresCardPricingRepository implements CardPricingRepository {
    * @returns The upserted price rows.
    */
   async upsertCardPrices(values: NonEmptyArray<CardPriceUpsertValues>): Promise<NonEmptyArray<CardPriceRow>> {
-    const rows = await this.db
-      .insert(cardPrice)
-      .values(
-        values.map(value => ({
+    return this.db.transaction(async tx => {
+      const rows = await tx
+        .insert(cardPrice)
+        .values(
+          values.map(value => ({
+            game: value.game,
+            pricingCardId: value.card.id,
+            cardNumber: value.card.cardNumber,
+            name: value.card.name,
+            pricedOn: value.pricedOn,
+            prices: value.card.pricing,
+            raw: value.raw,
+            pricingSource: value.pricingSource,
+          })),
+        )
+        .onConflictDoUpdate({
+          target: [cardPrice.pricingSource, cardPrice.game, cardPrice.pricingCardId, cardPrice.pricedOn],
+          set: {
+            cardNumber: sql`excluded.card_number`,
+            name: sql`excluded.name`,
+            prices: sql`excluded.prices`,
+            raw: sql`excluded.raw`,
+            pricingSource: sql`excluded.pricing_source`,
+            fetchedAt: new Date(),
+          },
+        })
+        .returning();
+
+      const metadata = new Map<string, typeof cardMetadata.$inferInsert>();
+
+      for (const value of values) {
+        const illustrator = cachedIllustrator({ prices: value.card.pricing, raw: value.raw });
+
+        if (illustrator == null) {
+          continue;
+        }
+
+        const identity = JSON.stringify([value.pricingSource, value.game, value.card.id]);
+
+        metadata.set(identity, {
+          pricingSource: value.pricingSource,
           game: value.game,
           pricingCardId: value.card.id,
-          cardNumber: value.card.cardNumber,
-          name: value.card.name,
-          pricedOn: value.pricedOn,
-          prices: value.card.pricing,
-          raw: value.raw,
-          pricingSource: value.pricingSource,
-        })),
-      )
-      .onConflictDoUpdate({
-        target: [cardPrice.pricingSource, cardPrice.game, cardPrice.pricingCardId, cardPrice.pricedOn],
-        set: {
-          cardNumber: sql`excluded.card_number`,
-          name: sql`excluded.name`,
-          prices: sql`excluded.prices`,
-          raw: sql`excluded.raw`,
-          pricingSource: sql`excluded.pricing_source`,
-          fetchedAt: new Date(),
-        },
-      })
-      .returning();
+          illustrator,
+        });
+      }
 
-    assert(isNonEmpty(rows), 'Card price upsert did not return any rows');
+      if (metadata.size > 0) {
+        await tx
+          .insert(cardMetadata)
+          .values([...metadata.values()])
+          .onConflictDoUpdate({
+            target: [cardMetadata.pricingSource, cardMetadata.game, cardMetadata.pricingCardId],
+            set: { illustrator: sql`excluded.illustrator` },
+            setWhere: sql`${cardMetadata.illustrator} is distinct from excluded.illustrator`,
+          });
+      }
 
-    return rows;
+      assert(isNonEmpty(rows), 'Card price upsert did not return any rows');
+
+      return rows;
+    });
   }
 
   /**

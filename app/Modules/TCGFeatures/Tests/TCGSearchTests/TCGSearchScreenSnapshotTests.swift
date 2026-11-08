@@ -21,6 +21,17 @@ import Testing
 @MainActor
 struct TCGSearchScreenSnapshotTests {
     @Test
+    func `Renders illustrator search results`() async {
+        let feature = TCGSearch(client: .preview(pricingOutcome: .success), history: TCGSearchHistoryStore())
+        let model = TCGSearchScreenModel(preferences: nil)
+        model.mode = .illustrator
+        model.query = "Akira Egawa"
+        await model.performSearch(using: feature)
+        #expect(feature.results.first?.illustrator == "Akira Egawa")
+        await assertScreenSnapshot(testName: #function) { makeScreen(feature: feature, model: model) }
+    }
+
+    @Test
     func `Keeps pricing rows visible while refreshing`() async {
         let lightTransport = HistoryPricingTransport(suspended: true)
         let darkTransport = HistoryPricingTransport(suspended: true)
@@ -69,7 +80,8 @@ struct TCGSearchScreenSnapshotTests {
         let model = TCGSearchScreenModel(preferences: nil)
         model.query = "Giratina"
         model.game = .pokemon
-        try await feature.search(game: model.game, query: model.query).get()
+        try await feature.search(.init(game: model.game, query: model.query, languages: [], mode: .card))
+            .get()
 
         #if os(iOS)
             let animationsWereEnabled = UIView.areAnimationsEnabled
@@ -153,7 +165,8 @@ struct TCGSearchScreenSnapshotTests {
         let feature = TCGSearch(client: .preview(pricingOutcome: .noResults), history: TCGSearchHistoryStore())
         let model = TCGSearchScreenModel(preferences: nil)
         model.query = "Missing card"
-        try await feature.search(game: model.game, query: model.query).get()
+        try await feature.search(.init(game: model.game, query: model.query, languages: [], mode: .card))
+            .get()
 
         await assertScreenSnapshot(testName: #function) { makeScreen(feature: feature, model: model) }
     }
@@ -164,7 +177,8 @@ struct TCGSearchScreenSnapshotTests {
         let model = TCGSearchScreenModel(preferences: nil)
         model.game = .onePiece
         model.query = "OP99-999"
-        try await feature.search(game: model.game, query: model.query).get()
+        try await feature.search(.init(game: model.game, query: model.query, languages: [], mode: .card))
+            .get()
 
         await assertScreenSnapshot(testName: #function) { makeScreen(feature: feature, model: model) }
     }
@@ -208,6 +222,7 @@ struct TCGSearchScreenSnapshotTests {
             game: .onePiece,
             name: "Nami",
             cardNumber: "OP01-016",
+            illustrator: nil,
             pricedOn: Date(timeIntervalSince1970: 1_750_000_000),
             fetchedAt: Date(timeIntervalSince1970: 1_750_000_000)
         )
@@ -251,6 +266,7 @@ struct TCGSearchScreenSnapshotTests {
             name: "Giratina V",
             cardNumber: "186/196",
             rarity: "Special Art Rare",
+            illustrator: "Shinji Kanda",
             imageURL: URL(string: "https://images.example.com/giratina.png")!,
             headline: PriceHeadline(amount: 420, currency: .usd),
             market: MarketPrice(
@@ -290,8 +306,9 @@ struct TCGSearchScreenSnapshotTests {
         let model = TCGSearchScreenModel(preferences: nil)
         model.query = "Gira"
         model.isSearchFocused = true
-        try await feature.search(game: .pokemon, query: model.query).get()
-        #expect(feature.history.suggestions(for: model.query, game: model.game).count == 2)
+        try await feature.search(.init(game: .pokemon, query: model.query, languages: [], mode: .card))
+            .get()
+        #expect(feature.history.suggestions(for: model.query, game: model.game, mode: .card).count == 2)
         await assertScreenSnapshot(testName: #function) { makeScreen(feature: feature, model: model) }
     }
 
@@ -322,9 +339,9 @@ struct TCGSearchScreenSnapshotTests {
     private func makeHistoryFeature() -> TCGSearch {
         let history = TCGSearchHistoryStore(now: { Date(timeIntervalSince1970: 1_753_267_800) })
         for query in ["sv5m 072/071", "Charizard ex 199", "Pikachu", "Giratina VSTAR GG69", "Giratina", "Eevee"] {
-            history.record(query: query, game: .pokemon)
+            history.record(query: query, game: .pokemon, mode: .card)
         }
-        history.record(query: "Nami OP01-016", game: .onePiece)
+        history.record(query: "Nami OP01-016", game: .onePiece, mode: .card)
         return TCGSearch(client: .preview(pricingOutcome: .success), history: history)
     }
 

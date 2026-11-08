@@ -1,5 +1,6 @@
 import { toISO8601String } from '../../utils/strings.ts';
-import { normalizeCardLanguages, type CardLanguage } from '../languages.ts';
+import { normalizeCardLanguages } from '../languages.ts';
+import type { PricingSearchOptions } from '../types.ts';
 import type { CardGame } from '../types.ts';
 
 export function normalizeCardNumber(raw: string): string {
@@ -14,10 +15,11 @@ export function buildSearchQuery(name: string, cardNumber: string): string {
   return normalizeName(`${normalizeName(name)} ${normalizeCardNumber(cardNumber)}`);
 }
 
-export function queryKey(game: CardGame, query: string, languages: readonly CardLanguage[] = []): string {
-  const version = game === 'pokemon' ? 'v4' : 'v2';
+export function queryKey(game: CardGame, query: string, options: PricingSearchOptions): string {
+  const cardVersion = game === 'pokemon' ? 'v4' : 'v2';
+  const version = options.searchBy === 'illustrator' ? 'illustrator-v1' : cardVersion;
 
-  const selected = normalizeCardLanguages(game, languages);
+  const selected = normalizeCardLanguages(game, options.languages);
   const normalized = normalizeName(query).toLowerCase();
 
   return selected.length === 0

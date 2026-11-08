@@ -7,8 +7,7 @@ import {
   PRICING_CLIENT_ERROR_REASONS,
   type PricingSearchResult,
 } from '../client.ts';
-import type { CardLanguage } from '../languages.ts';
-import { type CardGame, type PricingCardRecord, PRICING_SOURCES } from '../types.ts';
+import { type CardGame, type PricingCardRecord, type PricingSearchOptions, PRICING_SOURCES } from '../types.ts';
 import { normalizeScrydexCard } from './normalize.ts';
 import { buildScrydexQuery } from './query.ts';
 
@@ -23,9 +22,9 @@ export class RealScrydexClient implements PricingClient {
   async searchCards(
     game: CardGame,
     query: string,
-    languages: readonly CardLanguage[] = [],
+    options: PricingSearchOptions,
   ): Promise<PricingClientResult<PricingSearchResult>> {
-    const result = await this.client.searchCards(game, buildScrydexQuery(game, query, languages));
+    const result = await this.client.searchCards(game, buildScrydexQuery(game, query, options));
 
     if (result.isErr()) {
       return err(result.error);

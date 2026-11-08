@@ -45,6 +45,20 @@ export const CardsPaginationQuerySchema = z.object({
 export type CardsPaginationQuery = z.infer<typeof CardsPaginationQuerySchema>;
 
 export const CardsListQuerySchema = CardsPaginationQuerySchema.extend({
+  illustrator: z
+    .preprocess(
+      value => {
+        const parsed = z.string().safeParse(value);
+
+        return parsed.success ? [parsed.data] : value;
+      },
+      z.array(z.string().trim().min(1).max(200)).optional(),
+    )
+    .meta({
+      type: 'array',
+      items: { type: 'string' },
+      description: 'Exact illustrator names; repeat for multiple selections. Pokémon only.',
+    }),
   collection_id: UuidSchema.optional(),
   query: CardCoreFieldsSchema.shape.name.trim().optional().meta({
     description: 'Case-insensitive literal substring in card name, set name, or card number; omitted means all cards.',
@@ -63,6 +77,14 @@ export const CardsListQuerySchema = CardsPaginationQuerySchema.extend({
       description: 'Optional exact set names. Repeat set_name for multiple sets; omitted means all sets.',
       example: ['Base Set', 'Crown Zenith'],
     }),
+}).superRefine(({ game, illustrator }, ctx) => {
+  if (game === 'one_piece' && illustrator != null && illustrator.length > 0) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['illustrator'],
+      message: 'Illustrator filtering is only supported for Pokémon',
+    });
+  }
 });
 
 export type CardGame = z.infer<typeof CardsListQuerySchema>['game'];

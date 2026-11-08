@@ -2,9 +2,16 @@ import { type ScrydexRawCard, ScrydexRawCardSchema } from '@tcg/scrydex';
 import { ok } from 'neverthrow';
 
 import type { PricingClient, PricingClientResult, PricingSearchResult } from '../client.ts';
-import { normalizeCardLanguages, type CardLanguage } from '../languages.ts';
-import { CARD_GAME_MAP, type CardGame, type PricingCardRecord, PRICING_SOURCES } from '../types.ts';
+import { normalizeCardLanguages } from '../languages.ts';
+import {
+  CARD_GAME_MAP,
+  type CardGame,
+  type PricingCardRecord,
+  type PricingSearchOptions,
+  PRICING_SOURCES,
+} from '../types.ts';
 import { normalizeScrydexCard } from './normalize.ts';
+import { IllustratorNameSchema } from '../utils/illustrator.ts';
 
 const CANNED_CARDS: Record<CardGame, ScrydexRawCard[]> = {
   [CARD_GAME_MAP.POKEMON]: [
@@ -12,6 +19,7 @@ const CANNED_CARDS: Record<CardGame, ScrydexRawCard[]> = {
       id: 'crown-zenith-GG69',
       expansion: { name: 'Crown Zenith' },
       name: 'Giratina VSTAR',
+      artist: 'Akira Egawa',
       language_code: 'EN',
       number: 'GG69',
       rarity: 'Secret Rare',
@@ -131,7 +139,7 @@ export class StaticScrydexClient implements PricingClient {
   async searchCards(
     game: CardGame,
     query: string,
-    languages: readonly CardLanguage[] = [],
+    options: PricingSearchOptions,
   ): Promise<PricingClientResult<PricingSearchResult>> {
     const normalized = query.trim().toLowerCase();
 
@@ -140,14 +148,18 @@ export class StaticScrydexClient implements PricingClient {
     }
 
     const matches = CANNED_CARDS[game].filter(card => {
-      const haystack = `${String(card.name)} ${String(card.number)} ${String(card.printed_number)}`.toLowerCase();
+      const haystack =
+        options.searchBy === 'illustrator'
+          ? IllustratorNameSchema.catch('').parse(card.artist).toLowerCase()
+          : `${String(card.name)} ${String(card.number)} ${String(card.printed_number)}`.toLowerCase();
 
       return normalized.split(/\s+/).every(term => haystack.includes(term));
     });
 
-    const rawCards = matches.length > 0 ? matches : [makeSyntheticCard(game, query)];
+    const rawCards =
+      matches.length > 0 || options.searchBy === 'illustrator' ? matches : [makeSyntheticCard(game, query)];
 
-    const selected = normalizeCardLanguages(game, languages);
+    const selected = normalizeCardLanguages(game, options.languages);
 
     const filtered = rawCards.filter(
       card => selected.length === 0 || selected.some(code => card.language_code === code.toUpperCase()),

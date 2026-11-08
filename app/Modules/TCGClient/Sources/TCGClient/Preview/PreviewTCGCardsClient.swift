@@ -57,7 +57,8 @@ struct PreviewTCGCardsClient: TCGCardsClient {
                         )
                     },
                     collectionID: cards.first(where: { $0.id == input.id })?.collectionID,
-                    allocationAdjustments: nil
+                    allocationAdjustments: nil,
+                    illustrator: nil
                 )
                 if let index = cards.firstIndex(where: { $0.id == input.id }) {
                     if cards[index] != imported {
@@ -110,10 +111,17 @@ struct PreviewTCGCardsClient: TCGCardsClient {
                 return CardWithPrice(card: card, price: Self.price(for: card))
             }
         }
-        let matchingCards = cards.filter {
-            guard query.setNames.isEmpty || query.setNames.contains($0.card.setName) else { return false }
+        let matchingCards = cards.filter { entry in
+            let containsQuery =
+                query.illustrators.isEmpty
+                || (entry.card.game == .pokemon
+                    && query.illustrators.contains(where: { name in
+                        name.caseInsensitiveCompare(entry.card.illustrator ?? "") == .orderedSame
+                    }))
+            guard containsQuery else { return false }
+            guard query.setNames.isEmpty || query.setNames.contains(entry.card.setName) else { return false }
             guard let search = query.query else { return true }
-            return $0.card.matchesSearch(search)
+            return entry.card.matchesSearch(search)
         }
         guard offset <= matchingCards.count else {
             return .failure(.unknown(status: 400, payload: nil, cause: nil))
@@ -124,7 +132,12 @@ struct PreviewTCGCardsClient: TCGCardsClient {
             .init(
                 cards: Array(matchingCards[offset..<end]),
                 availableSetNames: Set(cards.map(\.card.setName)),
-                nextCursor: end < matchingCards.count ? String(end) : nil
+                nextCursor: end < matchingCards.count ? String(end) : nil,
+                availableIllustrators: Set(
+                    cards.compactMap { entry in
+                        entry.card.game == .pokemon ? entry.card.illustrator : nil
+                    }
+                )
             )
         )
     }
@@ -198,7 +211,8 @@ struct PreviewTCGCardsClient: TCGCardsClient {
                 .init(condition: .played, quantity: 1),
             ],
             collectionID: nil,
-            allocationAdjustments: nil
+            allocationAdjustments: nil,
+            illustrator: nil
         ),
         Card(
             id: UUID(uuid: (0, 0, 0, 0, 0, 0, 64, 0, 128, 0, 0, 0, 0, 0, 0, 2)),
@@ -211,7 +225,8 @@ struct PreviewTCGCardsClient: TCGCardsClient {
             updatedAt: fixedDate,
             purchases: [.init(condition: .mint, quantity: 1)],
             collectionID: nil,
-            allocationAdjustments: nil
+            allocationAdjustments: nil,
+            illustrator: "Mitsuhiro Arita"
         ),
     ]
 
@@ -233,7 +248,8 @@ struct PreviewTCGCardsClient: TCGCardsClient {
             updatedAt: fixedDate,
             purchases: payload.purchases,
             collectionID: payload.collectionID == PreviewTCGCollectionsClient.unfiledID ? nil : payload.collectionID,
-            allocationAdjustments: nil
+            allocationAdjustments: nil,
+            illustrator: nil
         )
     }
 }

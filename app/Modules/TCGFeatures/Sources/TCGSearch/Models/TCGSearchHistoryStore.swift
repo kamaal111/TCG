@@ -8,6 +8,15 @@ struct TCGSearchHistoryEntry: Codable, Equatable, Identifiable {
     let game: ClientCardGame
     let query: String
     let lastUsedAt: Date
+    let mode: ClientCardSearchMode
+
+    init(id: UUID, game: ClientCardGame, query: String, lastUsedAt: Date, mode: ClientCardSearchMode) {
+        self.id = id
+        self.game = game
+        self.query = query
+        self.lastUsedAt = lastUsedAt
+        self.mode = game == .pokemon ? mode : .card
+    }
 }
 
 @MainActor
@@ -25,19 +34,36 @@ final class TCGSearchHistoryStore {
         self.now = now
         guard let data = defaults?.data(forKey: Self.storageKey) else { return }
         do {
-            let archive = try JSONDecoder().decode(Archive.self, from: data)
-            guard archive.version == 1 else { return }
-            entries = archive.entries.sorted { $0.lastUsedAt > $1.lastUsedAt }
+            let decoder = JSONDecoder()
+            let version = try decoder.decode(ArchiveVersion.self, from: data).version
+            let storedEntries: [TCGSearchHistoryEntry]
+            switch version {
+            case 1:
+                let archive = try decoder.decode(ArchiveV1.self, from: data)
+                storedEntries = archive.entries.map {
+                    .init(id: $0.id, game: $0.game, query: $0.query, lastUsedAt: $0.lastUsedAt, mode: .card)
+                }
+            case 2:
+                storedEntries = try decoder.decode(ArchiveV2.self, from: data).entries
+            default: return
+            }
+            entries = storedEntries.sorted { $0.lastUsedAt > $1.lastUsedAt }
             var retained: [TCGSearchHistoryEntry] = []
             for entry in entries {
                 let query = entry.query.trimmingCharacters(in: .whitespacesAndNewlines)
                 guard query.count >= 2 else { continue }
                 guard retained.filter({ $0.game == entry.game }).count < 100 else { continue }
-                guard !retained.contains(where: { $0.game == entry.game && Self.matches($0.query, query) }) else {
+                guard
+                    !retained.contains(where: {
+                        $0.game == entry.game && $0.mode == entry.mode && Self.matches($0.query, query)
+                    })
+                else {
                     continue
                 }
                 guard !retained.contains(where: { $0.id == entry.id }) else { continue }
-                retained.append(.init(id: entry.id, game: entry.game, query: query, lastUsedAt: entry.lastUsedAt))
+                retained.append(
+                    .init(id: entry.id, game: entry.game, query: query, lastUsedAt: entry.lastUsedAt, mode: entry.mode)
+                )
             }
             entries = retained
         } catch {
@@ -49,24 +75,30 @@ final class TCGSearchHistoryStore {
         entries.filter { $0.game == game }
     }
 
-    func suggestions(for query: String, game: ClientCardGame) -> [TCGSearchHistoryEntry] {
+    func suggestions(for query: String, game: ClientCardGame, mode: ClientCardSearchMode)
+        -> [TCGSearchHistoryEntry]
+    {
         let query = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !query.isEmpty else { return [] }
         return Array(
             entries(for: game)
                 .filter {
-                    !Self.matches($0.query, query) && $0.query.localizedCaseInsensitiveContains(query)
+                    $0.mode == mode && !Self.matches($0.query, query)
+                        && $0.query.localizedCaseInsensitiveContains(query)
                 }
                 .prefix(5)
         )
     }
 
-    func record(query: String, game: ClientCardGame) {
+    func record(query: String, game: ClientCardGame, mode: ClientCardSearchMode) {
         let query = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard query.count >= 2 else { return }
-        let existing = entries.first { $0.game == game && Self.matches($0.query, query) }
-        entries.removeAll { $0.game == game && Self.matches($0.query, query) }
-        entries.insert(.init(id: existing?.id ?? UUID(), game: game, query: query, lastUsedAt: now()), at: 0)
+        let existing = entries.first { $0.game == game && $0.mode == mode && Self.matches($0.query, query) }
+        entries.removeAll { $0.game == game && $0.mode == mode && Self.matches($0.query, query) }
+        entries.insert(
+            .init(id: existing?.id ?? UUID(), game: game, query: query, lastUsedAt: now(), mode: mode),
+            at: 0
+        )
         let retainedIDs = Set(entries(for: game).prefix(100).map(\.id))
         entries.removeAll { $0.game == game && !retainedIDs.contains($0.id) }
         persist()
@@ -85,7 +117,7 @@ final class TCGSearchHistoryStore {
     private func persist() {
         guard let defaults else { return }
         do {
-            let data = try JSONEncoder().encode(Archive(version: 1, entries: entries))
+            let data = try JSONEncoder().encode(ArchiveV2(version: 2, entries: entries))
             defaults.set(data, forKey: Self.storageKey)
         } catch {
             Self.logger.warning("Could not persist local search history")
@@ -96,8 +128,23 @@ final class TCGSearchHistoryStore {
         lhs.caseInsensitiveCompare(rhs) == .orderedSame
     }
 
-    private struct Archive: Codable {
+    private struct ArchiveV2: Codable {
         let version: Int
         let entries: [TCGSearchHistoryEntry]
+    }
+
+    private struct ArchiveVersion: Decodable {
+        let version: Int
+    }
+
+    private struct ArchiveV1: Decodable {
+        let entries: [Entry]
+
+        struct Entry: Decodable {
+            let id: UUID
+            let game: ClientCardGame
+            let query: String
+            let lastUsedAt: Date
+        }
     }
 }

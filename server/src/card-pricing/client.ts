@@ -1,7 +1,6 @@
 import type { Result } from 'neverthrow';
 
-import type { CardLanguage } from './languages.ts';
-import type { CardGame, PricingCardRecord, PricingSource } from './types.ts';
+import type { CardGame, PricingCardRecord, PricingSource, PricingSearchOptions } from './types.ts';
 import type { GetRecordValues } from '../utils/type-utils.ts';
 
 export const PRICING_CLIENT_ERROR_REASONS = {
@@ -35,7 +34,7 @@ export interface PricingClient {
   searchCards(
     game: CardGame,
     query: string,
-    languages?: readonly CardLanguage[],
+    options: PricingSearchOptions,
   ): Promise<PricingClientResult<PricingSearchResult>>;
   getCardById(game: CardGame, id: string): Promise<PricingClientResult<PricingCardRecord | null>>;
 }

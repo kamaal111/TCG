@@ -4,6 +4,7 @@ import TCGModels
 
 struct TCGSearchInput: View {
     @Binding var query: String
+    @Binding var mode: ClientCardSearchMode
     let game: ClientCardGame
     @Binding var languages: Set<ClientCardLanguage>
     @Binding var gameSelection: CardGame
@@ -24,6 +25,15 @@ struct TCGSearchInput: View {
                 availableSetNames: availableSetNames,
                 setNames: $setNames
             )
+            if game == .pokemon {
+                Picker(selection: $mode) {
+                    Text("Cards", bundle: .module).tag(ClientCardSearchMode.card)
+                    Text("Illustrator", bundle: .module).tag(ClientCardSearchMode.illustrator)
+                } label: {
+                    Text("Search by", bundle: .module)
+                }
+                .pickerStyle(.segmented)
+            }
             searchField
         }
     }
@@ -36,9 +46,11 @@ struct TCGSearchInput: View {
                     .accessibilityHidden(true)
                 TextField(text: $query) {
                     Text(
-                        game == .pokemon
-                            ? LocalizedStringKey("Card name or set + number")
-                            : LocalizedStringKey("Card name or number"),
+                        mode == .illustrator
+                            ? LocalizedStringKey("Illustrator name")
+                            : game == .pokemon
+                                ? LocalizedStringKey("Card name or set + number")
+                                : LocalizedStringKey("Card name or number"),
                         bundle: .module
                     )
                 }
