@@ -13,7 +13,8 @@ The CLI guides you through the release:
 
 1. Fetch `main` and show the exact commit and target server.
 2. Offer an infrastructure plan. You can skip it for ordinary app changes.
-   Applying a plan and configuring the host each need your approval.
+   Applying a plan needs your approval. Reapplying server settings is offered
+   only when saved settings, server setup files or the applied server inventory changed.
 3. Run server checks, build the Linux images, and upload them to GHCR.
 4. Check the database. If migrations are pending, ask before applying them.
 5. Ask before restarting the app, then verify the live release, database and storage.
@@ -23,10 +24,17 @@ public HTTPS; otherwise the server stays private.
 
 ## First guided release
 
-An existing server may need updated release tools. The CLI offers to configure it
-using your saved infrastructure settings. Approve this once. Infrastructure steps
-need the credentials in `$HOME/.config/tcg/infrastructure.env`; ordinary releases
-only need `$HOME/.config/tcg/release.env` and your Docker registry login.
+An existing server may need newer deployment commands once. The CLI explains what
+Yes and No do before asking: Yes reruns server setup with values you already saved.
+It updates deployment scripts, reapplies the saved domain, database/storage
+settings, deployment SSH access and registry login, and checks Docker and Tailscale.
+You do not need to enter new credentials. No stops that release attempt and leaves
+your deployed app running. App deployment and database migrations have separate approvals.
+
+After that update, an unchanged infrastructure plan does not ask you to apply the
+same server settings again. Ordinary app releases can skip infrastructure review.
+Server setup uses `$HOME/.config/tcg/infrastructure.env`; ordinary releases only
+need `$HOME/.config/tcg/release.env` and your Docker registry login.
 
 If Docker is not signed into GHCR, create a GitHub personal access token (classic)
 with `write:packages` and package access, then use that **token as the password**:

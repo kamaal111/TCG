@@ -1,4 +1,5 @@
 import type { Artifacts, Host } from './contracts.ts';
+import { confirmServerSetup } from './server-setup.ts';
 import { InfraFailure } from '../infra/errors.ts';
 import type { Prompts } from '../infra/prompts.ts';
 
@@ -8,7 +9,7 @@ interface Pipeline {
   repository: string;
   infrastructureSuggested: boolean;
   host(): Promise<Host | undefined>;
-  infrastructure(): Promise<void>;
+  infrastructure(context: { serverConfigured: boolean }): Promise<void>;
   configure(): Promise<void>;
   artifacts(): Promise<Artifacts>;
   verify(artifacts: Artifacts): Promise<void>;
@@ -61,22 +62,22 @@ async function approve(options: Pipeline, message: string): Promise<Host> {
 export async function runRelease(options: Pipeline): Promise<void> {
   const { prompts } = options;
   let host = await options.host();
+  let serverConfigured = false;
 
   if (!host) {
-    prompts.note('This host uses older release tools. Updating them needs your saved infrastructure credentials.');
-
-    if (!(await prompts.confirm('Configure the host with the current release tools?', false))) {
+    if (!(await confirmServerSetup({ prompts, reason: 'older-tools' }))) {
       throw new InfraFailure('Stopped. No release was deployed.', 130);
     }
 
     await options.configure();
+    serverConfigured = true;
     host = await options.host();
   }
 
   available(host, options.repository);
 
   if (await prompts.confirm('Review an infrastructure plan?', options.infrastructureSuggested)) {
-    await options.infrastructure();
+    await options.infrastructure({ serverConfigured });
   }
 
   const artifacts = await options.artifacts();
