@@ -14,10 +14,10 @@
 		000000000000000000000120 /* TCG.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = TCG.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		2C2F3432300BDB5B005F8F89 /* TCG.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = TCG.entitlements; sourceTree = "<group>"; };
 		2C553C282FF941AD0030B3A0 /* TCG.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; path = TCG.xctestplan; sourceTree = "<group>"; };
-		F00000000000000000000001 /* ProjectDebug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Configuration/ProjectDebug.xcconfig; sourceTree = "<group>"; };
-		F00000000000000000000002 /* ProjectRelease.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Configuration/ProjectRelease.xcconfig; sourceTree = "<group>"; };
-		F00000000000000000000003 /* Remote.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Configuration/Remote.xcconfig; sourceTree = "<group>"; };
-		F00000000000000000000004 /* Local.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Configuration/Local.xcconfig; sourceTree = "<group>"; };
+		F00000000000000000000001 /* Configuration/ProjectDebug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Configuration/ProjectDebug.xcconfig; sourceTree = "<group>"; };
+		F00000000000000000000002 /* Configuration/ProjectRelease.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Configuration/ProjectRelease.xcconfig; sourceTree = "<group>"; };
+		F00000000000000000000003 /* Configuration/Remote.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Configuration/Remote.xcconfig; sourceTree = "<group>"; };
+		F00000000000000000000004 /* Configuration/Local.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Configuration/Local.xcconfig; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -46,12 +46,11 @@
 		000000000000000000000001 = {
 			isa = PBXGroup;
 			children = (
-				F00000000000000000000001 /* ProjectDebug.xcconfig */,
-				F00000000000000000000002 /* ProjectRelease.xcconfig */,
-				F00000000000000000000003 /* Remote.xcconfig */,
-				F00000000000000000000004 /* Local.xcconfig */,
-
 				2C2F3432300BDB5B005F8F89 /* TCG.entitlements */,
+				F00000000000000000000004 /* Configuration/Local.xcconfig */,
+				F00000000000000000000001 /* Configuration/ProjectDebug.xcconfig */,
+				F00000000000000000000002 /* Configuration/ProjectRelease.xcconfig */,
+				F00000000000000000000003 /* Configuration/Remote.xcconfig */,
 				2C553C282FF941AD0030B3A0 /* TCG.xctestplan */,
 				2CDD18A42FF1860400D5D03D /* Frameworks */,
 				2C61CFCD2FF17F8200B44EDB /* Modules */,
@@ -146,14 +145,18 @@
 		000000000000000150000000 /* Validate app configuration */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
-			buildActionMask = 2147483647;
-			files = ();
-			inputPaths = ("$(SRCROOT)/../scripts/check-app-configuration.sh");
+			inputPaths = (
+				"$(SRCROOT)/../scripts/check-app-configuration.sh",
+			);
 			name = "Validate app configuration";
-			outputPaths = ("$(DERIVED_FILE_DIR)/tcg-app-configuration-valid");
-			runOnlyForDeploymentPostprocessing = 0;
+			outputPaths = (
+				"$(DERIVED_FILE_DIR)/tcg-app-configuration-valid",
+			);
 			shellPath = /bin/bash;
-			shellScript = "bash \"$SRCROOT/../scripts/check-app-configuration.sh\"\n";
+			shellScript = (
+				"bash \"$SRCROOT/../scripts/check-app-configuration.sh\"",
+				"",
+			);
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -168,56 +171,56 @@
 /* Begin XCBuildConfiguration section */
 		000000000000000011000000 /* Debug configuration for PBXProject "TCG" */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = F00000000000000000000001 /* ProjectDebug.xcconfig */;
+			baseConfigurationReference = F00000000000000000000001 /* Configuration/ProjectDebug.xcconfig */;
 			buildSettings = {
 			};
 			name = Debug;
 		};
 		000000000000000012000000 /* Release configuration for PBXProject "TCG" */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = F00000000000000000000002 /* ProjectRelease.xcconfig */;
+			baseConfigurationReference = F00000000000000000000002 /* Configuration/ProjectRelease.xcconfig */;
 			buildSettings = {
 			};
 			name = Release;
 		};
 		000000000000000013000000 /* DebugLocal configuration for PBXProject "TCG" */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = F00000000000000000000001 /* ProjectDebug.xcconfig */;
+			baseConfigurationReference = F00000000000000000000001 /* Configuration/ProjectDebug.xcconfig */;
 			buildSettings = {
 			};
 			name = DebugLocal;
 		};
 		000000000000000014000000 /* ReleaseLocal configuration for PBXProject "TCG" */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = F00000000000000000000002 /* ProjectRelease.xcconfig */;
+			baseConfigurationReference = F00000000000000000000002 /* Configuration/ProjectRelease.xcconfig */;
 			buildSettings = {
 			};
 			name = ReleaseLocal;
 		};
 		000000000000000111000000 /* Debug configuration for PBXNativeTarget "TCG" */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = F00000000000000000000003 /* Remote.xcconfig */;
+			baseConfigurationReference = F00000000000000000000003 /* Configuration/Remote.xcconfig */;
 			buildSettings = {
 			};
 			name = Debug;
 		};
 		000000000000000112000000 /* Release configuration for PBXNativeTarget "TCG" */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = F00000000000000000000003 /* Remote.xcconfig */;
+			baseConfigurationReference = F00000000000000000000003 /* Configuration/Remote.xcconfig */;
 			buildSettings = {
 			};
 			name = Release;
 		};
 		000000000000000113000000 /* DebugLocal configuration for PBXNativeTarget "TCG" */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = F00000000000000000000004 /* Local.xcconfig */;
+			baseConfigurationReference = F00000000000000000000004 /* Configuration/Local.xcconfig */;
 			buildSettings = {
 			};
 			name = DebugLocal;
 		};
 		000000000000000114000000 /* ReleaseLocal configuration for PBXNativeTarget "TCG" */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = F00000000000000000000004 /* Local.xcconfig */;
+			baseConfigurationReference = F00000000000000000000004 /* Configuration/Local.xcconfig */;
 			buildSettings = {
 			};
 			name = ReleaseLocal;
