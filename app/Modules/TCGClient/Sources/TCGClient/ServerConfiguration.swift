@@ -62,11 +62,11 @@ struct ServerConfiguration: Sendable {
         var description: String {
             switch self {
             case .missingURL:
-                "The app server URL is missing. Configure Remote.local.xcconfig or select TCG Local."
+                "The app server URL is missing. Configure Remote.local.xcconfig or select a local app scheme."
             case .invalidURL:
                 "The app server URL is invalid. Use an API hostname without a scheme, path, or credentials; remote builds require HTTPS."
             case .invalidEnvironment:
-                "The app environment is invalid. Select the TCG or TCG Local configuration."
+                "The app environment is invalid. Select a remote or local app configuration."
             }
         }
     }

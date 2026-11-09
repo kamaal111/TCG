@@ -11,6 +11,8 @@ struct CardsCSVTests {
         let source = CardsCSVFixtures.card
         let url = try CardsCSV.export([source]).get()
         defer { try? FileManager.default.removeItem(at: url) }
+        #expect(url.lastPathComponent.hasPrefix("mintomo-cards-"))
+        #expect(url.pathExtension == "csv")
         let drafts = try CardsCSV.read(from: url).get()
         let draft = try #require(drafts.first)
         let restored = try #require(CardsCSV.makeCard(draft, now: CardsCSVFixtures.date))
@@ -23,6 +25,8 @@ struct CardsCSVTests {
     func `Empty export is a downloadable headers only template`() throws {
         let url = try CardsCSV.export([]).get()
         defer { try? FileManager.default.removeItem(at: url) }
+        #expect(url.lastPathComponent.hasPrefix("mintomo-cards-"))
+        #expect(url.pathExtension == "csv")
         let contents = try String(contentsOf: url, encoding: .utf8)
         #expect(contents.trimmingCharacters(in: .newlines) == CardsCSV.columns.map(\.rawValue).joined(separator: ","))
         #expect(try CardsCSV.parse(contents).get().isEmpty)

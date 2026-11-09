@@ -11,7 +11,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		000000000000000000000120 /* TCG.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = TCG.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		000000000000000000000120 /* Mintomo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Mintomo.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		2C2F3432300BDB5B005F8F89 /* TCG.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = TCG.entitlements; sourceTree = "<group>"; };
 		2C553C282FF941AD0030B3A0 /* TCG.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; path = TCG.xctestplan; sourceTree = "<group>"; };
 		F00000000000000000000001 /* Configuration/ProjectDebug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Configuration/ProjectDebug.xcconfig; sourceTree = "<group>"; };
@@ -62,7 +62,7 @@
 		000000000000000000000020 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				000000000000000000000120 /* TCG.app */,
+				000000000000000000000120 /* Mintomo.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -96,7 +96,7 @@
 				2CDD18A52FF1860400D5D03D /* TCGApp */,
 			);
 			productName = MyApp;
-			productReference = 000000000000000000000120 /* TCG.app */;
+			productReference = 000000000000000000000120 /* Mintomo.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
