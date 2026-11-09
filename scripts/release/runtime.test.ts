@@ -111,7 +111,7 @@ if (tool === 'terraform') {
  const action=args[1];
  const dir=args[0].slice('-chdir='.length);
  if (action==='plan') {fs.mkdirSync(path.join(dir,'.terraform'),{recursive:true});fs.writeFileSync(path.join(dir,'.terraform/review.tfplan'),'reviewed fixture plan');}
- if (action==='show') console.log(JSON.stringify({output_changes:{inventory:{actions:['update']}}}));
+ if (action==='show') console.log(JSON.stringify(process.env.TCG_TEST_NO_PLAN_CHANGES ? {} : process.env.TCG_TEST_RESOURCE_ONLY ? {resource_changes:[{address:'module.tcg.firewall',type:'digitalocean_firewall',change:{actions:['update']}}]} : {output_changes:{inventory:{actions:['update']}}}));
  if (action==='apply' && process.env.TCG_TEST_FAIL_APPLY) process.exit(1);
  if (action==='output') console.log('{}');
 }
@@ -271,9 +271,12 @@ test('older application releases still configure the host from the newly fetched
 
 test('output-only infrastructure changes require an explicit apply approval', async t => {
   const f = await fixture(t);
-  f.confirm.mockImplementation(
-    async message => !message.startsWith('Apply this infrastructure') && !message.startsWith('Configure the host'),
-  );
+  f.confirm.mockImplementation(async message => {
+    return (
+      !message.startsWith('Apply this infrastructure') &&
+      message !== 'Apply saved settings and update deployment scripts on the server?'
+    );
+  });
   await f.run();
   expect(f.confirm).toHaveBeenCalledWith('Apply this infrastructure plan?', false);
   expect(
@@ -299,7 +302,7 @@ test('the first guided release upgrades older host tools only after approval', a
   const f = await fixture(t);
   vi.stubEnv('TCG_TEST_OLD_HOST', '1');
   await f.run();
-  expect(f.confirm).toHaveBeenCalledWith('Configure the host with the current release tools?', false);
+  expect(f.confirm).toHaveBeenCalledWith('Apply saved settings and update deployment scripts on the server?', false);
   expect((await f.commands()).filter(command => command.tool === 'ansible-playbook')).toHaveLength(1);
   expect(await f.deployed()).toHaveLength(1);
 }, 15_000);
@@ -315,4 +318,53 @@ test('editing local settings during deployment approval stops the mutation', asy
   });
   await expect(f.run()).rejects.toThrow('Local settings changed');
   expect(await f.deployed()).toHaveLength(0);
+}, 15_000);
+
+test('a first-run server update is not offered again after an unchanged infrastructure plan', async t => {
+  const f = await fixture(t);
+  vi.stubEnv('TCG_TEST_OLD_HOST', '1');
+  vi.stubEnv('TCG_TEST_NO_PLAN_CHANGES', '1');
+  f.confirm.mockResolvedValue(true);
+  await f.run();
+  expect((await f.commands()).filter(command => command.tool === 'ansible-playbook')).toHaveLength(1);
+  expect(
+    f.confirm.mock.calls.filter(
+      ([message]) => message === 'Apply saved settings and update deployment scripts on the server?',
+    ),
+  ).toHaveLength(1);
+}, 15_000);
+
+test('reviewing an unchanged plan after a successful release does not ask to reapply server settings', async t => {
+  const f = await fixture(t);
+  await f.run();
+  f.confirm.mockClear().mockResolvedValue(true);
+  vi.stubEnv('TCG_TEST_NO_PLAN_CHANGES', '1');
+  await f.run();
+  expect(f.confirm).not.toHaveBeenCalledWith(
+    'Apply saved settings and update deployment scripts on the server?',
+    false,
+  );
+  expect((await f.commands()).filter(command => command.tool === 'ansible-playbook')).toHaveLength(0);
+}, 15_000);
+
+test('new infrastructure applied after the first-run setup still offers to apply the updated server settings', async t => {
+  const f = await fixture(t);
+  vi.stubEnv('TCG_TEST_OLD_HOST', '1');
+  f.confirm.mockResolvedValue(true);
+  await f.run();
+  expect((await f.commands()).filter(command => command.tool === 'ansible-playbook')).toHaveLength(2);
+  expect(
+    f.confirm.mock.calls.filter(
+      ([message]) => message === 'Apply saved settings and update deployment scripts on the server?',
+    ),
+  ).toHaveLength(2);
+}, 15_000);
+
+test('applying a resource-only plan does not reapply unchanged server settings after the first-run update', async t => {
+  const f = await fixture(t);
+  vi.stubEnv('TCG_TEST_OLD_HOST', '1');
+  vi.stubEnv('TCG_TEST_RESOURCE_ONLY', '1');
+  f.confirm.mockResolvedValue(true);
+  await f.run();
+  expect((await f.commands()).filter(command => command.tool === 'ansible-playbook')).toHaveLength(1);
 }, 15_000);

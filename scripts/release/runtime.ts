@@ -16,6 +16,7 @@ import {
   type Artifacts,
 } from './contracts.ts';
 import { runRelease } from './pipeline.ts';
+import { confirmServerSetup } from './server-setup.ts';
 import { ConfigStore, homePath, readSettingsFile } from '../infra/config.ts';
 import { credentials } from '../infra/credentials.ts';
 import { InfraFailure } from '../infra/errors.ts';
@@ -291,14 +292,14 @@ export async function releaseFromTerminal({ root, configDirectory, revision, pro
   }
 
   async function configure(): Promise<void> {
-    prompts.note(
-      'Configuring the host using the current main revision. Infrastructure credentials are needed for this step.',
-    );
+    prompts.note('Applying saved server settings and updating deployment scripts on your DigitalOcean server.');
     await infra('init');
     await infra('configure');
   }
 
-  let suggested = !previous.success || previous.data.settings !== settingsHash;
+  const savedSettingsChanged = previous.success && previous.data.settings !== settingsHash;
+  let serverSetupChanged = false;
+  let suggested = !previous.success || savedSettingsChanged;
 
   async function host() {
     // Unsupported-command exit 64 is the only case treated as an older host.
@@ -343,20 +344,26 @@ export async function releaseFromTerminal({ root, configDirectory, revision, pro
       () => false,
     );
 
-    suggested ||=
-      !known ||
-      Boolean(
-        await command('git', [
-          'diff',
-          '--name-only',
-          initial.operationsRevision,
-          operations,
-          '--',
-          'infra',
-          'deploy',
-          'scripts/infrastructure.sh',
-        ]),
-      );
+    if (!known) {
+      serverSetupChanged = true;
+      suggested = true;
+    } else {
+      const changedFiles = await command('git', [
+        'diff',
+        '--name-only',
+        initial.operationsRevision,
+        operations,
+        '--',
+        'infra',
+        'deploy',
+        'scripts/infrastructure.sh',
+      ]);
+
+      serverSetupChanged = changedFiles.split('\n').some(file => {
+        return file.startsWith('infra/ansible/') || file.startsWith('deploy/') || file === 'scripts/infrastructure.sh';
+      });
+      suggested ||= Boolean(changedFiles);
+    }
   } else {
     suggested = true;
   }
@@ -369,7 +376,7 @@ export async function releaseFromTerminal({ root, configDirectory, revision, pro
       infrastructureSuggested: suggested,
       host,
       configure,
-      infrastructure: async () => {
+      infrastructure: async ({ serverConfigured }) => {
         prompts.note(
           'Planning infrastructure. Only resource names and actions are shown here; full output stays in the private log.',
           '2. Infrastructure',
@@ -378,23 +385,34 @@ export async function releaseFromTerminal({ root, configDirectory, revision, pro
         await infra('plan');
         const directory = await ops();
 
-        const plan = summarizePlan(
-          PlanSchema.parse(
-            JSON.parse(
-              await fs.readFile(path.join(directory, 'infra/environments/production/.terraform/review.json'), 'utf8'),
-            ),
+        const reviewedPlan = PlanSchema.parse(
+          JSON.parse(
+            await fs.readFile(path.join(directory, 'infra/environments/production/.terraform/review.json'), 'utf8'),
           ),
         );
 
+        const plan = summarizePlan(reviewedPlan);
+
+        const serverInventoryChanged =
+          reviewedPlan.output_changes.inventory?.actions.some(action => action !== 'no-op') ?? false;
+
         prompts.note(plan.summary);
+
+        let applied = false;
 
         if (plan.changed && (await prompts.confirm('Apply this infrastructure plan?', false))) {
           await infra('apply');
+          applied = true;
         } else if (plan.changed) {
           prompts.note('Infrastructure apply was skipped.');
         }
 
-        if (await prompts.confirm('Configure the host from the current main revision?', false)) {
+        const setupNeeded =
+          (applied && serverInventoryChanged) || (!serverConfigured && (savedSettingsChanged || serverSetupChanged));
+
+        if (!setupNeeded) {
+          prompts.note('No server settings need to be applied. Continuing with the release.');
+        } else if (await confirmServerSetup({ prompts, reason: 'changed-settings' })) {
           await infra('configure');
         }
       },
