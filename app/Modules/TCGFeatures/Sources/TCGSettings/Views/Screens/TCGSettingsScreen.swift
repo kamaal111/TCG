@@ -27,7 +27,7 @@ public struct TCGSettingsScreen: View {
     @State private var isChoosingFile = false
     @State private var isExportingFile = false
     @State private var document: CSVFileDocument?
-    @State private var exportFilename = "tcg-cards"
+    @State private var exportFilename = "mintomo-cards"
     @State private var feedback: String?
     @State private var isShowingFeedback = false
     private let exportAction: (@MainActor () async -> Result<URL, CardsExportError>)?
@@ -130,7 +130,7 @@ public struct TCGSettingsScreen: View {
                 #endif
                 .disabled(isSigningOut || isWorking)
                 .confirmationDialog(
-                    Text("Sign out of TCG?", bundle: .module),
+                    Text("Sign out of Mintomo?", bundle: .module),
                     isPresented: $isConfirmingSignOut,
                     titleVisibility: .visible
                 ) {
@@ -214,7 +214,7 @@ public struct TCGSettingsScreen: View {
                     do {
                         guard let templateAction else { return }
                         switch templateAction() {
-                        case .success(let url): try prepareExport(url, filename: "tcg-cards-template")
+                        case .success(let url): try prepareExport(url, filename: "mintomo-cards-template")
                         case .failure(let error): showFeedback(error.localizedDescription)
                         }
                     } catch {
@@ -248,7 +248,7 @@ public struct TCGSettingsScreen: View {
             defer { isWorking = false }
             do {
                 switch await exportAction() {
-                case .success(let url): try prepareExport(url, filename: "tcg-cards")
+                case .success(let url): try prepareExport(url, filename: "mintomo-cards")
                 case .failure(let error): showFeedback(error.localizedDescription)
                 }
             } catch {

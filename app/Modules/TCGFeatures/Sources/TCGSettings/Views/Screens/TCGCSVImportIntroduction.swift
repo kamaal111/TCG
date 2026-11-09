@@ -10,7 +10,7 @@ struct TCGCSVImportIntroduction: View {
             VStack(alignment: .leading, spacing: 20) {
                 Text("Start with the CSV template", bundle: .module).font(.title2.weight(.semibold))
                 Text(
-                    "Download the template first, or choose a previous TCG export. Each row represents a purchase; use the same card ID for purchases of the same card.",
+                    "Download the template first, or choose a previous Mintomo export. Each row represents a purchase; use the same card ID for purchases of the same card.",
                     bundle: .module
                 )
                 Text(

@@ -17,7 +17,7 @@ public struct TCGScene: Scene {
     @State private var auth = KamaalAuth(
         client: TCGClient.default().auth,
         configuration: KamaalAuthConfiguration(
-            appName: "TCG",
+            appName: String(localized: "Mintomo", bundle: .module),
             storageNamespace: TCGClient.authenticationStorageNamespace
         )
     )

@@ -18,7 +18,7 @@ import Testing
 struct TCGSettingsScreenSnapshotTests {
     @Test
     func `Renders preferred currency settings`() async {
-        let auth = KamaalAuth(client: PreviewKamaalAuthClient(), configuration: .init(appName: "TCG"))
+        let auth = KamaalAuth(client: PreviewKamaalAuthClient(), configuration: .init(appName: "Mintomo"))
         let currency = TCGCurrency(client: .preview(), defaults: nil)
         await currency.refresh()
         #expect(await currency.save(.eur))
@@ -31,7 +31,7 @@ struct TCGSettingsScreenSnapshotTests {
 
     @Test
     func `Renders card data actions`() async {
-        let auth = KamaalAuth(client: PreviewKamaalAuthClient(), configuration: .init(appName: "TCG"))
+        let auth = KamaalAuth(client: PreviewKamaalAuthClient(), configuration: .init(appName: "Mintomo"))
         #expect(!auth.isLoggedIn)
         await assertScreenSnapshot(testName: #function) {
             NavigationStack {
@@ -55,7 +55,7 @@ struct TCGSettingsScreenSnapshotTests {
 
     @Test
     func `Renders sign out and version`() async {
-        let auth = KamaalAuth(client: PreviewKamaalAuthClient(), configuration: .init(appName: "TCG"))
+        let auth = KamaalAuth(client: PreviewKamaalAuthClient(), configuration: .init(appName: "Mintomo"))
 
         await assertScreenSnapshot(testName: #function) {
             NavigationStack { TCGSettingsScreen(version: AppVersion(marketing: "1.0", build: "1")) }

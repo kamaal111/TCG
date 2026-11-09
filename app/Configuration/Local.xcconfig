@@ -1,6 +1,7 @@
 #include "App.xcconfig"
+APP_DISPLAY_NAME = Mintomo Local
 TCG_API_SCHEME = http
 TCG_API_HOST = localhost:8080
 TCG_API_ENVIRONMENT = local
 PRODUCT_BUNDLE_IDENTIFIER = io.kamaal.TCG.local
-PRODUCT_NAME = TCG Local
+PRODUCT_MODULE_NAME = $(TARGET_NAME:c99extidentifier)_Local

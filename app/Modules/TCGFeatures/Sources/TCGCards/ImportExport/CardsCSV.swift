@@ -163,7 +163,9 @@ enum CardsCSV {
                 TabularData.Column<String>(name: column.rawValue, contents: rows.map { $0[column] }).eraseToAnyColumn()
             }
         )
-        let url = FileManager.default.temporaryDirectory.appendingPathComponent("tcg-cards-\(UUID().uuidString).csv")
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent(
+            "mintomo-cards-\(UUID().uuidString).csv"
+        )
         do {
             try frame.writeCSV(to: url, options: CSVWritingOptions(includesHeader: true, newline: "\n", delimiter: ","))
             return .success(url)

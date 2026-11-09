@@ -50,7 +50,7 @@ struct CollectionExportScreen: View {
             isPresented: $isSaving,
             document: document,
             contentType: .json,
-            defaultFilename: "tcg-collections"
+            defaultFilename: "mintomo-collections"
         ) { result in
             switch result {
             case .success: dismiss()

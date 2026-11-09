@@ -98,7 +98,7 @@ public struct TCGCardsImportReviewScreen: View {
             isPresented: $isExportingTemplate,
             document: document,
             contentType: .commaSeparatedText,
-            defaultFilename: "tcg-cards-template"
+            defaultFilename: "mintomo-cards-template"
         ) { result in
             document = nil
             if case .failure(let error) = result { model.submissionError = error.localizedDescription }
