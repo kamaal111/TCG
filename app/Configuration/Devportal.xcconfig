@@ -1,0 +1,9 @@
+#include "App.xcconfig"
+APP_DISPLAY_NAME = Mintomo Devportal
+PRODUCT_NAME = Mintomo Devportal
+PRODUCT_MODULE_NAME = MintomoDevportalApp
+PRODUCT_BUNDLE_IDENTIFIER = io.kamaal.Mintomo.Devportal
+INFOPLIST_FILE = Configuration/DevportalInfo.plist
+INFOPLIST_KEY_LSApplicationCategoryType = public.app-category.developer-tools
+SUPPORTED_PLATFORMS = iphoneos iphonesimulator macosx
+TARGETED_DEVICE_FAMILY = 1,2

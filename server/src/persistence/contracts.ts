@@ -1,12 +1,14 @@
+import type { DomainLogger } from '@tcg/http/logging';
+import type { CardImportProgress } from '@tcg/http/progress';
+
 import type { UserPreferencesRepository } from '../auth/repository.ts';
 import type { CardImageRepository } from '../card-images/repository.ts';
 import type { PricingCoordinator } from '../card-pricing/coordinator.ts';
 import type { CardPricingRepository } from '../card-pricing/repository.ts';
-import type { CardImportProgress, CardsLogFields } from '../cards/logging.ts';
+import type { CardsLogFields } from '../cards/logging.ts';
 import type { CardRepository } from '../cards/repository.ts';
 import type { CollectionRepository } from '../collections/repository.ts';
 import type { ForexRepository } from '../forex/repository.ts';
-import type { DomainLogger } from '../logging/index.ts';
 
 /** Supplied by authentication composition, never populated from request input. */
 export interface AuthenticatedIdentity {
@@ -18,7 +20,7 @@ export interface RepositoryDiagnostics {
   setImportProgress(progress: CardImportProgress): void;
 }
 
-export interface RequestRepositories {
+interface RequestRepositories {
   cardRepository: CardRepository;
   collectionRepository: CollectionRepository;
   cardPricingRepository: CardPricingRepository;

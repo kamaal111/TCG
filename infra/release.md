@@ -118,3 +118,15 @@ just release-server --non-interactive origin/main private false
 
 Existing GitHub Actions workflows keep their separate migration and deployment
 approvals. See [GitHub Actions](github-actions.md).
+
+## Release from Mintomo Devportal
+
+The separate native Mintomo Devportal app can review pending commits and approve
+application releases from Tailscale-connected iPhone, iPad and Mac devices. A
+private Hono service runs the existing release pipeline on the Mac mini. It uses
+an explicit Tailscale user allowlist and keeps credentials on that host.
+
+Run `just install-devportal-agent` on the release Mac for guided installation; see
+[Devportal setup](../devportal/README.md). Infrastructure review and server
+configuration still use `just release-server`; the portal blocks when setup is
+required. Installing the service never starts a release.

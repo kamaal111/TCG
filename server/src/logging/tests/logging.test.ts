@@ -1,16 +1,16 @@
+import { REQUEST_ID_HEADER_NAME } from '@tcg/http/common';
+import { handleServerError } from '@tcg/http/error-handler';
+import { InternalServerError, InvalidPayload } from '@tcg/http/exceptions';
+import { loggingMiddleware } from '@tcg/http/logging-middleware';
+import { CONTENTFUL_STATUS_CODES } from '@tcg/http/status';
 import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import { requestId } from 'hono/request-id';
 
 import { cardsLogger } from '../../cards/logging.ts';
 import { ApplicationConfigSchema } from '../../config.ts';
-import { REQUEST_ID_HEADER_NAME } from '../../constants/common.ts';
-import { CONTENTFUL_STATUS_CODES } from '../../constants/http.ts';
 import type { HonoEnvironment } from '../../context.ts';
-import { handleServerError } from '../../exceptions/handler.ts';
-import { InternalServerError, InvalidPayload } from '../../exceptions/index.ts';
 import { createTestRequestId, getLogsForRequestId } from '../../tests/logs.ts';
-import loggingMiddleware from '../middleware.ts';
 
 describe('Request logging middleware', () => {
   for (const path of ['/handler-log', '/api-exception']) {
@@ -147,7 +147,7 @@ function createLoggingTestApp() {
       c.set('config', ApplicationConfigSchema.parse({ BETTER_AUTH_URL: 'http://localhost:8080', MODE: 'TEST' }));
       await next();
     })
-    .use(loggingMiddleware());
+    .use(loggingMiddleware<HonoEnvironment>());
 
   app.get('/ok', c => c.json({ message: 'ok' }));
   app.get('/handler-log', c => {

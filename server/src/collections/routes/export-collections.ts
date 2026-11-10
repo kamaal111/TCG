@@ -1,7 +1,7 @@
 import { createRoute, defineOpenAPIRoute } from '@kamaalio/hono-standard-openapi';
+import { MIME_TYPES } from '@tcg/http/mime';
+import { CONTENTFUL_STATUS_CODES } from '@tcg/http/status';
 
-import { CONTENTFUL_STATUS_CODES } from '../../constants/http.ts';
-import { MIME_TYPES } from '../../constants/request.ts';
 import type { HonoEnvironment } from '../../context.ts';
 import { collectionBackupStream, CollectionBackupResponse } from '../backup-stream.ts';
 import { collectionsLogger } from '../logging.ts';

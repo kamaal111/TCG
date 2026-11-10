@@ -1,4 +1,3 @@
-import { RETRY_AFTER_SECONDS } from '../constants/time.ts';
 import {
   Conflict,
   InvalidValidation,
@@ -7,7 +6,9 @@ import {
   RequestTimeout,
   ServiceUnavailable,
   TooManyRequests,
-} from '../exceptions/index.ts';
+} from '@tcg/http/exceptions';
+
+import { RETRY_AFTER_SECONDS } from '../constants/time.ts';
 
 export class BinderFull extends InvalidValidation {
   constructor() {

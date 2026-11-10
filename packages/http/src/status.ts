@@ -1,6 +1,4 @@
-import type { GetRecordValues } from '../utils/type-utils.ts';
-
-export type ContentfulStatusCode = GetRecordValues<typeof CONTENTFUL_STATUS_CODES>;
+export type ContentfulStatusCode = (typeof CONTENTFUL_STATUS_CODES)[keyof typeof CONTENTFUL_STATUS_CODES];
 
 export const CONTENTFUL_STATUS_CODES = {
   OK: 200,

@@ -6,9 +6,9 @@ event and field vocabulary. This document is the contract: read it before adding
 
 ## Where log lines come from
 
-`@hono/structured-logger` owns the request lifecycle. `server/src/logging/middleware.ts` configures it;
+`@hono/structured-logger` owns the request lifecycle. `packages/http/src/logging-middleware.ts` configures it;
 `server/src/runtime/node/logging.ts` constructs the root pino logger;
-`server/src/logging/index.ts` exposes logging interfaces and delegates request
+`packages/http/src/logging.ts` exposes logging interfaces and delegates request
 child creation to the configured runtime:
 
 - It creates one pino child logger per request and stores it on `c.var.logger`.
@@ -31,7 +31,7 @@ These fields are bound once, for the whole request, and **must never be passed b
 The domain field types deliberately do not declare any of them, so passing one in a domain
 accessor's object literal is a compile error rather than a silently shadowed value.
 
-`server/src/exceptions/handler.ts` shapes error responses and does **not** log — the middleware's `onError` hook
+`packages/http/src/error-handler.ts` shapes error responses and does **not** log — the middleware's `onError` hook
 records every failure. Logging in both would duplicate every error line.
 
 ## The domain logger
@@ -40,15 +40,15 @@ Each application domain owns one `logging.ts` declaring its events and fields, a
 accessor. Logger construction stays in `server/src/runtime/node/logging.ts`. Auth events and their field
 vocabulary are supplied by `@kamaalio/kamaal-auth-hono`, which receives the request logger.
 
-| Module                               | Events                       | Accessor                                                                      |
-| ------------------------------------ | ---------------------------- | ----------------------------------------------------------------------------- |
-| `server/src/cards/logging.ts`        | `cards.*`                    | `cardsLogger(c)`                                                              |
-| `server/src/card-pricing/logging.ts` | `pricing.*`                  | `pricingLogger(c)`                                                            |
-| `server/src/card-images/logging.ts`  | `images.*`                   | `imagesLogger(c)` / `processImagesLogger()`                                   |
-| `server/src/logging/request.ts`      | `request.*`                  | `requestLogger(c)`                                                            |
-| `server/src/forex/logging.ts`        | `forex.*`                    | `forexProcessLogger()` for collection; `forexLogger(c)` for snapshot requests |
-| `server/src/auth/logging.ts`         | `auth.preferences.completed` | `preferencesLogger(c)`                                                        |
-| `server/src/logging/server.ts`       | `server.*`                   | `serverLogger()` — process lifecycle, not request-scoped                      |
+| Module                                 | Events                       | Accessor                                                                      |
+| -------------------------------------- | ---------------------------- | ----------------------------------------------------------------------------- |
+| `server/src/cards/logging.ts`          | `cards.*`                    | `cardsLogger(c)`                                                              |
+| `server/src/card-pricing/logging.ts`   | `pricing.*`                  | `pricingLogger(c)`                                                            |
+| `server/src/card-images/logging.ts`    | `images.*`                   | `imagesLogger(c)` / `processImagesLogger()`                                   |
+| `packages/http/src/request-logging.ts` | `request.*`                  | `requestLogger(c)`                                                            |
+| `server/src/forex/logging.ts`          | `forex.*`                    | `forexProcessLogger()` for collection; `forexLogger(c)` for snapshot requests |
+| `server/src/auth/logging.ts`           | `auth.preferences.completed` | `preferencesLogger(c)`                                                        |
+| `packages/http/src/server-logging.ts`  | `server.*`                   | `serverLogger()` — process lifecycle, not request-scoped                      |
 
 A domain module looks like this:
 
@@ -64,7 +64,7 @@ export type CardsLogFields = DomainLogFields<(typeof CARDS_EVENTS)[number]> & {
 export const cardsLogger = (c: HonoContext): DomainLogger<CardsLogFields> => getDomainLogger(c);
 ```
 
-`DomainLogFields` (in `server/src/logging/index.ts`) contributes the shared fields: a **required** `outcome`, plus
+`DomainLogFields` (in `packages/http/src/logging.ts`) contributes the shared fields: a **required** `outcome`, plus
 optional `error_code` and `duration_ms`. Domain fields are optional, so a domain's events share one field type
 without per-event bookkeeping.
 
@@ -259,3 +259,13 @@ The accessor is `collectionsLogger(c)` in `server/src/collections/logging.ts`.
 Export success is emitted only after the stream closes successfully. Interrupted exports emit
 `collections.export` with `outcome: failure`; the HTTP status may already be 200.
 No names, card contents, or backup bodies are logged. Other failures use request lifecycle events.
+
+## Devportal release service
+
+The separate Mac mini Hono service uses `@tcg/http` request logging with
+`service=mintomo-devportal`. It does not initialize the production application.
+`devportal/src/logging.ts` owns `devportal.release.transition`, emitted after
+release state is durably saved. Fields are `release_id`, `release_sha`,
+`release_stage`, `release_state`, and `operator_login`; the operator is the
+initiator or most recent approver. Failed/interrupted transitions are warnings.
+Raw command diagnostics remain in private release logs, never HTTP responses.

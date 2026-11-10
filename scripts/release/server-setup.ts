@@ -1,4 +1,8 @@
+import { gitChangedFiles, gitCommitExists } from '../git.ts';
+import type { Host } from './contracts.ts';
 import type { Prompts } from '../infra/prompts.ts';
+
+export const PORTAL_SETUP_REQUIRED = 'Server setup is required. Run just release-server on the Mac mini.';
 
 interface ServerSetupQuestion {
   prompts: Prompts;
@@ -27,4 +31,39 @@ export async function confirmServerSetup({ prompts, reason }: ServerSetupQuestio
   );
 
   return prompts.confirm('Apply saved settings and update deployment scripts on the server?', false);
+}
+
+/** Shared by terminal preflight and the portal review; infrastructure-only edits remain optional. */
+export async function inspectServerSetup(
+  command: (program: string, args: string[]) => Promise<string>,
+  host: Host | null | undefined,
+  operations: string,
+) {
+  if (!host?.operationsRevision) {
+    return { setupChanged: true, infrastructureSuggested: true };
+  }
+
+  const known = await gitCommitExists(command, host.operationsRevision).then(
+    () => true,
+    () => false,
+  );
+
+  if (!known) {
+    return { setupChanged: true, infrastructureSuggested: true };
+  }
+
+  const changedFiles = await gitChangedFiles(command, {
+    from: host.operationsRevision,
+    to: operations,
+    paths: ['infra', 'deploy', 'scripts/infrastructure.sh'],
+  });
+
+  return {
+    setupChanged: changedFiles
+      .split('\n')
+      .some(
+        file => file.startsWith('infra/ansible/') || file.startsWith('deploy/') || file === 'scripts/infrastructure.sh',
+      ),
+    infrastructureSuggested: Boolean(changedFiles),
+  };
 }

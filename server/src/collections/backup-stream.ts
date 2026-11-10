@@ -1,8 +1,9 @@
+import { MIME_TYPES } from '@tcg/http/mime';
+import type { CONTENTFUL_STATUS_CODES } from '@tcg/http/status';
+
 import { COLLECTION_BUFFER_BYTES } from './constants.ts';
 import { CollectionOperationTimeout } from './exceptions.ts';
 import type { CollectionBackup } from './schemas/responses.ts';
-import type { CONTENTFUL_STATUS_CODES } from '../constants/http.ts';
-import { MIME_TYPES } from '../constants/request.ts';
 import { toError } from '../utils/results.ts';
 
 export interface BackupWriter {

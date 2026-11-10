@@ -4,10 +4,10 @@ import type { Env, Schema } from 'hono/types';
 import * as yaml from 'js-yaml';
 import { z } from 'zod';
 
-import { CONTENTFUL_STATUS_CODES } from './constants/http.ts';
-import { MIME_TYPES } from './constants/request.ts';
-import type { HonoEnvironment } from './context.ts';
-import { InvalidValidation } from './exceptions/index.ts';
+import type { HttpEnvironment } from './context.ts';
+import { InvalidValidation } from './exceptions.ts';
+import { MIME_TYPES } from './mime.ts';
+import { CONTENTFUL_STATUS_CODES } from './status.ts';
 
 const SPEC_NAME = '/spec';
 
@@ -50,8 +50,10 @@ const OpenAPISpecSchema = z
   })
   .loose();
 
-export function openAPIRouterFactory(): StandardOpenAPIHono<HonoEnvironment> {
-  return new StandardOpenAPIHono<HonoEnvironment>({
+export function openAPIRouterFactory<
+  E extends { Variables: { requestId: string } } = HttpEnvironment,
+>(): StandardOpenAPIHono<E> {
+  return new StandardOpenAPIHono<E>({
     defaultHook: (result, c) => {
       if (!result.success) {
         throw new InvalidValidation(c, result.error);

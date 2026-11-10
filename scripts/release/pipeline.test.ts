@@ -85,7 +85,11 @@ test('applies pending migrations only after approval, then checks readiness agai
   await runRelease(options);
   expect(options.migrate).toHaveBeenCalledWith(images.migration, installed.fingerprint);
   expect(options.migrations).toHaveBeenCalledTimes(3);
-  expect(options.prompts.confirm).toHaveBeenCalledWith('Apply these database migrations?', false);
+  expect(options.prompts.confirm).toHaveBeenCalledWith(
+    'Apply these database migrations?',
+    false,
+    expect.objectContaining({ kind: 'migrations' }),
+  );
   expect(options.commits).toHaveBeenCalledTimes(3);
   expect(options.deploy).toHaveBeenCalledOnce();
 });
@@ -187,6 +191,7 @@ test('resuming an unhealthy installed image offers an approved redeployment befo
   expect(options.prompts.confirm).toHaveBeenCalledWith(
     'Deploy this release? The application will restart briefly.',
     false,
+    expect.objectContaining({ kind: 'deploy' }),
   );
 });
 

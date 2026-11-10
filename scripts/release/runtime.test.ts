@@ -7,7 +7,7 @@ import url from 'node:url';
 import type { TestContext } from 'vitest';
 import z from 'zod';
 
-import { releaseFromTerminal } from './runtime.ts';
+import { releaseFromTerminal, type RuntimeOptions } from './runtime.ts';
 import type { Prompts } from '../infra/prompts.ts';
 
 const repository = url.fileURLToPath(new URL('../../', import.meta.url));
@@ -45,6 +45,7 @@ async function fixture(t: Pick<TestContext, 'onTestFinished'>) {
     'scripts/check-infrastructure-plan.ts',
     'scripts/release-server.sh',
     'scripts/release-metadata.ts',
+    'scripts/git.ts',
     'scripts/mise-tools.ts',
     'scripts/deployment-ssh.sh',
     '.github/scripts/release-server.sh',
@@ -186,7 +187,9 @@ if (tool === 'ssh') {
     note,
     git,
     releaseFile,
-    run: (revision = 'origin/main') => releaseFromTerminal({ root, configDirectory, revision, prompts }),
+    run: (revision = 'origin/main', mode: RuntimeOptions['mode'] = 'terminal') => {
+      return releaseFromTerminal({ root, configDirectory, revision, prompts, mode });
+    },
     commands: readLog,
     published: async () => {
       return (await readLog()).filter(command => command.tool === 'docker' && command.args.includes('--push'));
@@ -402,3 +405,21 @@ test('applying a resource-only plan does not reapply unchanged server settings a
   await f.run();
   expect((await f.commands()).filter(command => command.tool === 'ansible-playbook')).toHaveLength(1);
 }, 15_000);
+
+test('application-only release skips infrastructure prompts and uses the shared deployment pipeline', async t => {
+  const f = await fixture(t);
+  f.confirm.mockResolvedValue(true);
+  await f.run(f.sha, 'application');
+  expect(await f.deployed()).toHaveLength(1);
+  expect((await f.commands()).some(command => ['terraform', 'ansible-playbook'].includes(command.tool))).toBe(false);
+  expect(f.confirm).not.toHaveBeenCalledWith('Review an infrastructure plan?', expect.anything());
+}, 15_000);
+
+test('application-only release blocks older host tools before building or configuring', async t => {
+  const f = await fixture(t);
+  vi.stubEnv('TCG_TEST_OLD_HOST', '1');
+  await expect(f.run(f.sha, 'application')).rejects.toThrow('Run just release-server');
+  expect(await f.published()).toHaveLength(0);
+  expect(await f.deployed()).toHaveLength(0);
+  expect((await f.commands()).some(command => command.tool === 'ansible-playbook')).toBe(false);
+});

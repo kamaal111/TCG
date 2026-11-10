@@ -4,13 +4,17 @@ import { ConfigStore, homePath, readSettingsFile } from '../infra/config.ts';
 import { InfraFailure } from '../infra/errors.ts';
 import { ReleaseRepositorySchema } from '../release-metadata.ts';
 
-export async function releaseConnection(root: string, configDirectory: string) {
+export async function releaseConnection(
+  root: string,
+  configDirectory: string,
+  overrides: NodeJS.ProcessEnv = process.env,
+) {
   const store = new ConfigStore({ repositoryRoot: root, configDirectory });
   const release = await store.readEnvironment('release');
   const releaseEnvironment = { ...release.values };
 
   for (const key of ['TCG_DEPLOY_HOST', 'TCG_DEPLOY_KEY', 'TCG_KNOWN_HOSTS', 'TCG_IMAGE_REPOSITORY']) {
-    releaseEnvironment[key] = process.env[key] ?? release.values[key] ?? '';
+    releaseEnvironment[key] = overrides[key] ?? release.values[key] ?? '';
   }
 
   const settings = z

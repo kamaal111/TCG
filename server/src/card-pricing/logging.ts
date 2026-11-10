@@ -1,6 +1,7 @@
+import { type DomainLogFields, type DomainLogger, getDomainLogger } from '@tcg/http/logging';
+
 import type { CardGame, PricingSource } from './types.ts';
 import type { HonoContext } from '../context.ts';
-import { type DomainLogFields, type DomainLogger, getDomainLogger } from '../logging/index.ts';
 
 export const PRICING_EVENTS = [
   'pricing.search.completed',

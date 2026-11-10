@@ -1,6 +1,7 @@
+import { getProcessLogger } from '@tcg/http/logging';
+
 import type { CardsLogFields } from '../../../cards/logging.ts';
 import env from '../../../env.ts';
-import { getProcessLogger } from '../../../logging/index.ts';
 import NodeApp from '../../../runtime/node/app.ts';
 import { definePersistenceContracts } from '../../../tests/persistence-contracts.ts';
 import { createTestObjectStorage } from '../../../tests/storage.ts';

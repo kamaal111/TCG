@@ -5,6 +5,7 @@ import util from 'node:util';
 
 import z from 'zod';
 
+import { gitAddDetachedWorktree, gitFetch, gitRemoveWorktree, gitRevision } from '../git.ts';
 import { commitSummary, selectRelease } from './commits.ts';
 import { releaseConnection } from './connection.ts';
 import {
@@ -17,8 +18,9 @@ import {
   summarizePlan,
   type Artifacts,
 } from './contracts.ts';
-import { runRelease } from './pipeline.ts';
-import { confirmServerSetup } from './server-setup.ts';
+import { acquireReleaseLock } from './lock.ts';
+import { runRelease, type ReleaseStage } from './pipeline.ts';
+import { confirmServerSetup, inspectServerSetup, PORTAL_SETUP_REQUIRED } from './server-setup.ts';
 import { readSettingsFile } from '../infra/config.ts';
 import { credentials } from '../infra/credentials.ts';
 import { InfraFailure } from '../infra/errors.ts';
@@ -50,14 +52,35 @@ interface CommandOptions {
   env?: NodeJS.ProcessEnv;
 }
 
-interface RuntimeOptions {
+export interface RuntimeOptions {
+  mode?: 'terminal' | 'application';
+  reviewedFingerprint?: string;
+  stage?: (stage: ReleaseStage) => void;
   root: string;
   configDirectory: string;
   revision: string;
   prompts: Prompts;
 }
 
-export async function releaseFromTerminal({ root, configDirectory, revision, prompts }: RuntimeOptions): Promise<void> {
+export async function releaseFromTerminal(options: RuntimeOptions): Promise<void> {
+  const unlock = await acquireReleaseLock(options.configDirectory);
+
+  try {
+    await runReleaseRuntime(options);
+  } finally {
+    await unlock();
+  }
+}
+
+export async function runReleaseRuntime({
+  root,
+  configDirectory,
+  revision,
+  prompts,
+  mode = 'terminal',
+  reviewedFingerprint,
+  stage,
+}: RuntimeOptions): Promise<void> {
   const { store, release, releaseEnvironment, settings, environment, key, hosts } = await releaseConnection(
     root,
     configDirectory,
@@ -110,16 +133,21 @@ export async function releaseFromTerminal({ root, configDirectory, revision, pro
     }
   }
 
+  function readableCommand(program: string, args: string[], options?: CommandOptions): Promise<string> {
+    return command('bash', ['-c', 'umask 022; exec "$@"', '--', program, ...args], options);
+  }
+
   const checkpointFile = path.join(stateDirectory, `${fingerprint([settings.TCG_DEPLOY_HOST])}.json`);
   const saved = await readSettingsFile(checkpointFile);
   const previous = CheckpointSchema.safeParse(saved ? JSON.parse(saved) : undefined);
   let configurationPending = previous.success && !previous.data.complete && previous.data.configurationPending;
 
   prompts.note('Fetching main and selecting the exact application commit.', '1. Select release');
-  await command('git', ['fetch', 'origin', 'main']);
-  const operations = ShaSchema.parse(await command('git', ['rev-parse', '--verify', 'origin/main^{commit}']));
+  await gitFetch(command);
+  const operations = ShaSchema.parse(await gitRevision(command, 'origin/main'));
 
   const resume =
+    mode === 'terminal' &&
     revision === 'origin/main' &&
     previous.success &&
     !previous.data.complete &&
@@ -200,34 +228,11 @@ export async function releaseFromTerminal({ root, configDirectory, revision, pro
   async function ops(): Promise<string> {
     if (!worktreeAdded) {
       // The parent stays private; tracked source and installed dependencies must be readable in Docker.
-      await command('bash', [
-        '-c',
-        'umask 022; exec "$@"',
-        '--',
-        'git',
-        'worktree',
-        'add',
-        '--detach',
-        opsRoot,
-        operations,
-      ]);
+      await gitAddDetachedWorktree(readableCommand, opsRoot, operations);
       worktreeAdded = true;
-      await command(
-        'bash',
-        [
-          '-c',
-          'umask 022; exec "$@"',
-          '--',
-          'mise',
-          'exec',
-          '--locked',
-          'node',
-          'pnpm',
-          '--',
-          'pnpm',
-          'install',
-          '--frozen-lockfile',
-        ],
+      await readableCommand(
+        'mise',
+        ['exec', '--locked', 'node', 'pnpm', '--', 'pnpm', 'install', '--frozen-lockfile'],
         { cwd: opsRoot, env: { ...environment, HUSKY: '0', MISE_TRUSTED_CONFIG_PATHS: opsRoot } },
       );
     }
@@ -276,9 +281,7 @@ export async function releaseFromTerminal({ root, configDirectory, revision, pro
   }
 
   const savedSettingsChanged = previous.success && previous.data.settings !== settingsHash;
-  let serverSetupChanged = false;
   let serverInventoryChanged = false;
-  let suggested = !previous.success || savedSettingsChanged;
 
   async function host() {
     // Unsupported-command exit 64 is the only case treated as an older host.
@@ -315,47 +318,32 @@ export async function releaseFromTerminal({ root, configDirectory, revision, pro
   await command('docker', ['buildx', 'version']);
   const initial = await host();
 
-  if (initial?.operationsRevision) {
-    const known = await execute('git', ['cat-file', '-e', `${initial.operationsRevision}^{commit}`], {
-      cwd: root,
-    }).then(
-      () => true,
-      () => false,
-    );
-
-    if (!known) {
-      serverSetupChanged = true;
-      suggested = true;
-    } else {
-      const changedFiles = await command('git', [
-        'diff',
-        '--name-only',
-        initial.operationsRevision,
-        operations,
-        '--',
-        'infra',
-        'deploy',
-        'scripts/infrastructure.sh',
-      ]);
-
-      serverSetupChanged = changedFiles.split('\n').some(file => {
-        return file.startsWith('infra/ansible/') || file.startsWith('deploy/') || file === 'scripts/infrastructure.sh';
-      });
-      suggested ||= Boolean(changedFiles);
-    }
-  } else {
-    suggested = true;
+  if (reviewedFingerprint && initial?.fingerprint !== reviewedFingerprint) {
+    throw new InfraFailure('The server changed. Refresh the release review before starting again.');
   }
+
+  const setupInspection = await inspectServerSetup(command, initial, operations);
+  const serverSetupChanged = setupInspection.setupChanged;
+  const suggested = !previous.success || savedSettingsChanged || setupInspection.infrastructureSuggested;
 
   try {
     await runRelease({
+      mode,
+      stage,
       prompts,
       sha,
       repository: settings.TCG_IMAGE_REPOSITORY,
       infrastructureSuggested: suggested,
       host,
       commits: current => commitSummary(command, current.revision, sha),
-      configure,
+      configure: async () => {
+        if (mode === 'application') {
+          throw new InfraFailure(PORTAL_SETUP_REQUIRED);
+        }
+
+        await configure();
+      },
+
       infrastructure: async () => {
         prompts.note(
           'Planning infrastructure. Only resource names and actions are shown here; full output stays in the private log.',
@@ -392,6 +380,10 @@ export async function releaseFromTerminal({ root, configDirectory, revision, pro
       setup: async ({ serverConfigured }) => {
         const setupNeeded =
           serverInventoryChanged || (!serverConfigured && (savedSettingsChanged || serverSetupChanged));
+
+        if (mode === 'application' && (setupNeeded || configurationPending)) {
+          throw new InfraFailure(PORTAL_SETUP_REQUIRED);
+        }
 
         if (!setupNeeded) {
           prompts.note('No server settings need to be applied. Continuing with the release.');
@@ -462,7 +454,10 @@ export async function releaseFromTerminal({ root, configDirectory, revision, pro
   } finally {
     if (worktreeAdded) {
       // Only this invocation's isolated checkout is removed; logs and checkpoints remain private.
-      await execute('git', ['worktree', 'remove', '--force', opsRoot], { cwd: root }).catch(() => undefined);
+      await gitRemoveWorktree((program, args) => execute(program, args, { cwd: root }), {
+        path: opsRoot,
+        force: true,
+      }).catch(() => undefined);
     }
   }
 }

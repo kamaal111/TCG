@@ -1,3 +1,6 @@
+import { SERVER_MODES } from '@tcg/http/common';
+import { openAPIRouterFactory } from '@tcg/http/open-api';
+
 import { AUTH_ROUTE_NAME } from '../auth/constants.ts';
 import type { ApplicationAuthModule } from '../auth/module.ts';
 import { IMAGES_ROUTE_NAME } from '../card-images/constants.ts';
@@ -9,14 +12,13 @@ import cardsRoute from '../cards/route.ts';
 import { COLLECTIONS_ROUTE_NAME } from '../collections/constants.ts';
 import { createCollectionsRoute } from '../collections/route.ts';
 import type { ApplicationConfig } from '../config.ts';
-import { SERVER_MODES } from '../constants/common.ts';
+import type { HonoEnvironment } from '../context.ts';
 import { FOREX_ROUTE_NAME } from '../forex/constants.ts';
 import forexRoute from '../forex/route.ts';
 import { allowedModes } from '../modes.ts';
-import { openAPIRouterFactory } from '../open-api.ts';
 
 export function createAppApiRoute(authModule: ApplicationAuthModule, config: ApplicationConfig) {
-  const appApiRoute = openAPIRouterFactory();
+  const appApiRoute = openAPIRouterFactory<HonoEnvironment>();
 
   appApiRoute
     .use(allowedModes(SERVER_MODES.SERVER))

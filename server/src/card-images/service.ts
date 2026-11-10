@@ -1,3 +1,5 @@
+import { CONTENTFUL_STATUS_CODES, CONTENTLESS_STATUS_CODES } from '@tcg/http/status';
+
 import { CardImageBusy, CardImageNotFound, CardImageStorageUnavailable } from './exceptions.ts';
 import { imagesLogger } from './logging.ts';
 import {
@@ -6,7 +8,6 @@ import {
   type MaterializedImage,
 } from './materializer.ts';
 import type { CardImageRepository, CardImageRow } from './repository.ts';
-import { CONTENTFUL_STATUS_CODES, CONTENTLESS_STATUS_CODES } from '../constants/http.ts';
 import { ONE_YEAR_IN_SECONDS } from '../constants/time.ts';
 import type { HonoContext } from '../context.ts';
 import { CARD_IMAGE_STATUSES } from './types.ts';

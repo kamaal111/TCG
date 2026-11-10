@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
 
 import { TokenHeaders } from '@kamaalio/kamaal-auth-hono';
+import { CONTENTFUL_STATUS_CODES } from '@tcg/http/status';
 import type { Hono } from 'hono';
 import { decodeJwt } from 'jose';
 
-import { CONTENTFUL_STATUS_CODES } from '../../constants/http.ts';
 import { ONE_DAY_IN_SECONDS } from '../../constants/time.ts';
 import type { HonoEnvironment } from '../../context.ts';
 import env from '../../env.ts';

@@ -1,6 +1,7 @@
+import { renderOpenAPIYaml } from '@tcg/http/open-api';
+
 import { createAppRoutes } from '../src/app-routes.ts';
 import { createApplicationConfig, DEFAULT_APPLICATION_CONFIG } from '../src/config.ts';
-import { renderOpenAPIYaml } from '../src/open-api.ts';
 
 export function generateOpenAPISpec(): string {
   const config = createApplicationConfig({

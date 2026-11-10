@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 
+import { ValidationErrorResponseSchema } from '@tcg/http/error-schemas';
 import { eq, inArray } from 'drizzle-orm';
 import type { Hono } from 'hono';
 
@@ -8,7 +9,6 @@ import { readCollection, createTestCollection, saveLayout } from './utils.ts';
 import { createCardRequest, validCardPayload, createTestCard } from '../../cards/tests/utils.ts';
 import type { HonoEnvironment } from '../../context.ts';
 import { card, cardPurchaseBatch } from '../../db/schema/cards.ts';
-import { ValidationErrorResponseSchema } from '../../schemas/errors.ts';
 import { CollectionsSchema, CollectionSummarySchema } from '../schemas/responses.ts';
 
 integrationTest(

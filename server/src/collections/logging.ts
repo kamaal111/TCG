@@ -1,5 +1,6 @@
+import { type DomainLogFields, type DomainLogger, getDomainLogger } from '@tcg/http/logging';
+
 import type { HonoContext } from '../context.ts';
-import { type DomainLogFields, type DomainLogger, getDomainLogger } from '../logging/index.ts';
 
 type CollectionFields = DomainLogFields<
   | 'collections.create'

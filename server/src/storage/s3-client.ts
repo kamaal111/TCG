@@ -6,6 +6,7 @@ import {
   S3Client,
   type S3ClientConfig,
 } from '@aws-sdk/client-s3';
+import { CONTENTFUL_STATUS_CODES } from '@tcg/http/status';
 import { err, ok } from 'neverthrow';
 import { z } from 'zod';
 
@@ -17,7 +18,6 @@ import {
   type StoredObject,
   type StoredObjectHead,
 } from './client.ts';
-import { CONTENTFUL_STATUS_CODES } from '../constants/http.ts';
 import { toError, tryCatch } from '../utils/results.ts';
 
 type S3Sender = Pick<S3Client, 'send'>;

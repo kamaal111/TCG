@@ -1,6 +1,8 @@
+import { type DomainLogFields, type DomainLogger, getDomainLogger } from '@tcg/http/logging';
+import type { CardImportProgress } from '@tcg/http/progress';
+
 import type { CardGame } from '../card-pricing/types.ts';
 import type { HonoContext } from '../context.ts';
-import { type DomainLogFields, type DomainLogger, getDomainLogger } from '../logging/index.ts';
 
 export const CARDS_EVENTS = [
   'cards.create',
@@ -34,9 +36,3 @@ export type CardsLogFields = DomainLogFields<(typeof CARDS_EVENTS)[number]> & {
 };
 
 export const cardsLogger = (c: HonoContext): DomainLogger<CardsLogFields> => getDomainLogger(c);
-
-export interface CardImportProgress {
-  stage: 'validated' | 'lock_acquisition' | 'ownership_resolution' | 'batch_preparation' | 'commit' | 'completed';
-  lastCompletedStage: 'validated' | 'lock_acquired' | 'ownership_resolved' | 'batch_prepared' | 'completed';
-  transactionStatus: 'pending' | 'committed' | 'rolled_back';
-}

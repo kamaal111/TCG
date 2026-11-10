@@ -1,8 +1,7 @@
-import type { ServerMode } from '../constants/common.ts';
-import type { HonoContext } from '../context.ts';
-import { InternalServerError } from '../exceptions/index.ts';
+import type { ServerMode } from './common.ts';
+import { InternalServerError } from './exceptions.ts';
 
-export interface CommonLogFields {
+interface CommonLogFields {
   outcome: 'failure' | 'success';
   error_code?: string;
   duration_ms?: number;
@@ -53,7 +52,9 @@ function getLoggingBackend(): LoggingBackend {
   return backend;
 }
 
-export function getDomainLogger<Fields extends DomainLogFields<string>>(c: HonoContext): DomainLogger<Fields> {
+export function getDomainLogger<Fields extends DomainLogFields<string>>(c: {
+  get(key: 'logger'): RequestLogger;
+}): DomainLogger<Fields> {
   return c.get('logger');
 }
 

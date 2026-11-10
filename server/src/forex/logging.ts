@@ -1,8 +1,9 @@
+import { type DomainLogFields, type DomainLogger, getDomainLogger, getProcessLogger } from '@tcg/http/logging';
+
 import type { HonoContext } from '../context.ts';
 import type { ForexDisplayContext } from './display.ts';
 import type { PricedCardResponse } from '../card-pricing/schemas/responses.ts';
 import type { CardWithPriceResponse } from '../cards/schemas/responses.ts';
-import { type DomainLogFields, type DomainLogger, getDomainLogger, getProcessLogger } from '../logging/index.ts';
 
 export const FOREX_EVENTS = [
   'forex.collect.completed',

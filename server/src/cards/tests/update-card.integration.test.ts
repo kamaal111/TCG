@@ -1,8 +1,8 @@
+import { CONTENTFUL_STATUS_CODES } from '@tcg/http/status';
 import { eq } from 'drizzle-orm';
 
 import type { createCardRequest } from './utils.ts';
 import { validCardPayload, createTestCard } from './utils.ts';
-import { CONTENTFUL_STATUS_CODES } from '../../constants/http.ts';
 import { cardConditionQuantity } from '../../db/schema/cards.ts';
 import { expectErrorResponse, expectValidationIssueForField, sessionHeaders } from '../../tests/auth.ts';
 import { integrationTest } from '../../tests/fixtures.ts';

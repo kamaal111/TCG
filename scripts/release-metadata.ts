@@ -7,6 +7,7 @@ import util from 'node:util';
 
 import z from 'zod';
 
+import { gitRevision } from './git.ts';
 import { parseMiseTools } from './mise-tools.ts';
 
 export const ReleaseRepositorySchema = z.string().regex(/^ghcr\.io\/[a-z0-9._-]+\/[a-z0-9._-]+$/);
@@ -29,7 +30,10 @@ async function readReleaseBuild(directory: string, revision?: string) {
     .string()
     .regex(/^[a-f0-9]{40}$/)
     .parse(
-      revision ?? childProcess.execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8', cwd: directory }).trim(),
+      revision ??
+        gitRevision((program, args) => {
+          return childProcess.execFileSync(program, args, { encoding: 'utf8', cwd: directory }).trim();
+        }),
     );
 
   return { sha, node: tools.node, pnpm: tools.pnpm };

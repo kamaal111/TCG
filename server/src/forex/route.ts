@@ -1,9 +1,11 @@
-import { SERVER_MODES } from '../constants/common.ts';
+import { SERVER_MODES } from '@tcg/http/common';
+import { openAPIRouterFactory } from '@tcg/http/open-api';
+
+import type { HonoEnvironment } from '../context.ts';
 import { allowedModes } from '../modes.ts';
-import { openAPIRouterFactory } from '../open-api.ts';
 import latestSnapshotRoute from './routes/latest-snapshot.ts';
 
-const forexRoute = openAPIRouterFactory();
+const forexRoute = openAPIRouterFactory<HonoEnvironment>();
 
 forexRoute.use(allowedModes(SERVER_MODES.SERVER));
 

@@ -1,17 +1,13 @@
 import { createRoute, defineOpenAPIRoute } from '@kamaalio/hono-standard-openapi';
+import { ErrorResponseSchema, ValidationErrorResponseSchema } from '@tcg/http/error-schemas';
+import { MIME_TYPES } from '@tcg/http/mime';
+import { CONTENTFUL_STATUS_CODES } from '@tcg/http/status';
 
 import { requireSessionMiddleware } from '../../auth/module.ts';
-import { APP_API_ROUTE_NAME } from '../../constants/common.ts';
-import { CONTENTFUL_STATUS_CODES } from '../../constants/http.ts';
-import { MIME_TYPES } from '../../constants/request.ts';
 import type { HonoEnvironment } from '../../context.ts';
 import { logDisplayPrices } from '../../forex/logging.ts';
-import {
-  CardNotFoundErrorResponseSchema,
-  ErrorResponseSchema,
-  ValidationErrorResponseSchema,
-} from '../../schemas/errors.ts';
-import { CARDS_OPENAPI_TAG, CARDS_ROUTE_NAME } from '../constants.ts';
+import { CardNotFoundErrorResponseSchema } from '../../schemas/errors.ts';
+import { CARDS_OPENAPI_TAG } from '../constants.ts';
 import { CardNotFound } from '../exceptions.ts';
 import { cardsLogger } from '../logging.ts';
 import { CardIdParamsSchema } from '../schemas/params.ts';
@@ -56,8 +52,6 @@ const routeConfig = createRoute({
     },
   },
 });
-
-export const UPDATE_CARD_ROUTE_PATH = `${APP_API_ROUTE_NAME}${CARDS_ROUTE_NAME}${routeConfig.path}` as const;
 
 const updateCardRoute = defineOpenAPIRoute<HonoEnvironment, typeof routeConfig>({
   route: routeConfig,
