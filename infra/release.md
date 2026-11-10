@@ -11,7 +11,7 @@ just release-server
 
 The CLI guides you through the release:
 
-1. Fetch `main` and show the exact commit and target server.
+1. Fetch `main` and show the exact commit, target server and commits to release.
 2. Offer an infrastructure plan. You can skip it for ordinary app changes.
    Applying a plan needs your approval. Reapplying server settings is offered
    only when saved settings, server setup files or the applied server inventory changed.
@@ -70,6 +70,29 @@ A stopped release keeps its published images available for retry.
 Before approving migrations, back up the production database and confirm the
 running app supports the new schema. Migrations are never automatically reversed.
 The guided flow does not automatically roll back application images.
+
+## Inspect unreleased commits
+
+```sh
+just unreleased-server-commits
+just unreleased-server-commits origin/main --config-dir "$HOME/.config/another-tcg"
+```
+
+This fetches `origin/main` and compares it with the live server revision through
+verified SSH. An optional revision must already be merged into main. Output lists
+all commits, including app-only and merge commits, with short hashes and subjects,
+newest first. No terminal or Docker is required; Git, Tailscale and configured
+release SSH settings are required. No images are built or deployed.
+
+The guided release shows the same list before building and before migration or
+deployment approval, refreshing it if the host changes during approval. Resuming
+uses the pinned release revision, even if main has advanced.
+
+Identical revisions show **No unreleased commits.** A first release lists the
+selected revision's complete history. Older or divergent targets show an explicit
+notice; their list contains commits in the selected history absent from the live
+history. Unavailable history or host status fails instead of reporting an empty
+list. Fetch missing deployed history before retrying.
 
 ## Optional commands
 

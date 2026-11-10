@@ -1,3 +1,5 @@
+import z from 'zod';
+
 import type { Host } from './contracts.ts';
 import { runRelease } from './pipeline.ts';
 import { InfraFailure } from '../infra/errors.ts';
@@ -38,6 +40,7 @@ function fixture() {
       note: vi.fn<Prompts['note']>(),
     },
     host: vi.fn<() => Promise<Host | undefined>>().mockResolvedValue(installed),
+    commits: vi.fn<Parameters<typeof runRelease>[0]['commits']>().mockResolvedValue('No unreleased commits.'),
     configure: vi.fn<Parameters<typeof runRelease>[0]['configure']>().mockResolvedValue(undefined),
     infrastructure: vi.fn<Parameters<typeof runRelease>[0]['infrastructure']>().mockResolvedValue(undefined),
     setup: vi.fn<Parameters<typeof runRelease>[0]['setup']>().mockResolvedValue(false),
@@ -83,6 +86,7 @@ test('applies pending migrations only after approval, then checks readiness agai
   expect(options.migrate).toHaveBeenCalledWith(images.migration, installed.fingerprint);
   expect(options.migrations).toHaveBeenCalledTimes(3);
   expect(options.prompts.confirm).toHaveBeenCalledWith('Apply these database migrations?', false);
+  expect(options.commits).toHaveBeenCalledTimes(3);
   expect(options.deploy).toHaveBeenCalledOnce();
 });
 
@@ -134,7 +138,8 @@ test('applying server settings redeploys the installed image to load new environ
 
 test('requires fresh approval when the remote target changes during the prompt', async () => {
   const options = fixture();
-  const changed = { ...installed, fingerprint: 'b'.repeat(64) };
+  const changed = { ...installed, revision: 'e'.repeat(40), fingerprint: 'b'.repeat(64) };
+  options.commits.mockImplementation(async current => `Commits since ${current.revision ?? 'first release'}`);
   options.host
     .mockResolvedValueOnce(installed)
     .mockResolvedValueOnce(installed)
@@ -143,6 +148,8 @@ test('requires fresh approval when the remote target changes during the prompt',
   await runRelease(options);
   expect(options.prompts.confirm).toHaveBeenCalledTimes(3);
   expect(options.deploy).toHaveBeenCalledWith(images, changed);
+  expect(options.commits).toHaveBeenLastCalledWith(changed);
+  expect(options.prompts.note).toHaveBeenCalledWith(`Commits since ${changed.revision}`);
 });
 
 test('a busy host stops before building or deploying', async () => {
@@ -181,4 +188,24 @@ test('resuming an unhealthy installed image offers an approved redeployment befo
     'Deploy this release? The application will restart briefly.',
     false,
   );
+});
+
+test('commit previews precede infrastructure review and deployment approval', async () => {
+  const options = fixture();
+  await runRelease(options);
+  expect(options.commits).toHaveBeenCalledTimes(2);
+  expect(options.commits.mock.invocationCallOrder[0]).toBeLessThan(
+    z.number().parse(options.prompts.confirm.mock.invocationCallOrder[0]),
+  );
+  expect(options.commits.mock.invocationCallOrder[1]).toBeLessThan(
+    z.number().parse(options.prompts.confirm.mock.invocationCallOrder[1]),
+  );
+});
+
+test('an unavailable comparison stops before building or changing the host', async () => {
+  const options = fixture();
+  options.commits.mockRejectedValue(new InfraFailure('Commit comparison unavailable'));
+  await expect(runRelease(options)).rejects.toThrow('Commit comparison unavailable');
+  expect(options.artifacts).not.toHaveBeenCalled();
+  expect(options.deploy).not.toHaveBeenCalled();
 });

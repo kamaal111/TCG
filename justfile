@@ -211,7 +211,13 @@ infra-configure:
 deployment-check:
     bash scripts/deployment-check.sh
 
+# List commits absent from the deployed server without releasing
+[positional-arguments]
+unreleased-server-commits *args:
+    node scripts/unreleased-server-commits.ts "$@"
+
 # Guide a merged server release through infrastructure, migration, and deployment approvals
+[positional-arguments]
 release-server *args:
     node scripts/release-cli.ts "$@"
 

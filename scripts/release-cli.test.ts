@@ -25,3 +25,14 @@ test('an empty settings directory fails clearly', () => {
   expect(result.status).toBe(64);
   expect(result.stderr).toContain('settings directory must not be empty');
 });
+
+test('the release recipe forwards arguments to the CLI', () => {
+  const justfile = url.fileURLToPath(new URL('../justfile', import.meta.url));
+
+  const result = childProcess.spawnSync('just', ['--justfile', justfile, 'release-server', '--help'], {
+    encoding: 'utf8',
+  });
+
+  expect(result.status).toBe(0);
+  expect(result.stdout).toContain('Usage: just release-server');
+});

@@ -5,6 +5,8 @@ import util from 'node:util';
 
 import z from 'zod';
 
+import { commitSummary, selectRelease } from './commits.ts';
+import { releaseConnection } from './connection.ts';
 import {
   ArtifactsSchema,
   fingerprint,
@@ -17,11 +19,10 @@ import {
 } from './contracts.ts';
 import { runRelease } from './pipeline.ts';
 import { confirmServerSetup } from './server-setup.ts';
-import { ConfigStore, homePath, readSettingsFile } from '../infra/config.ts';
+import { readSettingsFile } from '../infra/config.ts';
 import { credentials } from '../infra/credentials.ts';
 import { InfraFailure } from '../infra/errors.ts';
 import type { Prompts } from '../infra/prompts.ts';
-import { ReleaseRepositorySchema } from '../release-metadata.ts';
 
 const execute = util.promisify(childProcess.execFile);
 
@@ -57,42 +58,10 @@ interface RuntimeOptions {
 }
 
 export async function releaseFromTerminal({ root, configDirectory, revision, prompts }: RuntimeOptions): Promise<void> {
-  const store = new ConfigStore({ repositoryRoot: root, configDirectory });
-  const release = await store.readEnvironment('release');
-  const releaseEnvironment = { ...release.values };
-
-  for (const key of ['TCG_DEPLOY_HOST', 'TCG_DEPLOY_KEY', 'TCG_KNOWN_HOSTS', 'TCG_IMAGE_REPOSITORY']) {
-    releaseEnvironment[key] = process.env[key] ?? release.values[key] ?? '';
-  }
-
-  const settings = z
-    .object({
-      TCG_DEPLOY_HOST: z.string().regex(/^[a-zA-Z0-9][a-zA-Z0-9.:-]*$/),
-      TCG_DEPLOY_KEY: z.string().nonempty(),
-      TCG_KNOWN_HOSTS: z.string().nonempty(),
-      TCG_IMAGE_REPOSITORY: ReleaseRepositorySchema,
-    })
-    .safeParse(releaseEnvironment);
-
-  if (!settings.success) {
-    throw new InfraFailure('Release settings are missing or invalid. Run just setup-infra first.');
-  }
-
-  const environment = {
-    ...process.env,
-    ...releaseEnvironment,
-    ...settings.data,
-    TCG_RELEASE_ENV_FILE: store.paths.release,
-  };
-
-  environment.TCG_DEPLOY_KEY = homePath(settings.data.TCG_DEPLOY_KEY);
-  environment.TCG_KNOWN_HOSTS = homePath(settings.data.TCG_KNOWN_HOSTS);
-  const key = await readSettingsFile(environment.TCG_DEPLOY_KEY);
-  const hosts = await readSettingsFile(environment.TCG_KNOWN_HOSTS);
-
-  if (!key || !hosts) {
-    throw new InfraFailure('Deployment key or verified known_hosts is missing. Run just setup-infra.');
-  }
+  const { store, release, releaseEnvironment, settings, environment, key, hosts } = await releaseConnection(
+    root,
+    configDirectory,
+  );
 
   const stateDirectory = path.join(configDirectory, 'releases');
   await fs.mkdir(stateDirectory, { recursive: true, mode: 0o700 });
@@ -141,7 +110,7 @@ export async function releaseFromTerminal({ root, configDirectory, revision, pro
     }
   }
 
-  const checkpointFile = path.join(stateDirectory, `${fingerprint([settings.data.TCG_DEPLOY_HOST])}.json`);
+  const checkpointFile = path.join(stateDirectory, `${fingerprint([settings.TCG_DEPLOY_HOST])}.json`);
   const saved = await readSettingsFile(checkpointFile);
   const previous = CheckpointSchema.safeParse(saved ? JSON.parse(saved) : undefined);
   let configurationPending = previous.success && !previous.data.complete && previous.data.configurationPending;
@@ -158,13 +127,9 @@ export async function releaseFromTerminal({ root, configDirectory, revision, pro
 
   const selected = resume && previous.success ? previous.data.sha : revision;
 
-  const sha = ShaSchema.parse(
-    await command('git', ['rev-parse', '--verify', '--end-of-options', `${selected}^{commit}`]),
-  );
-
-  await command('git', ['merge-base', '--is-ancestor', sha, operations]);
+  const sha = await selectRelease(command, selected, operations);
   prompts.note(
-    `Application: ${sha.slice(0, 12)}\nRelease tools: ${operations.slice(0, 12)}\nTarget: ${settings.data.TCG_DEPLOY_HOST}`,
+    `Application: ${sha.slice(0, 12)}\nRelease tools: ${operations.slice(0, 12)}\nTarget: ${settings.TCG_DEPLOY_HOST}`,
   );
 
   const terraform = await Promise.all(
@@ -201,7 +166,7 @@ export async function releaseFromTerminal({ root, configDirectory, revision, pro
     }
   }
 
-  const binding = fingerprint([settings.data.TCG_DEPLOY_HOST, settings.data.TCG_IMAGE_REPOSITORY, sha, settingsHash]);
+  const binding = fingerprint([settings.TCG_DEPLOY_HOST, settings.TCG_IMAGE_REPOSITORY, sha, settingsHash]);
 
   let artifacts: Artifacts | undefined =
     previous.success && previous.data.binding === binding ? previous.data.artifacts : undefined;
@@ -386,9 +351,10 @@ export async function releaseFromTerminal({ root, configDirectory, revision, pro
     await runRelease({
       prompts,
       sha,
-      repository: settings.data.TCG_IMAGE_REPOSITORY,
+      repository: settings.TCG_IMAGE_REPOSITORY,
       infrastructureSuggested: suggested,
       host,
+      commits: current => commitSummary(command, current.revision, sha),
       configure,
       infrastructure: async () => {
         prompts.note(
@@ -457,8 +423,8 @@ export async function releaseFromTerminal({ root, configDirectory, revision, pro
       },
       verify: async images => {
         for (const [image, repository] of [
-          [images.runtime, settings.data.TCG_IMAGE_REPOSITORY],
-          [images.migration, `${settings.data.TCG_IMAGE_REPOSITORY}-migrations`],
+          [images.runtime, settings.TCG_IMAGE_REPOSITORY],
+          [images.migration, `${settings.TCG_IMAGE_REPOSITORY}-migrations`],
         ]) {
           if (!image?.startsWith(`${repository}@sha256:`)) {
             throw new InfraFailure('Saved images do not belong to the configured registry. Start a fresh release.');

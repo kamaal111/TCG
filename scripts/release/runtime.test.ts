@@ -156,13 +156,15 @@ if (tool === 'ssh') {
     .fn<Prompts['confirm']>()
     .mockImplementation(async message => message !== 'Review an infrastructure plan?');
 
+  const note = vi.fn<Prompts['note']>();
+
   const prompts: Prompts = {
     confirm,
     text: vi.fn<Prompts['text']>(),
     password: vi.fn<Prompts['password']>(),
     select: vi.fn<Prompts['select']>(),
     multiselect: vi.fn<Prompts['multiselect']>(),
-    note: vi.fn<Prompts['note']>(),
+    note,
   };
 
   const readLog = async () => {
@@ -181,6 +183,7 @@ if (tool === 'ssh') {
     configDirectory,
     sha,
     confirm,
+    note,
     git,
     releaseFile,
     run: (revision = 'origin/main') => releaseFromTerminal({ root, configDirectory, revision, prompts }),
@@ -233,6 +236,8 @@ test('a failed deployment resumes the pinned release even when main has advanced
   vi.stubEnv('TCG_TEST_FAIL_DEPLOY', '');
   await f.run();
   expect(f.confirm).toHaveBeenCalledWith(`Resume the unfinished release ${f.sha.slice(0, 12)}?`, true);
+  expect(f.note).not.toHaveBeenCalledWith(expect.stringContaining('Later fixture commit'));
+  expect(f.note).toHaveBeenCalledWith(expect.stringContaining('Initial release fixture'));
   expect(await f.published()).toHaveLength(2);
   expect(await f.state()).toMatchObject({ revision: f.sha });
 }, 15_000);
