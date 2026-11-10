@@ -10,6 +10,7 @@ interface Pipeline {
   infrastructureSuggested: boolean;
   host(): Promise<Host | undefined>;
   infrastructure(context: { serverConfigured: boolean }): Promise<void>;
+  setup(context: { serverConfigured: boolean }): Promise<boolean>;
   configure(): Promise<void>;
   artifacts(): Promise<Artifacts>;
   verify(artifacts: Artifacts): Promise<void>;
@@ -80,6 +81,8 @@ export async function runRelease(options: Pipeline): Promise<void> {
     await options.infrastructure({ serverConfigured });
   }
 
+  serverConfigured = (await options.setup({ serverConfigured })) || serverConfigured;
+
   const artifacts = await options.artifacts();
   await options.verify(artifacts);
   let readiness = await options.migrations(artifacts.migration);
@@ -107,7 +110,7 @@ export async function runRelease(options: Pipeline): Promise<void> {
 
   let healthy = false;
 
-  if (current.runtime === artifacts.runtime && current.revision === options.sha) {
+  if (!serverConfigured && current.runtime === artifacts.runtime && current.revision === options.sha) {
     prompts.note('The selected image is already installed. Checking the live release.');
     healthy = await options.check().then(
       () => true,

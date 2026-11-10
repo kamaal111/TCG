@@ -126,6 +126,11 @@ Droplet. The database CA is mounted read-only at `/run/tcg/database-ca.crt` insi
 containers; a Mac-local certificate path cannot work in the container.
 
 The authentication secret is generated once and reused on subsequent runs.
+Scrydex credentials are collected by `just setup-infra` or `just rotate-keys` and
+read from the controller environment during host configuration. Production defaults
+to `SCRYDEX_CLIENT=real` and requires `SCRYDEX_API_KEY` and `SCRYDEX_TEAM_ID`.
+Static mode is rejected by host setup and by server startup when
+`NODE_ENV=production`.
 Configuration and release share a host lock directory. If the connection is
 interrupted and a lock remains, inspect the host for active configuration/release
 processes before manually removing `/opt/tcg/.deployment-lock`.

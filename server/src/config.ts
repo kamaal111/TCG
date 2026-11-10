@@ -66,6 +66,7 @@ export const DEFAULT_APPLICATION_CONFIG = {
 } as const;
 
 const BaseEnvSchema = z.object({
+  NODE_ENV: z.enum(['development', 'test', 'production']).optional(),
   DATABASE_CONNECTION_TIMEOUT_MS: z.coerce
     .number()
     .int()
@@ -216,6 +217,14 @@ export const ForexCollectorEnvSchema = LoggingEnvSchema.extend(
 );
 
 export const EnvSchema = BaseEnvSchema.superRefine((value, context) => {
+  if (value.NODE_ENV === 'production' && value.SCRYDEX_CLIENT !== PRICING_CLIENT_MODES.REAL) {
+    context.addIssue({
+      code: 'custom',
+      path: ['SCRYDEX_CLIENT'],
+      message: 'Production requires SCRYDEX_CLIENT=real. Static pricing is only available for development and tests.',
+    });
+  }
+
   if (value.SCRYDEX_CLIENT === PRICING_CLIENT_MODES.REAL && value.SCRYDEX_API_KEY == null) {
     context.addIssue({
       code: 'custom',

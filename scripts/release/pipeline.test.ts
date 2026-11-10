@@ -40,6 +40,7 @@ function fixture() {
     host: vi.fn<() => Promise<Host | undefined>>().mockResolvedValue(installed),
     configure: vi.fn<Parameters<typeof runRelease>[0]['configure']>().mockResolvedValue(undefined),
     infrastructure: vi.fn<Parameters<typeof runRelease>[0]['infrastructure']>().mockResolvedValue(undefined),
+    setup: vi.fn<Parameters<typeof runRelease>[0]['setup']>().mockResolvedValue(false),
     artifacts: vi.fn<Parameters<typeof runRelease>[0]['artifacts']>().mockResolvedValue(images),
     verify: vi.fn<Parameters<typeof runRelease>[0]['verify']>().mockResolvedValue(undefined),
     migrations: vi
@@ -119,6 +120,16 @@ test('resuming an already installed image checks live health instead of deployin
   expect(options.migrations).toHaveBeenCalledOnce();
   expect(options.deploy).not.toHaveBeenCalled();
   expect(options.check).toHaveBeenCalledOnce();
+});
+
+test('applying server settings redeploys the installed image to load new environment values', async () => {
+  const options = fixture();
+  options.host.mockResolvedValue({ ...installed, runtime: images.runtime, revision: sha });
+  options.setup.mockResolvedValue(true);
+  await runRelease(options);
+  expect(options.deploy).toHaveBeenCalledWith(images, expect.objectContaining({ revision: sha }));
+  expect(options.check).toHaveBeenCalledOnce();
+  expect(options.infrastructure).not.toHaveBeenCalled();
 });
 
 test('requires fresh approval when the remote target changes during the prompt', async () => {

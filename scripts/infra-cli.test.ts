@@ -42,6 +42,36 @@ it('rotates only selected credentials and round-trips shell literals through jus
   expect((await fs.stat(file)).mode & 0o777).toBe(0o600);
 });
 
+it('collects Scrydex credentials through rotation and enables live mode without exposing secrets', async () => {
+  const { root, store } = await fixture();
+  await store.saveEnvironment(await store.readEnvironment('infrastructure'), { SCRYDEX_CLIENT: 'static' });
+
+  const ui = scripted({
+    selected: ['scrydex'],
+    passwords: ['replacement-scrydex-key', 'replacement-team'],
+    confirm: { 'Save the selected replacement credentials?': true },
+  });
+
+  await runRotation({ store, prompts: ui.prompts, repositoryRoot: root });
+  expect((await store.readEnvironment('infrastructure')).values).toEqual({
+    SCRYDEX_CLIENT: 'real',
+    SCRYDEX_API_KEY: 'replacement-scrydex-key',
+    SCRYDEX_TEAM_ID: 'replacement-team',
+  });
+  expect(ui.notes.join('\n')).toContain('just release-server');
+  expect(ui.notes.join('\n')).not.toContain('replacement-scrydex-key');
+  expect((await fs.stat(store.paths.infrastructure)).mode & 0o777).toBe(0o600);
+});
+
+it('leaves existing Scrydex credentials unchanged when rotation is declined', async () => {
+  const { root, store } = await fixture();
+  const original = { SCRYDEX_CLIENT: 'real', SCRYDEX_API_KEY: 'old-key', SCRYDEX_TEAM_ID: 'old-team' };
+  await store.saveEnvironment(await store.readEnvironment('infrastructure'), original);
+  const ui = scripted({ selected: ['scrydex'], passwords: ['new-key', 'new-team'] });
+  await runRotation({ store, prompts: ui.prompts, repositoryRoot: root });
+  expect((await store.readEnvironment('infrastructure')).values).toEqual(original);
+});
+
 it('keeps saved capacity selected separately from the running capacity', () => {
   const choices = dropletSizeChoices({
     sizes: [
@@ -115,6 +145,9 @@ function resourceValues(size = 's-1vcpu-512mb-10gb'): TerraformValues {
 }
 
 const environment = {
+  SCRYDEX_CLIENT: 'real',
+  SCRYDEX_API_KEY: 'fixture-scrydex-key',
+  SCRYDEX_TEAM_ID: 'fixture-team',
   TF_CLOUD_ORGANIZATION: 'example-org',
   TF_WORKSPACE: 'tcg-production',
   TF_TOKEN_app_terraform_io: 'fixture-hcp-secret',
@@ -332,7 +365,16 @@ it('creates fresh settings from guided answers and provider data and defers rele
       'Administrator IPv4 CIDRs (comma separated)': ['192.0.2.10/32/extra', '192.0.2.10/32'],
       'Spaces bucket name': ['tcg-images-example'],
     },
-    passwords: ['fresh-hcp', 'fresh-do', 'fresh-spaces-id', 'fresh-spaces-secret', 'fresh-download', 'fresh-tailscale'],
+    passwords: [
+      'fresh-hcp',
+      'fresh-do',
+      'fresh-spaces-id',
+      'fresh-spaces-secret',
+      'fresh-download',
+      'fresh-tailscale',
+      'fresh-scrydex',
+      'fresh-team',
+    ],
   });
 
   const api = providerFixture();

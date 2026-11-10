@@ -117,7 +117,7 @@ fi
 mv "$temporary/release.env" release.env
 
 start_release() {
-    compose up --detach --wait --wait-timeout 120 server || return 1
+    compose up --detach --force-recreate --wait --wait-timeout 120 server || return 1
     if [[ "$exposure" == public ]]; then
         compose --profile public up --detach --wait --wait-timeout 120 proxy || return 1
         public_health || return 1
