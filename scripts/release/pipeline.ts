@@ -9,6 +9,7 @@ interface Pipeline {
   repository: string;
   infrastructureSuggested: boolean;
   host(): Promise<Host | undefined>;
+  commits(host: Host): Promise<string>;
   infrastructure(context: { serverConfigured: boolean }): Promise<void>;
   setup(context: { serverConfigured: boolean }): Promise<boolean>;
   configure(): Promise<void>;
@@ -44,6 +45,8 @@ async function approve(options: Pipeline, message: string): Promise<Host> {
       `Target: ${before.hostname || 'private server'}\nRunning: ${before.revision?.slice(0, 12) ?? 'no release'}\nRelease: ${options.sha.slice(0, 12)}`,
     );
 
+    options.prompts.note(await options.commits(before));
+
     if (!(await options.prompts.confirm(message, false))) {
       throw new InfraFailure('Stopped before making this change. Rerun just release-server to continue.', 130);
     }
@@ -75,7 +78,7 @@ export async function runRelease(options: Pipeline): Promise<void> {
     host = await options.host();
   }
 
-  available(host, options.repository);
+  prompts.note(await options.commits(available(host, options.repository)));
 
   if (await prompts.confirm('Review an infrastructure plan?', options.infrastructureSuggested)) {
     await options.infrastructure({ serverConfigured });
