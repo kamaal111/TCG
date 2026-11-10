@@ -4,7 +4,19 @@
   become: true
   vars:
     deploy_directory: /opt/tcg
+    scrydex_client: "{{ lookup('env', 'SCRYDEX_CLIENT') | default('real', true) }}"
+    scrydex_api_key: "{{ lookup('env', 'SCRYDEX_API_KEY') }}"
+    scrydex_team_id: "{{ lookup('env', 'SCRYDEX_TEAM_ID') }}"
   pre_tasks:
+    - name: Require live pricing credentials for production
+      ansible.builtin.assert:
+        that:
+          - scrydex_client == 'real'
+          - scrydex_api_key | length > 0
+          - scrydex_team_id | length > 0
+        fail_msg: 'Production requires live pricing. Run just rotate-keys and select Scrydex.'
+        quiet: true
+      no_log: true
     - name: Require the supported operating system and architecture
       ansible.builtin.assert:
         that:

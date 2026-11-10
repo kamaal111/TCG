@@ -407,6 +407,9 @@ test-server-image: build-server-image
         --env DATABASE_URL=postgresql://unused:unused@127.0.0.1:5432/unused \
         --env BETTER_AUTH_URL=http://127.0.0.1:8080 \
         --env BETTER_AUTH_SECRET=image-smoke-test-secret \
+        --env SCRYDEX_CLIENT=real \
+        --env SCRYDEX_API_KEY=image-smoke-test-key \
+        --env SCRYDEX_TEAM_ID=image-smoke-test-team \
         --env OBJECT_STORAGE_ACCESS_KEY_ID=image-smoke-test-key \
         --env OBJECT_STORAGE_SECRET_ACCESS_KEY=image-smoke-test-secret \
         --env CARD_IMAGE_WORKER_ENABLED=false \

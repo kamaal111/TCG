@@ -33,6 +33,7 @@ const CheckpointSchema = z.object({
   operations: ShaSchema,
   artifacts: ArtifactsSchema,
   complete: z.boolean(),
+  configurationPending: z.boolean().default(false),
 });
 
 const CommandFailureSchema = z.object({
@@ -143,6 +144,7 @@ export async function releaseFromTerminal({ root, configDirectory, revision, pro
   const checkpointFile = path.join(stateDirectory, `${fingerprint([settings.data.TCG_DEPLOY_HOST])}.json`);
   const saved = await readSettingsFile(checkpointFile);
   const previous = CheckpointSchema.safeParse(saved ? JSON.parse(saved) : undefined);
+  let configurationPending = previous.success && !previous.data.complete && previous.data.configurationPending;
 
   prompts.note('Fetching main and selecting the exact application commit.', '1. Select release');
   await command('git', ['fetch', 'origin', 'main']);
@@ -215,7 +217,16 @@ export async function releaseFromTerminal({ root, configDirectory, revision, pro
     const temporary = path.join(session, 'checkpoint.json');
     await fs.writeFile(
       temporary,
-      JSON.stringify({ version: 1, binding, sha, settings: settingsHash, operations, artifacts, complete }),
+      JSON.stringify({
+        version: 1,
+        binding,
+        sha,
+        settings: settingsHash,
+        operations,
+        artifacts,
+        complete,
+        configurationPending: !complete && configurationPending,
+      }),
       { mode: 0o600 },
     );
     await fs.rename(temporary, checkpointFile);
@@ -295,10 +306,13 @@ export async function releaseFromTerminal({ root, configDirectory, revision, pro
     prompts.note('Applying saved server settings and updating deployment scripts on your DigitalOcean server.');
     await infra('init');
     await infra('configure');
+    configurationPending = true;
+    await checkpoint(false);
   }
 
   const savedSettingsChanged = previous.success && previous.data.settings !== settingsHash;
   let serverSetupChanged = false;
+  let serverInventoryChanged = false;
   let suggested = !previous.success || savedSettingsChanged;
 
   async function host() {
@@ -376,7 +390,7 @@ export async function releaseFromTerminal({ root, configDirectory, revision, pro
       infrastructureSuggested: suggested,
       host,
       configure,
-      infrastructure: async ({ serverConfigured }) => {
+      infrastructure: async () => {
         prompts.note(
           'Planning infrastructure. Only resource names and actions are shown here; full output stays in the private log.',
           '2. Infrastructure',
@@ -393,7 +407,7 @@ export async function releaseFromTerminal({ root, configDirectory, revision, pro
 
         const plan = summarizePlan(reviewedPlan);
 
-        const serverInventoryChanged =
+        const inventoryChanged =
           reviewedPlan.output_changes.inventory?.actions.some(action => action !== 'no-op') ?? false;
 
         prompts.note(plan.summary);
@@ -407,14 +421,21 @@ export async function releaseFromTerminal({ root, configDirectory, revision, pro
           prompts.note('Infrastructure apply was skipped.');
         }
 
+        serverInventoryChanged = applied && inventoryChanged;
+      },
+      setup: async ({ serverConfigured }) => {
         const setupNeeded =
-          (applied && serverInventoryChanged) || (!serverConfigured && (savedSettingsChanged || serverSetupChanged));
+          serverInventoryChanged || (!serverConfigured && (savedSettingsChanged || serverSetupChanged));
 
         if (!setupNeeded) {
           prompts.note('No server settings need to be applied. Continuing with the release.');
         } else if (await confirmServerSetup({ prompts, reason: 'changed-settings' })) {
-          await infra('configure');
+          await configure();
+
+          return true;
         }
+
+        return configurationPending;
       },
       artifacts: async () => {
         if (!artifacts) {

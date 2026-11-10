@@ -6,10 +6,26 @@ interface Credential {
   label: string;
   fields: readonly { key: string; label: string }[];
   help: readonly string[];
-  next: 'plan' | 'host' | 'bootstrap' | 'docker';
+  next: 'plan' | 'host' | 'bootstrap' | 'docker' | 'release';
+  environment?: Readonly<Record<string, string>>;
 }
 
 export const credentials: readonly Credential[] = [
+  {
+    id: 'scrydex',
+    label: 'Scrydex API key and team ID',
+    fields: [
+      { key: 'SCRYDEX_API_KEY', label: 'Scrydex API key' },
+      { key: 'SCRYDEX_TEAM_ID', label: 'Scrydex team ID' },
+    ],
+    environment: { SCRYDEX_CLIENT: 'real' },
+    next: 'release',
+    help: [
+      'Copy the API key and team ID from your Scrydex account.',
+      'Live pricing and card images require both values. Static mode uses sample data without real card art.',
+      'Values are saved privately and installed by the server setup step in just release-server.',
+    ],
+  },
   {
     id: 'hcp',
     label: 'HCP Terraform user token',
@@ -101,6 +117,8 @@ export function shellQuote(value: string): string {
 
 export function credentialNext(credential: Credential, store: ConfigStore): string {
   switch (credential.next) {
+    case 'release':
+      return `Activate the saved Scrydex settings:\njust release-server --config-dir ${shellQuote(store.paths.configDirectory)}\nAccept the server setup step, then approve deployment to load the new credentials. No manual SSH edits are needed.`;
     case 'plan':
       return `Verify with a fresh plan:\njust --dotenv-path ${shellQuote(store.paths.infrastructure)} infra-plan\nReview the result before applying anything. Keep the old credential until the replacement is verified.`;
     case 'host':
@@ -129,11 +147,11 @@ export async function askCredential({
     credential.fields.every(field => Boolean(document.values[field.key])) &&
     (await prompts.confirm(`${credential.label}: configured — keep existing?`))
   ) {
-    return {};
+    return { ...credential.environment };
   }
 
   prompts.note(credential.help.join('\n'), credential.label);
-  const changes: Record<string, string> = {};
+  const changes = { ...credential.environment };
 
   for (const field of credential.fields) {
     while (true) {

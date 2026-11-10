@@ -676,6 +676,17 @@ export async function runSetup(options: WizardOptions): Promise<void> {
   }
 
   document = await saveFields(store, document, await askCredential({ credential: tailscale, prompts, document }));
+  const scrydex = credentials.find(item => item.id === 'scrydex');
+
+  if (!scrydex) {
+    return failure('Scrydex credential instructions are unavailable.');
+  }
+
+  prompts.note(
+    'Production requires live Scrydex pricing and card images. Static mode is limited to development and tests.',
+  );
+  document = await saveFields(store, document, await askCredential({ credential: scrydex, prompts, document }));
+
   const resourcesReady = await setupResources(options, document);
   await setupRelease(options, document);
 

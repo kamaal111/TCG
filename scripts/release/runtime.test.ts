@@ -245,6 +245,35 @@ test('changed local settings require fresh review rather than using a previous c
   expect(await f.published()).toHaveLength(4);
 }, 15_000);
 
+test('rotated runtime credentials offer server setup even when infrastructure review is skipped and redeploy the same image', async t => {
+  const f = await fixture(t);
+  await f.run();
+  await fs.writeFile(
+    path.join(f.configDirectory, 'infrastructure.env'),
+    'SCRYDEX_CLIENT=real\nSCRYDEX_API_KEY=fixture-rotated-key\nSCRYDEX_TEAM_ID=fixture-team\n',
+    { mode: 0o600 },
+  );
+  await f.run();
+  expect(f.confirm).toHaveBeenCalledWith('Apply saved settings and update deployment scripts on the server?', false);
+  expect((await f.commands()).filter(command => command.tool === 'ansible-playbook')).toHaveLength(1);
+  expect(
+    (await f.commands()).filter(command => command.tool === 'terraform' && command.args.includes('plan')),
+  ).toHaveLength(0);
+  expect(await f.deployed()).toHaveLength(2);
+}, 15_000);
+
+test('a failed settings deployment resumes by recreating the installed image without losing the pending configuration', async t => {
+  const f = await fixture(t);
+  await f.run();
+  await fs.writeFile(path.join(f.configDirectory, 'infrastructure.env'), 'SCRYDEX_CLIENT=static\n', { mode: 0o600 });
+  vi.stubEnv('TCG_TEST_FAIL_DEPLOY', '1');
+  await expect(f.run()).rejects.toThrow('This step failed');
+  vi.stubEnv('TCG_TEST_FAIL_DEPLOY', '');
+  await f.run();
+  expect(await f.deployed()).toHaveLength(3);
+  expect((await f.commands()).filter(command => command.tool === 'ansible-playbook')).toHaveLength(1);
+}, 15_000);
+
 test('a source-label mismatch on resume prevents another deployment', async t => {
   const f = await fixture(t);
   await f.run();

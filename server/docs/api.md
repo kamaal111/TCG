@@ -95,7 +95,9 @@ next pricing date; it is not a permanent provider-card identity.
 
 The default `SCRYDEX_CLIENT=static` uses sample data and synthetic fallback search
 results. Set `SCRYDEX_CLIENT=real`, `SCRYDEX_API_KEY`, and `SCRYDEX_TEAM_ID` to use
-live Scrydex. Caches include provider source in their keys, so static and live
+live Scrydex. With `NODE_ENV=production`, startup requires the live provider and
+rejects static or omitted client mode. Static mode is for development and tests.
+Caches include provider source in their keys, so static and live
 results are separate. Search and per-card prices are cached per UTC day;
 PostgreSQL advisory locks coordinate concurrent misses.
 

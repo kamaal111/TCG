@@ -44,8 +44,18 @@ docker login ghcr.io --username "$(gh api user --jq .login)"
 ```
 
 `just rotate-keys` guides you through renewing expired credentials. Changed host
-credentials need host configuration again; the release CLI offers that step after
-an infrastructure plan.
+credentials need host configuration again; the release CLI offers that step even
+when you skip the infrastructure plan. Applying server settings requires deployment
+approval and recreates the container even when its image is unchanged.
+
+For live card prices and images, run `just rotate-keys` and select **Scrydex API key
+and team ID**. This saves `SCRYDEX_CLIENT=real`, `SCRYDEX_API_KEY`, and
+`SCRYDEX_TEAM_ID` privately in `$HOME/.config/tcg/infrastructure.env`. Then run
+`just release-server`, accept the server setup step, and approve deployment.
+No manual SSH edits are needed. Initial setup also collects Scrydex credentials.
+Production host setup requires the live provider and both credentials. Server
+startup rejects static mode when `NODE_ENV=production`, including when
+`SCRYDEX_CLIENT` is omitted. Static mode is limited to development and tests.
 
 ## If a release fails
 

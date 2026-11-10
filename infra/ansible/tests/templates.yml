@@ -16,6 +16,9 @@
     object_storage_bucket: tcg-test-images
     object_storage_access_key: test-key
     object_storage_secret_key: test-secret
+    scrydex_client: real
+    scrydex_api_key: test-scrydex-key
+    scrydex_team_id: test-team
   tasks:
     - name: Render private configuration without a domain
       ansible.builtin.set_fact:
@@ -30,6 +33,9 @@
           - "'BETTER_AUTH_URL=http://127.0.0.1:8080' in private_configuration"
           - "'DEBUG=' not in private_configuration"
           - "'OBJECT_STORAGE_REGION=ams3' in private_configuration"
+          - "'SCRYDEX_CLIENT=real' in private_configuration"
+          - '''SCRYDEX_API_KEY="test-scrydex-key"'' in private_configuration'
+          - '''SCRYDEX_TEAM_ID="test-team"'' in private_configuration'
     - name: Render public configuration
       ansible.builtin.set_fact:
         public_configuration: "{{ lookup('template', '../templates/server.env.j2') }}"
@@ -38,3 +44,14 @@
     - name: Verify the public authentication origin
       ansible.builtin.assert:
         that: "'BETTER_AUTH_URL=https://api.example.com' in public_configuration"
+    - name: Render production configuration with a stale sample-mode setting
+      ansible.builtin.set_fact:
+        stale_configuration: "{{ lookup('template', '../templates/server.env.j2') }}"
+      vars:
+        api_hostname: ''
+        scrydex_client: static
+    - name: Verify production templates always select the live provider
+      ansible.builtin.assert:
+        that:
+          - "'SCRYDEX_CLIENT=real' in stale_configuration"
+          - "'SCRYDEX_CLIENT=static' not in stale_configuration"
