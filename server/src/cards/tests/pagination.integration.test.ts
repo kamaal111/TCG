@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
 
+import { CONTENTFUL_STATUS_CODES } from '@tcg/http/status';
 import { eq, sql } from 'drizzle-orm';
 
 import { createCardRequest, validCardPayload } from './utils.ts';
-import { CONTENTFUL_STATUS_CODES } from '../../constants/http.ts';
 import { card, cardPurchaseBatch } from '../../db/schema/cards.ts';
 import { integrationTest } from '../../tests/fixtures.ts';
 import { EXPORT_CARDS_ROUTE_PATH } from '../routes/export-cards.ts';

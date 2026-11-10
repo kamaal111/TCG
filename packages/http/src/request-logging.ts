@@ -1,6 +1,5 @@
-import { type DomainLogFields, type DomainLogger, getDomainLogger } from './index.ts';
-import type { CardImportProgress } from '../cards/logging.ts';
-import type { HonoContext } from '../context.ts';
+import { type DomainLogFields, type DomainLogger, type RequestLogger, getDomainLogger } from './logging.ts';
+import type { CardImportProgress } from './progress.ts';
 
 export const REQUEST_EVENTS = [
   'request.completed',
@@ -21,4 +20,6 @@ export type RequestLogFields = DomainLogFields<(typeof REQUEST_EVENTS)[number]> 
   transaction_status?: CardImportProgress['transactionStatus'];
 };
 
-export const requestLogger = (c: HonoContext): DomainLogger<RequestLogFields> => getDomainLogger(c);
+export const requestLogger = (c: { get(key: 'logger'): RequestLogger }): DomainLogger<RequestLogFields> => {
+  return getDomainLogger(c);
+};

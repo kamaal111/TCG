@@ -1,4 +1,6 @@
 import type { AuthVariables } from '@kamaalio/kamaal-auth-hono';
+import type { RequestLogger } from '@tcg/http/logging';
+import type { CardImportProgress } from '@tcg/http/progress';
 import type { Context } from 'hono';
 import type { Input, Next } from 'hono';
 import type { RequestIdVariables } from 'hono/request-id';
@@ -14,7 +16,6 @@ import { CardImageService } from './card-images/service.ts';
 import type { PricingClient } from './card-pricing/client.ts';
 import type { CardPricingRepository } from './card-pricing/repository.ts';
 import { CardPricingService } from './card-pricing/service.ts';
-import type { CardImportProgress } from './cards/logging.ts';
 import { cardsLogger } from './cards/logging.ts';
 import type { CardRepository } from './cards/repository.ts';
 import type { CollectionRepository } from './collections/repository.ts';
@@ -23,7 +24,6 @@ import type { ForexClient } from './forex/client.ts';
 import type { Currency } from './forex/currencies.ts';
 import type { ForexRepository } from './forex/repository.ts';
 import { ForexService } from './forex/service.ts';
-import type { RequestLogger } from './logging/index.ts';
 import type { Persistence } from './persistence/contracts.ts';
 import type { ObjectStorageClient } from './storage/client.ts';
 

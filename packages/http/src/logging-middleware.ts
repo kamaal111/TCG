@@ -1,15 +1,16 @@
 import { structuredLogger } from '@hono/structured-logger';
+import type { Context } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import { routePath } from 'hono/route';
 
-import { type RequestLogger, createRequestLogger } from './index.ts';
-import { type RequestLogFields, requestLogger } from './request.ts';
-import { CONTENTFUL_STATUS_CODES } from '../constants/http.ts';
-import type { HonoContext, HonoEnvironment } from '../context.ts';
-import { APIException, InvalidValidation } from '../exceptions/index.ts';
+import type { HttpEnvironment } from './context.ts';
+import { APIException, InvalidValidation } from './exceptions.ts';
+import { type RequestLogger, createRequestLogger } from './logging.ts';
+import { type RequestLogFields, requestLogger } from './request-logging.ts';
+import { CONTENTFUL_STATUS_CODES } from './status.ts';
 
-function loggingMiddleware() {
-  return structuredLogger<HonoEnvironment, RequestLogger>({
+export function loggingMiddleware<E extends HttpEnvironment = HttpEnvironment>() {
+  return structuredLogger<E, RequestLogger>({
     createLogger: c => {
       return createRequestLogger({
         requestId: c.get('requestId'),
@@ -124,7 +125,7 @@ function describeInternalFailure(error: Error): ErrorLogDescription {
 }
 
 // Falls back to c.req.path because routePath() isn't resolved yet this early in the middleware chain.
-function getRouteForLog(c: HonoContext) {
+function getRouteForLog<E extends HttpEnvironment>(c: Context<E>) {
   const matchedRoutePath = routePath(c);
 
   return matchedRoutePath.length > 0 && !matchedRoutePath.includes('*') ? matchedRoutePath : c.req.path;
@@ -134,12 +135,10 @@ function roundDurationMs(durationMs: number) {
   return Math.round(durationMs * 100) / 100;
 }
 
-function getUrlForLog(c: HonoContext) {
+function getUrlForLog<E extends HttpEnvironment>(c: Context<E>) {
   const url = new URL(c.req.url);
   url.search = '';
   url.hash = '';
 
   return url.href;
 }
-
-export default loggingMiddleware;

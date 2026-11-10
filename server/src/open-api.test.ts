@@ -1,6 +1,5 @@
+import { YAML_OPTIONS } from '@tcg/http/open-api';
 import * as yaml from 'js-yaml';
-
-import { YAML_OPTIONS } from './open-api.ts';
 
 describe('YAML_OPTIONS', () => {
   test('spells out a value shared by two routes instead of aliasing it', () => {

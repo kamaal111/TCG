@@ -1,6 +1,7 @@
+import { APIException, type ExceptionContext } from '@tcg/http/exceptions';
+import { CONTENTFUL_STATUS_CODES } from '@tcg/http/status';
+
 import type { ForexError } from './errors.ts';
-import { CONTENTFUL_STATUS_CODES } from '../constants/http.ts';
-import { APIException, type ExceptionContext } from '../exceptions/index.ts';
 
 export abstract class ForexException extends APIException {
   abstract readonly reason: string;

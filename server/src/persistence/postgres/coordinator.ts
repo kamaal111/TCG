@@ -1,3 +1,4 @@
+import { getProcessLogger } from '@tcg/http/logging';
 import { sql } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import type { ResultAsync } from 'neverthrow';
@@ -12,7 +13,6 @@ import type { PricingLogFields } from '../../card-pricing/logging.ts';
 import { classifyPostgresError } from '../../db/errors.ts';
 import type { Database } from '../../db/index.ts';
 import { appRelations } from '../../db/schema/index.ts';
-import { getProcessLogger } from '../../logging/index.ts';
 import { trackPoolShutdown } from '../../utils/pool-shutdown.ts';
 import { toError, tryCatch } from '../../utils/results.ts';
 

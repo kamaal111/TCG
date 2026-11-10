@@ -1,0 +1,129 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "%lld pending commits" : {
+
+    },
+    "%lld pending migration steps" : {
+
+    },
+    "Activity" : {
+
+    },
+    "Approve" : {
+
+    },
+    "Back up the database and confirm the running app supports the new schema. Migrations cannot be automatically undone." : {
+
+    },
+    "Build and publish" : {
+
+    },
+    "Cannot reach the release service. Check Tailscale and the Mac mini, then retry." : {
+
+    },
+    "Complete" : {
+
+    },
+    "Connect to Tailscale using an allowed account." : {
+
+    },
+    "Connect your release service" : {
+
+    },
+    "Connection" : {
+
+    },
+    "Connection settings" : {
+
+    },
+    "Database migrations" : {
+
+    },
+    "Decline" : {
+
+    },
+    "Deploy" : {
+
+    },
+    "Done" : {
+
+    },
+    "Enter the private Tailscale HTTPS address of your Mac mini." : {
+
+    },
+    "In progress" : {
+
+    },
+    "Interrupted" : {
+
+    },
+    "Loading server status…" : {
+
+    },
+    "Mintomo Devportal" : {
+
+    },
+    "More commits" : {
+
+    },
+    "Not started" : {
+
+    },
+    "Pending changes" : {
+
+    },
+    "Refresh" : {
+
+    },
+    "Release checks passed" : {
+
+    },
+    "Release progress" : {
+
+    },
+    "Remote main" : {
+
+    },
+    "Retry release" : {
+
+    },
+    "Review release" : {
+
+    },
+    "Running" : {
+
+    },
+    "Server release" : {
+
+    },
+    "Start release" : {
+
+    },
+    "Stopped" : {
+
+    },
+    "Tailscale HTTPS URL" : {
+
+    },
+    "The release changed. Refresh and review it again." : {
+
+    },
+    "Up to date" : {
+
+    },
+    "Use the HTTPS address supplied by Tailscale Serve on your Mac mini. Only selected Tailscale accounts can connect." : {
+
+    },
+    "Verify" : {
+
+    },
+    "Waiting for approval" : {
+
+    },
+    "Your Tailscale account is not allowed to use this portal." : {
+
+    }
+  },
+  "version" : "1.0"
+}

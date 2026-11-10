@@ -1,5 +1,6 @@
+import { CONTENTFUL_STATUS_CODES } from '@tcg/http/status';
+
 import { integrationTest } from './fixtures.ts';
-import { CONTENTFUL_STATUS_CODES } from '../../constants/http.ts';
 import env from '../../env.ts';
 import { CARD_IMAGE_STATUSES } from '../types.ts';
 

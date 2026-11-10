@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
 
 import { omit } from '@kamaalio/kamaal/objects';
+import type { CardImportProgress } from '@tcg/http/progress';
 import { and, eq, getColumns, ilike, inArray, isNotNull, isNull, notInArray, or, sql } from 'drizzle-orm';
 
 import { placeCardInBinder } from './collection-placement.ts';
@@ -15,7 +16,6 @@ import {
 } from './collection-transactions.ts';
 import type { OwnedCardPriceResponse } from '../../card-pricing/schemas/responses.ts';
 import { CardNotFound } from '../../cards/exceptions.ts';
-import type { CardImportProgress } from '../../cards/logging.ts';
 import {
   pricingLinkFields,
   decimalScale,

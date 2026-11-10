@@ -1,11 +1,12 @@
+import { ErrorResponseSchema, ValidationErrorResponseSchema } from '@tcg/http/error-schemas';
+import { MIME_TYPES } from '@tcg/http/mime';
+import { CONTENTFUL_STATUS_CODES } from '@tcg/http/status';
+
 import { COLLECTIONS_OPENAPI_TAG } from './constants.ts';
 import { collectionRequestLimits } from './request-limits.ts';
+import { createCollectionRequestSchemas } from './schemas/payloads.ts';
 import type { CollectionPolicy } from './types.ts';
 import { requireSessionMiddleware } from '../auth/module.ts';
-import { CONTENTFUL_STATUS_CODES } from '../constants/http.ts';
-import { MIME_TYPES } from '../constants/request.ts';
-import { ErrorResponseSchema, ValidationErrorResponseSchema } from '../schemas/errors.ts';
-import { createCollectionRequestSchemas } from './schemas/payloads.ts';
 
 export function createCollectionRouteDependencies(policy: CollectionPolicy) {
   const schemas = createCollectionRequestSchemas(policy);

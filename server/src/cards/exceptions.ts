@@ -1,4 +1,4 @@
-import { NotFound, type ExceptionContext } from '../exceptions/index.ts';
+import { NotFound, type ExceptionContext } from '@tcg/http/exceptions';
 
 export class CardNotFound extends NotFound {
   constructor(c?: ExceptionContext) {

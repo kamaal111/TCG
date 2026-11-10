@@ -1,6 +1,7 @@
+import { type DomainLogFields, type DomainLogger, getDomainLogger, getProcessLogger } from '@tcg/http/logging';
+
 import type { CardImageMaterializationStatus, CardImageMaterializationTrigger } from './materializer.ts';
 import type { HonoContext } from '../context.ts';
-import { type DomainLogFields, type DomainLogger, getDomainLogger, getProcessLogger } from '../logging/index.ts';
 
 export const IMAGES_EVENTS = [
   'images.register',

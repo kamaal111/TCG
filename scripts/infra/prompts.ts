@@ -16,12 +16,17 @@ interface SelectionQuestion {
   initialValue?: string;
 }
 
+interface ApprovalContext {
+  kind: 'resume' | 'migrations' | 'deploy';
+  review?: { target: string; running: string | null; sha: string; fingerprint: string; pendingMigrations?: number };
+}
+
 export interface Prompts {
   text(question: TextQuestion): Promise<string>;
   password(message: string): Promise<string>;
   select(question: SelectionQuestion): Promise<string>;
   multiselect(question: Omit<SelectionQuestion, 'initialValue'>): Promise<string[]>;
-  confirm(message: string, initialValue?: boolean): Promise<boolean>;
+  confirm(message: string, initialValue?: boolean, context?: ApprovalContext): Promise<boolean>;
   note(message: string, title?: string): void;
 }
 

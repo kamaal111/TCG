@@ -8,6 +8,7 @@ let package = Package(
     defaultLocalization: "en",
     platforms: [.macOS(.v15), .iOS(.v18)],
     products: [
+        .library(name: "TCGSnapshotTesting", targets: ["TCGSnapshotTesting"]),
         .library(name: "TCGCurrency", targets: ["TCGCurrency"]),
         .library(name: "TCGCards", targets: ["TCGCards"]),
         .library(name: "TCGSearch", targets: ["TCGSearch"]),

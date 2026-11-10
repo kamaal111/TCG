@@ -1,11 +1,11 @@
 import stream from 'node:stream';
 
-import type { DestinationStream, LevelWithSilent, Logger, LoggerOptions } from 'pino';
-import pino from 'pino';
+import type { ServerMode } from '@tcg/http/common';
+import { configureLogging } from '@tcg/http/logging';
+import { createNodeLogger } from '@tcg/http/node-logging';
+import type { DestinationStream, LevelWithSilent, Logger } from 'pino';
 
 import { LoggingEnvSchema } from '../../config.ts';
-import type { ServerMode } from '../../constants/common.ts';
-import { configureLogging } from '../../logging/index.ts';
 
 const SERVICE_NAME = 'tcg-server';
 
@@ -41,27 +41,12 @@ export function createMemoryLogDestination(logs: string[]) {
 
 function createServerLogger(options: CreateLoggerOptions = {}): Logger {
   const env = LoggingEnvSchema.parse(process.env);
-  const destination = options.destination ?? createDestination(options.pretty ?? env.DEBUG);
-  const loggerOptions = createLoggerOptions(options.level ?? env.LOG_LEVEL, options.mode ?? env.MODE);
 
-  return pino(loggerOptions, destination);
-}
-
-function createLoggerOptions(level: LevelWithSilent, mode: ServerMode): LoggerOptions {
-  return {
-    level,
-    base: { service: SERVICE_NAME, mode },
-    redact: {
-      paths: ['authorization', 'Authorization', 'cookie', 'Cookie', 'token', 'jwt', 'password', 'email'],
-      censor: '[Redacted]',
-    },
-  };
-}
-
-function createDestination(pretty: boolean) {
-  if (pretty) {
-    return pino.transport({ target: 'pino-pretty', options: { colorize: true, ignore: 'pid,hostname' } });
-  }
-
-  return pino.destination({ sync: true });
+  return createNodeLogger({
+    service: SERVICE_NAME,
+    mode: options.mode ?? env.MODE,
+    level: options.level ?? env.LOG_LEVEL,
+    pretty: options.pretty ?? env.DEBUG,
+    destination: options.destination,
+  });
 }

@@ -1,17 +1,17 @@
 import { AUTH_SESSION_CONTEXT_KEY, createAuthModule } from '@kamaalio/kamaal-auth-hono';
+import { ErrorResponseSchema, ValidationErrorResponseSchema } from '@tcg/http/error-schemas';
+import type { RequestLogger } from '@tcg/http/logging';
+import { openAPIRouterFactory } from '@tcg/http/open-api';
 import type { Next } from 'hono';
 import { every } from 'hono/combine';
 
 import { BETTER_AUTH_BASE_PATH, JWKS_PATH } from './constants.ts';
 import { type AuthLocals, authHooks, sessionExtras } from './hooks.ts';
 import type { ApplicationConfig } from '../config.ts';
-import { createPreferencesRoutes } from './routes/preferences.ts';
-import type { SessionExtrasSchema } from './schemas/responses.ts';
 import { ONE_DAY_IN_SECONDS } from '../constants/time.ts';
 import type { HonoContext, HonoEnvironment } from '../context.ts';
-import type { RequestLogger } from '../logging/index.ts';
-import { openAPIRouterFactory } from '../open-api.ts';
-import { ErrorResponseSchema, ValidationErrorResponseSchema } from '../schemas/errors.ts';
+import { createPreferencesRoutes } from './routes/preferences.ts';
+import type { SessionExtrasSchema } from './schemas/responses.ts';
 
 const TRUSTED_ORIGINS = ['tcg://'];
 
@@ -31,7 +31,7 @@ export function createApplicationAuthModule(config: ApplicationConfig) {
     HonoEnvironment
   >({
     hooks: authHooks,
-    router: openAPIRouterFactory(),
+    router: openAPIRouterFactory<HonoEnvironment>(),
     config: {
       basePath: BETTER_AUTH_BASE_PATH,
       trustedOrigins: TRUSTED_ORIGINS,

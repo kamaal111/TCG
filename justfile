@@ -221,6 +221,34 @@ unreleased-server-commits *args:
 release-server *args:
     node scripts/release-cli.ts "$@"
 
+# Guide private Devportal setup on the release Mac
+[positional-arguments]
+setup-devportal *args:
+    node devportal/src/setup-cli.ts "$@"
+
+# Run the private Devportal Hono service in the foreground
+devportal:
+    node devportal/src/index.ts
+
+# Install Devportal or update an existing agent from merged main
+[positional-arguments]
+install-devportal-agent *args:
+    node devportal/src/agent.ts install "$@"
+
+# Inspect the private release service
+[positional-arguments]
+devportal-agent-status *args:
+    node devportal/src/agent.ts status "$@"
+
+# Remove the LaunchAgent, preserving private settings and history
+[positional-arguments]
+uninstall-devportal-agent *args:
+    node devportal/src/agent.ts uninstall "$@"
+
+# Regenerate the independent Devportal client contract
+download-devportal-spec:
+    node devportal/src/spec.ts
+
 # Inspect the macOS daily currency job
 currency-schedule-status:
     bash scripts/currency-schedule.sh status
@@ -291,7 +319,8 @@ _check-localizations platform *args:
 
 # Run app tests on macOS
 [working-directory("app")]
-test-app-macos:
+[positional-arguments]
+test-app-macos *args:
     bash ../scripts/run-with-xcbeautify.sh test-app-macos xcodebuild \
         {{ APP_SOURCE_PACKAGES_ARGS }} \
         -project "{{ APP_PROJECT }}" \
@@ -299,11 +328,12 @@ test-app-macos:
         -destination "platform=macOS" \
         test \
         CODE_SIGNING_ALLOWED={{ APP_CODE_SIGNING_ALLOWED }} \
-        SWIFT_EMIT_LOC_STRINGS=YES
+        SWIFT_EMIT_LOC_STRINGS=YES "$@"
 
 # Run app tests on iOS
 [working-directory("app")]
-test-app-ios:
+[positional-arguments]
+test-app-ios *args:
     bash ../scripts/run-with-xcbeautify.sh test-app-ios ../scripts/with-ios-simulator-lock \
         {{ APP_SOURCE_PACKAGES_ARGS }} \
         -project "{{ APP_PROJECT }}" \
@@ -311,7 +341,7 @@ test-app-ios:
         -destination "{{ APP_IOS_TEST_DESTINATION }}" \
         test \
         CODE_SIGNING_ALLOWED={{ APP_CODE_SIGNING_ALLOWED }} \
-        SWIFT_EMIT_LOC_STRINGS=YES
+        SWIFT_EMIT_LOC_STRINGS=YES "$@"
 
 # Run macOS screen snapshot tests
 [working-directory("app")]
@@ -321,6 +351,7 @@ test-snapshots-macos:
         -project "{{ APP_PROJECT }}" \
         -scheme "{{ APP_SCHEME }}" \
         -destination "platform=macOS" \
+        -only-testing:MintomoDevportalTests/MintomoDevportalScreenSnapshotTests \
         -only-testing:TCGCardsTests/ScreenSnapshotSettlingTests \
         -only-testing:TCGCardsTests/TCGCardsListScreenSnapshotTests \
         -only-testing:TCGCardsTests/TCGCollectionsSnapshotTests \
@@ -365,6 +396,7 @@ _snapshots-ios action *args:
     bash ../scripts/run-with-xcbeautify.sh "snapshots-ios-$action" ../scripts/with-ios-simulator-lock \
         "${selection_args[@]}" \
         -destination "{{ APP_IOS_TEST_DESTINATION }}" \
+        -only-testing:MintomoDevportalTests/MintomoDevportalScreenSnapshotTests \
         -only-testing:TCGCardsTests/ScreenSnapshotSettlingTests \
         -only-testing:TCGCardsTests/TCGCardsListScreenSnapshotTests \
         -only-testing:TCGCardsTests/TCGCollectionsSnapshotTests \
@@ -552,8 +584,9 @@ prepare-server: install-js-modules
 install-modules: install-js-modules
 
 # Install js modules
-install-js-modules:
-    {{ PN }} i
+[positional-arguments]
+install-js-modules *args:
+    {{ PN }} i "$@"
 
 # Open project in zed
 zed:

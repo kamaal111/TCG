@@ -1,6 +1,7 @@
+import { SERVER_MODES } from '@tcg/http/common';
 import z from 'zod';
 
-import { PRICING_CLIENT_MODES, SERVER_MODES } from './constants/common.ts';
+import { PRICING_CLIENT_MODES } from './constants/common.ts';
 import { BYTES_PER_MB } from './constants/size.ts';
 import { ONE_HOUR_IN_MS, ONE_MINUTE_IN_MS, ONE_SECOND_IN_MS } from './constants/time.ts';
 import { CurrencySchema } from './forex/currencies.ts';

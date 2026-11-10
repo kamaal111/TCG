@@ -2,10 +2,9 @@ import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
+import { InternalServerError } from '@tcg/http/exceptions';
 import { readMigrationFiles, type MigrationMeta } from 'drizzle-orm/migrator';
 import { z } from 'zod';
-
-import { InternalServerError } from '../exceptions/index.ts';
 
 const MigrationSchema = z.object({
   name: z.string().regex(/^\d{14}_[a-zA-Z0-9_-]+$/),

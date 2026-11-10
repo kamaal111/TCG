@@ -2,10 +2,11 @@ import type { StandardSchemaV1 } from '@standard-schema/spec';
 import { HTTPException } from 'hono/http-exception';
 import { z } from 'zod';
 
-import { CONTENTFUL_STATUS_CODES, type ContentfulStatusCode } from '../constants/http.ts';
-import type { HonoContext } from '../context.ts';
+import { CONTENTFUL_STATUS_CODES, type ContentfulStatusCode } from './status.ts';
 
-export type ExceptionContext = Pick<HonoContext, 'get'>;
+export interface ExceptionContext {
+  get(key: 'requestId'): string;
+}
 
 export class APIException<TContext = unknown> extends HTTPException {
   readonly context?: TContext;
@@ -75,7 +76,7 @@ export class InvalidValidation extends InvalidPayload<{
 }
 
 export class Unauthorized extends APIException {
-  constructor(c: ExceptionContext, options?: { message?: string; code?: string }) {
+  constructor(c: ExceptionContext | undefined, options?: { message?: string; code?: string }) {
     super(c, CONTENTFUL_STATUS_CODES.UNAUTHORIZED, {
       message: options?.message ?? 'Unauthorized',
       code: options?.code ?? 'UNAUTHORIZED',
@@ -133,5 +134,11 @@ export class RequestTimeout extends APIException {
 export class TooManyRequests extends APIException {
   constructor(c: ExceptionContext | undefined, options: { message: string; code: string; headers?: Headers }) {
     super(c, CONTENTFUL_STATUS_CODES.TOO_MANY_REQUESTS, options);
+  }
+}
+
+export class Forbidden extends APIException {
+  constructor() {
+    super(undefined, CONTENTFUL_STATUS_CODES.FORBIDDEN, { message: 'Forbidden', code: 'FORBIDDEN' });
   }
 }

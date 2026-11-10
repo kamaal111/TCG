@@ -1,6 +1,7 @@
+import { NotFound, ServiceUnavailable } from '@tcg/http/exceptions';
+import type { ExceptionContext } from '@tcg/http/exceptions';
+
 import { RETRY_AFTER_SECONDS } from '../constants/time.ts';
-import { NotFound, ServiceUnavailable } from '../exceptions/index.ts';
-import type { ExceptionContext } from '../exceptions/index.ts';
 
 function retryHeaders() {
   return new Headers({ 'Retry-After': String(RETRY_AFTER_SECONDS) });

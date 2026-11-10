@@ -1,9 +1,10 @@
 import crypto from 'node:crypto';
 
+import type { DomainLogger } from '@tcg/http/logging';
+
 import type { ImagesLogFields } from './logging.ts';
 import { CARD_IMAGE_MATERIALIZATION_TRIGGERS, type CardImageMaterializer } from './materializer.ts';
 import type { CardImageRepository, ClaimedCardImageRow } from './repository.ts';
-import type { DomainLogger } from '../logging/index.ts';
 
 // Identifies this process in lease owners so a stuck lease can be traced back to an instance.
 const INSTANCE_ID = crypto.randomUUID();

@@ -1,11 +1,11 @@
 import { createRoute, defineOpenAPIRoute } from '@kamaalio/hono-standard-openapi';
 import type { AuthRouteDeps } from '@kamaalio/kamaal-auth-hono';
+import { ErrorResponseSchema, ValidationErrorResponseSchema } from '@tcg/http/error-schemas';
+import { MIME_TYPES } from '@tcg/http/mime';
+import { CONTENTFUL_STATUS_CODES } from '@tcg/http/status';
 import { every } from 'hono/combine';
 
-import { CONTENTFUL_STATUS_CODES } from '../../constants/http.ts';
-import { MIME_TYPES } from '../../constants/request.ts';
 import type { HonoEnvironment } from '../../context.ts';
-import { ErrorResponseSchema, ValidationErrorResponseSchema } from '../../schemas/errors.ts';
 import { AUTH_OPENAPI_TAG } from '../constants.ts';
 import type { AuthLocals } from '../hooks.ts';
 import { preferencesLogger } from '../logging.ts';

@@ -28,6 +28,13 @@
   "testTargets" : [
     {
       "target" : {
+        "containerPath" : "container:Modules\/MintomoDevportal",
+        "identifier" : "MintomoDevportalTests",
+        "name" : "MintomoDevportalTests"
+      }
+    },
+    {
+      "target" : {
         "containerPath" : "container:Modules\/TCGFeatures",
         "identifier" : "TCGCurrencyTests",
         "name" : "TCGCurrencyTests"

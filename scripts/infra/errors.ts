@@ -1,4 +1,4 @@
-import { InvalidPayload } from '../../server/src/exceptions/index.ts';
+import { InvalidPayload } from '@tcg/http/exceptions';
 
 export class InfraFailure extends InvalidPayload {
   readonly exitCode: number;

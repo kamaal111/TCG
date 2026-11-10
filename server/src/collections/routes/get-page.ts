@@ -1,9 +1,9 @@
 import { createRoute, defineOpenAPIRoute } from '@kamaalio/hono-standard-openapi';
 import { zip } from '@kamaalio/kamaal/arrays';
+import { MIME_TYPES } from '@tcg/http/mime';
+import { CONTENTFUL_STATUS_CODES } from '@tcg/http/status';
 
 import { serializeCardWithPrice } from '../../cards/utils/cards.ts';
-import { CONTENTFUL_STATUS_CODES } from '../../constants/http.ts';
-import { MIME_TYPES } from '../../constants/request.ts';
 import type { HonoEnvironment } from '../../context.ts';
 import { isNonEmpty } from '../../utils/type-utils.ts';
 import type { CollectionRouteDependencies } from '../route-dependencies.ts';

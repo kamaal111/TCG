@@ -1,4 +1,4 @@
-import { InternalServerError } from '../exceptions/index.ts';
+import { InternalServerError } from '@tcg/http/exceptions';
 
 export abstract class ForexError extends InternalServerError {
   abstract readonly reason: string;

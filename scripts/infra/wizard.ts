@@ -3,6 +3,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import net from 'node:net';
 
+import { gitRemoteUrl } from '../git.ts';
 import { ReleaseRepositorySchema } from '../release-metadata.ts';
 import { type ConfigStore, homePath } from './config.ts';
 import type { EnvironmentDocument, TerraformDocument, TerraformValues } from './config.ts';
@@ -619,9 +620,11 @@ export async function runSetup(options: WizardOptions): Promise<void> {
   document = await saveFields(store, document, { TCG_DEPLOY_PUBLIC_KEY: publicKey(deploymentPublicKey) ?? '' });
   await store.saveEnvironment(release, { TCG_DEPLOY_KEY: deploymentKey });
 
-  const remote = childProcess.spawnSync('git', ['remote', 'get-url', 'origin'], {
-    cwd: repositoryRoot,
-    encoding: 'utf8',
+  const remote = gitRemoteUrl((program, args) => {
+    return childProcess.spawnSync(program, args, {
+      cwd: repositoryRoot,
+      encoding: 'utf8',
+    });
   });
 
   const repository = remote.stdout.trim().match(/github\.com[:/]([^/]+\/[^/]+?)(?:\.git)?$/)?.[1];

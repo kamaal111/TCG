@@ -1,8 +1,7 @@
+import { SERVER_MODES } from '@tcg/http/common';
 import { defineConfig } from 'vitest/config';
 
-import { SERVER_MODES } from './src/constants/common.ts';
-
-export const TEST_ENV = {
+const TEST_ENV = {
   DATABASE_URL: 'postgresql://tcg_test:tcg_test@127.0.0.1:1/tcg_test',
   MODE: SERVER_MODES.TEST,
   DEBUG: 'true',

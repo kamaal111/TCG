@@ -98,7 +98,9 @@ process.exit(99);
   return { directory, config, run, state, base, selected, log };
 }
 
-test('inspection works without a terminal or Docker and only requests remote status', async () => {
+// This cold-start check initializes two Git repositories and runs the complete
+// CLI in a child process; use the same budget as the other CLI smoke checks.
+test('inspection works without a terminal or Docker and only requests remote status', { timeout: 10_000 }, async () => {
   const f = await fixture();
   const result = f.run();
   expect(result.status).toBe(0);

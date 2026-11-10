@@ -1,11 +1,12 @@
 import crypto from 'node:crypto';
 
+import type { DomainLogger } from '@tcg/http/logging';
+
 import type { ImagesLogFields } from './logging.ts';
 import type { CardImageOriginClient } from './origin-client.ts';
 import type { CardImageRepository, CardImageRow, ClaimedCardImageRow } from './repository.ts';
 import { CARD_IMAGE_STATUSES } from './types.ts';
 import { DEFAULT_IMAGE_POLICY, type ApplicationConfig } from '../config.ts';
-import type { DomainLogger } from '../logging/index.ts';
 import type { ObjectStorageClient } from '../storage/client.ts';
 
 export interface MaterializedImage {

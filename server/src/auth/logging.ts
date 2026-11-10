@@ -1,6 +1,7 @@
+import { type DomainLogFields, type DomainLogger, getDomainLogger } from '@tcg/http/logging';
+
 import type { HonoContext } from '../context.ts';
 import type { Currency } from '../forex/currencies.ts';
-import { type DomainLogFields, type DomainLogger, getDomainLogger } from '../logging/index.ts';
 
 export const AUTH_PREFERENCES_EVENTS = ['auth.preferences.completed'] as const;
 

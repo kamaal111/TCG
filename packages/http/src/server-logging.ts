@@ -1,4 +1,4 @@
-import { type DomainLogFields, type DomainLogger, getProcessLogger } from './index.ts';
+import { type DomainLogFields, type DomainLogger, getProcessLogger } from './logging.ts';
 
 export const SERVER_EVENTS = [
   'server.started',
@@ -7,7 +7,7 @@ export const SERVER_EVENTS = [
   'server.shutdown.forced',
 ] as const;
 
-export type ServerLogFields = DomainLogFields<(typeof SERVER_EVENTS)[number]> & {
+type ServerLogFields = DomainLogFields<(typeof SERVER_EVENTS)[number]> & {
   port?: number;
   signal?: string;
 };

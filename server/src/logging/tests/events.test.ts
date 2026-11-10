@@ -1,10 +1,11 @@
+import { REQUEST_EVENTS } from '@tcg/http/request-logging';
+import { SERVER_EVENTS } from '@tcg/http/server-logging';
+
 import { AUTH_PREFERENCES_EVENTS } from '../../auth/logging.ts';
 import { IMAGES_EVENTS } from '../../card-images/logging.ts';
 import { PRICING_EVENTS } from '../../card-pricing/logging.ts';
 import { CARDS_EVENTS } from '../../cards/logging.ts';
 import { FOREX_EVENTS } from '../../forex/logging.ts';
-import { REQUEST_EVENTS } from '../request.ts';
-import { SERVER_EVENTS } from '../server.ts';
 
 // <domain>.<action>[.<detail>], lower snake — see server/docs/logging.md
 const EVENT_NAME_PATTERN = /^[a-z]+(?:\.[a-z][a-z_]*)+$/;

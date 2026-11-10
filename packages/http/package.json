@@ -1,0 +1,43 @@
+{
+  "name": "@tcg/http",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./status": "./src/status.ts",
+    "./open-api": "./src/open-api.ts",
+    "./request-logging": "./src/request-logging.ts",
+    "./error-handler": "./src/error-handler.ts",
+    "./progress": "./src/progress.ts",
+    "./exceptions": "./src/exceptions.ts",
+    "./common": "./src/common.ts",
+    "./context": "./src/context.ts",
+    "./error-schemas": "./src/error-schemas.ts",
+    "./mime": "./src/mime.ts",
+    "./logging": "./src/logging.ts",
+    "./logging-middleware": "./src/logging-middleware.ts",
+    "./node-logging": "./src/node-logging.ts",
+    "./server-logging": "./src/server-logging.ts",
+    "./node-server-lifecycle": "./src/node-server-lifecycle.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@hono/structured-logger": "catalog:",
+    "@hono/swagger-ui": "catalog:",
+    "@kamaalio/hono-standard-openapi": "catalog:",
+    "@standard-schema/spec": "catalog:",
+    "hono": "catalog:",
+    "js-yaml": "catalog:",
+    "pino": "catalog:",
+    "pino-pretty": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

@@ -1,6 +1,5 @@
+import { InternalServerError } from '@tcg/http/exceptions';
 import { err, ok, ResultAsync, type Result } from 'neverthrow';
-
-import { InternalServerError } from '../exceptions/index.ts';
 
 export function tryCatch<T>(callback: () => Promise<T>): ResultAsync<T, unknown>;
 export function tryCatch<T>(callback: () => T): Result<T, unknown>;

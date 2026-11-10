@@ -4,7 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import util from 'node:util';
 
-import { commitSummary, selectRelease } from './commits.ts';
+import { commitSummary, pendingCommits, selectRelease } from './commits.ts';
 
 const execute = util.promisify(childProcess.execFile);
 
@@ -102,4 +102,34 @@ test('merge commits and their merged branch commits appear in the comparison', a
   expect(summary).toBe(
     `Commits to release (2):\n${merged.slice(0, 7)} Merge feature\n${feature.slice(0, 7)} Feature change`,
   );
+});
+
+test('structured preview includes all commits and flags divergence using the same history rules', async () => {
+  const f = await fixture();
+  const pending = await pendingCommits(f.command, f.base, f.server, 0);
+  expect(pending.pending).toBe(2);
+  expect(pending.commits.map(commit => commit.sha)).toEqual([f.server, f.app]);
+  expect(pending.blocker).toBeNull();
+  expect((await pendingCommits(f.command, f.server, f.server, 0)).commits).toEqual([]);
+  expect((await pendingCommits(f.command, null, f.server, 0)).pending).toBe(3);
+  expect((await pendingCommits(f.command, f.server, f.app, 0)).blocker).toContain('diverges');
+  await expect(pendingCommits(f.command, 'a'.repeat(40), f.server, 0)).rejects.toThrow('comparison unavailable');
+});
+
+test('structured preview pages without skipping or repeating commits', async () => {
+  const f = await fixture();
+
+  for (let index = 0; index < 51; index += 1) {
+    await f.commit(`Change ${index}`);
+  }
+
+  const selected = await f.git(['rev-parse', 'HEAD']);
+  const first = await pendingCommits(f.command, f.base, selected, 0);
+  const second = await pendingCommits(f.command, f.base, selected, 1);
+  expect(first.pending).toBe(53);
+  expect(first.commits).toHaveLength(50);
+  expect(first.nextPage).toBe(1);
+  expect(second.commits).toHaveLength(3);
+  expect(second.nextPage).toBeNull();
+  expect(new Set([...first.commits, ...second.commits].map(commit => commit.sha)).size).toBe(53);
 });

@@ -1,3 +1,4 @@
+import { CONTENTFUL_STATUS_CODES } from '@tcg/http/status';
 import { eq } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { Client } from 'pg';
@@ -6,7 +7,6 @@ import { createCardRequest, validCardPayload, createTestCard } from './utils.ts'
 import { StaticScrydexClient } from '../../card-pricing/scrydex/static-client.ts';
 import { todayUTC } from '../../card-pricing/utils/query.ts';
 import { CollectionSchema } from '../../collections/schemas/responses.ts';
-import { CONTENTFUL_STATUS_CODES } from '../../constants/http.ts';
 import { card } from '../../db/schema/cards.ts';
 import { appRelations } from '../../db/schema/index.ts';
 import { expectErrorResponse } from '../../tests/auth.ts';

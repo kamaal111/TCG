@@ -20,6 +20,20 @@
                ReferencedContainer = "container:TCG.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
+         <BuildActionEntry
+            buildForTesting = "YES"
+            buildForRunning = "NO"
+            buildForProfiling = "NO"
+            buildForArchiving = "NO"
+            buildForAnalyzing = "YES">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "D00000000000000000000013"
+               BuildableName = "Mintomo Devportal.app"
+               BlueprintName = "MintomoDevportal"
+               ReferencedContainer = "container:TCG.xcodeproj">
+            </BuildableReference>
+         </BuildActionEntry>
       </BuildActionEntries>
    </BuildAction>
    <TestAction

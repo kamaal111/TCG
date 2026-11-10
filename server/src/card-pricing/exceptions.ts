@@ -1,6 +1,7 @@
-import { CONTENTFUL_STATUS_CODES } from '../constants/http.ts';
+import { APIException, InternalServerError, type ExceptionContext } from '@tcg/http/exceptions';
+import { CONTENTFUL_STATUS_CODES } from '@tcg/http/status';
+
 import { RETRY_AFTER_SECONDS } from '../constants/time.ts';
-import { APIException, InternalServerError, type ExceptionContext } from '../exceptions/index.ts';
 
 type CardPricingExceptionCode = (typeof CARD_PRICING_EXCEPTION_CODES)[keyof typeof CARD_PRICING_EXCEPTION_CODES];
 

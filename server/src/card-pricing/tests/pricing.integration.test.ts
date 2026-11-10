@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 
+import { CONTENTFUL_STATUS_CODES } from '@tcg/http/status';
 import { and, eq } from 'drizzle-orm';
 import { err } from 'neverthrow';
 import { Client } from 'pg';
@@ -7,7 +8,6 @@ import { Client } from 'pg';
 import { imageKeyForOriginURL } from '../../card-images/keys.ts';
 import { LIST_CARDS_ROUTE_PATH } from '../../cards/routes/list-cards.ts';
 import { createCardRequest } from '../../cards/tests/utils.ts';
-import { CONTENTFUL_STATUS_CODES } from '../../constants/http.ts';
 import { cardImage } from '../../db/schema/card-images.ts';
 import { cardPrice } from '../../db/schema/card-pricing.ts';
 import { createNodeApplication } from '../../runtime/node/app.ts';

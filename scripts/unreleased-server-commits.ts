@@ -4,6 +4,7 @@ import path from 'node:path';
 import url from 'node:url';
 import util from 'node:util';
 
+import { gitFetch, gitRevision } from './git.ts';
 import { homePath } from './infra/config.ts';
 import { InfraFailure } from './infra/errors.ts';
 import { commitSummary, selectRelease } from './release/commits.ts';
@@ -46,8 +47,8 @@ async function main(): Promise<void> {
     return result.stdout.trim();
   };
 
-  await command('git', ['fetch', 'origin', 'main']);
-  const main = ShaSchema.parse(await command('git', ['rev-parse', '--verify', 'origin/main^{commit}']));
+  await gitFetch(command);
+  const main = ShaSchema.parse(await gitRevision(command, 'origin/main'));
   const selected = await selectRelease(command, options.positionals[0] ?? 'origin/main', main);
 
   const host = HostSchema.parse(

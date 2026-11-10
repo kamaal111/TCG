@@ -1,4 +1,7 @@
 import { type ServerType, serve } from '@hono/node-server';
+import { InternalServerError } from '@tcg/http/exceptions';
+import { registerNodeServerShutdown } from '@tcg/http/node-server-lifecycle';
+import { serverLogger } from '@tcg/http/server-logging';
 import type { Hono } from 'hono';
 import { showRoutes } from 'hono/dev';
 
@@ -9,18 +12,13 @@ import { CardImageMaterializer } from '../../card-images/materializer.ts';
 import { HttpCardImageOriginClient } from '../../card-images/origin-client.ts';
 import { createPricingClient } from '../../card-pricing/scrydex/factory.ts';
 import { ApplicationConfigSchema } from '../../config.ts';
-import { ONE_SECOND_IN_MS } from '../../constants/time.ts';
 import type { HonoEnvironment, InjectedContext } from '../../context.ts';
 import { createDatabase, type Database } from '../../db/index.ts';
 import env from '../../env.ts';
-import { InternalServerError } from '../../exceptions/index.ts';
 import { EcbForexClient } from '../../forex/client.ts';
-import { serverLogger } from '../../logging/server.ts';
 import { createAuth } from '../../persistence/postgres/auth-client.ts';
 import { createPostgresPersistence } from '../../persistence/postgres/index.ts';
 import { createConfiguredObjectStorage } from '../../storage/config.ts';
-
-const SIGNALS_TO_TERMINATE_ON: NodeJS.Signals[] = ['SIGINT', 'SIGTERM'];
 
 type AppOverrides = Partial<Omit<InjectedContext, 'persistence' | 'auth' | 'cardImageWarmer'>> & {
   db?: Database;
@@ -54,7 +52,11 @@ class NodeApp {
   serve = () => {
     assertObjectStorageIsConfigured();
     this.start();
-    this.cleanupUnShotdown();
+    registerNodeServerShutdown({
+      server: () => this.server,
+      stop: () => this.lifecycle?.stop(),
+      dispose: this.close,
+    });
   };
 
   private start = () => {
@@ -72,36 +74,6 @@ class NodeApp {
     this.server = serve({ fetch: app.fetch, port: env.PORT }, info => {
       serverLogger().info({ event: 'server.started', port: info.port, outcome: 'success' }, 'Started the HTTP server.');
     });
-  };
-
-  private cleanupUnShotdown = () => {
-    const server = this.server;
-
-    if (server == null) {
-      return;
-    }
-
-    for (const signal of SIGNALS_TO_TERMINATE_ON) {
-      process.on(signal, () => {
-        this.lifecycle?.stop();
-        const logger = serverLogger();
-        logger.info({ event: 'server.shutdown.started', signal, outcome: 'success' }, 'Shutting the HTTP server down.');
-
-        server.close(async () => {
-          await this.close();
-          logger.info({ event: 'server.shutdown.completed', outcome: 'success' }, 'Shut the HTTP server down.');
-          process.exit(0);
-        });
-
-        setTimeout(() => {
-          logger.warn(
-            { event: 'server.shutdown.forced', outcome: 'failure', error_code: 'SHUTDOWN_TIMEOUT' },
-            'Forced the HTTP server down after it did not close in time.',
-          );
-          process.exit(1);
-        }, 10 * ONE_SECOND_IN_MS);
-      });
-    }
   };
 }
 

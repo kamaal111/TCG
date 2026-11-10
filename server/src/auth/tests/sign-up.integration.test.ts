@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
 
+import { MIME_TYPES } from '@tcg/http/mime';
+import { CONTENTFUL_STATUS_CODES } from '@tcg/http/status';
 import type { Hono } from 'hono';
 import { decodeJwt } from 'jose';
 
-import { CONTENTFUL_STATUS_CODES } from '../../constants/http.ts';
-import { MIME_TYPES } from '../../constants/request.ts';
 import { ONE_DAY_IN_SECONDS } from '../../constants/time.ts';
 import type { HonoEnvironment } from '../../context.ts';
 import env from '../../env.ts';

@@ -23,6 +23,7 @@
     "@kamaalio/kamaal": "catalog:",
     "@kamaalio/kamaal-auth-core": "catalog:",
     "@kamaalio/kamaal-auth-hono": "catalog:",
+    "@tcg/http": "workspace:*",
     "better-auth": "catalog:",
     "drizzle-orm": "catalog:",
     "hono": "catalog:",

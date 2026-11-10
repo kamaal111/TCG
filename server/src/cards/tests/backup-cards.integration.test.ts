@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
 
+import { CONTENTFUL_STATUS_CODES } from '@tcg/http/status';
 import { eq, sql } from 'drizzle-orm';
 
 import { createCardRequest } from './utils.ts';
 import { createTestScrydexClient } from '../../card-pricing/tests/utils.ts';
-import { CONTENTFUL_STATUS_CODES } from '../../constants/http.ts';
 import { card, cardPurchaseBatch } from '../../db/schema/cards.ts';
 import { sessionHeaders } from '../../tests/auth.ts';
 import { integrationTest } from '../../tests/fixtures.ts';

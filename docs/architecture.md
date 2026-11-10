@@ -17,7 +17,7 @@
 | `server/src/card-pricing/`            | Search, provider normalization, daily caches, and owned-card matching              |
 | `server/src/card-images/`, `storage/` | Image registration, durable worker queue, proxy, and S3 access                     |
 | `server/src/db/`, `server/drizzle/`   | Drizzle schemas/database connection and committed migrations                       |
-| `server/src/logging/`, `exceptions/`  | Request/domain logging and error response handling                                 |
+| `packages/http/`, domain `logging.ts` | Request/domain logging and error response handling                                 |
 | `server/src/tests/`                   | Integration fixtures and Testcontainers setup                                      |
 | `scripts/`                            | Worktree/version tooling and simulator lock                                        |
 | `.github/`, `.devcontainer/`          | CI and containerized development                                                   |
@@ -151,7 +151,7 @@ PostgreSQL implements these using its transactions and locks. Request logging
 remains outside those implementations.
 
 All application-defined error classes inherit from the shared exception hierarchy
-in `server/src/exceptions/index.ts`. Add missing status bases there instead of
+in `packages/http/src/exceptions.ts`. Add missing status bases there instead of
 extending `Error` or constructing generic errors in production code. Repositories
 can construct these exceptions without HTTP context; the HTTP handler attaches
 the current request ID. Every such exception already defines its safe response,

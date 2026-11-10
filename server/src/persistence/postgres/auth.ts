@@ -1,9 +1,9 @@
+import { InternalServerError } from '@tcg/http/exceptions';
 import { eq } from 'drizzle-orm';
 
 import type { UserPreferencesRepository } from '../../auth/repository.ts';
 import type { Database } from '../../db/index.ts';
 import { userPreferences } from '../../db/schema/forex.ts';
-import { InternalServerError } from '../../exceptions/index.ts';
 import type { Currency } from '../../forex/currencies.ts';
 import type { AuthenticatedIdentity } from '../contracts.ts';
 
