@@ -37,7 +37,8 @@ public func assertScreenSnapshot<Screen: View>(
         #if os(macOS)
             assertSnapshot(
                 of: makeMacOSScreen(screen: screen(), scheme: scheme),
-                as: .image,
+                // Small AppKit rendering differences across macOS releases affect controls and artwork.
+                as: .image(precision: 0.999),
                 named: "\(scheme)",
                 fileID: fileID,
                 file: filePath,

@@ -20,7 +20,7 @@ let package = Package(
         .package(url: "https://github.com/apple/swift-http-types", .upToNextMajor(from: "1.8.0")),
         .package(url: "https://github.com/apple/swift-openapi-runtime", .upToNextMajor(from: "1.13.0")),
         .package(url: "https://github.com/pointfreeco/swift-snapshot-testing", .upToNextMajor(from: "1.19.6")),
-        .package(url: "https://github.com/Kamaalio/kamaal-auth", .upToNextMinor(from: "0.0.15")),
+        .package(url: "https://github.com/Kamaalio/kamaal-auth", .upToNextMinor(from: "0.1.1")),
         .package(path: "../TCGClient"),
         .package(path: "../TCGDesignSystem"),
         .package(path: "../TCGModels"),
