@@ -369,7 +369,7 @@ xcuserdata/
 # Snapshot mismatch artifacts from local and CI test runs
 .snapshot-failures/
 
-# Native Git worktrees managed by just create-worktree
+# Git worktrees managed by namu
 /.agents/worktrees/
 
 # Infrastructure state, review plans, credentials, and private environment inputs
