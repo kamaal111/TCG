@@ -6,6 +6,8 @@
     <string>$(APP_DISPLAY_NAME)</string>
     <key>CFBundleName</key>
     <string>$(APP_DISPLAY_NAME)</string>
+    <key>ITSAppUsesNonExemptEncryption</key>
+    <false/>
     <key>TCGAPIBaseURL</key>
     <string>$(TCG_API_SCHEME)://$(TCG_API_HOST)</string>
     <key>TCGAPIEnvironment</key>
