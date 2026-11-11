@@ -280,8 +280,7 @@ devcontainer-ready: (devcontainer-exec "just quality") devcontainer-test
 heavy: quality test-heavy
 
 # Run all verification checks for app
-[parallel]
-ready-app: quality-app test-app test-scripts
+ready-app: quality-app test-scripts test-app
 
 # Run all verification checks for server
 [parallel]

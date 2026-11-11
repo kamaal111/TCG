@@ -542,23 +542,48 @@ struct TCGAuthClientTests {
         #expect(credentialsStore.deletedKeys.isEmpty)
     }
 
-    /// Clearing expired credentials is cleanup. If it fails the request still goes out unauthenticated, which the
-    /// server answers with a 401 rather than the client inventing an error.
     @Test
-    func `Should proceed unauthenticated when clearing expired credentials fails`() async throws {
+    func `Should proceed unauthenticated when clearing expired session credentials fails`() async throws {
         let credentialsStore = try CredentialsStoreSpy(
-            initialData: JSONEncoder().encode(makeCredentials(expiryDate: .distantPast)),
+            initialData: JSONEncoder()
+                .encode(makeCredentials(expiryDate: .distantFuture, sessionExpiryDate: .distantPast)),
             throwsOnDelete: true
         )
+        let transport = RequestTransport.unauthorized()
         let client = TCGClient.default(
-            transport: RequestTransport.sessionSuccess(),
+            transport: transport,
             credentialsKeychainKey: "credentials-key",
             credentialsStore: credentialsStore
         )
 
-        let session = try (await client.auth.session()).get()
+        let result = await client.auth.session()
 
-        #expect(session.email == "jane@example.com")
+        #expect(throws: SessionErrors.unauthorized) { try result.get() }
+        let request = try #require(await transport.request)
+        #expect(request.path == "/app-api/auth/session")
+        #expect(request.authorization == nil)
+    }
+
+    @Test
+    func `Should preserve a live session when refreshing an expired JWT fails`() async throws {
+        let credentialsStore = try CredentialsStoreSpy(
+            initialData: JSONEncoder()
+                .encode(makeCredentials(expiryDate: .distantPast, sessionExpiryDate: .distantFuture))
+        )
+        let transport = RequestTransport.serverError()
+        let client = TCGClient.default(
+            transport: transport,
+            credentialsKeychainKey: "credentials-key",
+            credentialsStore: credentialsStore
+        )
+
+        let result = await client.auth.session()
+
+        #expect(throws: SessionErrors.unknown(status: 503, payload: nil, cause: nil)) { try result.get() }
+        try await assertRefreshTokenRequest(in: transport)
+        #expect(await transport.requests.count == 1)
+        #expect(credentialsStore.deletedKeys.isEmpty)
+        #expect(credentialsStore.storedCredentialsData != nil)
     }
 
     @Test

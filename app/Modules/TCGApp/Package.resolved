@@ -1,5 +1,5 @@
 {
-  "originHash" : "6d8687f2ffe026a4776d39fb1b73edf33ed4721d29d552af4222792a9ab2595e",
+  "originHash" : "00c00b06dc5c6617490e49181c08348c4519c74578c774dda5c831df61b08517",
   "pins" : [
     {
       "identity" : "confettiswiftui",
@@ -15,8 +15,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/Kamaalio/kamaal-auth",
       "state" : {
-        "revision" : "b4ec6d0e063576336b2db5067a6d17a530a64d86",
-        "version" : "0.0.15"
+        "revision" : "f44990765f2d4314b8a057f110a079299c568ec3",
+        "version" : "0.1.1"
       }
     },
     {
