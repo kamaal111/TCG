@@ -1,6 +1,6 @@
 # TCG app
 
-[Back to README](../README.md)
+[Back to README](../README.md) · [Release iOS and macOS](release.md)
 
 The native app uses SwiftUI, Observation, and local Swift packages. The app target
 currently declares iOS 18.6 and macOS 27 minimums, while the reusable packages declare iOS 18 and

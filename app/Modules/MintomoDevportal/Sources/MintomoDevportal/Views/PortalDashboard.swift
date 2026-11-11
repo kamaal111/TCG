@@ -5,6 +5,19 @@ struct PortalDashboard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
+            Picker(
+                selection: Binding(
+                    get: { model.destination },
+                    set: { destination in Task { await model.select(destination) } }
+                )
+            ) {
+                ForEach(PortalDestination.allCases) { destination in
+                    Text(destination.title).tag(destination)
+                }
+            } label: {
+                Text("Release destination", bundle: .module)
+            }
+            .disabled(model.isWorking)
             if let error = model.error {
                 Label(error, systemImage: "exclamationmark.triangle")
                     .foregroundStyle(.orange)
@@ -13,9 +26,15 @@ struct PortalDashboard: View {
                 VStack(alignment: .leading, spacing: 16) {
                     if let server = model.server {
                         LabeledContent {
-                            Text(verbatim: String(server.host?.revision?.prefix(7) ?? "—"))
+                            Text(
+                                verbatim: String((model.appStatus?.uploaded ?? server.host?.revision)?.prefix(7) ?? "—")
+                            )
                         } label: {
-                            Text("Running", bundle: .module)
+                            if model.destination == .server {
+                                Text("Running", bundle: .module)
+                            } else {
+                                Text("Last uploaded", bundle: .module)
+                            }
                         }
                         LabeledContent {
                             Text(verbatim: String(server.main.prefix(7)))
@@ -38,14 +57,14 @@ struct PortalDashboard: View {
                         }
                         if let blocker = server.blocker { Text(verbatim: blocker).foregroundStyle(.secondary) }
                     } else {
-                        Text("Loading server status…", bundle: .module)
+                        Text("Loading release status…", bundle: .module)
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(8)
             } label: {
                 Label {
-                    Text("Server release", bundle: .module)
+                    Text(model.destination.title)
                 } icon: {
                     Image(systemName: "shippingbox")
                 }

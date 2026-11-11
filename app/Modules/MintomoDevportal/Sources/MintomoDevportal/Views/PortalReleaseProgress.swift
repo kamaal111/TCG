@@ -4,17 +4,26 @@ struct PortalReleaseProgress: View {
     let release: PortalRelease
     let model: PortalModel
 
+    private var stages: [PortalStage] {
+        if release.target == .ios || release.target == .macos { return [.checks, .archive, .upload] }
+        return [.build, .migrations, .deploy, .verify]
+    }
+
     var body: some View {
         GroupBox {
             VStack(alignment: .leading, spacing: 16) {
                 Text(verbatim: String(release.sha.prefix(12)))
                     .font(.system(.body, design: .monospaced))
-                ForEach([PortalStage.build, .migrations, .deploy, .verify], id: \.self) { stage in
+                ForEach(stages, id: \.self) { stage in
                     PortalReleaseStageRow(stage: stage, release: release)
                 }
                 if release.state == .succeeded {
                     Label {
-                        Text("Release checks passed", bundle: .module)
+                        if release.target == .ios || release.target == .macos {
+                            Text("Uploaded to App Store Connect; processing pending", bundle: .module)
+                        } else {
+                            Text("Release checks passed", bundle: .module)
+                        }
                     } icon: {
                         Image(systemName: "checkmark.circle.fill")
                     }

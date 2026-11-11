@@ -170,6 +170,54 @@ struct PortalClientTests {
         #expect(throws: PortalClientError.unknown(status: 503, payload: nil, cause: nil)) { try result.get() }
     }
 
+    @Test func `Loads the selected app platform review`() async throws {
+        let status = try PortalFixtures.app(platform: "macos")
+        let transport = PortalTransport(status: 200, data: try JSONEncoder().encode(status))
+        let client = try makeClient(transport: transport)
+        let result = try await client.app(platform: .macos, page: 0)
+            .get()
+        #expect(result.platform == .macos)
+        #expect(await transport.path == "/v1/apps/macos?page=0")
+    }
+
+    @Test func `Sends the app platform and stable release request ID`() async throws {
+        let release = try PortalFixtures.appRelease()
+        let transport = PortalTransport(status: 202, data: try JSONEncoder().encode(release))
+        let client = try makeClient(transport: transport)
+        let result = try await client.startApp(
+            platform: .ios,
+            sha: release.sha,
+            fingerprint: release.fingerprint,
+            requestID: release.requestId
+        )
+        .get()
+        #expect(result.target == .ios)
+        #expect(await transport.path == "/v1/app-releases")
+        let body = try #require(await transport.body)
+        let input = try JSONDecoder().decode(Components.Schemas.StartAppRelease.self, from: body)
+        #expect(input.platform == .ios)
+        #expect(input.requestId == release.requestId)
+    }
+
+    @Test(arguments: PortalClientTests.failures)
+    func `Maps app review failures to custom errors`(status: Int, expected: PortalClientError) async throws {
+        let client = try makeClient(transport: failureTransport(status: status))
+        let result = await client.app(platform: .ios, page: 0)
+        #expect(throws: expected) { try result.get() }
+    }
+
+    @Test(arguments: PortalClientTests.failures)
+    func `Maps app release start failures to custom errors`(status: Int, expected: PortalClientError) async throws {
+        let client = try makeClient(transport: failureTransport(status: status))
+        let result = await client.startApp(
+            platform: .macos,
+            sha: "reviewed-sha",
+            fingerprint: "reviewed-settings",
+            requestID: UUID().uuidString
+        )
+        #expect(throws: expected) { try result.get() }
+    }
+
     private func makeClient(transport: PortalTransport) throws -> PortalClientImpl {
         try PortalClientImpl.connect(url: #require(URL(string: "https://mini.example.ts.net")), transport: transport)
             .get()

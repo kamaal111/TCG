@@ -2,7 +2,9 @@ import z from 'zod';
 
 import { HostSchema, ShaSchema } from '../../scripts/release/contracts.ts';
 
-const StageSchema = z.enum(['build', 'migrations', 'deploy', 'verify']).meta({ $id: 'PortalStage' });
+const StageSchema = z
+  .enum(['build', 'migrations', 'deploy', 'verify', 'checks', 'archive', 'upload'])
+  .meta({ $id: 'PortalStage' });
 
 export const StartSchema = z
   .strictObject({
@@ -18,7 +20,17 @@ export const DecisionSchema = z
 
 const ApprovalSchema = z.object({
   id: z.uuid(),
-  kind: z.enum(['migrations', 'deploy']),
+  kind: z.enum(['migrations', 'deploy', 'provision', 'upload']),
+  appReview: z
+    .object({
+      platform: z.enum(['ios', 'macos']),
+      sha: ShaSchema,
+      version: z.string(),
+      teamID: z.string(),
+      apiHost: z.string(),
+      fingerprint: z.string(),
+    })
+    .optional(),
   review: z
     .object({
       target: z.string(),
@@ -34,6 +46,7 @@ const ApprovalSchema = z.object({
 export const ReleaseSchema = z
   .object({
     id: z.uuid(),
+    target: z.enum(['server', 'ios', 'macos']).default('server'),
     sha: ShaSchema,
     fingerprint: z.string(),
     requestId: z.uuid(),
@@ -73,3 +86,20 @@ export type ServerStatus = z.infer<typeof ServerSchema>;
 export type Start = z.infer<typeof StartSchema>;
 
 export type Decision = z.infer<typeof DecisionSchema>;
+
+export const AppStartSchema = StartSchema.extend({ platform: z.enum(['ios', 'macos']) }).meta({
+  $id: 'StartAppRelease',
+});
+
+export const AppStatusSchema = ServerSchema.extend({
+  platform: z.enum(['ios', 'macos']),
+  fingerprint: z.string().nullable(),
+  version: z.string(),
+  teamID: z.string().nullable(),
+  apiHost: z.string().nullable(),
+  uploaded: ShaSchema.nullable(),
+}).meta({ $id: 'PortalApp' });
+
+export type AppStatus = z.infer<typeof AppStatusSchema>;
+
+export type AppStart = z.infer<typeof AppStartSchema>;

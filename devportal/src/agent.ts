@@ -7,7 +7,7 @@ import { AGENT_USAGE, parseAgentArguments } from './cli.ts';
 import { portalCommands } from './commands.ts';
 import { installDevportalAgent } from './install.ts';
 import { InfraFailure } from '../../scripts/infra/errors.ts';
-import { acquireReleaseLock } from '../../scripts/release/lock.ts';
+import { acquireAllReleaseLocks } from '../../scripts/release/lock.ts';
 
 async function main(): Promise<void> {
   const options = parseAgentArguments();
@@ -33,7 +33,7 @@ async function main(): Promise<void> {
       stop: () => manageAgent('stop', configDirectory),
     });
   } else if (action === 'uninstall') {
-    const unlock = await acquireReleaseLock(configDirectory);
+    const unlock = await acquireAllReleaseLocks(configDirectory);
 
     try {
       await manageAgent(action, configDirectory);

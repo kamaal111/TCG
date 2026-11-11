@@ -5,6 +5,8 @@ import Observation
 @Observable
 final class PortalModel {
     @ObservationIgnored private let client: any PortalClient
+    private(set) var destination: PortalDestination = .server
+    private(set) var appStatus: PortalApp?
     private(set) var server: PortalServer?
     private(set) var release: PortalRelease?
     private(set) var error: String?
@@ -29,19 +31,47 @@ final class PortalModel {
 
     var canStart: Bool {
         guard let server else { return false }
-        return reviewAvailable && (server.pending > 0 || canRetry) && server.blocker == nil
+        return reviewAvailable && (destination != .server || server.pending > 0 || canRetry) && server.blocker == nil
             && server.activeRelease == nil
             && !isActive && !isWorking
     }
 
+    func select(_ destination: PortalDestination) async {
+        self.destination = destination
+        server = nil
+        appStatus = nil
+        release = nil
+        startRequest = nil
+        decisionRequest = nil
+        reviewAvailable = false
+        await refresh()
+    }
+
     func refresh() async {
-        switch await client.server(page: 0) {
-        case .failure(let failure):
-            reviewAvailable = false
-            record(failure)
-            return
-        case .success(let status):
-            server = status
+        let selected = destination
+        if let platform = selected.appPlatform {
+            let result = await client.app(platform: platform, page: 0)
+            guard selected == destination else { return }
+            switch result {
+            case .failure(let failure):
+                reviewAvailable = false
+                record(failure)
+                return
+            case .success(let status):
+                appStatus = status
+                server = serverSnapshot(status)
+            }
+        } else {
+            let result = await client.server(page: 0)
+            guard selected == destination else { return }
+            switch result {
+            case .failure(let failure):
+                reviewAvailable = false
+                record(failure)
+                return
+            case .success(let status):
+                server = status
+            }
         }
         reviewAvailable = true
         if let id = server?.activeRelease ?? server?.latestRelease {
@@ -55,7 +85,31 @@ final class PortalModel {
 
     func more() async {
         guard let page = server?.nextPage else { return }
-        switch await client.server(page: page) {
+        let selected = destination
+        if let platform = selected.appPlatform {
+            let result = await client.app(platform: platform, page: page)
+            guard selected == destination else { return }
+            switch result {
+            case .failure(let failure): record(failure)
+            case .success(let status):
+                guard status.main == server?.main else {
+                    await refresh()
+                    return
+                }
+                guard status.fingerprint == appStatus?.fingerprint else {
+                    await refresh()
+                    return
+                }
+                guard var current = server else { return }
+                current.commits += serverSnapshot(status).commits
+                current.nextPage = status.nextPage
+                server = current
+            }
+            return
+        }
+        let result = await client.server(page: page)
+        guard selected == destination else { return }
+        switch result {
         case .failure(let failure): record(failure)
         case .success(let next):
             guard let current = server else { return }
@@ -77,7 +131,7 @@ final class PortalModel {
     func start() async {
         guard canStart else { return }
         guard let server else { return }
-        guard let fingerprint = server.host?.fingerprint else { return }
+        guard let fingerprint = appStatus?.fingerprint ?? server.host?.fingerprint else { return }
         isWorking = true
         defer { isWorking = false }
         let request: StartRequest
@@ -87,7 +141,20 @@ final class PortalModel {
             request = StartRequest(sha: server.main, fingerprint: fingerprint, id: UUID().uuidString)
             startRequest = request
         }
-        switch await client.start(sha: request.sha, fingerprint: request.fingerprint, requestID: request.id) {
+        let selected = destination
+        let result: Result<PortalRelease, PortalClientError>
+        if let platform = selected.appPlatform {
+            result = await client.startApp(
+                platform: platform,
+                sha: request.sha,
+                fingerprint: request.fingerprint,
+                requestID: request.id
+            )
+        } else {
+            result = await client.start(sha: request.sha, fingerprint: request.fingerprint, requestID: request.id)
+        }
+        guard selected == destination else { return }
+        switch result {
         case .failure(let failure): record(failure)
         case .success(let started):
             release = started
@@ -114,7 +181,10 @@ final class PortalModel {
             )
             decisionRequest = request
         }
-        switch await client.decide(request) {
+        let selected = destination
+        let result = await client.decide(request)
+        guard selected == destination else { return }
+        switch result {
         case .failure(let failure): record(failure)
         case .success(let updated):
             self.release = updated
@@ -126,7 +196,10 @@ final class PortalModel {
     func poll() async {
         guard let release else { return }
         guard isActive else { return }
-        switch await client.release(id: release.id) {
+        let selected = destination
+        let result = await client.release(id: release.id)
+        guard selected == destination else { return }
+        switch result {
         case .failure(let failure): record(failure)
         case .success(let updated):
             self.release = updated
@@ -136,12 +209,29 @@ final class PortalModel {
     }
 
     private func loadRelease(id: String) async {
-        switch await client.release(id: id) {
+        let selected = destination
+        let result = await client.release(id: id)
+        guard selected == destination else { return }
+        switch result {
         case .failure(let failure): record(failure)
         case .success(let loaded):
             release = loaded
             error = nil
         }
+    }
+
+    private func serverSnapshot(_ status: PortalApp) -> PortalServer {
+        .init(
+            target: status.target,
+            main: status.main,
+            host: nil,
+            pending: status.pending,
+            commits: status.commits.map { .init(sha: $0.sha, subject: $0.subject, author: $0.author, date: $0.date) },
+            nextPage: status.nextPage,
+            blocker: status.blocker,
+            activeRelease: status.activeRelease,
+            latestRelease: status.latestRelease
+        )
     }
 
     private func record(_ failure: PortalClientError) {

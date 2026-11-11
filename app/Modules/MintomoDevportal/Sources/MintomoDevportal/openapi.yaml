@@ -5,6 +5,133 @@ info:
 servers:
   - url: https://devportal.example.ts.net
 paths:
+  /v1/apps/{platform}:
+    get:
+      operationId: getApp
+      parameters:
+        - schema:
+            type: string
+            enum:
+              - ios
+              - macos
+          required: true
+          name: platform
+          in: path
+        - schema:
+            type: integer
+            minimum: 0
+            maximum: 100000
+            default: 0
+          required: false
+          name: page
+          in: query
+      responses:
+        '200':
+          description: App release review
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PortalApp'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Tailscale identity required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Operator not allowed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Refresh required or release busy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '413':
+          description: Request too large
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Inspection unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /v1/app-releases:
+    post:
+      operationId: startAppRelease
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StartAppRelease'
+      responses:
+        '202':
+          description: App release accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PortalRelease'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Tailscale identity required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Operator not allowed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Refresh required or release busy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '413':
+          description: Request too large
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Inspection unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /v1/server:
     get:
       operationId: getServer
@@ -256,6 +383,353 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
 components:
   schemas:
+    PortalApp:
+      type: object
+      properties:
+        target:
+          type: string
+        main:
+          type: string
+          pattern: ^[a-f0-9]{40}$
+        host:
+          type:
+            - 'null'
+            - object
+          properties:
+            protocol:
+              type: number
+              enum:
+                - 1
+            busy:
+              type: boolean
+            hostname:
+              anyOf:
+                - type: string
+                  enum:
+                    - ''
+                - type: string
+                  format: hostname
+            repository:
+              type: string
+              pattern: ^ghcr\.io\/[a-z0-9._-]+\/[a-z0-9._-]+$
+            runtime:
+              type:
+                - 'null'
+                - string
+              pattern: ^ghcr\.io\/[a-z0-9_.-]+\/[a-z0-9_.-]+@sha256:[a-f0-9]{64}$
+            revision:
+              type:
+                - 'null'
+                - string
+              pattern: ^[a-f0-9]{40}$
+            operationsRevision:
+              anyOf:
+                - type: string
+                  enum:
+                    - ''
+                - type: string
+                  pattern: ^[a-f0-9]{40}$
+            fingerprint:
+              type: string
+              pattern: ^[a-f0-9]{64}$
+          required:
+            - protocol
+            - busy
+            - hostname
+            - repository
+            - runtime
+            - revision
+            - operationsRevision
+            - fingerprint
+        pending:
+          type: integer
+          minimum: 0
+          maximum: 9007199254740991
+        commits:
+          type: array
+          items:
+            type: object
+            properties:
+              sha:
+                type: string
+                pattern: ^[a-f0-9]{40}$
+              subject:
+                type: string
+              author:
+                type: string
+              date:
+                type: string
+            required:
+              - sha
+              - subject
+              - author
+              - date
+        nextPage:
+          type:
+            - 'null'
+            - integer
+          minimum: -9007199254740991
+          maximum: 9007199254740991
+        blocker:
+          type:
+            - string
+            - 'null'
+        activeRelease:
+          type:
+            - 'null'
+            - string
+          format: uuid
+        latestRelease:
+          type:
+            - 'null'
+            - string
+          format: uuid
+        platform:
+          type: string
+          enum:
+            - ios
+            - macos
+        fingerprint:
+          type:
+            - string
+            - 'null'
+        version:
+          type: string
+        teamID:
+          type:
+            - string
+            - 'null'
+        apiHost:
+          type:
+            - string
+            - 'null'
+        uploaded:
+          type:
+            - 'null'
+            - string
+          pattern: ^[a-f0-9]{40}$
+      required:
+        - target
+        - main
+        - host
+        - pending
+        - commits
+        - nextPage
+        - blocker
+        - activeRelease
+        - latestRelease
+        - platform
+        - fingerprint
+        - version
+        - teamID
+        - apiHost
+        - uploaded
+    ErrorResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          description: Error message
+        code:
+          type: string
+          description: Error code
+      required:
+        - message
+      title: Error Response
+      description: Error response containing error message and optional error code
+    PortalRelease:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        target:
+          type: string
+          enum:
+            - server
+            - ios
+            - macos
+          default: server
+        sha:
+          type: string
+          pattern: ^[a-f0-9]{40}$
+        fingerprint:
+          type: string
+        requestId:
+          type: string
+          format: uuid
+        operator:
+          type: string
+        createdAt:
+          type: string
+        state:
+          type: string
+          enum:
+            - running
+            - approval
+            - succeeded
+            - failed
+            - interrupted
+        stage:
+          $ref: '#/components/schemas/PortalStage'
+        approval:
+          type:
+            - 'null'
+            - object
+          properties:
+            id:
+              type: string
+              format: uuid
+            kind:
+              type: string
+              enum:
+                - migrations
+                - deploy
+                - provision
+                - upload
+            appReview:
+              type: object
+              properties:
+                platform:
+                  type: string
+                  enum:
+                    - ios
+                    - macos
+                sha:
+                  type: string
+                  pattern: ^[a-f0-9]{40}$
+                version:
+                  type: string
+                teamID:
+                  type: string
+                apiHost:
+                  type: string
+                fingerprint:
+                  type: string
+              required:
+                - platform
+                - sha
+                - version
+                - teamID
+                - apiHost
+                - fingerprint
+            review:
+              type:
+                - 'null'
+                - object
+              properties:
+                target:
+                  type: string
+                running:
+                  type:
+                    - 'null'
+                    - string
+                  pattern: ^[a-f0-9]{40}$
+                sha:
+                  type: string
+                  pattern: ^[a-f0-9]{40}$
+                fingerprint:
+                  type: string
+                pendingMigrations:
+                  type: integer
+                  minimum: 0
+                  maximum: 9007199254740991
+              required:
+                - target
+                - running
+                - sha
+                - fingerprint
+            message:
+              type: string
+          required:
+            - id
+            - kind
+            - message
+        events:
+          type: array
+          items:
+            type: object
+            properties:
+              message:
+                type: string
+              stage:
+                $ref: '#/components/schemas/PortalStage'
+              at:
+                type: string
+            required:
+              - message
+              - stage
+              - at
+        decisions:
+          type: array
+          items:
+            type: object
+            properties:
+              approvalId:
+                type: string
+                format: uuid
+              requestId:
+                type: string
+                format: uuid
+              approved:
+                type: boolean
+              operator:
+                type: string
+            required:
+              - approvalId
+              - requestId
+              - approved
+              - operator
+        failure:
+          type:
+            - string
+            - 'null'
+      required:
+        - id
+        - target
+        - sha
+        - fingerprint
+        - requestId
+        - operator
+        - createdAt
+        - state
+        - stage
+        - approval
+        - events
+        - decisions
+        - failure
+    PortalStage:
+      type: string
+      enum:
+        - build
+        - migrations
+        - deploy
+        - verify
+        - checks
+        - archive
+        - upload
+    StartAppRelease:
+      type: object
+      properties:
+        sha:
+          type: string
+          pattern: ^[a-f0-9]{40}$
+        fingerprint:
+          type: string
+          pattern: ^[a-f0-9]{64}$
+        requestId:
+          type: string
+          format: uuid
+        platform:
+          type: string
+          enum:
+            - ios
+            - macos
+      required:
+        - sha
+        - fingerprint
+        - requestId
+        - platform
     PortalServer:
       type: object
       properties:
@@ -367,151 +841,6 @@ components:
         - blocker
         - activeRelease
         - latestRelease
-    ErrorResponse:
-      type: object
-      properties:
-        message:
-          type: string
-          description: Error message
-        code:
-          type: string
-          description: Error code
-      required:
-        - message
-      title: Error Response
-      description: Error response containing error message and optional error code
-    PortalRelease:
-      type: object
-      properties:
-        id:
-          type: string
-          format: uuid
-        sha:
-          type: string
-          pattern: ^[a-f0-9]{40}$
-        fingerprint:
-          type: string
-        requestId:
-          type: string
-          format: uuid
-        operator:
-          type: string
-        createdAt:
-          type: string
-        state:
-          type: string
-          enum:
-            - running
-            - approval
-            - succeeded
-            - failed
-            - interrupted
-        stage:
-          $ref: '#/components/schemas/PortalStage'
-        approval:
-          type:
-            - 'null'
-            - object
-          properties:
-            id:
-              type: string
-              format: uuid
-            kind:
-              type: string
-              enum:
-                - migrations
-                - deploy
-            review:
-              type:
-                - 'null'
-                - object
-              properties:
-                target:
-                  type: string
-                running:
-                  type:
-                    - 'null'
-                    - string
-                  pattern: ^[a-f0-9]{40}$
-                sha:
-                  type: string
-                  pattern: ^[a-f0-9]{40}$
-                fingerprint:
-                  type: string
-                pendingMigrations:
-                  type: integer
-                  minimum: 0
-                  maximum: 9007199254740991
-              required:
-                - target
-                - running
-                - sha
-                - fingerprint
-            message:
-              type: string
-          required:
-            - id
-            - kind
-            - message
-        events:
-          type: array
-          items:
-            type: object
-            properties:
-              message:
-                type: string
-              stage:
-                $ref: '#/components/schemas/PortalStage'
-              at:
-                type: string
-            required:
-              - message
-              - stage
-              - at
-        decisions:
-          type: array
-          items:
-            type: object
-            properties:
-              approvalId:
-                type: string
-                format: uuid
-              requestId:
-                type: string
-                format: uuid
-              approved:
-                type: boolean
-              operator:
-                type: string
-            required:
-              - approvalId
-              - requestId
-              - approved
-              - operator
-        failure:
-          type:
-            - string
-            - 'null'
-      required:
-        - id
-        - sha
-        - fingerprint
-        - requestId
-        - operator
-        - createdAt
-        - state
-        - stage
-        - approval
-        - events
-        - decisions
-        - failure
-    PortalStage:
-      type: string
-      enum:
-        - build
-        - migrations
-        - deploy
-        - verify
     StartRelease:
       type: object
       properties:

@@ -82,7 +82,26 @@ same portal mapping. It refuses to overwrite another service or reuse a public
 Funnel endpoint. See the
 [Tailscale Serve reference](https://tailscale.com/docs/reference/tailscale-cli/serve).
 
-## Release behavior
+## iOS and macOS releases
+
+Choose **Release destination** on the dashboard to switch between Server, iOS and
+macOS. App releases run the same verification, automatic signing and App Store
+Connect upload pipeline as `just release-ios` and `just release-macos`.
+Run `just setup-app-release` on the release Mac first, using the same settings
+directory as the service. The app reports a setup blocker until configured.
+
+Review pins main and the platform's saved team and production API hostname.
+Approve signing and upload separately. Closing the client does not stop the job;
+reconnect to see progress and pending approvals. Successful upload means Apple
+processing is pending, not that the app is published. Check App Store Connect
+before retrying an interrupted upload. All existing allowed operators can release
+apps; no account credentials are sent to the client.
+
+Keep the release user logged in and Keychain unlocked. First-time signing or an
+expired Apple session may require local action in Xcode. See the
+[app release guide](../app/release.md) for prerequisites, build numbering and logs.
+
+## Server release behavior
 
 The dashboard lists every commit on freshly fetched remote `main` absent from the
 running server, including app-only commits. Review fixes the exact selected SHA.

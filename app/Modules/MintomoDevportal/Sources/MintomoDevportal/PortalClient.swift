@@ -3,6 +3,12 @@ import OpenAPIRuntime
 import OpenAPIURLSession
 
 protocol PortalClient: Sendable {
+    func app(platform: PortalAppPlatform, page: Int) async -> Result<PortalApp, PortalClientError>
+
+    func startApp(platform: PortalAppPlatform, sha: String, fingerprint: String, requestID: String) async -> Result<
+        PortalRelease, PortalClientError
+    >
+
     func server(page: Int) async -> Result<PortalServer, PortalClientError>
 
     func start(sha: String, fingerprint: String, requestID: String) async -> Result<PortalRelease, PortalClientError>
@@ -26,6 +32,66 @@ struct PortalClientImpl: PortalClient {
         guard url.query == nil else { return .failure(.invalidURL) }
         guard url.fragment == nil else { return .failure(.invalidURL) }
         return .success(Self(client: Client(serverURL: url, transport: transport)))
+    }
+
+    func app(platform: PortalAppPlatform, page: Int) async -> Result<PortalApp, PortalClientError> {
+        let output: Operations.getApp.Output
+        do {
+            var input = Operations.getApp.Input(path: .init(platform: .ios), query: .init(page: page))
+            switch platform {
+            case .ios: input.path.platform = .ios
+            case .macos: input.path.platform = .macos
+            }
+            output = try await client.getApp(input)
+        } catch {
+            return .failure(.unknown(status: 503, payload: nil, cause: error))
+        }
+
+        switch output {
+        case .ok(let response):
+            do {
+                return .success(try response.body.json)
+            } catch {
+                return .failure(.unknown(status: 503, payload: nil, cause: error))
+            }
+        case .unauthorized: return .failure(.unauthorized)
+        case .forbidden: return .failure(.forbidden)
+        case .conflict: return .failure(.conflict)
+        case .badRequest, .notFound, .contentTooLarge, .serviceUnavailable: return .failure(.unavailable)
+        case .undocumented(let status, let payload):
+            return .failure(.unknown(status: status, payload: payload, cause: nil))
+        }
+    }
+
+    func startApp(platform: PortalAppPlatform, sha: String, fingerprint: String, requestID: String) async -> Result<
+        PortalRelease, PortalClientError
+    > {
+        let output: Operations.startAppRelease.Output
+        do {
+            let body: Components.Schemas.StartAppRelease
+            switch platform {
+            case .ios: body = .init(sha: sha, fingerprint: fingerprint, requestId: requestID, platform: .ios)
+            case .macos: body = .init(sha: sha, fingerprint: fingerprint, requestId: requestID, platform: .macos)
+            }
+            output = try await client.startAppRelease(.init(body: .json(body)))
+        } catch {
+            return .failure(.unknown(status: 503, payload: nil, cause: error))
+        }
+
+        switch output {
+        case .accepted(let response):
+            do {
+                return .success(try response.body.json)
+            } catch {
+                return .failure(.unknown(status: 503, payload: nil, cause: error))
+            }
+        case .unauthorized: return .failure(.unauthorized)
+        case .forbidden: return .failure(.forbidden)
+        case .conflict: return .failure(.conflict)
+        case .badRequest, .notFound, .contentTooLarge, .serviceUnavailable: return .failure(.unavailable)
+        case .undocumented(let status, let payload):
+            return .failure(.unknown(status: status, payload: payload, cause: nil))
+        }
     }
 
     func server(page: Int) async -> Result<PortalServer, PortalClientError> {

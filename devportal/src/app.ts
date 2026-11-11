@@ -11,7 +11,15 @@ import { requestId } from 'hono/request-id';
 import { secureHeaders } from 'hono/secure-headers';
 import z from 'zod';
 
-import { DecisionSchema, PageSchema, ReleaseSchema, ServerSchema, StartSchema } from './contracts.ts';
+import {
+  AppStartSchema,
+  AppStatusSchema,
+  DecisionSchema,
+  PageSchema,
+  ReleaseSchema,
+  ServerSchema,
+  StartSchema,
+} from './contracts.ts';
 import type { ReleaseSessions } from './sessions.ts';
 
 interface PortalEnvironment extends HttpEnvironment {
@@ -123,7 +131,42 @@ export function createDevportalApp(sessions: ReleaseSessions, allowedLogins: rea
     },
   });
 
+  const inspectApp = createRoute({
+    method: 'get',
+    path: '/v1/apps/{platform}',
+    operationId: 'getApp',
+    request: { params: z.object({ platform: z.enum(['ios', 'macos']) }), query: PageSchema },
+    responses: {
+      200: { description: 'App release review', content: { 'application/json': { schema: AppStatusSchema } } },
+      ...errors,
+    },
+  });
+
+  const startApp = createRoute({
+    method: 'post',
+    path: '/v1/app-releases',
+    operationId: 'startAppRelease',
+    request: { body: { required: true, content: { 'application/json': { schema: AppStartSchema } } } },
+    responses: {
+      202: { description: 'App release accepted', content: { 'application/json': { schema: ReleaseSchema } } },
+      ...errors,
+    },
+  });
+
   app.openapiRoutes([
+    defineOpenAPIRoute<PortalEnvironment, typeof inspectApp>({
+      route: inspectApp,
+      handler: async c => {
+        return c.json(
+          AppStatusSchema.parse(await sessions.appStatus(c.req.valid('param').platform, c.req.valid('query').page)),
+          200,
+        );
+      },
+    }),
+    defineOpenAPIRoute<PortalEnvironment, typeof startApp>({
+      route: startApp,
+      handler: async c => c.json(await sessions.startApp(c.req.valid('json'), c.get('operator')), 202),
+    }),
     defineOpenAPIRoute<PortalEnvironment, typeof server>({
       route: server,
       handler: async c => c.json(ServerSchema.parse(await sessions.status(c.req.valid('query').page)), 200),

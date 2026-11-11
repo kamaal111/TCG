@@ -93,6 +93,37 @@ struct PortalModelTests {
         #expect(message == PortalClientError.unavailable.errorDescription)
     }
 
+    @Test func `Selecting an app reattaches to its upload approval and switching clears it`() async throws {
+        let release = try PortalFixtures.appRelease()
+        let model = PortalModel(
+            client: PreviewPortalClient(
+                status: try PortalFixtures.server(),
+                current: release,
+                appStatus: try PortalFixtures.app(releaseID: release.id)
+            )
+        )
+        await model.select(.ios)
+        #expect(model.release?.approval?.kind == .upload)
+        #expect(model.destination == .ios)
+        await model.select(.server)
+        #expect(model.release == nil)
+        #expect(model.appStatus == nil)
+        #expect(model.canStart)
+    }
+
+    @Test func `Missing app setup blocks starting without blocking the server`() async throws {
+        let model = PortalModel(
+            client: PreviewPortalClient(
+                status: try PortalFixtures.server(),
+                appStatus: try PortalFixtures.app(blocker: "Run just setup-app-release.")
+            )
+        )
+        await model.select(.ios)
+        #expect(!model.canStart)
+        await model.select(.server)
+        #expect(model.canStart)
+    }
+
 }
 
 private actor RetryClient: PortalClient {
@@ -105,6 +136,14 @@ private actor RetryClient: PortalClient {
         self.status = status
         self.current = current
     }
+
+    func app(platform: PortalAppPlatform, page: Int) async -> Result<PortalApp, PortalClientError> {
+        .failure(.unavailable)
+    }
+
+    func startApp(platform: PortalAppPlatform, sha: String, fingerprint: String, requestID: String) async -> Result<
+        PortalRelease, PortalClientError
+    > { .failure(.unavailable) }
 
     func server(page: Int) async -> Result<PortalServer, PortalClientError> { .success(status) }
 
