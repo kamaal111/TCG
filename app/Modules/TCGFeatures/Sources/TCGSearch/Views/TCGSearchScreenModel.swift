@@ -222,7 +222,9 @@ final class TCGSearchScreenModel {
         candidate = nil
         searchTask?.cancel()
         searchTask = nil
-        let identity = TCGSearch.SearchIdentity(.init(game: game, query: query, languages: languages, mode: mode))
+        let identity = TCGSearch.SearchIdentity(
+            .init(game: game, query: query, languages: languages, mode: mode, cursor: nil)
+        )
         if identity.query.count < 2 || identity != search.completedSearch {
             search.clear()
         } else {
@@ -251,7 +253,8 @@ final class TCGSearchScreenModel {
                 game: request.game,
                 query: request.query,
                 languages: request.languages,
-                mode: request.mode
+                mode: request.mode,
+                cursor: nil
             )
         )
         guard request.revision == revision else { return }

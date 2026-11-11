@@ -18,6 +18,7 @@ import { PRICING_CLIENT_ERROR_REASONS, type PricingClient } from '../client.ts';
 import { SEARCH_PRICING_ROUTE_PATH } from '../routes/search-pricing.ts';
 import { PricingSearchResponseSchema } from '../schemas/responses.ts';
 import { StaticScrydexClient } from '../scrydex/static-client.ts';
+import { searchPageKey } from '../utils/pagination.ts';
 import { queryKey, todayUTC } from '../utils/query.ts';
 
 describe('Card pricing integration', () => {
@@ -109,7 +110,7 @@ describe('Card pricing integration', () => {
 
       expect(englishBody.matches).toMatchObject([{ name: 'Giratina VSTAR', card_number: 'GG69' }]);
       expect(PricingSearchResponseSchema.parse(await englishAgain.json())).toEqual(englishBody);
-      expect(PricingSearchResponseSchema.parse(await japanese.json())).toEqual({ matches: [] });
+      expect(PricingSearchResponseSchema.parse(await japanese.json())).toEqual({ matches: [], next_cursor: null });
       expect(pricingClient.searchCallCount).toBe(3);
       expect(await db.query.cardPriceSearch.findMany()).toHaveLength(3);
     },
@@ -350,7 +351,7 @@ describe('Card pricing integration', () => {
       const app = createApp({ pricingClient });
 
       const query = 'Charizard ex 199';
-      const lockKey = `pricing:search:scrydex_static:${todayUTC()}:pokemon:${queryKey('pokemon', query, { languages: [], searchBy: 'card' })}`;
+      const lockKey = `pricing:search:scrydex_static:${todayUTC()}:pokemon:${searchPageKey(queryKey('pokemon', query, { languages: [], searchBy: 'card' }), 0)}`;
       const lockHolder = new Client({ connectionString });
       await lockHolder.connect();
 
@@ -480,10 +481,11 @@ class CountingPricingClient implements PricingClient {
     game: Parameters<PricingClient['searchCards']>[0],
     query: string,
     languages: Parameters<PricingClient['searchCards']>[2],
+    page: number,
   ) {
     this.searchCallCount += 1;
 
-    return this.client.searchCards(game, query, languages);
+    return this.client.searchCards(game, query, languages, page);
   }
 
   getCardById(game: Parameters<PricingClient['getCardById']>[0], id: string) {
@@ -506,7 +508,7 @@ class UnavailablePricingClient extends StaticScrydexClient {
 
 class DuplicateSearchPricingClient extends StaticScrydexClient {
   override async searchCards(game: Parameters<PricingClient['searchCards']>[0], query: string) {
-    const result = await super.searchCards(game, query, { languages: [], searchBy: 'card' });
+    const result = await super.searchCards(game, query, { languages: [], searchBy: 'card' }, 1);
 
     return result.map(search => ({
       ...search,
@@ -530,7 +532,7 @@ class BlockingPricingClient extends CountingPricingClient {
       await this.gate.promise;
     }
 
-    return super.searchCards(game, query, { languages: [], searchBy: 'card' });
+    return super.searchCards(game, query, { languages: [], searchBy: 'card' }, 1);
   }
 
   override async getCardById(game: Parameters<PricingClient['getCardById']>[0], id: string) {
@@ -554,7 +556,7 @@ class FailOncePricingClient extends CountingPricingClient {
       throw new Error('Simulated upstream failure');
     }
 
-    return super.searchCards(game, query, { languages: [], searchBy: 'card' });
+    return super.searchCards(game, query, { languages: [], searchBy: 'card' }, 1);
   }
 }
 
@@ -572,7 +574,7 @@ class TwoCallBarrierPricingClient extends CountingPricingClient {
 
     await this.gate.promise;
 
-    return new StaticScrydexClient().searchCards(game, query, { languages: [], searchBy: 'card' });
+    return new StaticScrydexClient().searchCards(game, query, { languages: [], searchBy: 'card' }, 1);
   }
 
   release() {

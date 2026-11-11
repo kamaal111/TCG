@@ -7,7 +7,7 @@ import {
   type ScrydexRawCard,
 } from './schemas.ts';
 import type { ScrydexGame, ScrydexClientResult, ScrydexSearchResult, ScrydexLookupResult } from './types.ts';
-import { SCRYDEX_ERROR_REASONS } from './types.ts';
+import { SCRYDEX_ERROR_REASONS, SCRYDEX_SEARCH_PAGE_SIZE } from './types.ts';
 
 export type ScrydexFetch = (input: string | URL | Request, init?: RequestInit) => Promise<Response>;
 
@@ -34,7 +34,7 @@ export class ScrydexClient {
     this.teamId = options.teamId;
   }
 
-  async searchCards(game: ScrydexGame, query: string): Promise<ScrydexClientResult<ScrydexSearchResult>> {
+  async searchCards(game: ScrydexGame, query: string, page: number): Promise<ScrydexClientResult<ScrydexSearchResult>> {
     const headers = this.headers();
 
     if (headers.isErr()) {
@@ -44,8 +44,8 @@ export class ScrydexClient {
     const url = this.makeURL(game, '/cards');
     url.searchParams.set('q', query);
     url.searchParams.set('include', 'prices');
-    url.searchParams.set('page', '1');
-    url.searchParams.set('page_size', '20');
+    url.searchParams.set('page', String(page));
+    url.searchParams.set('page_size', String(SCRYDEX_SEARCH_PAGE_SIZE));
     const responseResult = await this.request(url, headers.value);
 
     if (responseResult.isErr()) {
@@ -84,9 +84,15 @@ export class ScrydexClient {
       cards.push(raw.data);
     }
 
+    const total = parsed.data.totalCount ?? parsed.data.total_count;
+    const rawCount = parsed.data.data.length;
+
     return ok({
       cards,
-      providerResultCount: parsed.data.totalCount ?? parsed.data.total_count ?? parsed.data.data.length,
+      providerResultCount: total ?? rawCount,
+      hasMore:
+        rawCount > 0 &&
+        (total == null ? rawCount === SCRYDEX_SEARCH_PAGE_SIZE : page * SCRYDEX_SEARCH_PAGE_SIZE < total),
       rejectedCount,
     });
   }

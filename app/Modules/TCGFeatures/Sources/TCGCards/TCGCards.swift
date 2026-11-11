@@ -241,7 +241,9 @@ public final class TCGCards {
     func purchaseDefault(game: ClientCardGame, name: String, cardNumber: String) async -> Result<
         CardSearchResult, SearchPricingErrors
     > {
-        await client.pricing.search(.init(game: game, query: "\(name) \(cardNumber)", languages: [], mode: .card))
+        await client.pricing.search(
+            .init(game: game, query: "\(name) \(cardNumber)", languages: [], mode: .card, cursor: nil)
+        )
     }
 
     func addCard(_ values: CardFormValues) async -> Result<Void, TCGCardsOperationError> {

@@ -9,7 +9,7 @@ function makeClient(transport: ScrydexFetch, options: ScrydexClientOptions = {})
 }
 
 const operations = [
-  { name: 'search', run: (client: ScrydexClient) => client.searchCards('pokemon', 'name:"Pikachu"') },
+  { name: 'search', run: (client: ScrydexClient) => client.searchCards('pokemon', 'name:"Pikachu"', 1) },
   { name: 'card lookup', run: (client: ScrydexClient) => client.getCardById('pokemon', 'card') },
 ];
 
@@ -23,14 +23,19 @@ describe('Scrydex request construction', () => {
     const transport = vi.fn<ScrydexFetch>().mockResolvedValue(Response.json({ data: [] }));
     const timeout = vi.spyOn(AbortSignal, 'timeout');
     const query = '(name:"ダーテング + V") AND (!language_code:JA)';
-    const result = await makeClient(transport).searchCards(game, query);
+    const result = await makeClient(transport).searchCards(game, query, 1);
     assert(result.isOk());
-    expect(result.value).toEqual({ cards: [], providerResultCount: 0, rejectedCount: 0 });
+    expect(result.value).toEqual({ cards: [], providerResultCount: 0, hasMore: false, rejectedCount: 0 });
     const [input, init] = transport.mock.calls[0] ?? [];
     assert(input instanceof URL);
     expect(input.origin).toBe('https://api.scrydex.com');
     expect(input.pathname).toBe(path);
-    expect(Object.fromEntries(input.searchParams)).toEqual({ q: query, include: 'prices', page: '1', page_size: '20' });
+    expect(Object.fromEntries(input.searchParams)).toEqual({
+      q: query,
+      include: 'prices',
+      page: '1',
+      page_size: '100',
+    });
     expect(new Headers(init?.headers).get('X-Api-Key')).toBe('test-key');
     expect(new Headers(init?.headers).get('X-Team-ID')).toBe('test-team');
     expect(init?.signal).toBeInstanceOf(AbortSignal);
@@ -43,7 +48,7 @@ describe('Scrydex request construction', () => {
     async baseURL => {
       const transport = vi.fn<ScrydexFetch>().mockResolvedValue(Response.json({ data: [] }));
       const timeout = vi.spyOn(AbortSignal, 'timeout');
-      const result = await makeClient(transport, { baseURL, requestTimeoutMs: 123 }).searchCards('pokemon', 'query');
+      const result = await makeClient(transport, { baseURL, requestTimeoutMs: 123 }).searchCards('pokemon', 'query', 1);
       expect(result.isOk()).toBe(true);
       const [input] = transport.mock.calls[0] ?? [];
       assert(input instanceof URL);
@@ -78,7 +83,7 @@ describe('Scrydex request construction', () => {
       });
     };
 
-    const result = await makeClient(transport, { requestTimeoutMs: 1 }).searchCards('pokemon', 'query');
+    const result = await makeClient(transport, { requestTimeoutMs: 1 }).searchCards('pokemon', 'query', 1);
     assert(result.isErr());
     expect(result.error).toEqual({
       reason: 'request_timeout',
@@ -89,13 +94,13 @@ describe('Scrydex request construction', () => {
 
   it('uses the global fetch transport when none is injected', async () => {
     const transport = vi.spyOn(globalThis, 'fetch').mockResolvedValue(Response.json({ data: [] }));
-    const result = await new ScrydexClient({ apiKey: 'key', teamId: 'team' }).searchCards('pokemon', 'query');
+    const result = await new ScrydexClient({ apiKey: 'key', teamId: 'team' }).searchCards('pokemon', 'query', 1);
     expect(result.isOk()).toBe(true);
     expect(transport).toHaveBeenCalledTimes(1);
   });
 
   it('requires explicit credentials when constructed without options', async () => {
-    const result = await new ScrydexClient().searchCards('pokemon', 'query');
+    const result = await new ScrydexClient().searchCards('pokemon', 'query', 1);
     assert(result.isErr());
     expect(result.error.reason).toBe('missing_credentials');
   });
@@ -173,6 +178,25 @@ describe.each(operations)('$name failures', ({ run, name }) => {
 
 describe('Scrydex search decoding', () => {
   it.each([
+    { length: 100, total: {}, hasMore: true },
+    { length: 99, total: {}, hasMore: false },
+    { length: 99, total: { total_count: 250 }, hasMore: true },
+    { length: 99, total: { totalCount: 200 }, hasMore: false },
+    { length: 0, total: { totalCount: 250 }, hasMore: false },
+  ])('uses the raw page and total to determine continuation: $length $total', async ({ length, total, hasMore }) => {
+    const transport = vi
+      .fn<ScrydexFetch>()
+      .mockResolvedValue(Response.json({ data: Array.from({ length }, () => null), ...total }));
+
+    const result = await makeClient(transport).searchCards('pokemon', 'query', 2);
+    assert(result.isOk());
+    expect(result.value).toMatchObject({ cards: [], rejectedCount: length, hasMore });
+    const [input] = transport.mock.calls[0] ?? [];
+    assert(input instanceof URL);
+    expect(input.searchParams.get('page')).toBe('2');
+  });
+
+  it.each([
     { counts: { totalCount: 20, total_count: 30 }, expected: 20 },
     { counts: { total_count: 30 }, expected: 30 },
     { counts: {}, expected: 3 },
@@ -180,22 +204,22 @@ describe('Scrydex search decoding', () => {
   ])('preserves provider totals independently of rejected records: $counts', async ({ counts, expected }) => {
     const result = await makeClient(async () => {
       return Response.json({ data: [card, null, { variants: 'invalid' }], ...counts });
-    }).searchCards('pokemon', 'query');
+    }).searchCards('pokemon', 'query', 1);
 
     assert(result.isOk());
-    expect(result.value).toEqual({ cards: [card], providerResultCount: expected, rejectedCount: 2 });
+    expect(result.value).toEqual({ cards: [card], providerResultCount: expected, hasMore: false, rejectedCount: 2 });
   });
 
   it('leaves pricing identity and normalization decisions to the consumer', async () => {
-    const result = await makeClient(async () => Response.json({ data: [{}] })).searchCards('pokemon', 'query');
+    const result = await makeClient(async () => Response.json({ data: [{}] })).searchCards('pokemon', 'query', 1);
     assert(result.isOk());
-    expect(result.value).toEqual({ cards: [{}], providerResultCount: 1, rejectedCount: 0 });
+    expect(result.value).toEqual({ cards: [{}], providerResultCount: 1, hasMore: false, rejectedCount: 0 });
   });
 
   it.each([{}, { data: null }, { data: 'invalid' }, { data: [], totalCount: -1 }, { data: [], total_count: 1.5 }])(
     'rejects malformed search envelopes: %j',
     async body => {
-      const result = await makeClient(async () => Response.json(body)).searchCards('pokemon', 'query');
+      const result = await makeClient(async () => Response.json(body)).searchCards('pokemon', 'query', 1);
       assert(result.isErr());
       expect(result.error).toEqual({
         reason: 'invalid_response',
@@ -207,7 +231,7 @@ describe('Scrydex search decoding', () => {
   );
 
   it('treats search 404 as an HTTP failure', async () => {
-    const result = await makeClient(async () => new Response(null, { status: 404 })).searchCards('pokemon', 'query');
+    const result = await makeClient(async () => new Response(null, { status: 404 })).searchCards('pokemon', 'query', 1);
     assert(result.isErr());
     expect(result.error).toMatchObject({ reason: 'http_error', statusCode: 404, isRetryable: false });
   });

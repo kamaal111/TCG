@@ -17,6 +17,10 @@ public final class TCGSearch {
     private(set) var results: [PricedCard] = []
     private(set) var isSearching = false
     private(set) var hasSearched = false
+    private(set) var nextCursor: String?
+    private(set) var didFailToLoadNextPage = false
+
+    var isLoadingNextPage: Bool { activePageID != nil }
     private(set) var completedSearch: SearchIdentity?
     private(set) var displayRefreshError: TCGSearchOperationError?
     let history: TCGSearchHistoryStore
@@ -38,6 +42,7 @@ public final class TCGSearch {
 
     private let client: TCGClient
     private var activeSearchID: UUID?
+    private var activePageID: UUID?
     private var displayIdentity: TCGCurrency.DisplayIdentity?
     private var lastSearch: SearchIdentity?
 
@@ -75,7 +80,13 @@ public final class TCGSearch {
         let identity = displayIdentity
         displayRefreshError = nil
         let result = await searchWithOutcome(
-            .init(game: request.game, query: request.query, languages: Set(request.languages), mode: request.mode)
+            .init(
+                game: request.game,
+                query: request.query,
+                languages: Set(request.languages),
+                mode: request.mode,
+                cursor: nil
+            )
         )
         guard displayIdentity == identity, !Task.isCancelled else { return }
         if case .failure(let error) = result { displayRefreshError = error }
@@ -90,6 +101,11 @@ public final class TCGSearch {
         let query = request.query
         let searchID = UUID()
         lastSearch = SearchIdentity(request)
+        activePageID = nil
+        if completedSearch != lastSearch {
+            nextCursor = nil
+            didFailToLoadNextPage = false
+        }
         activeSearchID = searchID
         isSearching = true
         defer {
@@ -111,6 +127,8 @@ public final class TCGSearch {
             result
             .map { result in
                 results = result.matches
+                nextCursor = result.nextCursor
+                didFailToLoadNextPage = false
                 hasSearched = true
                 completedSearch = SearchIdentity(request)
                 return true
@@ -149,7 +167,41 @@ public final class TCGSearch {
             }
     }
 
+    func loadNextPage(_ cursor: String, retry: Bool) async {
+        guard !Task.isCancelled, !isSearching, !isLoadingNextPage, cursor == nextCursor,
+            !didFailToLoadNextPage || retry, let request = completedSearch
+        else { return }
+
+        let pageID = UUID()
+        activePageID = pageID
+        didFailToLoadNextPage = false
+        defer {
+            if activePageID == pageID { activePageID = nil }
+        }
+
+        let result = await client.pricing.search(
+            .init(
+                game: request.game,
+                query: request.query,
+                languages: Set(request.languages),
+                mode: request.mode,
+                cursor: cursor
+            )
+        )
+        guard !Task.isCancelled, activePageID == pageID else { return }
+
+        switch result {
+        case .success(let page):
+            var seenIDs = Set(results.map(\.id))
+            results.append(contentsOf: page.matches.filter { seenIDs.insert($0.id).inserted })
+            nextCursor = page.nextCursor
+        case .failure:
+            didFailToLoadNextPage = true
+        }
+    }
+
     func cancel() {
+        activePageID = nil
         activeSearchID = nil
         isSearching = false
     }
@@ -159,6 +211,8 @@ public final class TCGSearch {
         displayRefreshError = nil
         results = []
         hasSearched = false
+        nextCursor = nil
+        didFailToLoadNextPage = false
         completedSearch = nil
     }
 }

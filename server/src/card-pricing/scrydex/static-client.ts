@@ -1,4 +1,4 @@
-import { type ScrydexRawCard, ScrydexRawCardSchema } from '@tcg/scrydex';
+import { SCRYDEX_SEARCH_PAGE_SIZE, type ScrydexRawCard, ScrydexRawCardSchema } from '@tcg/scrydex';
 import { ok } from 'neverthrow';
 
 import type { PricingClient, PricingClientResult, PricingSearchResult } from '../client.ts';
@@ -140,6 +140,7 @@ export class StaticScrydexClient implements PricingClient {
     game: CardGame,
     query: string,
     options: PricingSearchOptions,
+    page: number,
   ): Promise<PricingClientResult<PricingSearchResult>> {
     const normalized = query.trim().toLowerCase();
 
@@ -165,7 +166,10 @@ export class StaticScrydexClient implements PricingClient {
       card => selected.length === 0 || selected.some(code => card.language_code === code.toUpperCase()),
     );
 
-    return ok(makeSearchResult(game, filtered));
+    const end = page * SCRYDEX_SEARCH_PAGE_SIZE;
+    const pageCards = filtered.slice(end - SCRYDEX_SEARCH_PAGE_SIZE, end);
+
+    return ok(makeSearchResult(game, pageCards, filtered.length, end < filtered.length));
   }
 
   async getCardById(game: CardGame, id: string): Promise<PricingClientResult<PricingCardRecord | null>> {
@@ -180,10 +184,15 @@ export class StaticScrydexClient implements PricingClient {
 }
 
 function emptySearchResult(): PricingSearchResult {
-  return { records: [], providerResultCount: 0, rejectedCount: 0, missingBaseVariantCount: 0 };
+  return { records: [], providerResultCount: 0, hasMore: false, rejectedCount: 0, missingBaseVariantCount: 0 };
 }
 
-function makeSearchResult(game: CardGame, rawCards: ScrydexRawCard[]): PricingSearchResult {
+function makeSearchResult(
+  game: CardGame,
+  rawCards: ScrydexRawCard[],
+  providerResultCount: number,
+  hasMore: boolean,
+): PricingSearchResult {
   const records = rawCards.flatMap(raw => {
     const record = makeRecord(game, raw);
 
@@ -192,7 +201,8 @@ function makeSearchResult(game: CardGame, rawCards: ScrydexRawCard[]): PricingSe
 
   return {
     records,
-    providerResultCount: rawCards.length,
+    providerResultCount,
+    hasMore,
     rejectedCount: rawCards.length - records.length,
     missingBaseVariantCount: records.filter(record => record.card.pricing.market == null).length,
   };

@@ -29,7 +29,7 @@ struct TCGSearchFeatureTests {
         let currency = TCGCurrency(client: .preview(), defaults: nil)
         await feature.refreshDisplayPrices(for: currency.displayIdentity)
         let original = Task {
-            await feature.search(.init(game: .pokemon, query: "Giratina", languages: [], mode: .card))
+            await feature.search(.init(game: .pokemon, query: "Giratina", languages: [], mode: .card, cursor: nil))
         }
         await transport.waitUntilStarted()
         #expect(await currency.save(.eur))
@@ -57,7 +57,7 @@ struct TCGSearchFeatureTests {
         let feature = TCGSearch(client: client, history: TCGSearchHistoryStore())
         let currency = TCGCurrency(client: .preview(), defaults: nil)
         await feature.refreshDisplayPrices(for: currency.displayIdentity)
-        try await feature.search(.init(game: .pokemon, query: "Giratina", languages: [], mode: .card))
+        try await feature.search(.init(game: .pokemon, query: "Giratina", languages: [], mode: .card, cursor: nil))
             .get()
         #expect(!feature.results.isEmpty)
         #expect(await currency.save(.eur))
@@ -70,10 +70,12 @@ struct TCGSearchFeatureTests {
     func `Completed search identity is normalized retained on cancellation and reset on clearing`() async throws {
         let feature = TCGSearch(client: .preview(pricingOutcome: .success), history: TCGSearchHistoryStore())
         try await feature.search(
-            .init(game: .pokemon, query: "  Giratina  ", languages: [.english, .japanese], mode: .card)
+            .init(game: .pokemon, query: "  Giratina  ", languages: [.english, .japanese], mode: .card, cursor: nil)
         )
         .get()
-        let identity = TCGSearch.SearchIdentity(.init(game: .pokemon, query: "Giratina", languages: [], mode: .card))
+        let identity = TCGSearch.SearchIdentity(
+            .init(game: .pokemon, query: "Giratina", languages: [], mode: .card, cursor: nil)
+        )
         #expect(feature.completedSearch == identity)
         feature.cancel()
         #expect(feature.completedSearch == identity)
@@ -85,10 +87,107 @@ struct TCGSearchFeatureTests {
     }
 
     @Test
+    func `Next page ignores duplicate triggers and appends unseen cards in order`() async throws {
+        let transport = HistoryPricingTransport(suspended: true)
+        await transport.setOutcome(.firstPage, for: 1)
+        await transport.setOutcome(.sets, for: 2)
+        let feature = makePaginationFeature(transport)
+        let first = Task {
+            await feature.search(.init(game: .pokemon, query: "Giratina", languages: [], mode: .card, cursor: nil))
+        }
+        await transport.waitUntilStarted()
+        await transport.resume()
+        try await first.value.get()
+        let cursor = try #require(feature.nextCursor)
+
+        let next = Task { await feature.loadNextPage(cursor, retry: false) }
+        await transport.waitUntilStarted(count: 2)
+        #expect(feature.isLoadingNextPage)
+        await feature.loadNextPage(cursor, retry: false)
+        #expect(await transport.requestCount == 2)
+        await transport.resume(count: 2)
+        await next.value
+
+        #expect(feature.results.map(\.id) == ["zenith", "origin", "zenith-2", "unknown"])
+        #expect(feature.nextCursor == nil)
+        #expect(!feature.isLoadingNextPage)
+        await feature.loadNextPage(cursor, retry: false)
+        #expect(await transport.requestCount == 2)
+    }
+
+    @Test
+    func `Retry preserves loaded cards and requests the same cursor after a failure`() async throws {
+        let transport = HistoryPricingTransport()
+        await transport.setOutcome(.firstPage, for: 1)
+        await transport.setOutcome(.unavailable, for: 2)
+        let feature = makePaginationFeature(transport)
+        try await feature.search(.init(game: .pokemon, query: "Giratina", languages: [], mode: .card, cursor: nil))
+            .get()
+        let cursor = try #require(feature.nextCursor)
+
+        await feature.loadNextPage(cursor, retry: false)
+        #expect(feature.didFailToLoadNextPage)
+        #expect(feature.results.map(\.id) == ["zenith"])
+        await feature.loadNextPage(cursor, retry: false)
+        #expect(await transport.requestCount == 2)
+        await feature.loadNextPage(cursor, retry: true)
+
+        let continuationPath =
+            "/app-api/pricing/search?search_by=card&cursor=continue-search&game=pokemon&query=Giratina"
+        let paths = await transport.paths
+        #expect(Array(paths.dropFirst()) == [continuationPath, continuationPath])
+        #expect(feature.results.map(\.id) == ["zenith", "giratina"])
+        #expect(!feature.didFailToLoadNextPage)
+    }
+
+    @Test
+    func `Changing search discards a delayed continuation response`() async throws {
+        let transport = HistoryPricingTransport(suspended: true)
+        await transport.setOutcome(.firstPage, for: 1)
+        await transport.setOutcome(.sets, for: 2)
+        await transport.setOutcome(.empty, for: 3)
+        let feature = makePaginationFeature(transport)
+        let first = Task {
+            await feature.search(.init(game: .pokemon, query: "Giratina", languages: [], mode: .card, cursor: nil))
+        }
+        await transport.waitUntilStarted()
+        await transport.resume()
+        try await first.value.get()
+        let cursor = try #require(feature.nextCursor)
+        let next = Task { await feature.loadNextPage(cursor, retry: false) }
+        await transport.waitUntilStarted(count: 2)
+
+        let replacement = Task {
+            await feature.search(.init(game: .pokemon, query: "Pikachu", languages: [], mode: .card, cursor: nil))
+        }
+        await transport.waitUntilStarted(count: 3)
+        await transport.resume(count: 3)
+        try await replacement.value.get()
+        await transport.resume(count: 2)
+        await next.value
+
+        #expect(feature.completedSearch?.query == "Pikachu")
+        #expect(feature.results.isEmpty)
+        #expect(feature.nextCursor == nil)
+        #expect(!feature.isLoadingNextPage)
+    }
+
+    private func makePaginationFeature(_ transport: HistoryPricingTransport) -> TCGSearch {
+        TCGSearch(
+            client: .default(
+                transport: transport,
+                credentialsKeychainKey: "pagination-search",
+                credentialsStore: InMemoryCredentialsStore()
+            ),
+            history: TCGSearchHistoryStore()
+        )
+    }
+
+    @Test
     func `Search populates matching priced cards`() async throws {
         let feature = TCGSearch(client: .preview(pricingOutcome: .success), history: TCGSearchHistoryStore())
 
-        try await feature.search(.init(game: .pokemon, query: "Giratina", languages: [], mode: .card))
+        try await feature.search(.init(game: .pokemon, query: "Giratina", languages: [], mode: .card, cursor: nil))
             .get()
 
         #expect(feature.hasSearched)
@@ -99,7 +198,7 @@ struct TCGSearchFeatureTests {
     func `No results clears matches and records that a search happened`() async throws {
         let feature = TCGSearch(client: .preview(pricingOutcome: .noResults), history: TCGSearchHistoryStore())
 
-        try await feature.search(.init(game: .onePiece, query: "Missing", languages: [], mode: .card))
+        try await feature.search(.init(game: .onePiece, query: "Missing", languages: [], mode: .card, cursor: nil))
             .get()
 
         #expect(feature.hasSearched)
@@ -111,7 +210,7 @@ struct TCGSearchFeatureTests {
         let feature = TCGSearch(client: .preview(pricingOutcome: .serverUnavailable), history: TCGSearchHistoryStore())
 
         await #expect(throws: TCGSearchOperationError.serverUnavailable) {
-            try await feature.search(.init(game: .pokemon, query: "Giratina", languages: [], mode: .card))
+            try await feature.search(.init(game: .pokemon, query: "Giratina", languages: [], mode: .card, cursor: nil))
                 .get()
         }
     }
@@ -126,11 +225,15 @@ struct TCGSearchFeatureTests {
         )
         let feature = TCGSearch(client: client, history: TCGSearchHistoryStore())
         let first = Task {
-            await feature.search(.init(game: .pokemon, query: "Shiftry", languages: [.japanese], mode: .card))
+            await feature.search(
+                .init(game: .pokemon, query: "Shiftry", languages: [.japanese], mode: .card, cursor: nil)
+            )
         }
         await transport.waitUntilStarted()
-        try await feature.search(.init(game: .pokemon, query: "Shiftry", languages: [.english], mode: .card))
-            .get()
+        try await feature.search(
+            .init(game: .pokemon, query: "Shiftry", languages: [.english], mode: .card, cursor: nil)
+        )
+        .get()
         await transport.releaseFirstSearch()
         try await first.value.get()
 
@@ -139,7 +242,9 @@ struct TCGSearchFeatureTests {
         #expect(feature.results.isEmpty)
         #expect(
             feature.completedSearch
-                == TCGSearch.SearchIdentity(.init(game: .pokemon, query: "Shiftry", languages: [.english], mode: .card))
+                == TCGSearch.SearchIdentity(
+                    .init(game: .pokemon, query: "Shiftry", languages: [.english], mode: .card, cursor: nil)
+                )
         )
         #expect(
             await transport.paths == [
@@ -158,7 +263,9 @@ struct TCGSearchFeatureTests {
             credentialsStore: InMemoryCredentialsStore()
         )
         let feature = TCGSearch(client: client, history: TCGSearchHistoryStore())
-        let task = Task { await feature.search(.init(game: .pokemon, query: "Pikachu", languages: [], mode: .card)) }
+        let task = Task {
+            await feature.search(.init(game: .pokemon, query: "Pikachu", languages: [], mode: .card, cursor: nil))
+        }
         await transport.waitUntilStarted()
 
         task.cancel()

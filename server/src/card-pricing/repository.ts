@@ -31,6 +31,7 @@ export interface CardPricingRepository {
     queryKey: string;
     pricedOn: string;
     pricingCardIds: string[];
+    hasMore: boolean;
   }): Promise<void>;
   setOwnedCardPricingIdentity(id: string, pricingCardId: string, source: PricingSource): Promise<void>;
 }

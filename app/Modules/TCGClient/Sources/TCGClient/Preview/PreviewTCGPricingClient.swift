@@ -22,12 +22,13 @@ struct PreviewTCGPricingClient: TCGPricingClient {
                             && (request.mode == .card
                                 || (game == .pokemon
                                     && $0.illustrator?.localizedCaseInsensitiveContains(request.query) == true))
-                    }
+                    },
+                    nextCursor: nil
                 )
             )
         case .empty, .noResults:
             .success(
-                CardSearchResult(matches: [])
+                CardSearchResult(matches: [], nextCursor: nil)
             )
         case .unauthorized:
             .failure(.unauthorized)

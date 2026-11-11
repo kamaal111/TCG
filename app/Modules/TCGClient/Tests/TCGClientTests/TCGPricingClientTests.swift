@@ -23,7 +23,7 @@ struct TCGPricingClientTests {
         )
         let transport = PricingRequestTransport(status: .ok, body: body)
         let result = try await makeClient(transport: transport).pricing.search(
-            .init(game: .pokemon, query: "Akira Egawa", languages: [.japanese], mode: .illustrator)
+            .init(game: .pokemon, query: "Akira Egawa", languages: [.japanese], mode: .illustrator, cursor: nil)
         )
         .get()
         let request = try #require(await transport.request)
@@ -52,7 +52,7 @@ struct TCGPricingClientTests {
         )
         let transport = PricingRequestTransport(status: .ok, body: body)
         let result = try await makeClient(transport: transport).pricing.search(
-            .init(game: .pokemon, query: "Pikachu", languages: [], mode: .card)
+            .init(game: .pokemon, query: "Pikachu", languages: [], mode: .card, cursor: nil)
         )
         .get()
         let card = try #require(result.matches.first)
@@ -80,7 +80,7 @@ struct TCGPricingClientTests {
     func `Searches through the generated pricing operation`() async throws {
         let transport = PricingRequestTransport(status: .ok, body: searchJSON)
         let result = try await makeClient(transport: transport).pricing
-            .search(.init(game: .pokemon, query: "Giratina VSTAR GG69", languages: [], mode: .card))
+            .search(.init(game: .pokemon, query: "Giratina VSTAR GG69", languages: [], mode: .card, cursor: nil))
             .get()
         let request = try #require(await transport.request)
 
@@ -88,13 +88,31 @@ struct TCGPricingClientTests {
         #expect(request.path == "/app-api/pricing/search?search_by=card&game=pokemon&query=Giratina%20VSTAR%20GG69")
         #expect(request.operationID == "get/app-api/pricing/search")
         #expect(result.matches == [expectedPricedCard])
+        #expect(result.nextCursor == nil)
+    }
+
+    @Test
+    func `Passes the cursor through the generated client and decodes the next cursor`() async throws {
+        let body = Data(
+            """
+            {"matches": [], "next_cursor": "third-page"}
+            """.utf8
+        )
+        let transport = PricingRequestTransport(status: .ok, body: body)
+        let result = try await makeClient(transport: transport).pricing
+            .search(.init(game: .pokemon, query: "Pikachu", languages: [], mode: .card, cursor: "second-page"))
+            .get()
+        let request = try #require(await transport.request)
+
+        #expect(request.path == "/app-api/pricing/search?search_by=card&cursor=second-page&game=pokemon&query=Pikachu")
+        #expect(result.nextCursor == "third-page")
     }
 
     @Test(arguments: [ClientCardLanguage.english, .japanese])
     func `Serializes a partial language selection`(language: ClientCardLanguage) async throws {
         let transport = PricingRequestTransport(status: .ok, body: searchJSON)
         let result = try await makeClient(transport: transport).pricing
-            .search(.init(game: .pokemon, query: "Giratina", languages: [language], mode: .card))
+            .search(.init(game: .pokemon, query: "Giratina", languages: [language], mode: .card, cursor: nil))
             .get()
         let request = try #require(await transport.request)
 
@@ -109,7 +127,7 @@ struct TCGPricingClientTests {
     func `Omits unrestricted language selections`(languages: Set<ClientCardLanguage>) async throws {
         let transport = PricingRequestTransport(status: .ok, body: searchJSON)
         let result = try await makeClient(transport: transport).pricing
-            .search(.init(game: .pokemon, query: "Giratina", languages: languages, mode: .card))
+            .search(.init(game: .pokemon, query: "Giratina", languages: languages, mode: .card, cursor: nil))
             .get()
         let request = try #require(await transport.request)
 
@@ -121,7 +139,7 @@ struct TCGPricingClientTests {
     func `Selecting the only One Piece language is unrestricted`() async throws {
         let transport = PricingRequestTransport(status: .ok, body: searchJSON)
         let result = try await makeClient(transport: transport).pricing
-            .search(.init(game: .onePiece, query: "Nami", languages: [.english], mode: .card))
+            .search(.init(game: .onePiece, query: "Nami", languages: [.english], mode: .card, cursor: nil))
             .get()
         let request = try #require(await transport.request)
 
@@ -140,7 +158,7 @@ struct TCGPricingClientTests {
         )
         let transport = PricingRequestTransport(status: .ok, body: body)
         let result = try await makeClient(transport: transport).pricing.search(
-            .init(game: .pokemon, query: "Giratina", languages: [], mode: .card)
+            .init(game: .pokemon, query: "Giratina", languages: [], mode: .card, cursor: nil)
         )
         .get()
         let card = try #require(result.matches.first)
@@ -154,7 +172,7 @@ struct TCGPricingClientTests {
 
         await #expect(throws: SearchPricingErrors.badRequest(validations: [validationIssue])) {
             try await makeClient(transport: searchTransport).pricing.search(
-                .init(game: .pokemon, query: "x", languages: [], mode: .card)
+                .init(game: .pokemon, query: "x", languages: [], mode: .card, cursor: nil)
             )
             .get()
         }
@@ -166,7 +184,7 @@ struct TCGPricingClientTests {
 
         await #expect(throws: SearchPricingErrors.unauthorized) {
             try await makeClient(transport: searchTransport).pricing
-                .search(.init(game: .pokemon, query: "Giratina", languages: [], mode: .card))
+                .search(.init(game: .pokemon, query: "Giratina", languages: [], mode: .card, cursor: nil))
                 .get()
         }
     }
@@ -177,7 +195,7 @@ struct TCGPricingClientTests {
 
         await #expect(throws: SearchPricingErrors.unavailable) {
             try await makeClient(transport: searchTransport).pricing.search(
-                .init(game: .pokemon, query: "Giratina", languages: [], mode: .card)
+                .init(game: .pokemon, query: "Giratina", languages: [], mode: .card, cursor: nil)
             )
             .get()
         }

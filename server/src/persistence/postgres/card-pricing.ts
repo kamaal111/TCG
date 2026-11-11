@@ -204,6 +204,7 @@ export class PostgresCardPricingRepository implements CardPricingRepository {
     queryKey: string;
     pricedOn: string;
     pricingCardIds: string[];
+    hasMore: boolean;
   }): Promise<void> {
     await this.db
       .insert(cardPriceSearch)
@@ -215,7 +216,7 @@ export class PostgresCardPricingRepository implements CardPricingRepository {
           cardPriceSearch.queryKey,
           cardPriceSearch.pricedOn,
         ],
-        set: { pricingCardIds: values.pricingCardIds, fetchedAt: new Date() },
+        set: { pricingCardIds: values.pricingCardIds, hasMore: values.hasMore, fetchedAt: new Date() },
       });
   }
 

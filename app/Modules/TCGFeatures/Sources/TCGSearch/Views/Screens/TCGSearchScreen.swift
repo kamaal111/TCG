@@ -203,6 +203,7 @@ public struct TCGSearchScreen: View {
 
     @ViewBuilder
     private var searchResults: some View {
+        let visibleResults = model.filteredResults(using: search)
         if search.isSearching {
             HStack {
                 Spacer()
@@ -219,12 +220,12 @@ public struct TCGSearchScreen: View {
             } else {
                 recentSearches
             }
-        } else if !search.isSearching && search.hasSearched && search.results.isEmpty {
+        } else if !search.isSearching && search.hasSearched && search.results.isEmpty && search.nextCursor == nil {
             noResults
-        } else if search.hasSearched && !search.results.isEmpty && model.filteredResults(using: search).isEmpty {
+        } else if search.hasSearched && !search.results.isEmpty && visibleResults.isEmpty {
             noMatchingSets
         } else {
-            ForEach(model.filteredResults(using: search)) { card in
+            ForEach(visibleResults) { card in
                 PricedCardRow(
                     card: card,
                     actions: .init(
@@ -247,6 +248,35 @@ public struct TCGSearchScreen: View {
                     .background(.background.secondary, in: RoundedRectangle(cornerRadius: 12))
                 #endif
             }
+            if !search.isSearching, let cursor = search.nextCursor {
+                paginationFooter(cursor: cursor, canLoadAutomatically: !visibleResults.isEmpty)
+                    .frame(maxWidth: .infinity)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func paginationFooter(cursor: String, canLoadAutomatically: Bool) -> some View {
+        if search.isLoadingNextPage {
+            ProgressView()
+        } else if search.didFailToLoadNextPage {
+            Button {
+                Task { await search.loadNextPage(cursor, retry: true) }
+            } label: {
+                Text("Retry", bundle: .module)
+            }
+        } else if !canLoadAutomatically {
+            Button {
+                Task { await search.loadNextPage(cursor, retry: false) }
+            } label: {
+                Text("Load more", bundle: .module)
+            }
+        } else {
+            ProgressView()
+                .onAppear {
+                    Task { await search.loadNextPage(cursor, retry: false) }
+                }
+                .id(cursor)
         }
     }
 
@@ -290,6 +320,10 @@ public struct TCGSearchScreen: View {
             }
         } description: {
             Text("Change your set filter to see more cards.", bundle: .module)
+        } actions: {
+            if !search.isSearching, let cursor = search.nextCursor {
+                paginationFooter(cursor: cursor, canLoadAutomatically: false)
+            }
         }
         #if os(macOS)
             .frame(maxWidth: .infinity, minHeight: 480)

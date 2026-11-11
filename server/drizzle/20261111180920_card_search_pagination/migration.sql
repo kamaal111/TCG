@@ -1,0 +1,1 @@
+ALTER TABLE "card_price_search" ADD COLUMN "has_more" boolean DEFAULT false NOT NULL;

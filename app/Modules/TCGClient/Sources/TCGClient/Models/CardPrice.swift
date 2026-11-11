@@ -352,18 +352,20 @@ public struct PricedCard: Codable, Hashable, Identifiable, Sendable {
 ///
 /// - Example:
 ///   ```swift
-///   let result = CardSearchResult(matches: [])
+///   let result = CardSearchResult(matches: [], nextCursor: nil)
 ///   ```
 public struct CardSearchResult: Codable, Hashable, Sendable {
     public let matches: [PricedCard]
+    public let nextCursor: String?
 
     /// Creates a search result from its ordered matches.
     ///
     /// - Example:
     ///   ```swift
-    ///   let result = CardSearchResult(matches: [])
+    ///   let result = CardSearchResult(matches: [], nextCursor: nil)
     ///   ```
-    public init(matches: [PricedCard]) {
+    public init(matches: [PricedCard], nextCursor: String?) {
         self.matches = matches
+        self.nextCursor = nextCursor
     }
 }
