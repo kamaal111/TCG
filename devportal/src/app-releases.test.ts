@@ -164,3 +164,13 @@ test('graceful service shutdown declines pending app approval and retains an int
   expect(f.upload).not.toHaveBeenCalled();
   await expect(fs.access(path.join(f.directory, 'app-release.lock'))).rejects.toThrow('ENOENT');
 });
+
+test('reports verification failures without implying that signing or upload was attempted', async t => {
+  const f = await fixture(t);
+  f.runApp.mockRejectedValueOnce(new InfraFailure('private diagnostic at /private/release.log'));
+  const release = ReleaseSchema.parse(await (await f.request('/v1/app-releases', f.input)).json());
+  await vi.waitFor(() => expect(f.sessions.get(release.id).state).toBe('failed'));
+  expect(f.sessions.get(release.id).failure).toContain('verification checks failed before signing or upload');
+  expect(f.sessions.get(release.id).failure).not.toContain('/private/release.log');
+  expect(f.upload).not.toHaveBeenCalled();
+});

@@ -5,6 +5,7 @@ import z from 'zod';
 
 import { appCommands } from './commands.ts';
 import { APP_ALREADY_UPLOADED, appFingerprint, readAppSettings, type Platform } from './config.ts';
+import { appReleaseEnvironment } from './environment.ts';
 import { archiveArguments, exportOptions, inspectArchive, type Command } from './xcode.ts';
 import { gitAddDetachedWorktree, gitFetch, gitRemoveWorktree, gitRevision } from '../git.ts';
 import { InfraFailure } from '../infra/errors.ts';
@@ -99,8 +100,9 @@ export async function runAppRelease(options: AppRuntimeOptions): Promise<void> {
   const log = path.join(session, 'release.log');
   await fs.writeFile(log, '', { mode: 0o600 });
 
-  const command = options.command ?? appCommands({ root, log, signal: options.signal });
-  const cleanup = options.command ?? appCommands({ root, log });
+  const environment = options.command ? undefined : await appReleaseEnvironment({ root });
+  const command = options.command ?? appCommands({ root, log, signal: options.signal, environment });
+  const cleanup = options.command ?? appCommands({ root, log, environment });
 
   prompts.note(`Detailed output and artifacts are saved privately in ${session}.`);
   let added = false;

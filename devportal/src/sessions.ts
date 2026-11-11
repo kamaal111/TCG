@@ -392,8 +392,17 @@ export class ReleaseSessions {
         'Release stopped. Check setup and the private release log on the Mac mini, then retry. Completed images can be reused.';
 
       if (current.target !== 'server') {
-        failure =
-          'App release stopped. Check Xcode setup and the private log on the release Mac. If upload started, check App Store Connect before retrying.';
+        failure = 'App release stopped. Read the private release log on the release Mac.';
+
+        if (current.stage === 'checks') {
+          failure =
+            'App verification checks failed before signing or upload. Read the private release log on the release Mac.';
+        } else if (current.stage === 'archive') {
+          failure = 'App archive or signing failed before upload. Read the private release log on the release Mac.';
+        } else if (current.stage === 'upload') {
+          failure =
+            'App upload stopped. Check App Store Connect before retrying, and read the private release log on the release Mac.';
+        }
       } else if (error instanceof InfraFailure && error.message === PORTAL_SETUP_REQUIRED) {
         failure = PORTAL_SETUP_REQUIRED;
       }

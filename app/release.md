@@ -78,6 +78,15 @@ and records uploads, not published App Store versions.
 
 ## Failures and retries
 
+A failed CLI command prints its command name, exit status and captured diagnostic
+output directly. Large output is bounded; the complete output remains in the
+private log. Upload uncertainty guidance appears only when the upload command
+was attempted. Devportal reports the failed stage and keeps raw host diagnostics
+on the Mac.
+
+The release resolves the actual `just` executable before running checks, so
+nested tests do not depend on mise shims retaining the original project context.
+
 Detailed logs, archives, export settings and session summaries are private under
 `$HOME/.config/tcg/app-releases`. Devportal session history remains under
 `$HOME/.config/tcg/devportal-releases`. The two app destinations and terminal

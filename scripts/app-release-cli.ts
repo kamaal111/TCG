@@ -99,10 +99,6 @@ process.umask(0o077);
 try {
   await main();
 } catch (error) {
-  console.error(
-    error instanceof InfraFailure
-      ? error.message
-      : 'App release stopped. Check arguments, Xcode setup and the private app release log.',
-  );
+  console.error(error instanceof Error ? error.message : util.inspect(error, { depth: 3, maxStringLength: 4000 }));
   process.exitCode = error instanceof InfraFailure ? error.exitCode : 1;
 }

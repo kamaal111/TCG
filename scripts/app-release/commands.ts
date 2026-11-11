@@ -1,6 +1,7 @@
 import childProcess from 'node:child_process';
 import fs from 'node:fs';
 import promises from 'node:fs/promises';
+import util from 'node:util';
 
 import type { Command } from './xcode.ts';
 import { InfraFailure } from '../infra/errors.ts';
@@ -9,28 +10,31 @@ interface CommandOptions {
   root: string;
   log: string;
   signal?: AbortSignal;
+  environment?: NodeJS.ProcessEnv;
 }
 
 /** Keep the lease owner alive until command descendants and their output have stopped. */
-export function appCommands({ root, log, signal }: CommandOptions): Command {
+export function appCommands({ root, log, signal, environment = process.env }: CommandOptions): Command {
   return async (program, args, cwd = root) => {
     if (signal?.aborted) {
-      throw new InfraFailure('App release cancelled. Check App Store Connect before retrying an upload.', 130);
+      throw new InfraFailure('App release cancelled before starting the next command.', 130);
     }
 
-    await promises.appendFile(log, `\n${program} ${JSON.stringify(args)}\n`);
+    await promises.appendFile(log, `\n${program} ${JSON.stringify(args)}\n`, { mode: 0o600 });
     const output = fs.createWriteStream(log, { flags: 'a', mode: 0o600 });
 
     // Keep app bundle permissions portable while the session parent stays private.
     const child = childProcess.spawn('bash', ['-c', 'umask 022; exec "$@"', '--', program, ...args], {
       cwd,
-      env: { ...process.env, HUSKY: '0', MISE_TRUSTED_CONFIG_PATHS: cwd },
+      env: { ...environment, HUSKY: '0', MISE_TRUSTED_CONFIG_PATHS: cwd },
       detached: true,
       stdio: ['ignore', 'pipe', 'pipe'],
     });
 
     let captured = '';
-    let logFailed = false;
+    let diagnostics = '';
+    let truncated = false;
+    let logFailure: string | undefined;
     let escalation: ReturnType<typeof setTimeout> | undefined;
     const heartbeat = setInterval(() => console.log('Still running. This step can take several minutes.'), 30_000);
 
@@ -56,11 +60,20 @@ export function appCommands({ root, log, signal }: CommandOptions): Command {
       }, 5000);
     };
 
-    child.stdout.on('data', (chunk: Buffer) => {
+    function record(chunk: string) {
       output.write(chunk);
-      captured = (captured + chunk.toString()).slice(-64 * 1024 * 1024);
+      const combined = diagnostics + chunk;
+      truncated ||= combined.length > 256 * 1024;
+      diagnostics = combined.slice(-256 * 1024);
+    }
+
+    child.stdout.setEncoding('utf8');
+    child.stderr.setEncoding('utf8');
+    child.stdout.on('data', (chunk: string) => {
+      record(chunk);
+      captured = (captured + chunk).slice(-64 * 1024 * 1024);
     });
-    child.stderr.on('data', (chunk: Buffer) => output.write(chunk));
+    child.stderr.on('data', record);
     signal?.addEventListener('abort', terminate, { once: true });
 
     if (signal?.aborted) {
@@ -68,26 +81,45 @@ export function appCommands({ root, log, signal }: CommandOptions): Command {
     }
 
     try {
-      const result = await new Promise<number | null>((resolve, reject) => {
-        child.once('error', () => {
-          return reject(
-            new InfraFailure(
-              `Could not start ${program}. Check tools on the release Mac and the private log at ${log}.`,
-            ),
-          );
+      const result = await new Promise<{ code: number | null; signal: NodeJS.Signals | null }>((resolve, reject) => {
+        child.once('error', error => {
+          return reject(new InfraFailure(`Could not start ${program}: ${error.message}\nFull log: ${log}`));
         });
-        child.once('close', code => resolve(code));
-        output.once('error', () => {
+        child.once('close', (code, signal) => resolve({ code, signal }));
+        output.once('error', error => {
           terminate();
-          logFailed = true;
+          logFailure = error.message;
         });
       });
 
-      if (result !== 0 || signal?.aborted || logFailed) {
-        throw new InfraFailure(
-          `App release stopped. Check the private log at ${log}. If upload started, check App Store Connect before retrying. For signing failures check Xcode Accounts and unlock Keychain on the release Mac.`,
-          signal?.aborted ? 130 : 1,
-        );
+      if (result.code !== 0 || signal?.aborted || logFailure) {
+        const invocation = [program, ...args]
+          .map(argument => (/\s/.test(argument) ? JSON.stringify(argument) : argument))
+          .join(' ');
+
+        let status = result.signal ? `signal ${result.signal}` : `exit ${result.code}`;
+
+        if (logFailure) {
+          status = 'log write failure';
+        }
+
+        const outcome = signal?.aborted ? 'cancelled' : 'failed';
+        const details = util.stripVTControlCharacters(diagnostics).trim();
+
+        const message = [
+          `Command ${outcome} (${status}): ${invocation}`,
+          logFailure ? `Cannot write the release log: ${logFailure}` : '',
+          truncated ? 'Earlier output omitted; the complete output is in the log.' : '',
+          details || 'The command produced no output.',
+          `Full log: ${log}`,
+          program === 'xcodebuild' && args.includes('-exportArchive')
+            ? 'An upload may have been received. Check App Store Connect before retrying.'
+            : '',
+        ]
+          .filter(Boolean)
+          .join('\n\n');
+
+        throw new InfraFailure(message, signal?.aborted ? 130 : result.code || 1);
       }
 
       return captured.trim();
