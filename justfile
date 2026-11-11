@@ -62,25 +62,19 @@ alias devcontainer-rm := devcontainer-delete
 setup-worktree:
     bash scripts/setup-worktree.sh
 
-# Validate a new worktree branch and refresh its base revision
-[positional-arguments]
-prepare-worktree branch:
-    bash scripts/prepare-worktree.sh "$1"
+# Install namu only when it is not already available
+install-namu:
+    bash scripts/install-namu.sh
 
-# Create and focus a Herdr worktree, then configure it (opt out with --no-focus)
+# Create and configure a worktree through namu
 [positional-arguments]
-herdr-worktree branch *args:
-    bash scripts/create-herdr-worktree.sh "$@"
+create-worktree branch *args: install-namu
+    namu create "$@"
 
-# Create a Git worktree under the main checkout's .agents/worktrees
+# Remove a clean checkout through namu while retaining its branch
 [positional-arguments]
-create-worktree branch *args:
-    bash scripts/create-worktree.sh "$@"
-
-# Remove a clean managed checkout while retaining its branch
-[positional-arguments]
-cleanup-worktree branch:
-    bash scripts/cleanup-worktree.sh "$1"
+cleanup-worktree branch: install-namu
+    namu delete "$1"
 
 # Run dev server
 [working-directory("server")]

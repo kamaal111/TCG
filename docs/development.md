@@ -27,27 +27,52 @@ a direct Node invocation loads it.
 
 ## Git worktrees
 
-Create a worktree without Herdr:
+Create a worktree with one command. The recipe uses namu from `PATH`, installing
+it through Homebrew automatically when missing. Existing installations are kept;
+Homebrew is required only for automatic installation.
 
 ```sh
 just create-worktree feature/cards
-just create-worktree feature/pricing feature/cards
-just create-worktree feature/release origin/release
+just create-worktree feature/pricing --base feature/cards
+just create-worktree feature/release --base origin/release
 ```
 
-The default fetches `origin/main` before branching. An explicit base uses the
-exact local branch or remote-tracking ref supplied, without fetching; refresh
-remote-tracking refs yourself when needed. The new branch must not already exist.
-Checkouts live at the main checkout's `.agents/worktrees/<branch>`, even when
-invoked from another linked checkout. For example, `feature/cards` lands in
-`.agents/worktrees/feature/cards`. This directory is ignored by Git.
+Namu fetches the remote's advertised default branch before branching. It selects
+`origin`, or the sole remote; use `--remote upstream` to choose another remote.
+An explicit `--base` uses the exact local ref without fetching. The new branch
+must not already exist. Checkouts live at the main checkout's
+`.agents/worktrees/<branch>`, even when invoked from another linked checkout.
+For example, `feature/cards` lands in `.agents/worktrees/feature/cards`.
 
-Creation runs `just setup-worktree` in the new checkout, copying the main
-checkout's `.env` with private permissions and allocating separate local ports
-and a Compose project name. The base must include the setup recipe. If setup
-fails, the branch and checkout remain available; fix the reported configuration
-issue, then run `just setup-worktree` from that checkout. Dependencies are not
-installed and services are not started automatically.
+Inside Herdr or Rex, namu automatically opens and focuses the checkout through
+that integration. To keep the current workspace selected, use:
+
+```sh
+just create-worktree feature/cards --no-focus
+```
+
+Namu reads `.namu.toml` and `.worktreeinclude` from the invoking checkout. It copies
+that checkout's ignored `.env` before running `just setup-worktree` in the new
+checkout. Setup preserves credentials and allocates separate local ports and a
+Compose project name. If no `.env` was copied, setup falls back to the main
+checkout's `.env`. The selected base must contain the setup recipe and supporting
+scripts. Dependencies are not installed and services are not started automatically.
+
+If setup fails, the branch and checkout remain available. Fix the reported issue
+and retry from the original source checkout:
+
+```sh
+namu setup feature/cards
+```
+
+You can also run `just setup-worktree` directly inside the new checkout. Opening
+an existing checkout does not rerun setup. Once namu is available, use it directly
+to open or list worktrees:
+
+```sh
+namu open feature/cards
+namu list
+```
 
 From the main checkout or another worktree, remove a finished checkout with:
 
@@ -55,14 +80,13 @@ From the main checkout or another worktree, remove a finished checkout with:
 just cleanup-worktree feature/cards
 ```
 
-Cleanup retains the branch and refuses tracked changes, untracked files, locked
-worktrees, and removal of the invoking checkout. It only removes matching
-registered checkouts under `.agents/worktrees`; existing Herdr and other
-worktrees are not migrated or removed. Ignored files such as the generated `.env`
-are deleted with the checkout. Stop any checkout-specific services before
-cleanup; the recipe does not stop containers or delete their volumes.
-
-The existing `just herdr-worktree` workflow remains available and unchanged.
+Cleanup also ensures namu is installed, then delegates to `namu delete`. It retains
+the branch and refuses tracked changes, untracked files, locked worktrees, and
+removal of the main or invoking checkout. It can remove registered linked
+checkouts outside `.agents/worktrees`, including those created by other tools.
+Ignored files such as `.env` are deleted with the checkout. Stop checkout-specific
+services first; cleanup does not stop containers or delete their volumes. Existing
+worktrees require no migration.
 
 ## Local server and services
 
@@ -142,23 +166,13 @@ When changing host ports, keep connection URLs aligned: `TCG_DB_PORT` with
 `BETTER_AUTH_URL`. Update `PUBLIC_BASE_URL` too when explicitly set. The app's
 compiled URL is configured separately; changing `.env` alone does not redirect it.
 
-Create a linked worktree with Git or your preferred tool, then run setup inside it:
-
-```sh
-just prepare-worktree feature/cards
-git worktree add -b feature/cards ../tcg-cards origin/main
-cd ../tcg-cards
-just setup-worktree
-```
+`just create-worktree` runs setup automatically through `.namu.toml`. For a
+checkout created with plain Git or another tool, run `just setup-worktree` from
+that checkout's root.
 
 `just setup-worktree` uses Bash for checkout preparation, locking, and atomic
 `.env` replacement. `configure-worktree-env.ts` parses the environment, reserves
 peer ports, and allocates a free port set.
-
-`just prepare-worktree branch` validates that the branch is new and fetches
-`origin/main`; use it before creation with Git or another tool. This preflight
-requires a branch that does not exist yet, so setup does not call it after
-creation.
 
 `.worktreeinclude` selects `.env` for tools that support copying ignored files.
 Plain Git does not copy it. If the new checkout has no `.env`, setup uses the
@@ -174,20 +188,7 @@ project with another registered checkout receive new values. Setup uses a shared
 Git-directory lock; concurrent setup fails with retry instructions. After an
 interrupted process, remove the reported lock only when no setup is running.
 
-If you use Herdr, `just herdr-worktree feature/cards` runs preparation, creates
-the checkout through Herdr, selects its workspace, and runs the same
-`just setup-worktree` there. To keep the original workspace selected, use:
-
-```sh
-just herdr-worktree feature/cards --no-focus
-```
-
-Workspace selection happens during creation. Setup continues in the originating
-terminal, where any setup failure is reported; that terminal's working directory
-stays unchanged.
-
-You can also create it through Herdr directly and run setup yourself. No Herdr
-plugin is required. See [the setup entry point](../scripts/setup-worktree.sh) and
+See [the setup entry point](../scripts/setup-worktree.sh) and
 [its environment helper](../scripts/configure-worktree-env.ts).
 
 ## Changing the database or API
