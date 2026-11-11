@@ -8,12 +8,15 @@ test('captures command output and retains diagnostics on failure', async t => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'app-commands-'));
   t.onTestFinished(() => fs.rm(root, { recursive: true, force: true }));
   const log = path.join(root, 'release.log');
-  const command = appCommands({ root, log });
+  const output = vi.fn<(chunk: string) => void>();
+  const command = appCommands({ root, log, output });
   expect(await command(process.execPath, ['-e', 'console.log("archive details")'])).toBe('archive details');
   await expect(
     command(process.execPath, ['-e', 'console.error("signing unavailable"); process.exit(1)']),
   ).rejects.toThrow('signing unavailable');
   expect(await fs.readFile(log, 'utf8')).toContain('signing unavailable');
+  expect(output.mock.calls.flat().join('')).toContain('archive details');
+  expect(output.mock.calls.flat().join('')).toContain('signing unavailable');
 });
 
 test('cancellation terminates a running command and does not start another', async t => {
@@ -21,12 +24,14 @@ test('cancellation terminates a running command and does not start another', asy
   t.onTestFinished(() => fs.rm(root, { recursive: true, force: true }));
   const log = path.join(root, 'release.log');
   const signal = new AbortController();
-  const command = appCommands({ root, log, signal: signal.signal });
+  const output = vi.fn<(chunk: string) => void>();
+  const command = appCommands({ root, log, signal: signal.signal, output });
   const running = command(process.execPath, ['-e', 'console.log("ready"); setInterval(() => {}, 1000)']);
   await Promise.all([
     expect(running).rejects.toThrow('cancelled'),
     (async () => {
       await vi.waitFor(async () => expect(await fs.readFile(log, 'utf8')).toContain('\nready\n'));
+      expect(output.mock.calls.flat().join('')).toContain('\nready\n');
       signal.abort();
     })(),
   ]);
@@ -79,4 +84,36 @@ test('bounds displayed diagnostics, strips terminal escapes and retains the full
   await expect(failure).rejects.toThrow('error: missing signing certificate');
   await expect(failure).rejects.not.toThrow('\u001b');
   expect((await fs.readFile(log, 'utf8')).length).toBeGreaterThan(300000);
+});
+
+test('stops an unresponsive command after the idle deadline and retains its diagnostics', async t => {
+  vi.useFakeTimers();
+  t.onTestFinished(() => {
+    vi.useRealTimers();
+  });
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'app-idle-'));
+  t.onTestFinished(() => fs.rm(root, { recursive: true, force: true }));
+  const output = vi.fn<(chunk: string) => void>();
+
+  const command = appCommands({
+    root,
+    log: path.join(root, 'release.log'),
+    idleTimeoutMs: 60_000,
+    output,
+  });
+
+  const running = command(process.execPath, ['-e', 'console.log("build waiting"); setInterval(() => {}, 1000)']);
+  await vi.waitFor(() => expect(output).toHaveBeenCalledWith('build waiting\n'));
+
+  await Promise.all([
+    expect(running).rejects.toMatchObject({
+      exitCode: 124,
+      message: expect.stringContaining('No tool output for 60 seconds'),
+    }),
+    (async () => {
+      await vi.advanceTimersByTimeAsync(90_000);
+    })(),
+  ]);
+  expect(await fs.readFile(path.join(root, 'release.log'), 'utf8')).toContain('build waiting');
+  expect(vi.getTimerCount()).toBe(0);
 });

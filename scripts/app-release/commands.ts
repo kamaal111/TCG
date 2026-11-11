@@ -11,16 +11,26 @@ interface CommandOptions {
   log: string;
   signal?: AbortSignal;
   environment?: NodeJS.ProcessEnv;
+  output?: (chunk: string) => void;
+  idleTimeoutMs?: number;
 }
 
 /** Keep the lease owner alive until command descendants and their output have stopped. */
-export function appCommands({ root, log, signal, environment = process.env }: CommandOptions): Command {
+export function appCommands({
+  root,
+  log,
+  signal,
+  environment = process.env,
+  output: liveOutput,
+  idleTimeoutMs = 10 * 60_000,
+}: CommandOptions): Command {
   return async (program, args, cwd = root) => {
     if (signal?.aborted) {
       throw new InfraFailure('App release cancelled before starting the next command.', 130);
     }
 
     await promises.appendFile(log, `\n${program} ${JSON.stringify(args)}\n`, { mode: 0o600 });
+    liveOutput?.(`\nRunning: ${program} ${JSON.stringify(args)}\n`);
     const output = fs.createWriteStream(log, { flags: 'a', mode: 0o600 });
 
     // Keep app bundle permissions portable while the session parent stays private.
@@ -35,8 +45,9 @@ export function appCommands({ root, log, signal, environment = process.env }: Co
     let diagnostics = '';
     let truncated = false;
     let logFailure: string | undefined;
+    let idleFailure = false;
+    let lastOutput = performance.now();
     let escalation: ReturnType<typeof setTimeout> | undefined;
-    const heartbeat = setInterval(() => console.log('Still running. This step can take several minutes.'), 30_000);
 
     const terminate = () => {
       const pid = child.pid;
@@ -60,8 +71,20 @@ export function appCommands({ root, log, signal, environment = process.env }: Co
       }, 5000);
     };
 
+    const watchdog = setInterval(
+      () => {
+        if (!idleFailure && performance.now() - lastOutput >= idleTimeoutMs) {
+          idleFailure = true;
+          terminate();
+        }
+      },
+      Math.min(30_000, idleTimeoutMs),
+    );
+
     function record(chunk: string) {
+      lastOutput = performance.now();
       output.write(chunk);
+      liveOutput?.(chunk);
       const combined = diagnostics + chunk;
       truncated ||= combined.length > 256 * 1024;
       diagnostics = combined.slice(-256 * 1024);
@@ -92,7 +115,7 @@ export function appCommands({ root, log, signal, environment = process.env }: Co
         });
       });
 
-      if (result.code !== 0 || signal?.aborted || logFailure) {
+      if (result.code !== 0 || signal?.aborted || logFailure || idleFailure) {
         const invocation = [program, ...args]
           .map(argument => (/\s/.test(argument) ? JSON.stringify(argument) : argument))
           .join(' ');
@@ -108,6 +131,9 @@ export function appCommands({ root, log, signal, environment = process.env }: Co
 
         const message = [
           `Command ${outcome} (${status}): ${invocation}`,
+          idleFailure
+            ? `No tool output for ${Math.round(idleTimeoutMs / 1000)} seconds; stopped the unresponsive command.`
+            : '',
           logFailure ? `Cannot write the release log: ${logFailure}` : '',
           truncated ? 'Earlier output omitted; the complete output is in the log.' : '',
           details || 'The command produced no output.',
@@ -119,14 +145,24 @@ export function appCommands({ root, log, signal, environment = process.env }: Co
           .filter(Boolean)
           .join('\n\n');
 
-        throw new InfraFailure(message, signal?.aborted ? 130 : result.code || 1);
+        let exitCode = result.code || 1;
+
+        if (idleFailure) {
+          exitCode = 124;
+        }
+
+        if (signal?.aborted) {
+          exitCode = 130;
+        }
+
+        throw new InfraFailure(message, exitCode);
       }
 
       return captured.trim();
     } finally {
       signal?.removeEventListener('abort', terminate);
-      clearInterval(heartbeat);
       clearTimeout(escalation);
+      clearInterval(watchdog);
 
       if (!output.destroyed) {
         await new Promise<void>(resolve => output.end(resolve));

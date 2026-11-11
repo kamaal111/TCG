@@ -220,15 +220,20 @@ release-server *args:
 setup-app-release *args:
     node scripts/app-release-cli.ts setup "$@"
 
-# Verify, sign and upload the iOS app to App Store Connect
+# Archive, sign and upload the previously verified iOS app to App Store Connect
 [positional-arguments]
 release-ios *args:
     node scripts/app-release-cli.ts ios "$@"
 
-# Verify, sign and upload the macOS app to App Store Connect
+# Archive, sign and upload the previously verified macOS app to App Store Connect
 [positional-arguments]
 release-macos *args:
     node scripts/app-release-cli.ts macos "$@"
+
+# Follow the latest app release log in another terminal tab (optionally ios or macos)
+[positional-arguments]
+logs-app-release *args:
+    node scripts/app-release-cli.ts logs "$@"
 
 # Guide private Devportal setup on the release Mac
 [positional-arguments]

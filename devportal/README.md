@@ -85,8 +85,12 @@ Funnel endpoint. See the
 ## iOS and macOS releases
 
 Choose **Release destination** on the dashboard to switch between Server, iOS and
-macOS. App releases run the same verification, automatic signing and App Store
+macOS. App releases run the same archive, automatic signing and App Store
 Connect upload pipeline as `just release-ios` and `just release-macos`.
+They assume source was already verified and skip test and quality gates during
+release. Named milestones, elapsed time and inactivity updates remain available
+in session history. Use `just logs-app-release` on the release Mac to follow the
+private tool output in another terminal tab.
 Run `just setup-app-release` on the release Mac first, using the same settings
 directory as the service. The app reports a setup blocker until configured.
 

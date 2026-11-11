@@ -165,12 +165,43 @@ test('graceful service shutdown declines pending app approval and retains an int
   await expect(fs.access(path.join(f.directory, 'app-release.lock'))).rejects.toThrow('ENOENT');
 });
 
-test('reports verification failures without implying that signing or upload was attempted', async t => {
+test('reports source preparation failures before signing or upload', async t => {
   const f = await fixture(t);
   f.runApp.mockRejectedValueOnce(new InfraFailure('private diagnostic at /private/release.log'));
   const release = ReleaseSchema.parse(await (await f.request('/v1/app-releases', f.input)).json());
   await vi.waitFor(() => expect(f.sessions.get(release.id).state).toBe('failed'));
-  expect(f.sessions.get(release.id).failure).toContain('verification checks failed before signing or upload');
+  expect(f.sessions.get(release.id).failure).toContain('source preparation failed before signing or upload');
   expect(f.sessions.get(release.id).failure).not.toContain('/private/release.log');
   expect(f.upload).not.toHaveBeenCalled();
+});
+
+test('persists live app milestones and elapsed updates while keeping host output private', async t => {
+  const f = await fixture(t);
+  const work = Promise.withResolvers<boolean>();
+  f.runApp.mockImplementationOnce(async options => {
+    options.prompts.note('Starting: Preparing isolated release source.');
+    options.prompts.note('Preparing isolated release source: 1m 30s elapsed.');
+    options.prompts.note('Private output at /private/release.log');
+    await work.promise;
+    options.prompts.note('Completed: Preparing isolated release source (1m 30s).');
+  });
+  t.onTestFinished(async () => {
+    work.resolve(true);
+    await f.sessions.shutdownApp();
+  });
+  const release = ReleaseSchema.parse(await (await f.request('/v1/app-releases', f.input)).json());
+  await vi.waitFor(() => expect(f.sessions.get(release.id).events).toHaveLength(3));
+  expect(f.sessions.get(release.id).state).toBe('running');
+  expect(f.sessions.get(release.id).events.map(event => event.message)).toEqual([
+    'Starting: Preparing isolated release source.',
+    'Preparing isolated release source: 1m 30s elapsed.',
+    'See the private release log on the Mac mini for details.',
+  ]);
+  work.resolve(true);
+  await vi.waitFor(() => expect(f.sessions.get(release.id).state).toBe('succeeded'));
+  const restored = new ReleaseSessions(f.dependencies);
+  await restored.initialize();
+  expect(restored.get(release.id).events.at(-1)?.message).toBe(
+    'Completed: Preparing isolated release source (1m 30s).',
+  );
 });

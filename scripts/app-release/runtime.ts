@@ -5,7 +5,7 @@ import z from 'zod';
 
 import { appCommands } from './commands.ts';
 import { APP_ALREADY_UPLOADED, appFingerprint, readAppSettings, type Platform } from './config.ts';
-import { appReleaseEnvironment } from './environment.ts';
+import { appReleaseProgress } from './progress.ts';
 import { archiveArguments, exportOptions, inspectArchive, type Command } from './xcode.ts';
 import { gitAddDetachedWorktree, gitFetch, gitRemoveWorktree, gitRevision } from '../git.ts';
 import { InfraFailure } from '../infra/errors.ts';
@@ -25,6 +25,7 @@ export interface AppRuntimeOptions {
   stage?: (stage: AppStage) => void;
   command?: Command;
   signal?: AbortSignal;
+  output?: (chunk: string) => void;
 }
 
 const SummarySchema = z.object({
@@ -100,9 +101,21 @@ export async function runAppRelease(options: AppRuntimeOptions): Promise<void> {
   const log = path.join(session, 'release.log');
   await fs.writeFile(log, '', { mode: 0o600 });
 
-  const environment = options.command ? undefined : await appReleaseEnvironment({ root });
-  const command = options.command ?? appCommands({ root, log, signal: options.signal, environment });
-  const cleanup = options.command ?? appCommands({ root, log, environment });
+  let lastOutput = performance.now();
+
+  const output = (chunk: string) => {
+    lastOutput = performance.now();
+    options.output?.(chunk);
+  };
+
+  const command = options.command ?? appCommands({ root, log, signal: options.signal, output });
+
+  const cleanup = options.command ?? appCommands({ root, log, output });
+
+  const step = appReleaseProgress(
+    message => prompts.note(message),
+    () => lastOutput,
+  );
 
   prompts.note(`Detailed output and artifacts are saved privately in ${session}.`);
   let added = false;
@@ -117,7 +130,10 @@ export async function runAppRelease(options: AppRuntimeOptions): Promise<void> {
   }
 
   try {
-    const { sha, version } = await inspectAppSource(root, options.revision, command);
+    const { sha, version } = await step('Inspecting merged release source', () => {
+      return inspectAppSource(root, options.revision, command);
+    });
+
     const fingerprint = appFingerprint(platform, sha, settings);
     await save({ platform, sha, fingerprint, state: 'started', createdAt: new Date().toISOString() });
 
@@ -142,10 +158,13 @@ export async function runAppRelease(options: AppRuntimeOptions): Promise<void> {
       `Platform: ${platform}\nCommit: ${sha}\nVersion: ${version}\nBundle: io.kamaal.TCG\nTeam: ${settings.teamID}\nAPI: https://${settings.apiHost}`,
     );
     options.stage?.('checks');
-    await gitAddDetachedWorktree((program, args) => command(program, args, root), checkout, sha);
+    await step('Preparing isolated release source', () => {
+      return gitAddDetachedWorktree((program, args) => command(program, args, root), checkout, sha);
+    });
     added = true;
-    await command('mise', ['exec', '--locked', 'node', 'pnpm', '--', 'pnpm', 'install', '--frozen-lockfile'], checkout);
-    await command('just', ['ready-app'], checkout);
+    prompts.note(
+      'Using previously verified source. Release preparation is complete; archive signing approval is next.',
+    );
     options.stage?.('archive');
 
     if (
@@ -160,8 +179,12 @@ export async function runAppRelease(options: AppRuntimeOptions): Promise<void> {
 
     await assertSettings();
     const archive = path.join(session, 'Mintomo.xcarchive');
-    await command('xcodebuild', archiveArguments({ platform, archive, settings }), checkout);
-    await inspectArchive({ archive, platform, settings, version, command });
+    await step(`Archiving and signing the ${platform} app`, () => {
+      return command('xcodebuild', archiveArguments({ platform, archive, settings }), checkout);
+    });
+    await step('Validating archive identity and signatures', () => {
+      return inspectArchive({ archive, platform, settings, version, command });
+    });
     const plist = path.join(session, 'ExportOptions.plist');
     await fs.writeFile(plist, exportOptions(settings), { mode: 0o600 });
     options.stage?.('upload');
@@ -178,20 +201,22 @@ export async function runAppRelease(options: AppRuntimeOptions): Promise<void> {
 
     await assertSettings();
     await save({ platform, sha, fingerprint, state: 'uploading', createdAt: new Date().toISOString() });
-    await command(
-      'xcodebuild',
-      [
-        '-exportArchive',
-        '-archivePath',
-        archive,
-        '-exportOptionsPlist',
-        plist,
-        '-exportPath',
-        path.join(session, 'export'),
-        '-allowProvisioningUpdates',
-      ],
-      checkout,
-    );
+    await step('Uploading the signed app to App Store Connect', () => {
+      return command(
+        'xcodebuild',
+        [
+          '-exportArchive',
+          '-archivePath',
+          archive,
+          '-exportOptionsPlist',
+          plist,
+          '-exportPath',
+          path.join(session, 'export'),
+          '-allowProvisioningUpdates',
+        ],
+        checkout,
+      );
+    });
     await save({ platform, sha, fingerprint, state: 'uploaded', createdAt: new Date().toISOString() });
     prompts.note(
       'Uploaded to App Store Connect; processing pending. Check https://appstoreconnect.apple.com for the final build number and processing result.',
@@ -204,7 +229,9 @@ export async function runAppRelease(options: AppRuntimeOptions): Promise<void> {
     throw error;
   } finally {
     if (added) {
-      await gitRemoveWorktree((program, args) => cleanup(program, args, root), { path: checkout, force: true });
+      await step('Cleaning up isolated release source', () => {
+        return gitRemoveWorktree((program, args) => cleanup(program, args, root), { path: checkout, force: true });
+      });
     }
   }
 }

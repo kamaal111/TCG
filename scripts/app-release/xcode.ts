@@ -28,6 +28,7 @@ export function archiveArguments(options: { platform: Platform; archive: string;
     `DEVELOPMENT_TEAM=${options.settings.teamID}`,
     `TCG_API_HOST=${options.settings.apiHost}`,
     'ONLY_ACTIVE_ARCH=NO',
+    'SWIFT_USE_INTEGRATED_DRIVER=NO',
   ];
 }
 

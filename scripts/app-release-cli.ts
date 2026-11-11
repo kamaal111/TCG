@@ -4,6 +4,7 @@ import url from 'node:url';
 import util from 'node:util';
 
 import { PlatformSchema, readAppSettings } from './app-release/config.ts';
+import { followAppReleaseLog } from './app-release/logs.ts';
 import { releaseAppFromTerminal } from './app-release/runtime.ts';
 import { setupAppRelease } from './app-release/setup.ts';
 import { homePath } from './infra/config.ts';
@@ -24,7 +25,7 @@ async function main() {
 
   if (args.values.help) {
     console.log(
-      'Usage: just setup-app-release [--edit] [--config-dir DIRECTORY]\n       just release-ios [REVISION] [--config-dir DIRECTORY]\n       just release-macos [REVISION] [--config-dir DIRECTORY]\n\nDefault revision: origin/main; revisions must be merged into main. Settings: $HOME/.config/tcg.\nUses the Xcode account on this Mac, automatic signing and automatic upload build numbers.\nChecks, archives and uploads to App Store Connect with explicit approvals. Does not submit for review.',
+      'Usage: just setup-app-release [--edit] [--config-dir DIRECTORY]\n       just release-ios [REVISION] [--config-dir DIRECTORY]\n       just release-macos [REVISION] [--config-dir DIRECTORY]\n       just logs-app-release [ios|macos] [--config-dir DIRECTORY]\n\nDefault revision: origin/main; revisions must be merged into main. Settings: $HOME/.config/tcg.\nUses the Xcode account on this Mac, automatic signing and automatic upload build numbers.\nArchives and uploads previously verified source to App Store Connect with explicit approvals. No test or quality gate runs during release. Does not submit for review.\nLog watching uses tail -n 100 -F on the latest session; Ctrl-C stops watching.',
     );
 
     return;
@@ -33,16 +34,16 @@ async function main() {
   const [action, revision = 'origin/main', ...extra] = args.positionals;
 
   if (
-    !process.stdin.isTTY ||
-    !process.stdout.isTTY ||
+    (action !== 'logs' && (!process.stdin.isTTY || !process.stdout.isTTY)) ||
     extra.length ||
     !action ||
-    (action !== 'setup' && !PlatformSchema.safeParse(action).success) ||
+    (action !== 'setup' && action !== 'logs' && !PlatformSchema.safeParse(action).success) ||
+    (action === 'logs' && args.positionals.length > 1 && !PlatformSchema.safeParse(args.positionals[1]).success) ||
     (action === 'setup' && args.positionals.length > 1) ||
     args.values['config-dir'] === ''
   ) {
     throw new InfraFailure(
-      'Use an interactive terminal: just setup-app-release, just release-ios [REVISION], or just release-macos [REVISION]. Use --help for details.',
+      'Use an interactive terminal: just setup-app-release, just release-ios [REVISION], or just release-macos [REVISION]. To watch logs: just logs-app-release [ios|macos]. Use --help for details.',
       64,
     );
   }
@@ -60,6 +61,15 @@ async function main() {
 
   if (args.values.edit && action !== 'setup') {
     throw new InfraFailure('--edit is only supported by just setup-app-release.', 64);
+  }
+
+  if (action === 'logs') {
+    await followAppReleaseLog(
+      configDirectory,
+      args.positionals[1] ? PlatformSchema.parse(args.positionals[1]) : undefined,
+    );
+
+    return;
   }
 
   if (action === 'setup') {
@@ -87,6 +97,9 @@ async function main() {
       revision,
       prompts: terminalPrompts,
       signal: cancellation.signal,
+      output: chunk => {
+        process.stdout.write(chunk);
+      },
     });
   } finally {
     process.removeListener('SIGINT', stop);
