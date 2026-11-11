@@ -396,7 +396,7 @@ export class ReleaseSessions {
 
         if (current.stage === 'checks') {
           failure =
-            'App verification checks failed before signing or upload. Read the private release log on the release Mac.';
+            'App source preparation failed before signing or upload. Read the private release log on the release Mac.';
         } else if (current.stage === 'archive') {
           failure = 'App archive or signing failed before upload. Read the private release log on the release Mac.';
         } else if (current.stage === 'upload') {

@@ -13,6 +13,7 @@ test.each([
   expect(args).toContain('-allowProvisioningUpdates');
   expect(args).toContain('TCG_API_HOST=api.mintomo.com');
   expect(args).toContain('ONLY_ACTIVE_ARCH=NO');
+  expect(args).toContain('SWIFT_USE_INTEGRATED_DRIVER=NO');
   expect(exportOptions(settings)).toContain('<key>manageAppVersionAndBuildNumber</key><true/>');
   expect(exportOptions(settings)).toContain('<key>method</key><string>app-store-connect</string>');
 });

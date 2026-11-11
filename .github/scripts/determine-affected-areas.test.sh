@@ -67,6 +67,9 @@ run_pull_request_case scripts/run-with-xcbeautify.test.ts false true
 run_pull_request_case scripts/install-xcbeautify.sh false true
 run_pull_request_case scripts/test-xcode-formatter.sh false true
 run_pull_request_case scripts/check-versions-in-sync.ts true false
+run_pull_request_case scripts/app-release-cli.ts true true
+run_pull_request_case scripts/app-release/runtime.ts true true
+run_pull_request_case scripts/oxlint-test-utils.ts true true
 run_pull_request_case vitest.config.ts true false
 run_pull_request_case docs/ci.md false false
 run_pull_request_case README.md false false

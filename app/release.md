@@ -45,9 +45,12 @@ just release-macos
 ```
 
 Both commands fetch main and pin the exact commit. An optional revision must
-already be merged into main. They create an isolated checkout, install locked
-dependencies, and run `just ready-app` before archiving. The caller's checkout and
-private remote configuration remain unchanged. The saved hostname is passed to
+already be merged into main. They create an isolated checkout and archive only
+the selected platform. Release commands assume the selected source was already
+verified: they do not install Node dependencies or run quality checks, tests,
+simulators, or localization verification. Run `just ready-app` separately when
+needed, before releasing. The caller's checkout and private remote configuration
+remain unchanged. The saved hostname is passed to
 the release build explicitly.
 
 Review the platform, commit, version, team, bundle ID and HTTPS endpoint. Approve
@@ -78,14 +81,42 @@ and records uploads, not published App Store versions.
 
 ## Failures and retries
 
+Releases announce each milestone as it starts, completes or stops: inspecting
+source, preparing the checkout, archiving and signing, archive validation, upload,
+and cleanup. An active milestone reports
+its name, elapsed time and time since the last tool output every 30 seconds.
+CLI releases also stream the command and its stdout and stderr as they arrive.
+Devportal retains the same milestones and elapsed updates in session history;
+raw tool output stays private on the release Mac.
+
+First archives can take several minutes to build Swift dependencies. Milestones
+report completed work, without estimating a percentage or claiming that
+App Store Connect has finished processing the uploaded build.
+
+To watch the latest app release from another terminal tab:
+
+```sh
+just logs-app-release
+# Or select a platform or a different private settings directory:
+just logs-app-release ios
+just logs-app-release macos --config-dir "$HOME/.config/tcg"
+```
+
+This uses the system `tail -n 100 -F` command to show recent output and follow
+new lines. It selects the most recently updated session log when started and
+keeps following that file; rerun it to watch a newer release. Ctrl-C stops the
+viewer and leaves the release running.
+
 A failed CLI command prints its command name, exit status and captured diagnostic
 output directly. Large output is bounded; the complete output remains in the
 private log. Upload uncertainty guidance appears only when the upload command
 was attempted. Devportal reports the failed stage and keeps raw host diagnostics
 on the Mac.
 
-The release resolves the actual `just` executable before running checks, so
-nested tests do not depend on mise shims retaining the original project context.
+An archive uses the separate Swift compiler driver to avoid the in-process
+driver dependency-planning stall observed on the release Mac. A command with no
+tool output for ten minutes is stopped with an idle-timeout error (exit 124),
+retaining its diagnostics. Uploads are never retried automatically.
 
 Detailed logs, archives, export settings and session summaries are private under
 `$HOME/.config/tcg/app-releases`. Devportal session history remains under
@@ -94,7 +125,7 @@ commands share an app-release lease. Service updates and uninstall refuse to
 interrupt either an app or server release.
 
 Fix signing failures in Xcode Accounts or Keychain on the release Mac. Failed
-checks and declined approvals never proceed to upload. Settings changed during
+archives and declined approvals never proceed to upload. Settings changed during
 approval require a new review. A completed identical upload is rejected; select
 a new merged commit for another build.
 

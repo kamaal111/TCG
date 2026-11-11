@@ -28,13 +28,16 @@ export async function createLintFixture(source: string, relativeDirectory?: stri
 }
 
 export function lintFixture(filename: string, fix = false) {
-  const args = ['exec', 'oxlint', '-c', CONFIG, '--format', 'json', filename];
+  const args = ['-c', CONFIG, '--format', 'json', filename];
 
   if (fix) {
     args.push('--fix');
   }
 
-  const result = childProcess.spawnSync('pnpm', args, { cwd: ROOT, encoding: 'utf8' });
+  const result = childProcess.spawnSync(path.join(ROOT, 'node_modules/.bin/oxlint'), args, {
+    cwd: ROOT,
+    encoding: 'utf8',
+  });
 
   return { status: result.status, ...LintOutputSchema.parse(JSON.parse(result.stdout)) };
 }
