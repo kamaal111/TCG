@@ -54,4 +54,74 @@ struct MintomoDevportalScreenSnapshotTests {
         await model.refresh()
         await assertScreenSnapshot(testName: #function) { NavigationStack { PortalReleaseScreen(model: model) } }
     }
+
+    @Test func `Renders app upload approval`() async throws {
+        let release = try PortalFixtures.appRelease()
+        let model = PortalModel(
+            client: PreviewPortalClient(
+                status: try PortalFixtures.server(),
+                current: release,
+                appStatus: try PortalFixtures.app(releaseID: release.id)
+            )
+        )
+        await model.select(.ios)
+        #expect(model.release?.approval?.kind == .upload)
+        await assertScreenSnapshot(testName: #function) { NavigationStack { PortalReleaseScreen(model: model) } }
+    }
+
+    @Test func `Renders app setup blocker`() async throws {
+        var status = try PortalFixtures.app(blocker: "Run just setup-app-release on the release Mac.")
+        status.teamID = nil
+        status.apiHost = nil
+        status.fingerprint = nil
+        let model = PortalModel(client: PreviewPortalClient(status: try PortalFixtures.server(), appStatus: status))
+        await model.select(.ios)
+        #expect(!model.canStart)
+        await assertScreenSnapshot(testName: #function) { NavigationStack { PortalReleaseScreen(model: model) } }
+    }
+
+    @Test func `Renders app upload progress`() async throws {
+        let release = try PortalFixtures.appRelease(state: "running", platform: "macos")
+        let model = PortalModel(
+            client: PreviewPortalClient(
+                status: try PortalFixtures.server(),
+                current: release,
+                appStatus: try PortalFixtures.app(platform: "macos", releaseID: release.id)
+            )
+        )
+        await model.select(.macos)
+        #expect(model.isActive)
+        await assertScreenSnapshot(testName: #function) { NavigationStack { PortalReleaseScreen(model: model) } }
+    }
+
+    @Test func `Renders app upload success`() async throws {
+        let release = try PortalFixtures.appRelease(state: "succeeded", platform: "macos")
+        var status = try PortalFixtures.app(platform: "macos", releaseID: release.id, finished: true)
+        status.blocker = "This source and app configuration were already uploaded."
+        status.uploaded = release.sha
+        status.pending = 0
+        status.commits = []
+        let model = PortalModel(
+            client: PreviewPortalClient(status: try PortalFixtures.server(), current: release, appStatus: status)
+        )
+        await model.select(.macos)
+        #expect(model.release?.state == .succeeded)
+        #expect(!model.canStart)
+        await assertScreenSnapshot(testName: #function) { NavigationStack { PortalReleaseScreen(model: model) } }
+    }
+
+    @Test func `Renders app upload failure`() async throws {
+        let release = try PortalFixtures.appRelease(state: "failed")
+        let model = PortalModel(
+            client: PreviewPortalClient(
+                status: try PortalFixtures.server(),
+                current: release,
+                appStatus: try PortalFixtures.app(releaseID: release.id, finished: true)
+            )
+        )
+        await model.select(.ios)
+        #expect(model.release?.state == .failed)
+        #expect(model.canStart)
+        await assertScreenSnapshot(testName: #function) { NavigationStack { PortalReleaseScreen(model: model) } }
+    }
 }

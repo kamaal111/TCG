@@ -8,7 +8,7 @@ import { portalHTTPSPort, verifyPortalServe, parseTailscaleIdentity, parseServeC
 import { InfraFailure } from '../../scripts/infra/errors.ts';
 import type { Prompts } from '../../scripts/infra/prompts.ts';
 import { releaseConnection } from '../../scripts/release/connection.ts';
-import { acquireReleaseLock } from '../../scripts/release/lock.ts';
+import { acquireAllReleaseLocks } from '../../scripts/release/lock.ts';
 
 interface SetupOptions {
   root: string;
@@ -109,7 +109,7 @@ export async function setupDevportal(options: SetupOptions): Promise<void> {
     return;
   }
 
-  const unlock = await acquireReleaseLock(configDirectory);
+  const unlock = await acquireAllReleaseLocks(configDirectory);
 
   try {
     if (portalHTTPSPort(readServe(), identity.hostname, port) !== httpsPort) {

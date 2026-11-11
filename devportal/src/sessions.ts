@@ -4,10 +4,20 @@ import path from 'node:path';
 
 import { Conflict, NotFound } from '@tcg/http/exceptions';
 
-import { ReleaseSchema, type Decision, type Release, type ServerStatus, type Start } from './contracts.ts';
+import {
+  ReleaseSchema,
+  type Decision,
+  type Release,
+  type ServerStatus,
+  type Start,
+  type AppStatus,
+  type AppStart,
+} from './contracts.ts';
+import { APP_ALREADY_UPLOADED, type Platform } from '../../scripts/app-release/config.ts';
+import type { AppRuntimeOptions } from '../../scripts/app-release/runtime.ts';
 import { InfraFailure } from '../../scripts/infra/errors.ts';
 import type { Prompts } from '../../scripts/infra/prompts.ts';
-import { acquireReleaseLock } from '../../scripts/release/lock.ts';
+import { acquireLocalLease, acquireReleaseLock } from '../../scripts/release/lock.ts';
 import type { RuntimeOptions } from '../../scripts/release/runtime.ts';
 import { PORTAL_SETUP_REQUIRED } from '../../scripts/release/server-setup.ts';
 
@@ -16,6 +26,10 @@ interface Dependencies {
   configDirectory: string;
   transitioned?: (release: Release) => void;
   inspect(page: number): Promise<ServerStatus>;
+  inspectApp?: (platform: Platform, page: number) => Promise<AppStatus>;
+  runApp?: (
+    options: Pick<AppRuntimeOptions, 'platform' | 'revision' | 'prompts' | 'stage' | 'reviewedFingerprint'>,
+  ) => Promise<void>;
   run: (options: Pick<RuntimeOptions, 'revision' | 'prompts' | 'stage' | 'reviewedFingerprint'>) => Promise<void>;
 }
 
@@ -27,6 +41,8 @@ interface Pending {
 /** Owns all mutation; every transition is durable before it becomes observable. */
 export class ReleaseSessions {
   private readonly releases = new Map<string, Release>();
+  private shuttingDown = false;
+  private appWork: Promise<void> | undefined;
   private pending: Pending | undefined;
   private queue: Promise<unknown> = Promise.resolve();
 
@@ -54,7 +70,10 @@ export class ReleaseSessions {
               ...release,
               state: 'interrupted',
               approval: null,
-              failure: 'Release interrupted. Retry to verify live state and saved images.',
+              failure:
+                release.target === 'server'
+                  ? 'Release interrupted. Retry to verify live state and saved images.'
+                  : 'App release interrupted. Check App Store Connect before retrying; the upload may have completed.',
             }
           : release;
 
@@ -101,24 +120,57 @@ export class ReleaseSessions {
     const server = await this.dependencies.inspect(page);
 
     const active = [...this.releases.values()].find(
-      release => release.state === 'running' || release.state === 'approval',
+      release => release.target === 'server' && (release.state === 'running' || release.state === 'approval'),
     );
 
-    const latest = this.latest();
+    const latest = this.latest('server');
 
     return { ...server, activeRelease: active?.id ?? null, latestRelease: latest?.id ?? null };
   }
 
-  private latest(): Release | undefined {
-    return [...this.releases.values()].sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
+  private latest(target: Release['target']): Release | undefined {
+    return [...this.releases.values()]
+      .filter(release => release.target === target)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
+  }
+
+  async appStatus(platform: Platform, page: number): Promise<AppStatus> {
+    if (!this.dependencies.inspectApp) {
+      throw new InfraFailure('App releases require an updated service.');
+    }
+
+    const status = await this.dependencies.inspectApp(platform, page);
+
+    const active = [...this.releases.values()].find(
+      release => release.target === platform && (release.state === 'running' || release.state === 'approval'),
+    );
+
+    const latest = this.latest(platform);
+
+    return {
+      ...status,
+      activeRelease: active?.id ?? null,
+      latestRelease: latest?.id ?? null,
+      blocker:
+        status.blocker ??
+        (latest?.state === 'succeeded' && latest.fingerprint === status.fingerprint ? APP_ALREADY_UPLOADED : null),
+    };
+  }
+
+  startApp(input: AppStart, operator: string): Promise<Release> {
+    return this.startTarget(input, operator, input.platform);
   }
 
   start(input: Start, operator: string): Promise<Release> {
+    return this.startTarget(input, operator, 'server');
+  }
+
+  private startTarget(input: Start, operator: string, target: Release['target']): Promise<Release> {
     return this.serialize(async () => {
       const duplicate = [...this.releases.values()].find(release => release.requestId === input.requestId);
 
       if (duplicate) {
-        if (duplicate.sha !== input.sha || duplicate.fingerprint !== input.fingerprint) {
+        if (duplicate.sha !== input.sha || duplicate.fingerprint !== input.fingerprint || duplicate.target !== target) {
           throw new Conflict({
             code: 'REQUEST_CONFLICT',
             message: 'Request ID was already used with different input.',
@@ -132,32 +184,46 @@ export class ReleaseSessions {
         throw new Conflict({ code: 'RELEASE_BUSY', message: 'Another release is active.' });
       }
 
-      const unlock = await acquireReleaseLock(this.dependencies.configDirectory);
+      const unlock =
+        target === 'server'
+          ? await acquireReleaseLock(this.dependencies.configDirectory)
+          : await acquireLocalLease(this.dependencies.configDirectory, 'app-release');
 
       try {
-        const status = await this.dependencies.inspect(0);
+        let status: ServerStatus;
+        let currentFingerprint: string | null | undefined;
 
-        if (status.main !== input.sha || status.host?.fingerprint !== input.fingerprint) {
+        if (target === 'server') {
+          status = await this.dependencies.inspect(0);
+          currentFingerprint = status.host?.fingerprint;
+        } else {
+          const app = await this.appStatus(target, 0);
+          status = app;
+          currentFingerprint = app.fingerprint;
+        }
+
+        if (status.main !== input.sha || currentFingerprint !== input.fingerprint) {
           throw new Conflict({
             code: 'REVIEW_STALE',
             message: 'The release target changed. Refresh and review again.',
           });
         }
 
-        const latest = this.latest();
+        const latest = this.latest(target);
         const retryable = latest?.sha === input.sha && (latest.state === 'failed' || latest.state === 'interrupted');
 
-        if (status.blocker || (status.pending === 0 && !retryable)) {
+        if (status.blocker || (target === 'server' && status.pending === 0 && !retryable)) {
           throw new Conflict({ code: 'RELEASE_BLOCKED', message: status.blocker ?? 'The server is up to date.' });
         }
 
         const release: Release = {
           id: crypto.randomUUID(),
           ...input,
+          target,
           operator,
           createdAt: new Date().toISOString(),
           state: 'running',
-          stage: 'build',
+          stage: target === 'server' ? 'build' : 'checks',
           approval: null,
           events: [],
           decisions: [],
@@ -166,7 +232,13 @@ export class ReleaseSessions {
 
         await this.save(release);
         // Start outside the HTTP lifetime. execute owns the lease until every command finishes.
-        void this.execute(release.id, unlock);
+        const work = this.execute(release.id, unlock);
+
+        if (target !== 'server') {
+          this.appWork = work;
+        }
+
+        void work;
 
         return structuredClone(release);
       } catch (error) {
@@ -215,6 +287,20 @@ export class ReleaseSessions {
     });
   }
 
+  async shutdownApp(): Promise<void> {
+    this.shuttingDown = true;
+
+    const active = [...this.releases.values()].find(
+      release => release.target !== 'server' && (release.state === 'running' || release.state === 'approval'),
+    );
+
+    if (active && this.pending) {
+      this.pending.resolve(false);
+    }
+
+    await this.appWork;
+  }
+
   private async execute(id: string, unlock: () => Promise<void>): Promise<void> {
     const update = (transform: (release: Release) => Release) => {
       return this.serialize(() => this.save(transform(this.get(id))));
@@ -239,13 +325,23 @@ export class ReleaseSessions {
         }));
       },
       confirm: async (message, _initial, context) => {
+        if (this.shuttingDown && this.get(id).target !== 'server') {
+          throw new InfraFailure('App release interrupted. Check App Store Connect before retrying.');
+        }
+
         const kind = context?.kind;
 
-        if (kind !== 'migrations' && kind !== 'deploy') {
+        if (kind !== 'migrations' && kind !== 'deploy' && kind !== 'provision' && kind !== 'upload') {
           return unsupported();
         }
 
-        const approval = { id: crypto.randomUUID(), kind, message, review: context?.review ?? null };
+        const approval = {
+          id: crypto.randomUUID(),
+          kind,
+          message,
+          review: context?.review ?? null,
+          appReview: context?.appReview,
+        };
 
         return new Promise<boolean>((resolve, reject) => {
           void update(release => ({ ...release, state: 'approval', approval })).then(() => {
@@ -257,24 +353,56 @@ export class ReleaseSessions {
 
     try {
       const release = this.get(id);
-      await this.dependencies.run({
-        revision: release.sha,
-        reviewedFingerprint: release.fingerprint,
-        prompts,
-        stage: stage => {
-          void update(current => ({ ...current, stage }));
-        },
-      });
-      await update(release => ({ ...release, state: 'succeeded', stage: 'verify', approval: null }));
-    } catch (error) {
+
+      const stage = (stage: Release['stage']) => {
+        void update(current => ({ ...current, stage }));
+      };
+
+      if (release.target !== 'server') {
+        if (!this.dependencies.runApp) {
+          throw new InfraFailure('App releases require an updated service.');
+        }
+
+        await this.dependencies.runApp({
+          platform: release.target,
+          revision: release.sha,
+          reviewedFingerprint: release.fingerprint,
+          prompts,
+          stage,
+        });
+      } else {
+        await this.dependencies.run({
+          revision: release.sha,
+          reviewedFingerprint: release.fingerprint,
+          prompts,
+          stage,
+        });
+      }
+
       await update(release => ({
         ...release,
-        state: 'failed',
+        state: 'succeeded',
+        stage: release.target === 'server' ? 'verify' : 'upload',
         approval: null,
-        failure:
-          error instanceof InfraFailure && error.message === PORTAL_SETUP_REQUIRED
-            ? PORTAL_SETUP_REQUIRED
-            : 'Release stopped. Check setup and the private release log on the Mac mini, then retry. Completed images can be reused.',
+      }));
+    } catch (error) {
+      const current = this.get(id);
+
+      let failure =
+        'Release stopped. Check setup and the private release log on the Mac mini, then retry. Completed images can be reused.';
+
+      if (current.target !== 'server') {
+        failure =
+          'App release stopped. Check Xcode setup and the private log on the release Mac. If upload started, check App Store Connect before retrying.';
+      } else if (error instanceof InfraFailure && error.message === PORTAL_SETUP_REQUIRED) {
+        failure = PORTAL_SETUP_REQUIRED;
+      }
+
+      await update(release => ({
+        ...release,
+        state: this.shuttingDown && release.target !== 'server' ? 'interrupted' : 'failed',
+        approval: null,
+        failure,
       }));
     } finally {
       this.pending = undefined;

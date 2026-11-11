@@ -31,15 +31,18 @@ struct PortalReleaseStageRow: View {
 
     private func stageOrder(_ stage: PortalStage) -> Int {
         switch stage {
-        case .build: 0
-        case .migrations: 1
-        case .deploy: 2
+        case .build, .checks: 0
+        case .migrations, .archive: 1
+        case .deploy, .upload: 2
         case .verify: 3
         }
     }
 
     private func stageTitle(_ stage: PortalStage) -> String {
         switch stage {
+        case .checks: String(localized: "Check app", bundle: .module)
+        case .archive: String(localized: "Archive and sign", bundle: .module)
+        case .upload: String(localized: "Upload", bundle: .module)
         case .build: String(localized: "Build and publish", bundle: .module)
         case .migrations: String(localized: "Database migrations", bundle: .module)
         case .deploy: String(localized: "Deploy", bundle: .module)

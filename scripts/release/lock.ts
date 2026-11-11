@@ -11,7 +11,7 @@ export function acquireReleaseLock(configDirectory: string): Promise<() => Promi
 
 export async function acquireLocalLease(
   configDirectory: string,
-  name: 'release' | 'devportal',
+  name: 'release' | 'devportal' | 'app-release',
 ): Promise<() => Promise<void>> {
   await fs.mkdir(configDirectory, { recursive: true, mode: 0o700 });
   const directory = path.join(configDirectory, `${name}.lock`);
@@ -20,7 +20,7 @@ export async function acquireLocalLease(
   const busy = () => {
     return new Conflict({
       message: `Another ${name} is running on this Mac.`,
-      code: name === 'release' ? 'RELEASE_BUSY' : 'SERVICE_BUSY',
+      code: name === 'devportal' ? 'SERVICE_BUSY' : 'RELEASE_BUSY',
     });
   };
 
@@ -83,5 +83,22 @@ export async function acquireLocalLease(
     return await create();
   } finally {
     await fs.rm(reclaim, { recursive: true, force: true });
+  }
+}
+
+/** Prevent service replacement while either release runtime owns child commands. */
+export async function acquireAllReleaseLocks(directory: string): Promise<() => Promise<void>> {
+  const server = await acquireReleaseLock(directory);
+
+  try {
+    const app = await acquireLocalLease(directory, 'app-release');
+
+    return async () => {
+      await app();
+      await server();
+    };
+  } catch (error) {
+    await server();
+    throw error;
   }
 }

@@ -17,7 +17,15 @@ interface SelectionQuestion {
 }
 
 interface ApprovalContext {
-  kind: 'resume' | 'migrations' | 'deploy';
+  kind: 'resume' | 'migrations' | 'deploy' | 'provision' | 'upload';
+  appReview?: {
+    platform: 'ios' | 'macos';
+    sha: string;
+    version: string;
+    teamID: string;
+    apiHost: string;
+    fingerprint: string;
+  };
   review?: { target: string; running: string | null; sha: string; fingerprint: string; pendingMigrations?: number };
 }
 

@@ -215,6 +215,21 @@ unreleased-server-commits *args:
 release-server *args:
     node scripts/release-cli.ts "$@"
 
+# Configure app signing and production release settings
+[positional-arguments]
+setup-app-release *args:
+    node scripts/app-release-cli.ts setup "$@"
+
+# Verify, sign and upload the iOS app to App Store Connect
+[positional-arguments]
+release-ios *args:
+    node scripts/app-release-cli.ts ios "$@"
+
+# Verify, sign and upload the macOS app to App Store Connect
+[positional-arguments]
+release-macos *args:
+    node scripts/app-release-cli.ts macos "$@"
+
 # Guide private Devportal setup on the release Mac
 [positional-arguments]
 setup-devportal *args:

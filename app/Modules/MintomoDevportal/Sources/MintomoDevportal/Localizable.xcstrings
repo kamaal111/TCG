@@ -13,6 +13,9 @@
     "Approve" : {
 
     },
+    "Archive and sign" : {
+
+    },
     "Back up the database and confirm the running app supports the new schema. Migrations cannot be automatically undone." : {
 
     },
@@ -20,6 +23,9 @@
 
     },
     "Cannot reach the release service. Check Tailscale and the Mac mini, then retry." : {
+
+    },
+    "Check app" : {
 
     },
     "Complete" : {
@@ -58,7 +64,10 @@
     "Interrupted" : {
 
     },
-    "Loading server status…" : {
+    "Last uploaded" : {
+
+    },
+    "Loading release status…" : {
 
     },
     "Mintomo Devportal" : {
@@ -77,6 +86,9 @@
 
     },
     "Release checks passed" : {
+
+    },
+    "Release destination" : {
 
     },
     "Release progress" : {
@@ -112,16 +124,34 @@
     "Up to date" : {
 
     },
+    "Upload" : {
+
+    },
+    "Uploaded to App Store Connect; processing pending" : {
+
+    },
+    "Uploads to App Store Connect. Processing and App Review happen separately." : {
+
+    },
     "Use the HTTPS address supplied by Tailscale Serve on your Mac mini. Only selected Tailscale accounts can connect." : {
 
     },
     "Verify" : {
 
     },
+    "Version %@" : {
+
+    },
     "Waiting for approval" : {
 
     },
     "Your Tailscale account is not allowed to use this portal." : {
+
+    },
+    "iOS release" : {
+
+    },
+    "macOS release" : {
 
     }
   },

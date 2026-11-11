@@ -10,7 +10,7 @@ import { gitCurrentBranch, gitFastForward, gitFetch, gitRevision, gitStatus } fr
 import { InfraFailure } from '../../scripts/infra/errors.ts';
 import { selectRelease } from '../../scripts/release/commits.ts';
 import { ShaSchema } from '../../scripts/release/contracts.ts';
-import { acquireLocalLease, acquireReleaseLock } from '../../scripts/release/lock.ts';
+import { acquireLocalLease, acquireAllReleaseLocks } from '../../scripts/release/lock.ts';
 
 interface InstallOptions {
   configDirectory: string;
@@ -59,7 +59,7 @@ export async function installDevportalAgent(options: InstallOptions): Promise<vo
     return;
   }
 
-  const unlock = await acquireReleaseLock(configDirectory);
+  const unlock = await acquireAllReleaseLocks(configDirectory);
 
   try {
     if (gitCurrentBranch(commands.read).trim() !== 'main') {

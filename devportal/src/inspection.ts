@@ -4,7 +4,16 @@ import util from 'node:util';
 import { ServiceUnavailable } from '@tcg/http/exceptions';
 import z from 'zod';
 
-import { ServerSchema, type ServerStatus } from './contracts.ts';
+import { AppStatusSchema, ServerSchema, type AppStatus, type ServerStatus } from './contracts.ts';
+import {
+  APP_ALREADY_UPLOADED,
+  APP_SETUP_REQUIRED,
+  appFingerprint,
+  readAppSettings,
+  type Platform,
+} from '../../scripts/app-release/config.ts';
+import { inspectAppSource, lastAppUpload } from '../../scripts/app-release/runtime.ts';
+import type { Command } from '../../scripts/app-release/xcode.ts';
 import { gitCommitExists, gitFetch, gitRevision } from '../../scripts/git.ts';
 import { pendingCommits } from '../../scripts/release/commits.ts';
 import { releaseConnection } from '../../scripts/release/connection.ts';
@@ -107,4 +116,49 @@ async function inspectHost(options: ReleaseSettings, env: NodeJS.ProcessEnv) {
 
     throw error;
   }
+}
+
+export async function inspectApp(options: ReleaseSettings, platform: Platform, page: number): Promise<AppStatus> {
+  try {
+    return await inspectAppReview(options, platform, page);
+  } catch (cause) {
+    throw new ServiceUnavailable(undefined, {
+      code: 'APP_INSPECTION_UNAVAILABLE',
+      message: 'Cannot inspect the app release. Check Git and private app release history on the release Mac.',
+      cause,
+    });
+  }
+}
+
+async function inspectAppReview(options: ReleaseSettings, platform: Platform, page: number): Promise<AppStatus> {
+  const command: Command = async (program, args, cwd = options.root) => {
+    return (await execute(program, args, { cwd, timeout: 30000 })).stdout.trim();
+  };
+
+  const { sha, version } = await inspectAppSource(options.root, 'origin/main', command);
+  const settings = await readAppSettings(options.configDirectory).catch(() => null);
+  const uploaded = await lastAppUpload(options.configDirectory, platform);
+  const git = await pendingCommits((program, args) => command(program, args), uploaded?.sha ?? null, sha, page);
+
+  let blocker = APP_SETUP_REQUIRED;
+
+  if (settings) {
+    blocker =
+      uploaded?.fingerprint === appFingerprint(platform, sha, settings) ? APP_ALREADY_UPLOADED : (git.blocker ?? '');
+  }
+
+  return AppStatusSchema.parse({
+    ...git,
+    platform,
+    target: platform === 'ios' ? 'Mintomo iOS · App Store Connect' : 'Mintomo macOS · App Store Connect',
+    host: null,
+    uploaded: uploaded?.sha ?? null,
+    fingerprint: settings ? appFingerprint(platform, sha, settings) : null,
+    version,
+    teamID: settings?.teamID ?? null,
+    apiHost: settings?.apiHost ?? null,
+    blocker: blocker || null,
+    activeRelease: null,
+    latestRelease: null,
+  });
 }

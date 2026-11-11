@@ -19,6 +19,12 @@ struct PortalReleaseApproval: View {
                     Text("\(pending) pending migration steps", bundle: .module)
                 }
             }
+            if let app = approval.appReview {
+                Text(verbatim: "\(app.platform.rawValue) · \(app.version)").font(.headline)
+                Text(verbatim: "\(app.teamID) · io.kamaal.TCG")
+                Text(verbatim: "https://\(app.apiHost)")
+                Text(verbatim: String(app.sha.prefix(12))).font(.system(.body, design: .monospaced))
+            }
             Text(verbatim: approval.message)
             if approval.kind == .migrations {
                 Text(
