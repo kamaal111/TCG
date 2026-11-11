@@ -14,6 +14,8 @@ import { pricingLogger } from '../logging.ts';
 import { PricingSearchQuerySchema } from '../schemas/params.ts';
 import type { PricingSearchResponse } from '../schemas/responses.ts';
 import { PricingSearchResponseSchema } from '../schemas/responses.ts';
+import { encodeNextSearchCursor } from '../utils/pagination.ts';
+import { queryKey } from '../utils/query.ts';
 
 const routeConfig = createRoute({
   method: 'get',
@@ -49,12 +51,12 @@ export const SEARCH_PRICING_ROUTE_PATH = `${APP_API_ROUTE_NAME}${PRICING_ROUTE_N
 const searchPricingRoute = defineOpenAPIRoute<HonoEnvironment, typeof routeConfig>({
   route: routeConfig,
   handler: async c => {
-    const { game, query, languages, search_by } = c.req.valid('query');
+    const { cursor, game, query, languages, search_by } = c.req.valid('query');
+    const options = { languages: parseCardLanguages(languages), searchBy: search_by };
+    const offset = cursor?.offset ?? 0;
 
     const [result, display] = await Promise.all([
-      c
-        .get('cardPricingService')
-        .searchAndPrice(game, query, { languages: parseCardLanguages(languages), searchBy: search_by }),
+      c.get('cardPricingService').searchAndPrice(game, query, options, offset),
       c.get('forexService').displayContext(),
     ]);
 
@@ -64,6 +66,7 @@ const searchPricingRoute = defineOpenAPIRoute<HonoEnvironment, typeof routeConfi
 
     const response: PricingSearchResponse = {
       matches: result.matches.map(card => displayPricedCard(card, display.value)),
+      next_cursor: result.hasMore ? encodeNextSearchCursor(queryKey(game, query, options), offset) : null,
     };
 
     logDisplayPrices(c, display.value, response.matches);

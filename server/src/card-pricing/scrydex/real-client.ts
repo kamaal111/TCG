@@ -23,8 +23,9 @@ export class RealScrydexClient implements PricingClient {
     game: CardGame,
     query: string,
     options: PricingSearchOptions,
+    page: number,
   ): Promise<PricingClientResult<PricingSearchResult>> {
-    const result = await this.client.searchCards(game, buildScrydexQuery(game, query, options));
+    const result = await this.client.searchCards(game, buildScrydexQuery(game, query, options), page);
 
     if (result.isErr()) {
       return err(result.error);
@@ -52,6 +53,7 @@ export class RealScrydexClient implements PricingClient {
     return ok({
       records,
       providerResultCount: result.value.providerResultCount,
+      hasMore: result.value.hasMore,
       rejectedCount,
       missingBaseVariantCount,
     });

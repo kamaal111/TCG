@@ -20,7 +20,7 @@ export function queryKey(game: CardGame, query: string, options: PricingSearchOp
   const version = options.searchBy === 'illustrator' ? 'illustrator-v1' : cardVersion;
 
   const selected = normalizeCardLanguages(game, options.languages);
-  const normalized = normalizeName(query).toLowerCase();
+  const normalized = normalizeName(query).toLowerCase().replaceAll('%', '%25').replaceAll('|', '%7C');
 
   return selected.length === 0
     ? `${game}|${version}|${normalized}`

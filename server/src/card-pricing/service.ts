@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
 
+import { SCRYDEX_SEARCH_PAGE_SIZE } from '@tcg/scrydex';
+
 import type { PricingClient, PricingClientError, PricingSearchResult } from './client.ts';
 import { PricingLockTimeout, PricingLockUnavailable, PricingProviderUnavailable } from './exceptions.ts';
 import { normalizeCardLanguages } from './languages.ts';
@@ -18,6 +20,7 @@ import type { CardImageRow } from '../card-images/repository.ts';
 import type { CardWithPurchases } from '../cards/repository.ts';
 import type { HonoContext } from '../context.ts';
 import { isNonEmpty, type NonEmptyArray } from '../utils/type-utils.ts';
+import { searchPageKey } from './utils/pagination.ts';
 import { serializePricedCard } from './utils/pricing.ts';
 import { buildSearchQuery, normalizeCardNumber, normalizeName, queryKey, todayUTC } from './utils/query.ts';
 
@@ -53,10 +56,11 @@ export class CardPricingService {
     game: CardGame,
     query: string,
     options: PricingSearchOptions,
-  ): Promise<{ normalizedQuery: string; matches: PricedCardResponse[] }> {
+    offset: number,
+  ): Promise<{ normalizedQuery: string; matches: PricedCardResponse[]; hasMore: boolean }> {
     const normalizedQuery = normalizeName(query);
     const selectedLanguages = normalizeCardLanguages(game, options.languages);
-    const normalizedQueryKey = queryKey(game, normalizedQuery, { ...options, languages: selectedLanguages });
+    const normalizedQueryKey = searchPageKey(queryKey(game, normalizedQuery, options), offset);
     const pricedOn = todayUTC();
     const cached = await this.cachedSearch(game, normalizedQuery, normalizedQueryKey, pricedOn);
 
@@ -82,10 +86,12 @@ export class CardPricingService {
 
         const providerStartedAt = performance.now();
 
-        const searchResult = await this.client.searchCards(game, normalizedQuery, {
-          ...options,
-          languages: selectedLanguages,
-        });
+        const searchResult = await this.client.searchCards(
+          game,
+          normalizedQuery,
+          { ...options, languages: selectedLanguages },
+          offset / SCRYDEX_SEARCH_PAGE_SIZE + 1,
+        );
 
         if (searchResult.isErr()) {
           this.throwProviderUnavailable('search', game, searchResult.error, providerStartedAt);
@@ -128,11 +134,13 @@ export class CardPricingService {
           queryKey: normalizedQueryKey,
           pricedOn,
           pricingCardIds: rows.map(row => row.pricingCardId),
+          hasMore: searchResult.value.hasMore,
         });
         this.logCache('pricing.search.cache', 'set', rows.length);
 
         return {
           normalizedQuery,
+          hasMore: searchResult.value.hasMore,
           matches: rows.map(row => serializePricedCard(game, row, this.c.get('config').PUBLIC_BASE_URL)),
         };
       },
@@ -195,7 +203,7 @@ export class CardPricingService {
     }
 
     const query = buildSearchQuery(card.name, card.cardNumber);
-    const search = await this.searchAndPrice(card.game, query, { languages: [], searchBy: 'card' });
+    const search = await this.searchAndPrice(card.game, query, { languages: [], searchBy: 'card' }, 0);
     const normalizedNumber = normalizeCardNumber(card.cardNumber);
 
     const numberMatch = search.matches.find(
@@ -324,7 +332,7 @@ export class CardPricingService {
     normalizedQuery: string,
     normalizedQueryKey: string,
     pricedOn: string,
-  ): Promise<{ normalizedQuery: string; matches: PricedCardResponse[] } | undefined> {
+  ): Promise<{ normalizedQuery: string; matches: PricedCardResponse[]; hasMore: boolean } | undefined> {
     const cachedSearch = await this.repository.getCachedSearch(this.client.source, game, normalizedQueryKey, pricedOn);
 
     if (cachedSearch == null) {
@@ -350,7 +358,7 @@ export class CardPricingService {
     const matches = orderedRows.map(row => serializePricedCard(game, row, this.c.get('config').PUBLIC_BASE_URL));
     this.logCache('pricing.search.cache', 'hit', matches.length);
 
-    return { normalizedQuery, matches };
+    return { normalizedQuery, matches, hasMore: cachedSearch.hasMore };
   }
 
   private makeOwnedResponse(cardId: string, price: PricedCardResponse): OwnedCardPriceResponse {

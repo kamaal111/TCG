@@ -12,7 +12,7 @@ struct PreviewTCGPricingClientTests {
     @Test
     func `Japanese selection excludes English preview cards`() async throws {
         let result = try await PreviewTCGPricingClient(outcome: .success)
-            .search(.init(game: .pokemon, query: "Giratina", languages: [.japanese], mode: .card))
+            .search(.init(game: .pokemon, query: "Giratina", languages: [.japanese], mode: .card, cursor: nil))
             .get()
 
         #expect(result.matches.isEmpty)
@@ -21,7 +21,9 @@ struct PreviewTCGPricingClientTests {
     @Test
     func `Complete selection includes English preview cards`() async throws {
         let result = try await PreviewTCGPricingClient(outcome: .success)
-            .search(.init(game: .pokemon, query: "Giratina", languages: [.english, .japanese], mode: .card))
+            .search(
+                .init(game: .pokemon, query: "Giratina", languages: [.english, .japanese], mode: .card, cursor: nil)
+            )
             .get()
 
         #expect(result.matches == [PreviewTCGPricingClient.samplePricedCards[1]])
@@ -32,7 +34,7 @@ struct PreviewTCGPricingClientTests {
         let pricing = TCGClient.preview(pricingOutcome: .success).pricing
 
         #expect(
-            try await pricing.search(.init(game: .pokemon, query: "Giratina", languages: [], mode: .card))
+            try await pricing.search(.init(game: .pokemon, query: "Giratina", languages: [], mode: .card, cursor: nil))
                 .get().matches
                 == [PreviewTCGPricingClient.samplePricedCards[1]]
         )
@@ -41,7 +43,7 @@ struct PreviewTCGPricingClientTests {
     @Test
     func `No results returns search guidance state`() async throws {
         let result = try await TCGClient.preview(pricingOutcome: .noResults).pricing
-            .search(.init(game: .onePiece, query: "Missing", languages: [], mode: .card))
+            .search(.init(game: .onePiece, query: "Missing", languages: [], mode: .card, cursor: nil))
             .get()
 
         #expect(result.matches.isEmpty)
@@ -52,7 +54,7 @@ struct PreviewTCGPricingClientTests {
         let pricing = TCGClient.preview(pricingOutcome: .unauthorized).pricing
 
         await #expect(throws: SearchPricingErrors.unauthorized) {
-            try await pricing.search(.init(game: .pokemon, query: "Giratina", languages: [], mode: .card))
+            try await pricing.search(.init(game: .pokemon, query: "Giratina", languages: [], mode: .card, cursor: nil))
                 .get()
         }
     }
@@ -62,7 +64,7 @@ struct PreviewTCGPricingClientTests {
         let pricing = TCGClient.preview(pricingOutcome: .serverUnavailable).pricing
 
         await #expect(throws: SearchPricingErrors.unavailable) {
-            try await pricing.search(.init(game: .pokemon, query: "Giratina", languages: [], mode: .card))
+            try await pricing.search(.init(game: .pokemon, query: "Giratina", languages: [], mode: .card, cursor: nil))
                 .get()
         }
     }

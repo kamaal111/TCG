@@ -10,7 +10,7 @@ struct TCGSearchPresentationTests {
     @Test
     func `Opening details retains the selected card after clearing search`() async throws {
         let feature = TCGSearch(client: .preview(pricingOutcome: .success), history: TCGSearchHistoryStore())
-        try await feature.search(.init(game: .pokemon, query: "Giratina", languages: [], mode: .card))
+        try await feature.search(.init(game: .pokemon, query: "Giratina", languages: [], mode: .card, cursor: nil))
             .get()
         let card = try #require(feature.results.first)
         let model = TCGSearchScreenModel(preferences: nil)

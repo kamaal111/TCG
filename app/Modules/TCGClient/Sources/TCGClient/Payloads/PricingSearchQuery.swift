@@ -10,16 +10,19 @@ public struct PricingSearchQuery: Sendable {
     public let query: String
     public let languages: Set<ClientCardLanguage>
     public let mode: ClientCardSearchMode
+    public let cursor: String?
 
     public init(
         game: ClientCardGame,
         query: String,
         languages: Set<ClientCardLanguage>,
-        mode: ClientCardSearchMode
+        mode: ClientCardSearchMode,
+        cursor: String?
     ) {
         self.game = game
         self.query = query
         self.languages = languages
         self.mode = mode
+        self.cursor = cursor
     }
 }

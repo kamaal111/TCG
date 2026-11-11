@@ -8,9 +8,9 @@ import { StaticScrydexClient } from '../scrydex/static-client.ts';
 describe('StaticScrydexClient', () => {
   it('searches known illustrators without inventing unknown matches', async () => {
     const client = new StaticScrydexClient();
-    const known = await client.searchCards('pokemon', 'Akira Egawa', { searchBy: 'illustrator', languages: [] });
+    const known = await client.searchCards('pokemon', 'Akira Egawa', { searchBy: 'illustrator', languages: [] }, 1);
     assert(known.isOk());
-    const unknown = await client.searchCards('pokemon', 'Nobody', { searchBy: 'illustrator', languages: [] });
+    const unknown = await client.searchCards('pokemon', 'Nobody', { searchBy: 'illustrator', languages: [] }, 1);
     assert(unknown.isOk());
     expect(known.value.records.map(record => record.card.pricing.illustrator)).toEqual(['Akira Egawa']);
     expect(unknown.value.records).toEqual([]);
@@ -26,10 +26,15 @@ describe('StaticScrydexClient', () => {
   );
 
   it('returns normalized Pokémon Near Mint pricing', async () => {
-    const result = await new StaticScrydexClient().searchCards('pokemon', 'Giratina VSTAR GG69', {
-      languages: [],
-      searchBy: 'card',
-    });
+    const result = await new StaticScrydexClient().searchCards(
+      'pokemon',
+      'Giratina VSTAR GG69',
+      {
+        languages: [],
+        searchBy: 'card',
+      },
+      1,
+    );
 
     assert(result.isOk());
 
@@ -50,10 +55,15 @@ describe('StaticScrydexClient', () => {
   });
 
   it('finds One Piece cards by printed number', async () => {
-    const result = await new StaticScrydexClient().searchCards('one_piece', 'OP14-069', {
-      languages: [],
-      searchBy: 'card',
-    });
+    const result = await new StaticScrydexClient().searchCards(
+      'one_piece',
+      'OP14-069',
+      {
+        languages: [],
+        searchBy: 'card',
+      },
+      1,
+    );
 
     assert(result.isOk());
 
@@ -112,8 +122,8 @@ describe('StaticScrydexClient', () => {
 
   it('returns deterministic synthetic pricing for unknown cards', async () => {
     const client = new StaticScrydexClient();
-    const first = await client.searchCards('one_piece', 'Nami OP01-016', { languages: [], searchBy: 'card' });
-    const second = await client.searchCards('one_piece', 'Nami OP01-016', { languages: [], searchBy: 'card' });
+    const first = await client.searchCards('one_piece', 'Nami OP01-016', { languages: [], searchBy: 'card' }, 1);
+    const second = await client.searchCards('one_piece', 'Nami OP01-016', { languages: [], searchBy: 'card' }, 1);
     assert(first.isOk());
     assert(second.isOk());
 
@@ -122,16 +132,22 @@ describe('StaticScrydexClient', () => {
   });
 
   it('models an empty provider result without external I/O', async () => {
-    const result = await new StaticScrydexClient().searchCards('pokemon', 'no results', {
-      languages: [],
-      searchBy: 'card',
-    });
+    const result = await new StaticScrydexClient().searchCards(
+      'pokemon',
+      'no results',
+      {
+        languages: [],
+        searchBy: 'card',
+      },
+      1,
+    );
 
     assert(result.isOk());
 
     expect(result.value).toEqual({
       records: [],
       providerResultCount: 0,
+      hasMore: false,
       rejectedCount: 0,
       missingBaseVariantCount: 0,
     });

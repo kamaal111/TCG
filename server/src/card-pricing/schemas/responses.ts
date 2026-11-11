@@ -135,6 +135,7 @@ export const PricedCardSchema = z
 export const PricingSearchResponseSchema = z
   .object({
     matches: z.array(PricedCardSchema).meta({ description: 'Ordered matching cards' }),
+    next_cursor: z.string().nullish().meta({ description: 'Cursor for the next page, or null at the end' }),
   })
   .meta({
     $id: 'PricingSearchResponse',
@@ -142,6 +143,7 @@ export const PricingSearchResponseSchema = z
     description: 'Card pricing search results',
     example: {
       matches: [],
+      next_cursor: null,
     },
   });
 

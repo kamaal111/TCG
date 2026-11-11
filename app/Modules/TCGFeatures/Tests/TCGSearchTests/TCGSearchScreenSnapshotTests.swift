@@ -80,7 +80,7 @@ struct TCGSearchScreenSnapshotTests {
         let model = TCGSearchScreenModel(preferences: nil)
         model.query = "Giratina"
         model.game = .pokemon
-        try await feature.search(.init(game: model.game, query: model.query, languages: [], mode: .card))
+        try await feature.search(.init(game: model.game, query: model.query, languages: [], mode: .card, cursor: nil))
             .get()
 
         #if os(iOS)
@@ -96,24 +96,33 @@ struct TCGSearchScreenSnapshotTests {
 
     @Test
     func `Renders multiple selected search sets`() async {
-        let state = await makeSetFilteredState(setNames: ["Crown Zenith", "Lost Origin"])
+        let state = await makeSetFilteredState(setNames: ["Crown Zenith", "Lost Origin"], nextOutcome: .matches)
         #expect(state.model.filteredResults(using: state.feature).count == 3)
         await assertScreenSnapshot(testName: #function) { makeScreen(feature: state.feature, model: state.model) }
     }
 
     @Test
     func `Renders no matching search sets after refresh`() async {
-        let state = await makeSetFilteredState(setNames: ["Crown Zenith"])
+        let state = await makeSetFilteredState(setNames: ["Crown Zenith"], nextOutcome: .matches)
         await state.model.performSearch(using: state.feature)
         #expect(state.model.filteredResults(using: state.feature).isEmpty)
         #expect(state.feature.results.count == 1)
         await assertScreenSnapshot(testName: #function) { makeScreen(feature: state.feature, model: state.model) }
     }
 
+    @Test
+    func `Offers more results when the selected set is absent from the current page`() async {
+        let state = await makeSetFilteredState(setNames: ["Crown Zenith"], nextOutcome: .firstPage)
+        await state.model.performSearch(using: state.feature)
+        #expect(state.model.filteredResults(using: state.feature).isEmpty)
+        #expect(state.feature.nextCursor == "continue-search")
+        await assertScreenSnapshot(testName: #function) { makeScreen(feature: state.feature, model: state.model) }
+    }
+
     #if os(iOS)
         @Test
         func `Renders selected search sets with large text`() async {
-            let state = await makeSetFilteredState(setNames: ["Crown Zenith", "Lost Origin"])
+            let state = await makeSetFilteredState(setNames: ["Crown Zenith", "Lost Origin"], nextOutcome: .matches)
             #expect(state.model.setNames.count == 2)
             await assertScreenSnapshot(testName: #function) {
                 makeScreen(feature: state.feature, model: state.model)
@@ -122,11 +131,15 @@ struct TCGSearchScreenSnapshotTests {
         }
     #endif
 
-    private func makeSetFilteredState(setNames: Set<String>) async -> (
+    private func makeSetFilteredState(
+        setNames: Set<String>,
+        nextOutcome: HistoryPricingTransport.Outcome
+    ) async -> (
         feature: TCGSearch, model: TCGSearchScreenModel
     ) {
         let transport = HistoryPricingTransport()
         await transport.setOutcome(.sets, for: 1)
+        await transport.setOutcome(nextOutcome, for: 2)
         let feature = TCGSearch(
             client: .default(
                 transport: transport,
@@ -165,7 +178,7 @@ struct TCGSearchScreenSnapshotTests {
         let feature = TCGSearch(client: .preview(pricingOutcome: .noResults), history: TCGSearchHistoryStore())
         let model = TCGSearchScreenModel(preferences: nil)
         model.query = "Missing card"
-        try await feature.search(.init(game: model.game, query: model.query, languages: [], mode: .card))
+        try await feature.search(.init(game: model.game, query: model.query, languages: [], mode: .card, cursor: nil))
             .get()
 
         await assertScreenSnapshot(testName: #function) { makeScreen(feature: feature, model: model) }
@@ -177,7 +190,7 @@ struct TCGSearchScreenSnapshotTests {
         let model = TCGSearchScreenModel(preferences: nil)
         model.game = .onePiece
         model.query = "OP99-999"
-        try await feature.search(.init(game: model.game, query: model.query, languages: [], mode: .card))
+        try await feature.search(.init(game: model.game, query: model.query, languages: [], mode: .card, cursor: nil))
             .get()
 
         await assertScreenSnapshot(testName: #function) { makeScreen(feature: feature, model: model) }
@@ -306,7 +319,7 @@ struct TCGSearchScreenSnapshotTests {
         let model = TCGSearchScreenModel(preferences: nil)
         model.query = "Gira"
         model.isSearchFocused = true
-        try await feature.search(.init(game: .pokemon, query: model.query, languages: [], mode: .card))
+        try await feature.search(.init(game: .pokemon, query: model.query, languages: [], mode: .card, cursor: nil))
             .get()
         #expect(feature.history.suggestions(for: model.query, game: model.game, mode: .card).count == 2)
         await assertScreenSnapshot(testName: #function) { makeScreen(feature: feature, model: model) }

@@ -80,6 +80,7 @@ export interface CardPriceSearchRow {
   queryKey: string;
   pricedOn: string;
   pricingCardIds: string[];
+  hasMore: boolean;
   pricingSource: PricingSource;
   fetchedAt: Date;
 }

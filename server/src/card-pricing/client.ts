@@ -23,6 +23,7 @@ export interface PricingClientError {
 export interface PricingSearchResult {
   readonly records: PricingCardRecord[];
   readonly providerResultCount: number;
+  readonly hasMore: boolean;
   readonly rejectedCount: number;
   readonly missingBaseVariantCount: number;
 }
@@ -35,6 +36,7 @@ export interface PricingClient {
     game: CardGame,
     query: string,
     options: PricingSearchOptions,
+    page: number,
   ): Promise<PricingClientResult<PricingSearchResult>>;
   getCardById(game: CardGame, id: string): Promise<PricingClientResult<PricingCardRecord | null>>;
 }

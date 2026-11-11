@@ -8,13 +8,14 @@ import { createCardRequest } from '../../cards/tests/utils.ts';
 import { cardPriceSearch } from '../../db/schema/card-pricing.ts';
 import { card } from '../../db/schema/cards.ts';
 import type App from '../../runtime/node/app.ts';
-import { sessionHeaders } from '../../tests/auth.ts';
+import { expectValidationIssueForField, sessionHeaders } from '../../tests/auth.ts';
 import { integrationTest } from '../../tests/fixtures.ts';
 import type { createTestUser } from '../../tests/utils.ts';
 import { parseCardLanguages } from '../languages.ts';
 import { SEARCH_PRICING_ROUTE_PATH } from '../routes/search-pricing.ts';
 import { PricedCardSchema, PricingSearchResponseSchema } from '../schemas/responses.ts';
 import type { CardGame } from '../types.ts';
+import { searchPageKey } from '../utils/pagination.ts';
 import { queryKey, todayUTC } from '../utils/query.ts';
 
 const SHIFTRY = {
@@ -88,6 +89,65 @@ const PRINTED_NUMBER_CASES = [
 ] as const satisfies { providerCard: ScrydexRawCard; status: string }[];
 
 describe('Scrydex search through the authenticated pricing API', () => {
+  integrationTest(
+    'follows Scrydex search pages and caches each continuation independently',
+    async ({ createApp, user, db }) => {
+      const cards = Array.from({ length: 135 }, (_, index) => ({
+        id: `pikachu-${index + 1}`,
+        name: 'Pikachu',
+        number: String(index + 1),
+      }));
+
+      await db.insert(cardPriceSearch).values({
+        game: 'pokemon',
+        pricingSource: 'scrydex_real',
+        queryKey: queryKey('pokemon', 'Pikachu', { languages: [], searchBy: 'card' }),
+        pricedOn: todayUTC(),
+        pricingCardIds: cards.slice(0, 20).map(card => card.id),
+      });
+
+      const transport = vi.fn<typeof fetch>().mockImplementation(async input => {
+        const url = new URL(input instanceof Request ? input.url : input.toString());
+        const size = Number(url.searchParams.get('page_size'));
+        const start = (Number(url.searchParams.get('page')) - 1) * size;
+
+        return Response.json({ data: cards.slice(start, start + size), total_count: cards.length });
+      });
+
+      const app = createApp({ pricingClient: createTestScrydexClient(transport) });
+      const headers = sessionHeaders(user.sessionToken);
+      const url = `${SEARCH_PRICING_ROUTE_PATH}?game=pokemon&query=Pikachu&search_by=card`;
+
+      const first = await app.request(url, { headers });
+      expect(first.status).toBe(200);
+      const page = PricingSearchResponseSchema.parse(await first.json());
+      expect(page.matches.map(card => card.card_number)).toEqual(cards.slice(0, 100).map(card => card.number));
+      expect(page.next_cursor).toEqual(expect.any(String));
+
+      const nextURL = `${url}&cursor=${page.next_cursor}`;
+      const second = await app.request(nextURL, { headers });
+      expect(second.status).toBe(200);
+      const last = PricingSearchResponseSchema.parse(await second.json());
+      expect(last.matches.map(card => card.card_number)).toEqual(cards.slice(100).map(card => card.number));
+      expect(last.next_cursor).toBeNull();
+
+      const repeatedFirst = await app.request(url, { headers });
+      const repeatedSecond = await app.request(nextURL, { headers });
+      expect(await repeatedFirst.json()).toEqual(page);
+      expect(await repeatedSecond.json()).toEqual(last);
+
+      const requestedURLs = transport.mock.calls.map(
+        ([input]) => new URL(input instanceof Request ? input.url : input.toString()),
+      );
+
+      expect(requestedURLs.map(url => url.searchParams.get('page'))).toEqual(['1', '2']);
+
+      await expectValidationIssueForField(await app.request(`${url}&cursor=invalid!`, { headers }), 'cursor');
+      await expectValidationIssueForField(await app.request(`${nextURL}&languages=ja`, { headers }), 'cursor');
+      expect(transport).toHaveBeenCalledTimes(2);
+    },
+  );
+
   for (const { providerCard, status } of PRINTED_NUMBER_CASES) {
     integrationTest(
       `preserves artwork when saving and listing ${providerCard.printed_number} with ${status} pricing`,
@@ -240,7 +300,7 @@ describe('Scrydex search through the authenticated pricing API', () => {
 
     const response = await search.request('GG69/GG71');
     expect(response.status).toBe(200);
-    expect(PricingSearchResponseSchema.parse(await response.json())).toEqual({ matches: [] });
+    expect(PricingSearchResponseSchema.parse(await response.json())).toEqual({ matches: [], next_cursor: null });
     expect(search.transport.queries).toEqual(['!printed_number:"GG69/GG71"']);
   });
 
@@ -302,7 +362,9 @@ describe('Scrydex search through the authenticated pricing API', () => {
         pricingSource: 'scrydex_real',
         cardNumber: 'P-110',
       });
-      expect(await db.query.cardPriceSearch.findFirst({ where: { queryKey: 'one_piece|v2|p-110' } })).toMatchObject({
+      expect(
+        await db.query.cardPriceSearch.findFirst({ where: { queryKey: searchPageKey('one_piece|v2|p-110', 0) } }),
+      ).toMatchObject({
         pricingCardIds: ['P-110'],
       });
 
@@ -327,7 +389,7 @@ describe('Scrydex search through the authenticated pricing API', () => {
     const response = await search.request('p-110');
 
     expect(response.status).toBe(200);
-    expect(PricingSearchResponseSchema.parse(await response.json())).toEqual({ matches: [] });
+    expect(PricingSearchResponseSchema.parse(await response.json())).toEqual({ matches: [], next_cursor: null });
     expect(search.transport.queries).toEqual(['!id:P-110']);
     expect(await db.query.cardPrice.findMany()).toEqual([]);
   });
@@ -366,7 +428,10 @@ describe('Scrydex search through the authenticated pricing API', () => {
         expect(
           await db.query.cardPriceSearch.findFirst({
             where: {
-              queryKey: queryKey('pokemon', 'mep 056', { languages: parseCardLanguages(languages), searchBy: 'card' }),
+              queryKey: searchPageKey(
+                queryKey('pokemon', 'mep 056', { languages: parseCardLanguages(languages), searchBy: 'card' }),
+                0,
+              ),
             },
           }),
         ).toMatchObject({ pricingCardIds: ['mep-56'] });
@@ -393,7 +458,7 @@ describe('Scrydex search through the authenticated pricing API', () => {
     expect(search.transport.queries).toEqual([expectedQuery]);
     expect(
       await db.query.cardPriceSearch.findFirst({
-        where: { queryKey: queryKey('pokemon', 'Shiftry', { languages: ['en'], searchBy: 'card' }) },
+        where: { queryKey: searchPageKey(queryKey('pokemon', 'Shiftry', { languages: ['en'], searchBy: 'card' }), 0) },
       }),
     ).toMatchObject({ pricingCardIds: [card.id] });
   });
@@ -410,7 +475,7 @@ describe('Scrydex search through the authenticated pricing API', () => {
     expect(search.transport.queries).toEqual([expectedQuery]);
     expect(
       await db.query.cardPriceSearch.findFirst({
-        where: { queryKey: queryKey('pokemon', 'Shiftry', { languages: ['ja'], searchBy: 'card' }) },
+        where: { queryKey: searchPageKey(queryKey('pokemon', 'Shiftry', { languages: ['ja'], searchBy: 'card' }), 0) },
       }),
     ).toMatchObject({ pricingCardIds: [card.id] });
   });
@@ -448,7 +513,9 @@ describe('Scrydex search through the authenticated pricing API', () => {
       });
       expect(
         await db.query.cardPriceSearch.findFirst({
-          where: { queryKey: queryKey('pokemon', 'sv5m 072/071', { languages: [], searchBy: 'card' }) },
+          where: {
+            queryKey: searchPageKey(queryKey('pokemon', 'sv5m 072/071', { languages: [], searchBy: 'card' }), 0),
+          },
         }),
       ).toMatchObject({
         pricingSource: 'scrydex_real',
@@ -559,7 +626,7 @@ describe('Scrydex search through the authenticated pricing API', () => {
     const response = await search.request('sv5m 072/070');
 
     expect(response.status).toBe(200);
-    expect(PricingSearchResponseSchema.parse(await response.json())).toEqual({ matches: [] });
+    expect(PricingSearchResponseSchema.parse(await response.json())).toEqual({ matches: [], next_cursor: null });
     expect(search.transport.queries).toEqual([
       '(!expansion.id:sv5m OR !expansion.id:sv5m_ja) AND !printed_number:"072/070"',
     ]);

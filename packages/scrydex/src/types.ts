@@ -2,6 +2,8 @@ import type { Result } from 'neverthrow';
 
 import type { ScrydexRawCard } from './schemas.ts';
 
+export const SCRYDEX_SEARCH_PAGE_SIZE = 100;
+
 export type ScrydexGame = 'pokemon' | 'one_piece';
 
 export const SCRYDEX_ERROR_REASONS = {
@@ -24,6 +26,7 @@ export type ScrydexClientResult<T> = Result<T, ScrydexClientError>;
 export interface ScrydexSearchResult {
   readonly cards: ScrydexRawCard[];
   readonly providerResultCount: number;
+  readonly hasMore: boolean;
   readonly rejectedCount: number;
 }
 

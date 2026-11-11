@@ -8,10 +8,10 @@ Private Node workspace package `@tcg/scrydex`. It exports TypeScript source for 
 import { ScrydexClient } from '@tcg/scrydex';
 
 const client = new ScrydexClient({ apiKey: 'key', teamId: 'team' });
-const result = await client.searchCards('pokemon', 'name:"Pikachu"');
+const result = await client.searchCards('pokemon', 'name:"Pikachu"', 1);
 ```
 
-`searchCards(game, query)` accepts a complete provider query unchanged and requests the first 20 cards with prices. Success contains validated `cards`, `providerResultCount`, and schema-level `rejectedCount`. Totals prefer `totalCount`, then `total_count`, then the original array length, including rejected entries.
+`searchCards(game, query, page)` sends the provider query unchanged and requests up to 100 cards with prices. Success contains validated `cards`, `providerResultCount`, schema-level `rejectedCount`, and `hasMore`. The client checks continuation against the provider total and uses the raw page length when the total is absent. `providerResultCount` prefers `totalCount`, then `total_count`, then the raw page length.
 
 `getCardById(game, id)` requests a safely encoded ID with prices. Success contains `{ card, statusCode }`, or `null` for HTTP 404. Both methods return `neverthrow` results. Errors distinguish missing credentials, network failures, timeout/abort, HTTP failures, and malformed responses. HTTP 429 and 5xx and transport failures are retryable. Error messages omit transport details and response bodies.
 

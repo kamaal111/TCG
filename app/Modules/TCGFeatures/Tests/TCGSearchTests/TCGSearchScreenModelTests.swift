@@ -366,7 +366,7 @@ struct TCGSearchScreenModelTests {
     @Test
     func `Short queries clear results even with a language filter`() async throws {
         let feature = TCGSearch(client: .preview(pricingOutcome: .success), history: TCGSearchHistoryStore())
-        try await feature.search(.init(game: .pokemon, query: "Giratina", languages: [], mode: .card))
+        try await feature.search(.init(game: .pokemon, query: "Giratina", languages: [], mode: .card, cursor: nil))
             .get()
         let model = TCGSearchScreenModel(preferences: nil)
         model.query = "x"
@@ -589,13 +589,14 @@ struct TCGSearchScreenModelTests {
 }
 
 actor HistoryPricingTransport: ClientTransport {
-    enum Outcome { case matches, updated, empty, unavailable, sets }
+    enum Outcome { case matches, updated, empty, unavailable, sets, firstPage }
 
     private var outcomes: [Int: Outcome] = [:]
 
     func setOutcome(_ outcome: Outcome, for request: Int) { outcomes[request] = outcome }
 
     private(set) var requestCount = 0
+    private(set) var paths: [String] = []
     private let suspended: Bool
     private var continuations: [Int: CheckedContinuation<Void, Never>] = [:]
     private var started: [Int: CheckedContinuation<Void, Never>] = [:]
@@ -612,11 +613,12 @@ actor HistoryPricingTransport: ClientTransport {
     }
 
     func send(
-        _: HTTPRequest,
+        _ request: HTTPRequest,
         body _: HTTPBody?,
         baseURL _: URL,
         operationID _: String
     ) async throws -> (HTTPResponse, HTTPBody?) {
+        paths.append(request.path ?? "")
         requestCount += 1
         let request = requestCount
         if suspended {
@@ -646,10 +648,13 @@ actor HistoryPricingTransport: ClientTransport {
             return (HTTPResponse(status: .ok), HTTPBody(data))
         }
         let amount = outcome == .updated ? 20 : 10
+        let id = outcome == .firstPage ? "zenith" : "giratina"
+        let nextCursor = outcome == .firstPage ? "\"continue-search\"" : "null"
         let body = """
             {
+              "next_cursor": \(nextCursor),
               "matches": [{
-                "id": "giratina", "game": "pokemon", "name": "Giratina", "card_number": "GG69",
+                "id": "\(id)", "game": "pokemon", "name": "Giratina", "card_number": "GG69",
                 "rarity": "Rare", "headline": {"amount": \(amount), "currency": "USD", "metric": "lowest_near_mint"},
                 "market": {"condition": "near_mint", "currency": "USD", "low": 10, "market": 10},
                 "priced_on": "2026-10-02T00:00:00.000Z", "fetched_at": "2026-10-02T12:00:00.000Z"

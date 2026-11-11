@@ -1,7 +1,7 @@
 import crypto from 'node:crypto';
 
 import { defineRelationsPart } from 'drizzle-orm';
-import { date, index, jsonb, pgTable, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core';
+import { boolean, date, index, jsonb, pgTable, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core';
 
 import { cardGameEnum } from './cards.ts';
 import type { NormalizedPricing, PricingSource } from '../../card-pricing/types.ts';
@@ -46,6 +46,7 @@ export const cardPriceSearch = pgTable(
     queryKey: text('query_key').notNull(),
     pricedOn: date('priced_on').notNull(),
     pricingCardIds: jsonb('pricing_card_ids').$type<string[]>().notNull(),
+    hasMore: boolean('has_more').default(false).notNull(),
     pricingSource: text('pricing_source').$type<PricingSource>().notNull(),
     fetchedAt: timestamp('fetched_at').defaultNow().notNull(),
   },

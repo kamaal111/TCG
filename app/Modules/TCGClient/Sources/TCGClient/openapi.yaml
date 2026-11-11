@@ -1639,6 +1639,17 @@ paths:
           in: query
         - schema:
             type: string
+            description: >-
+              Opaque next_cursor from the preceding page for the same search.
+              Omit for the first page.
+          required: false
+          description: >-
+            Opaque next_cursor from the preceding page for the same search. Omit
+            for the first page.
+          name: cursor
+          in: query
+        - schema:
+            type: string
             enum:
               - one_piece
               - pokemon
@@ -3433,12 +3444,18 @@ components:
           items:
             $ref: '#/components/schemas/PricedCard'
           description: Ordered matching cards
+        next_cursor:
+          type:
+            - string
+            - 'null'
+          description: Cursor for the next page, or null at the end
       required:
         - matches
       title: Pricing Search Response
       description: Card pricing search results
       example:
         matches: []
+        next_cursor: null
   securitySchemes:
     bearerAuth:
       type: http
