@@ -148,11 +148,30 @@ struct TCGCardDetailScreenSnapshotTests {
         await assertScreenSnapshot(testName: #function) { makeScreen(model, isEditingCollection: true) }
     }
 
-    @Test func `Renders card editing access only in collection edit mode`() async {
+    @Test func `Renders card editing access in collection edit mode`() async {
         let model = makeModel()
         #expect(model.editor == nil)
         await assertScreenSnapshot(testName: #function) { makeScreen(model, isEditingCollection: true) }
     }
+
+    #if os(iOS)
+        @Test func `Renders direct card editing outside collection edit mode`() async {
+            let model = makeModel()
+            model.edit()
+            #expect(model.editor != nil)
+            await assertScreenSnapshot(testName: #function) { makeScreen(model) }
+        }
+
+        @Test func `Renders downloaded card details without editing controls`() async {
+            let model = makeModel()
+            let cards = TCGCards(client: .preview(cardsOutcome: .empty))
+            cards.useDownloadedCards([model.card])
+            #expect(cards.isReadOnly)
+            await assertScreenSnapshot(testName: #function) {
+                makeScreen(model, isEditingCollection: true, cards: cards)
+            }
+        }
+    #endif
 
     private func makeModel(status: OwnedCardPriceStatus = .priced) -> TCGCardDetailScreenModel {
         let card = PreviewTCGCardsClient.sampleCards[0]
@@ -161,11 +180,15 @@ struct TCGCardDetailScreenSnapshotTests {
         return .init(card: .init(card: card, price: price))
     }
 
-    private func makeScreen(_ model: TCGCardDetailScreenModel, isEditingCollection: Bool = false) -> some View {
+    private func makeScreen(
+        _ model: TCGCardDetailScreenModel,
+        isEditingCollection: Bool = false,
+        cards: TCGCards = TCGCards(client: .preview(cardsOutcome: .empty))
+    ) -> some View {
         NavigationStack { TCGCardDetailScreen(model: model) }
             .environment(\.isEditingCollection, isEditingCollection)
             .environment(\.timeZone, TimeZone(secondsFromGMT: 0)!)
-            .environment(TCGCards(client: .preview(cardsOutcome: .empty)))
+            .environment(cards)
             .cardImageLoader(PreviewCardImageLoader(outcome: .success))
     }
 }

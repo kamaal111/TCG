@@ -20,14 +20,14 @@ struct TCGCardDetailScreen: View {
         VStack(spacing: 0) {
             HStack {
                 Button(action: requestDismissal) {
-                    Image(systemName: "xmark")
+                    CardModalCloseIcon()
                 }
                 .accessibilityLabel(Text("Close", bundle: .module))
                 .keyboardShortcut(.cancelAction)
                 Spacer()
                 Text("Card details", bundle: .module).font(.headline)
                 Spacer()
-                if isEditingCollection {
+                if canEditCard {
                     Button(action: editOrSave) {
                         if model.editor != nil {
                             Text("Save", bundle: .module)
@@ -39,7 +39,7 @@ struct TCGCardDetailScreen: View {
             }
             .padding()
             Divider()
-            if isEditingCollection, let editor = model.editor {
+            if canEditCard, let editor = model.editor {
                 editorContent(editor)
             } else if let displayedCard {
                 CardDetailContent(metadata: .init(ownedCard: displayedCard), price: displayedCard.price.price) {
@@ -158,8 +158,16 @@ struct TCGCardDetailScreen: View {
         }
     }
 
+    private var canEditCard: Bool {
+        #if os(iOS)
+            !cards.isReadOnly
+        #else
+            isEditingCollection
+        #endif
+    }
+
     private func editOrSave() {
-        guard isEditingCollection else { return }
+        guard canEditCard else { return }
         if model.editor == nil {
             model.edit()
         } else {

@@ -124,12 +124,16 @@ public struct TCGCardFormScreen: View {
 
     private var dismissButton: some View {
         Button(action: requestDismissal) {
-            Image(systemName: "xmark")
-                .foregroundStyle(.primary)
+            CardModalCloseIcon()
+                #if os(macOS)
+                    .foregroundStyle(.primary)
+                #endif
         }
         .accessibilityLabel(Text("Close", bundle: .module))
         .help(Text("Close", bundle: .module))
-        .tint(.primary)
+        #if os(macOS)
+            .tint(.primary)
+        #endif
         .keyboardShortcut(.cancelAction)
         .disabled(model.isSubmitting)
     }
