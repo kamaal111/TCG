@@ -81,6 +81,42 @@ struct TCGCollectionsTests {
         #expect(collections.view(for: saved.id) == .list)
     }
 
+    @Test func `Inserted pages and swapped slot stacks survive saving and reopening`() async throws {
+        let context = try await CollectionTestFixtures.selectedContext()
+        var binder = try #require(context.collections.selected)
+        let firstCard = try #require(context.cards.cards.first)
+        let lastCard = try #require(context.cards.cards.last)
+        let first = CardsTestIDs.secondary
+        let second = CardsTestIDs.third
+        binder.pages = [
+            .init(id: first, slots: [.init(row: 1, column: 1, cardID: firstCard.card.id, quantity: 1)]),
+            .init(id: second, slots: [.init(row: 2, column: 2, cardID: lastCard.card.id, quantity: 1)]),
+        ]
+        #expect(await context.collections.save(binder, using: context.cards))
+        let saved = try #require(context.collections.selected)
+        let inserted = try #require(
+            BinderLayout.insertingEmptyPage(in: saved, before: second, pageID: CardsTestIDs.primary)
+        )
+        #expect(await context.collections.save(inserted, using: context.cards))
+        let withPage = try #require(context.collections.selected)
+        let swapped = try #require(
+            BinderLayout.movingSlot(
+                in: withPage,
+                from: .init(pageID: first, row: 1, column: 1),
+                to: .init(pageID: second, row: 2, column: 2)
+            )
+        )
+        #expect(await context.collections.save(swapped, using: context.cards))
+        await context.collections.select(nil, using: context.cards)
+        await context.collections.select(binder.id, using: context.cards)
+        let reopened = try #require(context.collections.selected)
+        #expect(reopened.pages == swapped.pages)
+        #expect(reopened.pages.map(\.id) == [first, CardsTestIDs.primary, second])
+        #expect(reopened.pages[0].slots[0].cardID == lastCard.card.id)
+        #expect(reopened.pages[2].slots[0].cardID == firstCard.card.id)
+        #expect(reopened.revision == saved.revision + 2)
+    }
+
     @Test func `All cards includes unfiled and named collection entries after switching and reloading`() async throws {
         let context = await CollectionTestFixtures.loadedContext()
         #expect(context.collections.selectedID == nil)

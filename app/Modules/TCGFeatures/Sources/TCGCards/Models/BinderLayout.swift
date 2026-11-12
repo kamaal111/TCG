@@ -10,6 +10,71 @@ enum BinderLayout {
         return columns * rows
     }
 
+    static func insertingEmptyPage(
+        in collection: CardBinderCollection,
+        before pageID: UUID,
+        pageID newPageID: UUID
+    ) -> CardBinderCollection? {
+        guard let index = collection.pages.firstIndex(where: { $0.id == pageID }) else { return nil }
+        guard !collection.pages.contains(where: { $0.id == newPageID }) else { return nil }
+        var updated = collection
+        updated.pages.insert(BinderPage(id: newPageID, slots: []), at: index)
+        return updated
+    }
+
+    static func slot(in collection: CardBinderCollection, at position: BinderPosition) -> BinderSlot? {
+        collection.pages.first(where: { $0.id == position.pageID })?.slots.first {
+            $0.row == position.row && $0.column == position.column
+        }
+    }
+
+    static func movingSlot(
+        in collection: CardBinderCollection,
+        from source: BinderPosition,
+        to destination: BinderPosition
+    ) -> CardBinderCollection? {
+        guard source != destination else { return nil }
+        guard contains(source, in: collection) else { return nil }
+        guard contains(destination, in: collection) else { return nil }
+        guard let moved = slot(in: collection, at: source) else { return nil }
+        let displaced = slot(in: collection, at: destination)
+        var updated = collection
+        for index in updated.pages.indices {
+            let pageID = updated.pages[index].id
+            updated.pages[index].slots.removeAll {
+                BinderPosition(pageID: pageID, row: $0.row, column: $0.column) == source
+                    || BinderPosition(pageID: pageID, row: $0.row, column: $0.column) == destination
+            }
+            if pageID == destination.pageID {
+                updated.pages[index].slots.append(
+                    BinderSlot(
+                        row: destination.row,
+                        column: destination.column,
+                        cardID: moved.cardID,
+                        quantity: moved.quantity
+                    )
+                )
+            }
+            if pageID == source.pageID, let displaced {
+                updated.pages[index].slots.append(
+                    BinderSlot(
+                        row: source.row,
+                        column: source.column,
+                        cardID: displaced.cardID,
+                        quantity: displaced.quantity
+                    )
+                )
+            }
+        }
+        return updated
+    }
+
+    private static func contains(_ position: BinderPosition, in collection: CardBinderCollection) -> Bool {
+        (1...collection.rows).contains(position.row)
+            && (1...collection.columns).contains(position.column)
+            && collection.pages.contains { $0.id == position.pageID }
+    }
+
     static func requiresResizeConfirmation(from original: CardBinderCollection, to resized: CardBinderCollection)
         -> Bool
     {

@@ -21,8 +21,51 @@ struct BinderSlotView: View {
 
     let content: Content
     let select: () -> Void
+    var dragPayload: BinderSlotDragPayload?
+    var interactionSession: BinderInteractionSession?
+    var canDrop = false
+    var moveSlot: (BinderSlotDragPayload, BinderPosition) -> Bool = { _, _ in false }
+    @State private var isTargeted = false
 
     var body: some View {
+        draggableSlot
+            .dropDestination(for: BinderSlotDragPayload.self) { items, _ in
+                guard canDrop else { return false }
+                guard items.count == 1, let payload = items.first else { return false }
+                interactionSession?.end()
+                return moveSlot(payload, content.position)
+            } isTargeted: {
+                isTargeted = $0
+            }
+            .overlay {
+                if canDrop && isTargeted {
+                    Rectangle().strokeBorder(.tint, lineWidth: 3).allowsHitTesting(false)
+                }
+            }
+    }
+
+    @ViewBuilder
+    private var draggableSlot: some View {
+        if let dragPayload {
+            slotButton.onDrag {
+                guard let data = try? JSONEncoder().encode(dragPayload) else { return NSItemProvider() }
+                interactionSession?.payload = dragPayload
+                let provider = NSItemProvider()
+                provider.registerDataRepresentation(
+                    forTypeIdentifier: BinderSlotDragPayload.contentType.identifier,
+                    visibility: .ownProcess
+                ) { completion in
+                    completion(data, nil)
+                    return nil
+                }
+                return provider
+            }
+        } else {
+            slotButton
+        }
+    }
+
+    private var slotButton: some View {
         Button(action: select) {
             ZStack(alignment: .bottomTrailing) {
                 Rectangle().fill(.background)

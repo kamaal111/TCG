@@ -16,7 +16,7 @@ struct BinderPageNavigation: View {
     var body: some View {
         HStack {
             Button {
-                index = max(0, content.visibleRange.lowerBound - content.capacity)
+                navigate(.previous)
             } label: {
                 Image(systemName: "chevron.left")
             }
@@ -39,7 +39,7 @@ struct BinderPageNavigation: View {
                     .foregroundStyle(.secondary)
             }
             Button {
-                index = content.visibleRange.upperBound
+                navigate(.next)
             } label: {
                 Image(systemName: "chevron.right")
             }
@@ -57,6 +57,17 @@ struct BinderPageNavigation: View {
                 .accessibilityLabel(Text("Delete page \(index + 1)", bundle: .module))
                 .help(Text("Delete page \(index + 1)", bundle: .module))
             }
+        }
+    }
+
+    private func navigate(_ direction: BinderPageDirection) {
+        if let next = BinderSpreadLayout.adjacentIndex(
+            direction: direction,
+            visibleRange: content.visibleRange,
+            capacity: content.capacity,
+            totalPages: content.pages.count
+        ) {
+            index = next
         }
     }
 }
