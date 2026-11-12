@@ -267,3 +267,18 @@ test('rejects a regular Apple password without replacing private credentials', a
   ).rejects.toThrow('Use an Apple app-specific password');
   expect(await readAppAuthentication(f.directory)).toEqual(f.authentication);
 });
+
+test('reuses upload settings without changing leftover local signing files or requesting signing assets', async () => {
+  const f = await fixture();
+  await saveAppSettings(f.directory, settings);
+  const signing = path.join(f.directory, 'app-signing');
+  await fs.mkdir(signing);
+  await fs.writeFile(path.join(signing, 'ios.json'), 'old local signing settings');
+  await fs.writeFile(path.join(signing, 'release.keychain-db'), 'existing private keychain');
+  await setupAppRelease({ root: f.root, directory: f.directory, prompts: f.prompts });
+  expect(f.text).not.toHaveBeenCalled();
+  expect(f.password).not.toHaveBeenCalled();
+  expect(await readAppAuthentication(f.directory)).toEqual(f.authentication);
+  expect(await fs.readFile(path.join(signing, 'ios.json'), 'utf8')).toBe('old local signing settings');
+  expect(await fs.readFile(path.join(signing, 'release.keychain-db'), 'utf8')).toBe('existing private keychain');
+});

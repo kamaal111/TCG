@@ -1,5 +1,4 @@
 import childProcess from 'node:child_process';
-import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -10,7 +9,6 @@ import z from 'zod';
 
 import { appFingerprint } from './app-release/config.ts';
 import { runAppRelease } from './app-release/runtime.ts';
-import { setupLocalSigning } from './app-release/setup.ts';
 import type { Prompts } from './infra/prompts.ts';
 import { waitForProcessOutput } from './process-test-utils.ts';
 import { acquireLocalLease } from './release/lock.ts';
@@ -33,10 +31,6 @@ async function fixture() {
   await fs.mkdir(bin);
   await fs.copyFile(script, path.join(root, 'scripts/app-release.sh'));
   await fs.copyFile(
-    path.join(repository, 'scripts/app-release-signing.py'),
-    path.join(root, 'scripts/app-release-signing.py'),
-  );
-  await fs.copyFile(
     path.join(repository, 'scripts/run-with-xcbeautify.sh'),
     path.join(root, 'scripts/run-with-xcbeautify.sh'),
   );
@@ -46,7 +40,6 @@ async function fixture() {
     { mode: 0o755 },
   );
   await fs.writeFile(path.join(root, 'app/Configuration/App.xcconfig'), 'MARKETING_VERSION = 1.0\n');
-  await fs.writeFile(path.join(root, 'app/Configuration/Remote.xcconfig'), '#include "App.xcconfig"\n');
   const git = (args: string[]) => execute('git', args, { cwd: root });
   await git(['init', '-b', 'main']);
   await git(['config', 'user.name', 'Fixture']);
@@ -60,59 +53,6 @@ async function fixture() {
     path.join(config, 'app-store-connect.json'),
     JSON.stringify({ email: 'release@example.invalid', password: 'test-test-test-test' }),
     { mode: 0o600 },
-  );
-  const certificate = Buffer.from('fixture distribution certificate');
-  const certificateSHA1 = crypto.createHash('sha1').update(certificate).digest('hex').toUpperCase();
-  const signingDirectory = path.join(config, 'app-signing');
-  const keychain = path.join(signingDirectory, 'release.keychain-db');
-  const home = path.join(directory, 'home');
-  const profiles = path.join(home, 'Library/Developer/Xcode/UserData/Provisioning Profiles');
-  await fs.mkdir(signingDirectory);
-  await fs.mkdir(profiles, { recursive: true });
-  await fs.writeFile(keychain, 'fixture keychain');
-  await fs.writeFile(
-    path.join(signingDirectory, 'keychain.json'),
-    JSON.stringify({ password: 'fixture keychain password' }),
-  );
-
-  for (const platform of ['ios', 'macos']) {
-    const profileUUID =
-      platform === 'ios' ? '12345678-1234-4234-8234-123456789012' : '12345678-1234-4234-8234-123456789013';
-
-    const profile = `<?xml version="1.0"?><plist version="1.0"><dict><key>UUID</key><string>${profileUUID}</string><key>TeamIdentifier</key><array><string>${settings.teamID}</string></array><key>ApplicationIdentifierPrefix</key><array><string>${settings.teamID}</string></array><key>Platform</key><array><string>${platform === 'ios' ? 'iOS' : 'OSX'}</string></array><key>ExpirationDate</key><date>2099-01-01T00:00:00Z</date><key>DeveloperCertificates</key><array><data>${certificate.toString('base64')}</data></array><key>Entitlements</key><dict><key>application-identifier</key><string>${settings.teamID}.io.kamaal.TCG</string><key>com.apple.developer.team-identifier</key><string>${settings.teamID}</string><key>get-task-allow</key><false/></dict></dict></plist>`;
-    await fs.writeFile(path.join(signingDirectory, `${platform}.provisionprofile`), profile);
-    await fs.writeFile(
-      path.join(profiles, `${profileUUID}.${platform === 'ios' ? 'mobileprovision' : 'provisionprofile'}`),
-      profile,
-    );
-    await fs.writeFile(
-      path.join(signingDirectory, `${platform}.json`),
-      JSON.stringify({
-        version: 1,
-        teamID: settings.teamID,
-        certificateSHA1,
-        profileUUID,
-        expiresAt: '2099-01-01T00:00:00+00:00',
-        installerSHA1: 'B'.repeat(40),
-      }),
-    );
-  }
-
-  await fs.writeFile(
-    path.join(bin, 'security'),
-    `#!/bin/bash
-printf '%s\n' "$1" >> "$TCG_TEST_SECURITY_CALLS"
-case "$1" in
-  create-keychain) touch "${'${@: -1}'}" ;;
-  import|set-keychain-settings|set-key-partition-list) exit 0 ;;
-  cms) cat "${'${@: -1}'}" ;;
-  find-identity) printf '1) ${certificateSHA1} "Apple Distribution: Fixture (${settings.teamID})"\n2) ${'B'.repeat(40)} "3rd Party Mac Developer Installer: Fixture (${settings.teamID})"\n' ;;
-  list-keychains) printf '    "%s"\n' '${keychain}' ;;
-  unlock-keychain) exit 0 ;;
-  *) echo 'Unexpected security action' >&2; exit 1 ;;
-esac
-`,
-    { mode: 0o755 },
   );
   await fs.writeFile(path.join(bin, 'caffeinate'), '#!/bin/bash\nexec sleep 60\n', { mode: 0o755 });
   const calls = path.join(directory, 'calls.jsonl');
@@ -131,7 +71,6 @@ if (process.env.TCG_TEST_STALL) {
  console.log('Compiler fixture ready');
  setInterval(()=>{},1000);
 } else if (args.includes('archive')) {
- fs.writeFileSync(process.env.TCG_TEST_ARCHIVE_SETTINGS, fs.readFileSync(path.join(process.cwd(),'app/Configuration/Remote.xcconfig')));
  const archive=args[args.indexOf('-archivePath')+1];
  const mac=args.includes('generic/platform=macOS');
  const app=path.join(archive, 'Products/Applications/Mintomo.app');
@@ -175,9 +114,6 @@ if(process.env.TCG_TEST_UPLOAD_FAILURE){console.error('Upload credentials reject
     ...process.env,
     PATH: `${bin}:${process.env.PATH}`,
     TCG_TEST_CALLS: calls,
-    TCG_TEST_SECURITY_CALLS: path.join(directory, 'security-calls'),
-    TCG_TEST_ARCHIVE_SETTINGS: path.join(directory, 'archive-settings'),
-    HOME: home,
   };
 
   const invoke = (mode: string, platform: string, args: string[] = [], extra: Record<string, string> = {}) => {
@@ -205,7 +141,7 @@ if(process.env.TCG_TEST_UPLOAD_FAILURE){console.error('Upload credentials reject
     return JSON.parse(await fs.readFile(path.join(config, 'app-releases', sessions[0] ?? '', 'summary.json'), 'utf8'));
   };
 
-  return { root, config, env, sha, calls, invoke, records, summary, directory, signingDirectory, certificateSHA1 };
+  return { root, config, env, sha, calls, invoke, records, summary, directory };
 }
 
 test.each(['setup-app-release', 'release-ios', 'release-macos', 'archive-ios', 'archive-macos', 'logs-app-release'])(
@@ -235,17 +171,9 @@ describe.runIf(process.platform === 'darwin')('native shell release pipeline', (
       const calls = await f.records();
       expect(calls).toHaveLength(3);
       expect(calls[0]).toContain(destination);
-      expect(calls[0]).not.toContain('-allowProvisioningUpdates');
-      expect(calls[0]).not.toContain('CODE_SIGN_STYLE=Manual');
-      expect(await fs.readFile(f.env.TCG_TEST_ARCHIVE_SETTINGS, 'utf8')).toContain('CODE_SIGN_STYLE = Manual');
-      expect(await fs.readFile(f.env.TCG_TEST_ARCHIVE_SETTINGS, 'utf8')).toContain(
-        `CODE_SIGN_IDENTITY = ${f.certificateSHA1}`,
-      );
-      expect(await fs.readFile(path.join(f.root, 'app/Configuration/Remote.xcconfig'), 'utf8')).not.toContain(
-        'CODE_SIGN_STYLE = Manual',
-      );
+      expect(calls[0]).toContain('-allowProvisioningUpdates');
       expect(calls[0]).not.toContain('-authenticationKeyPath');
-      expect(calls[1]).not.toContain('-allowProvisioningUpdates');
+      expect(calls[1]).toContain('-allowProvisioningUpdates');
       expect(calls[1]).not.toContain('-authenticationKeyID');
       expect(calls.flat()).not.toContain('test');
       expect(await f.summary()).toMatchObject({
@@ -339,148 +267,12 @@ describe.runIf(process.platform === 'darwin')('native shell release pipeline', (
     expect(await f.summary()).toMatchObject({ state: 'uploaded' });
   });
 
-  test('missing local signing assets stop before building instead of using Xcode accounts', async () => {
-    const f = await fixture();
-    await fs.rm(f.signingDirectory, { recursive: true });
-    await expect(f.invoke('release', 'ios')).rejects.toMatchObject({
-      stdout: expect.stringContaining('Local ios signing is not configured'),
-    });
-    expect(await f.records()).toEqual([]);
-  });
-
-  test.each([
-    ['expired profile', 'ExpirationDate', '-date', '2000-01-01T00:00:00Z'],
-    ['development profile', 'Entitlements.get-task-allow', '-bool', 'YES'],
-    ['wrong team', 'TeamIdentifier.0', '-string', 'AAAAAAAAAA'],
-    ['wrong platform', 'Platform', '-json', '["OSX"]'],
-    ['wrong app', 'Entitlements.application-identifier', '-string', 'DXUKH9VF73.other.app'],
-  ])('rejects a %s before building', async (_label, key, type, value) => {
-    const f = await fixture();
-    await execute('plutil', ['-replace', key, type, value, path.join(f.signingDirectory, 'ios.provisionprofile')]);
-    await expect(f.invoke('release', 'ios')).rejects.toMatchObject({
-      stdout: expect.stringContaining('Use a current App Store distribution profile'),
-    });
-    expect(await f.records()).toEqual([]);
-  });
-
-  test('rejects a profile whose signing certificate has no matching private key before building', async () => {
-    const f = await fixture();
-    await execute('plutil', [
-      '-remove',
-      'DeveloperCertificates.0',
-      path.join(f.signingDirectory, 'ios.provisionprofile'),
-    ]);
-    await execute('plutil', [
-      '-insert',
-      'DeveloperCertificates.0',
-      '-data',
-      Buffer.from('other certificate').toString('base64'),
-      path.join(f.signingDirectory, 'ios.provisionprofile'),
-    ]);
-    await expect(f.invoke('release', 'ios')).rejects.toMatchObject({
-      stdout: expect.stringContaining('no matching usable distribution certificate/private key'),
-    });
-    expect(await f.records()).toEqual([]);
-  });
-
-  test('uses the explicit local distribution certificate and profile during export', async () => {
-    const f = await fixture();
-    await f.invoke('release', 'macos');
-    const sessions = await fs.readdir(path.join(f.config, 'app-releases'));
-    const file = path.join(f.config, 'app-releases', sessions[0] ?? '', 'ExportOptions.plist');
-    expect((await execute('plutil', ['-extract', 'signingStyle', 'raw', '-o', '-', file])).stdout.trim()).toBe(
-      'manual',
-    );
-    expect((await execute('plutil', ['-extract', 'signingCertificate', 'raw', '-o', '-', file])).stdout.trim()).toBe(
-      f.certificateSHA1,
-    );
-    expect(
-      (await execute('plutil', ['-extract', 'installerSigningCertificate', 'raw', '-o', '-', file])).stdout.trim(),
-    ).toBe('B'.repeat(40));
-    expect((await f.records()).flat()).not.toContain('-allowProvisioningUpdates');
-    expect((await fs.readFile(f.env.TCG_TEST_SECURITY_CALLS, 'utf8')).split('\n')).not.toContain('import');
-    expect((await fs.readFile(f.env.TCG_TEST_SECURITY_CALLS, 'utf8')).split('\n')).not.toContain(
-      'set-key-partition-list',
-    );
-  });
-
-  test('setup imports local signing into its private keychain and reuses it without asking again', async () => {
-    const f = await fixture();
-    const profile = path.join(f.directory, 'downloaded.mobileprovision');
-    await fs.copyFile(path.join(f.signingDirectory, 'ios.provisionprofile'), profile);
-    await fs.rm(path.join(f.signingDirectory, 'ios.json'));
-    await fs.rm(path.join(f.signingDirectory, 'keychain.json'));
-    await fs.rm(path.join(f.signingDirectory, 'release.keychain-db'));
-    vi.stubEnv('PATH', f.env.PATH);
-    vi.stubEnv('HOME', f.env.HOME);
-    vi.stubEnv('TCG_TEST_SECURITY_CALLS', f.env.TCG_TEST_SECURITY_CALLS);
-    onTestFinished(() => {
-      vi.unstubAllEnvs();
-    });
-
-    const text = vi
-      .fn<Prompts['text']>()
-      .mockResolvedValueOnce(path.join(f.directory, 'distribution.p12'))
-      .mockResolvedValueOnce(profile);
-
-    const password = vi.fn<Prompts['password']>().mockResolvedValue('fixture p12 password');
-    const note = vi.fn<Prompts['note']>();
-
-    const prompts: Prompts = {
-      text,
-      password,
-      note,
-      confirm: vi.fn<Prompts['confirm']>(),
-      select: vi.fn<Prompts['select']>(),
-      multiselect: vi.fn<Prompts['multiselect']>(),
-    };
-
-    await setupLocalSigning({ directory: f.config, platform: 'ios', team: settings.teamID, prompts });
-    await setupLocalSigning({ directory: f.config, platform: 'ios', team: settings.teamID, prompts });
-    expect(text).toHaveBeenCalledTimes(2);
-    expect(password).toHaveBeenCalledTimes(1);
-    expect((await fs.stat(path.join(f.signingDirectory, 'keychain.json'))).mode & 0o777).toBe(0o600);
-    expect(await fs.readFile(path.join(f.signingDirectory, 'keychain.json'), 'utf8')).not.toContain(
-      'fixture p12 password',
-    );
-    expect(note.mock.calls.flat().join(' ')).not.toContain('fixture p12 password');
-    const actions = (await fs.readFile(f.env.TCG_TEST_SECURITY_CALLS, 'utf8')).split('\n');
-    expect(actions).toContain('create-keychain');
-    expect(actions).toContain('import');
-    expect(actions).toContain('set-key-partition-list');
-  });
-
-  test('native signing errors are visible while keychain passwords remain private', async () => {
-    const f = await fixture();
-    await fs.writeFile(
-      path.join(f.directory, 'bin/security'),
-      '#!/bin/bash\necho "User interaction is not allowed: fixture keychain password" >&2\nexit 1\n',
-      { mode: 0o755 },
-    );
-    await expect(f.invoke('archive', 'ios')).rejects.toMatchObject({
-      stdout: expect.stringContaining('User interaction is not allowed: [private password]'),
-    });
-    const sessions = await fs.readdir(path.join(f.config, 'app-releases'));
-    const log = await fs.readFile(path.join(f.config, 'app-releases', sessions[0] ?? '', 'release.log'), 'utf8');
-    expect(log).not.toContain('fixture keychain password');
-    expect(await f.records()).toEqual([]);
-  });
-
-  test('Devportal reports missing local signing setup before starting a release', async () => {
-    const f = await fixture();
-    await fs.rm(path.join(f.signingDirectory, 'ios.json'));
-    const status = await inspectApp({ root: f.root, configDirectory: f.config }, 'ios', 0);
-    expect(status.blocker).toContain('Local distribution signing setup is required');
-    expect(status.blocker).toContain('--platform ios');
-    expect(await f.records()).toEqual([]);
-  });
-
-  test('archive-only uses local signing without account updates or upload', async () => {
+  test('archive-only uses Xcode automatic signing without API credentials or upload', async () => {
     const f = await fixture();
     const result = await f.invoke('archive', 'ios');
     expect(result.stdout).toContain('Archive ready:');
     expect(await f.records()).toHaveLength(1);
-    expect((await f.records())[0]).not.toContain('-allowProvisioningUpdates');
+    expect((await f.records())[0]).toContain('-allowProvisioningUpdates');
   });
 
   test('cancellation stops the compiler tree and releases the lease', async () => {
@@ -669,10 +461,7 @@ describe.runIf(process.platform === 'darwin')('native shell release pipeline', (
     };
 
     vi.stubEnv('PATH', f.env.PATH);
-    vi.stubEnv('HOME', f.env.HOME);
     vi.stubEnv('TCG_TEST_CALLS', f.calls);
-    vi.stubEnv('TCG_TEST_SECURITY_CALLS', f.env.TCG_TEST_SECURITY_CALLS);
-    vi.stubEnv('TCG_TEST_ARCHIVE_SETTINGS', f.env.TCG_TEST_ARCHIVE_SETTINGS);
     onTestFinished(() => {
       vi.unstubAllEnvs();
     });

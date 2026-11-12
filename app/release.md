@@ -4,7 +4,7 @@
 
 `just release-ios` and `just release-macos` run this sequence:
 
-1. Archive and sign with `xcodebuild` using local distribution signing assets.
+1. Archive and sign with `xcodebuild`.
 2. Inspect the archive's platform, identity, version and production endpoint.
 3. Export a signed IPA or PKG locally with `xcodebuild -exportArchive`.
 4. Upload that file with `xcrun altool` using private upload credentials.
@@ -16,19 +16,12 @@ tests, dependency installations or confirmation questions. XcTools is not used.
 
 Install Xcode and accept its license and outstanding Apple agreements. Create the
 `io.kamaal.TCG` app record in App Store Connect with iOS and macOS platforms.
-Create an **Apple Distribution** certificate in Xcode Settings → Accounts →
-Manage Certificates, then export it with its private key as a password-protected
-`.p12`. Download its matching **App Store Connect provisioning profile** for
-`io.kamaal.TCG` from developer.apple.com. For macOS, also export a **Mac Installer
-Distribution** certificate and private key. Cloud-managed certificates alone do
-not provide the local private keys needed for unattended releases.
-
-This is a one-time signing-assets setup, separate from upload authentication.
-The recipes never reset Xcode accounts or your login Keychain.
+Sign into Xcode Settings → Accounts for automatic signing and access to cloud
+signing certificates. If a previous locked-screen run removed the Xcode account,
+restore it there once; the recipes never reset account or Keychain settings.
 
 ```sh
-just setup-app-release                     # iOS signing and shared upload settings
-just setup-app-release --platform macos    # add macOS signing assets
+just setup-app-release
 ```
 
 Setup reuses the saved signing team and API hostname. If missing, the team comes
@@ -36,34 +29,18 @@ from the project, and the hostname from infrastructure's
 `configuration.api_hostname`, then private app configuration. Linked worktrees
 also read the primary checkout's private files.
 
-Setup asks for your **App Store Connect email** and masked **app-specific
-password**, then imports the selected platform's `.p12` and provisioning profile
-into a separate private release keychain. It asks for the `.p12` password masked
-and uses it only for import; it is not saved. For macOS it also imports the
-installer signing identity. Existing valid signing and upload settings are reused.
-Rerunning setup repairs the owned keychain access rules, search-list entry and
-installed profile without asking for the signing files again when they remain valid.
-
-Generate the upload password at [Apple Account](https://account.apple.com/)
-under Sign-In and Security → App-Specific Passwords. Your main Apple Account
-password is not accepted. Use `just setup-app-release --edit` to change saved
-upload settings. Renew signing by supplying a current profile/certificate when
-setup reports that the saved assets are expired or unusable.
+It asks for your **App Store Connect email** and a masked **app-specific
+password**, then saves them privately for future releases. Generate an app-specific
+password at [Apple Account](https://account.apple.com/) under Sign-In and Security
+→ App-Specific Passwords. Your main Apple Account password is not accepted.
+Use `just setup-app-release --edit` to change saved values.
 
 Private files live under `$HOME/.config/tcg` (directory mode 0700):
 
 - `app-release.json`: signing team and production hostname.
 - `app-store-connect.json`: email and app-specific password (file mode 0600).
-- `app-signing/`: distribution profiles, identity fingerprints, a separate release
-  keychain, and its randomly generated password (private files mode 0600).
 
-Setup adds only this keychain to the existing user signing search list, preserving
-all entries. It configures noninteractive signing access only on this owned
-keychain and installs the selected profile under Xcode's provisioning profiles
-folder. It never deletes certificates or changes login-keychain access rules.
-
-The upload credentials filename and `app-signing/` directory are ignored by Git
-even with a custom `--config-dir`.
+The credentials filename is ignored by Git even with a custom `--config-dir`.
 The upload command uses a password environment reference; credentials are
 redacted from echoed commands and upload output. No email or password is sent
 to Devportal clients. API keys are not needed.
@@ -119,23 +96,16 @@ for review or poll processing status.
 
 ## Remote releases and progress
 
-Releases can run over SSH or Devportal with the display locked. The recipe does
+Releases can be started over SSH or Devportal. The recipe does
 not inspect screen-lock state or require an active console user. A temporary
-`caffeinate -i` process requests prevention of idle system sleep until the release
-ends, without keeping the display awake or changing screen-lock preferences.
+`caffeinate -di` process keeps the display and system awake until the release
+ends, restoring the keep-awake behavior used for the successful password-based
+release. It does not change screen-lock preferences or unlock an already locked Mac.
 Failure to start this helper does not block signing or upload.
 
-Each release unlocks only the private release keychain. It checks the profile's
-platform, team, app identifier, expiry and matching usable private key before
-building, and probes local signing access using a temporary executable. It then
-archives and exports with manual signing, explicit identities/profile UUIDs, and
-**no `-allowProvisioningUpdates`**. There is no automatic/cloud-signing fallback.
-Private app-specific credentials handle upload separately.
-
-A missing/expired profile or private key stops before compilation with setup
-instructions. Xcode/Apple failures retain their original diagnostics and archive.
-The upload-only recipe can export and upload an earlier retained archive after
-local signing setup; recompilation is unnecessary.
+Automatic signing still needs access to its signing certificates and Keychain.
+If Apple rejects signing credentials, the recipe shows the actual Xcode error
+and retains the archive. Private app-specific credentials handle upload separately.
 
 Each milestone reports its start, completion or failure. Active commands report
 elapsed time and time since the last raw tool output every 30 seconds. First
