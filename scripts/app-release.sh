@@ -22,7 +22,7 @@ Usage: just release-ios [REVISION] [--config-dir DIRECTORY]
 
 Default source: origin/main. Settings: $HOME/.config/tcg.
 Release runs archive, signing, local export and upload without tests or confirmation prompts.
-Xcode uses local distribution signing without account/provisioning updates; altool uploads with private credentials.
+Xcode archives and exports locally; xcrun altool uploads using private email/password settings.
 Logs use tail -n 100 -F. Ctrl-C stops the viewer, not the release.
 USAGE
 }
@@ -240,10 +240,10 @@ note "Release log: $log"
 if [[ "$mode" == release ]]; then
     note "Release $platform: archive → sign → inspect → export → upload"
 fi
-note 'Signing: local distribution certificate and profile. Upload: separate Apple CLI with private credentials.'
+note 'Signing: Xcode automatic signing. Upload: separate Apple CLI with private credentials.'
 
 # Keep remote releases running without requiring an unlocked display or console session.
-caffeinate -i -w "$$" </dev/null >/dev/null 2>&1 &
+caffeinate -di -w "$$" </dev/null >/dev/null 2>&1 &
 awake_pid=$!
 
 redact_upload_output() {
@@ -317,11 +317,6 @@ run() {
     note "Completed: $label ($(( SECONDS - started ))s)"
 }
 
-run 'Prepare local distribution signing' /usr/bin/python3 "$root/scripts/app-release-signing.py" check "$config" "$platform" "$team"
-signing="$config/app-signing/$platform.json"
-signing_certificate="$(read_value "$signing" certificateSHA1)"
-signing_profile="$(read_value "$signing" profileUUID)"
-
 if [[ "$mode" != upload ]]; then
     run 'Fetch merged source' git -C "$root" fetch origin main
     sha="$(git -C "$root" rev-parse --verify --end-of-options "$revision^{commit}")"
@@ -354,18 +349,11 @@ if [[ "$mode" != upload ]]; then
     destination='generic/platform=iOS'
     [[ "$platform" != macos ]] || destination='generic/platform=macOS'
     stage=archive
-    # Scope signing settings to the app target, not Swift package/macro targets.
-    cat >> "$checkout/app/Configuration/Remote.xcconfig" <<SIGNING
-
-CODE_SIGN_STYLE = Manual
-CODE_SIGN_IDENTITY = $signing_certificate
-PROVISIONING_PROFILE_SPECIFIER = $signing_profile
-SIGNING
     cd "$checkout"
     run "Archive and sign $platform" xcodebuild -project app/TCG.xcodeproj -scheme TCG -configuration Release \
         -destination "$destination" -archivePath "$archive" archive \
-        CODE_SIGNING_ALLOWED=YES "DEVELOPMENT_TEAM=$team" "TCG_API_HOST=$host" \
-        ONLY_ACTIVE_ARCH=NO SWIFT_USE_INTEGRATED_DRIVER=NO "CURRENT_PROJECT_VERSION=$build_number"
+        CODE_SIGN_STYLE=Automatic CODE_SIGNING_ALLOWED=YES "DEVELOPMENT_TEAM=$team" "TCG_API_HOST=$host" \
+        ONLY_ACTIVE_ARCH=NO SWIFT_USE_INTEGRATED_DRIVER=NO "CURRENT_PROJECT_VERSION=$build_number" -allowProvisioningUpdates
 fi
 run 'Inspect archive' inspect_archive
 build_number="$(read_value "$archive/Info.plist" ApplicationProperties.CFBundleVersion)"
@@ -378,20 +366,14 @@ cat > "$session/ExportOptions.plist" <<PLIST
 <plist version="1.0"><dict>
 <key>method</key><string>app-store-connect</string>
 <key>destination</key><string>export</string>
-<key>signingStyle</key><string>manual</string>
-<key>signingCertificate</key><string>$signing_certificate</string>
-<key>provisioningProfiles</key><dict><key>io.kamaal.TCG</key><string>$signing_profile</string></dict>
+<key>signingStyle</key><string>automatic</string>
 <key>teamID</key><string>$team</string>
 <key>manageAppVersionAndBuildNumber</key><false/>
 <key>uploadSymbols</key><true/>
 </dict></plist>
 PLIST
-if [[ "$platform" == macos ]]; then
-    installer_certificate="$(read_value "$signing" installerSHA1)"
-    plutil -insert installerSigningCertificate -string "$installer_certificate" "$session/ExportOptions.plist"
-fi
 run 'Export signed app locally' xcodebuild -exportArchive -archivePath "$archive" \
-    -exportOptionsPlist "$session/ExportOptions.plist" -exportPath "$session/export"
+    -exportOptionsPlist "$session/ExportOptions.plist" -exportPath "$session/export" -allowProvisioningUpdates
 extension=ipa
 [[ "$platform" != macos ]] || extension=pkg
 packages=("$session/export/"*."$extension")

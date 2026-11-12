@@ -85,7 +85,7 @@ Funnel endpoint. See the
 ## iOS and macOS releases
 
 Choose **Release destination** on the dashboard to switch between Server, iOS and
-macOS. App releases run the same archive, local distribution signing and App Store
+macOS. App releases run the same archive, automatic signing and App Store
 Connect upload pipeline as `just release-ios` and `just release-macos`.
 They assume source was already verified and skip test and quality gates during
 release. Named milestones, elapsed time and inactivity updates remain available
@@ -101,12 +101,10 @@ processing is pending, not that the app is published. Check App Store Connect
 before retrying an interrupted upload. All existing allowed operators can release
 apps; no account credentials are sent to the client.
 
-Signing and local export use explicit local distribution certificates and profiles,
-without provisioning updates or a cloud-signing fallback. Setup saves the upload
+Signing and local export use Xcode automatic signing. Setup saves the upload
 email and app-specific password privately; `xcrun altool` uploads the IPA/PKG
-separately. Neither credential is sent to the client. Releases also run with the
-display locked; a temporary idle-system-sleep assertion does not keep the display
-awake. See the [app release guide](../app/release.md) for setup, numbering, logs and recovery.
+separately. Neither credential is sent to the client. Releases can start remotely;
+a temporary assertion keeps the display and system awake for the release. See the [app release guide](../app/release.md) for setup, numbering, logs and recovery.
 
 ## Server release behavior
 

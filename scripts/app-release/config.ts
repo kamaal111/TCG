@@ -65,36 +65,6 @@ export async function saveAppAuthentication(
   await savePrivateSettings(directory, 'app-store-connect.json', AppAuthenticationSchema.parse(input));
 }
 
-const SigningSchema = z.object({
-  version: z.literal(1),
-  teamID: z.string().regex(/^[A-Z0-9]{10}$/),
-  profileUUID: z.uuid(),
-  expiresAt: z.iso.datetime({ offset: true }),
-  certificateSHA1: z.string().regex(/^[A-F0-9]{40}$/),
-  installerSHA1: z
-    .string()
-    .regex(/^[A-F0-9]{40}$/)
-    .optional(),
-});
-
-export async function readAppSigning(directory: string, platform: Platform, team: string) {
-  const signing = SigningSchema.parse(
-    JSON.parse(await fs.readFile(path.join(directory, 'app-signing', `${platform}.json`), 'utf8')),
-  );
-
-  if (
-    signing.teamID !== team ||
-    Date.parse(signing.expiresAt) <= Date.now() ||
-    (platform === 'macos' && !signing.installerSHA1)
-  ) {
-    throw new InfraFailure(
-      `Local ${platform} distribution signing needs setup. Run just setup-app-release --platform ${platform}.`,
-    );
-  }
-
-  return signing;
-}
-
 async function savePrivateSettings(
   directory: string,
   filename: string,

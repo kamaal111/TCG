@@ -1,7 +1,6 @@
 import childProcess from 'node:child_process';
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import url from 'node:url';
 import util from 'node:util';
 
 import {
@@ -11,10 +10,8 @@ import {
   readAppSettings,
   saveAppSettings,
   saveAppAuthentication,
-  type Platform,
 } from './config.ts';
 import { ConfigStore } from '../infra/config.ts';
-import { InfraFailure } from '../infra/errors.ts';
 import type { Prompts } from '../infra/prompts.ts';
 
 interface SetupOptions {
@@ -84,7 +81,7 @@ export async function setupAppRelease({ root, directory, prompts, edit = false }
   );
 
   prompts.note(
-    'Releases use local distribution signing; setup imports signing assets into a separate private keychain. Uploads use your App Store Connect email and an app-specific password from account.apple.com → Sign-In and Security → App-Specific Passwords. Credentials are saved only in your private settings directory, never in Git. Use an app-specific password, not your main Apple Account password.',
+    'Signing uses Xcode automatic signing. Uploads use your App Store Connect email and an app-specific password from account.apple.com → Sign-In and Security → App-Specific Passwords. Credentials are saved only in your private settings directory, never in Git. Use an app-specific password, not your main Apple Account password.',
     'App release setup',
   );
 
@@ -139,73 +136,5 @@ export async function setupAppRelease({ root, directory, prompts, edit = false }
   await saveAppAuthentication(directory, authentication);
   prompts.note(
     `Saved private release settings.\nTeam: ${teamID}\nAPI: https://${apiHost}\nUpload email and app-specific password are saved privately.`,
-  );
-}
-
-const helper = url.fileURLToPath(new URL('../app-release-signing.py', import.meta.url));
-
-function signingCommand(args: string[], input?: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const child = childProcess.spawn('/usr/bin/python3', [helper, ...args], { stdio: ['pipe', 'pipe', 'pipe'] });
-    let diagnostics = '';
-    child.stdout.resume();
-    child.stderr.setEncoding('utf8').on('data', (chunk: string) => {
-      diagnostics += chunk;
-    });
-    child.once('error', () => reject(new InfraFailure('Cannot start the native signing setup helper.')));
-    child.once('close', code => {
-      if (code === 0) {
-        resolve();
-      } else {
-        reject(new InfraFailure(diagnostics.trim() || 'Local signing setup failed. No Xcode account was accessed.'));
-      }
-    });
-    child.stdin.on('error', () => reject(new InfraFailure('Cannot pass private signing settings to the helper.')));
-    child.stdin.end(input);
-  });
-}
-
-interface SigningSetup {
-  directory: string;
-  platform: Platform;
-  team: string;
-  prompts: Prompts;
-}
-
-export async function setupLocalSigning({ directory, platform, team, prompts }: SigningSetup) {
-  const args = [directory, platform, team];
-
-  const configured = await signingCommand(['repair', ...args]).then(
-    () => true,
-    () => false,
-  );
-
-  if (configured) {
-    prompts.note(`Local ${platform} distribution signing is ready. No Xcode account login is needed for release.`);
-
-    return;
-  }
-
-  prompts.note(
-    'Import local App Store signing assets once. In Xcode Settings → Accounts → Manage Certificates, create an Apple Distribution certificate and export it with its private key as .p12. Download its matching App Store profile for io.kamaal.TCG from developer.apple.com. macOS also needs a Mac Installer Distribution .p12. The wizard uses a separate private release keychain; it never resets Xcode accounts or your login keychain. Your app-specific upload password cannot create signing certificates.',
-    `Local ${platform} signing setup`,
-  );
-  const certificate = await prompts.text({ message: 'Distribution certificate and private key (.p12 file path)' });
-  const password = await prompts.password('Password protecting that .p12 (empty if none)');
-  const profile = await prompts.text({ message: `App Store ${platform} provisioning profile file path` });
-  const certificates = [{ path: certificate, password }];
-
-  if (platform === 'macos') {
-    const installer = await prompts.text({
-      message: 'Mac Installer Distribution certificate and private key (.p12 file path)',
-    });
-
-    const installerPassword = await prompts.password('Password protecting the installer .p12 (empty if none)');
-    certificates.push({ path: installer, password: installerPassword });
-  }
-
-  await signingCommand(['import', ...args], JSON.stringify({ profile, certificates }));
-  prompts.note(
-    `Local ${platform} signing is ready. Future releases unlock only the private release keychain and use installed signing assets.`,
   );
 }
