@@ -6,6 +6,7 @@ import type { z } from 'zod';
 import type { PostgresCardRepository } from './cards.ts';
 import { COLLECTION_BATCH_SIZE } from './collection-batches.ts';
 import { exportCollectionBackup } from './collection-export.ts';
+import { serializeCollectionLayout } from './collection-layout.ts';
 import { runCollectionOperation } from './collection-operation.ts';
 import {
   bumpCollections,
@@ -97,25 +98,11 @@ export class PostgresCollectionRepository implements CollectionRepository {
             )
             .orderBy(binderSlot.row, binderSlot.column);
 
-    const byPage = Map.groupBy(slots, slot => slot.pageId);
-
-    return {
-      id: collection.id,
-      name: collection.name,
-      is_unfiled: collection.isUnfiled,
-      columns: collection.columns,
-      rows: collection.rows,
-      revision: collection.revision,
-      pages: pages.map(page => ({
-        id: page.id,
-        slots: (byPage.get(page.id) ?? []).map(slot => ({
-          row: slot.row,
-          column: slot.column,
-          card_id: slot.cardId,
-          quantity: slot.quantity,
-        })),
-      })),
-    };
+    return serializeCollectionLayout(
+      collection,
+      pages,
+      Map.groupBy(slots, slot => slot.pageId),
+    );
   }
 
   private readTransaction<T>(action: (tx: Transaction) => Promise<T>) {

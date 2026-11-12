@@ -88,6 +88,10 @@ public struct ImportCollectionBackupResult: Codable, Sendable {
 
 public struct BinderPageCards: Sendable {
     public let cards: [CardWithPrice]
+
+    public init(cards: [CardWithPrice]) {
+        self.cards = cards
+    }
 }
 
 public struct CollectionBackupPreview: Codable, Sendable {

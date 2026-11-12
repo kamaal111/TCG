@@ -28,6 +28,13 @@
   "testTargets" : [
     {
       "target" : {
+        "containerPath" : "container:Modules\/TCGApp",
+        "identifier" : "TCGAppTests",
+        "name" : "TCGAppTests"
+      }
+    },
+    {
+      "target" : {
         "containerPath" : "container:Modules\/MintomoDevportal",
         "identifier" : "MintomoDevportalTests",
         "name" : "MintomoDevportalTests"

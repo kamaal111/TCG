@@ -1,7 +1,7 @@
-import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
+import { sha256Hex } from '@tcg/crypto/sha256';
 import { InternalServerError } from '@tcg/http/exceptions';
 import { readMigrationFiles, type MigrationMeta } from 'drizzle-orm/migrator';
 import { z } from 'zod';
@@ -48,7 +48,7 @@ export function migrationFailure(message: string): never {
 }
 
 function hashSql(sql: string): string {
-  return crypto.createHash('sha256').update(sql).digest('hex');
+  return sha256Hex(sql);
 }
 
 function combine(migrations: readonly Migration[]): string {

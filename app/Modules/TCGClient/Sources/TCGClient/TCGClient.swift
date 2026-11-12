@@ -19,6 +19,7 @@ public struct TCGClient: Sendable {
     public let collections: TCGCollectionsClient
     public let cards: TCGCardsClient
     public let pricing: TCGPricingClient
+    public let offlineCollection: TCGOfflineCollectionClient?
 
     private let credentialsKeychainKey: String
     private let credentialsStore: CredentialsStore
@@ -30,16 +31,20 @@ public struct TCGClient: Sendable {
         collections: TCGCollectionsClient,
         pricing: TCGPricingClient,
         credentialsKeychainKey: String,
-        credentialsStore: CredentialsStore
+        credentialsStore: CredentialsStore,
+        offlineCollection: TCGOfflineCollectionClient?
     ) {
         self.currency = currency
         self.auth = auth
         self.cards = cards
         self.collections = collections
         self.pricing = pricing
+        self.offlineCollection = offlineCollection
         self.credentialsKeychainKey = credentialsKeychainKey
         self.credentialsStore = credentialsStore
     }
+
+    public static let sessionRejected = Notification.Name("TCGClientSessionRejected")
 
     public var hasValidCredentials: Bool {
         auth.hasValidCredentials
@@ -123,7 +128,8 @@ public struct TCGClient: Sendable {
             collections: PreviewTCGCollectionsClient(),
             pricing: pricing,
             credentialsKeychainKey: credentialsKeychainKey,
-            credentialsStore: credentialsStore
+            credentialsStore: credentialsStore,
+            offlineCollection: nil
         )
     }
 
@@ -190,7 +196,11 @@ public struct TCGClient: Sendable {
             serverURL: server.url,
             configuration: configuration,
             transport: transport,
-            middlewares: [RequestDiagnosticsMiddleware(), AuthorizationMiddleware(tokenProvider: tokenProvider)]
+            middlewares: [
+                RequestDiagnosticsMiddleware(),
+                AuthorizationMiddleware(tokenProvider: tokenProvider),
+                OfflineManifestETagMiddleware(),
+            ]
         )
         let auth = KamaalAuthClientImpl(
             hooks: TCGAuthRequestHooks(client: client, tokenClient: tokenClient),
@@ -206,7 +216,8 @@ public struct TCGClient: Sendable {
             collections: TCGCollectionsClientImpl(client: client),
             pricing: pricing,
             credentialsKeychainKey: credentialsKeychainKey,
-            credentialsStore: credentialsStore
+            credentialsStore: credentialsStore,
+            offlineCollection: TCGOfflineCollectionClient(client: client)
         )
     }
 

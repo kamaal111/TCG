@@ -1,10 +1,11 @@
-import crypto from 'node:crypto';
 import path from 'node:path';
+
+import { sha256Hex } from '@tcg/crypto/sha256';
 
 import { IMAGES_PATH_PREFIX } from './constants.ts';
 
 export function imageKeyForOriginURL(originURL: string): string {
-  return crypto.createHash('sha256').update(originURL).digest('hex');
+  return sha256Hex(originURL);
 }
 
 export function storageKeyForImageKey(imageKey: string): string {

@@ -20,11 +20,13 @@ struct CollectionSwitcher: View {
                     CollectionTitle(collection: collection)
                 }
             }
-            Divider()
-            Button {
-                actions.create()
-            } label: {
-                Text("New collection", bundle: .module)
+            if !cards.isReadOnly {
+                Divider()
+                Button {
+                    actions.create()
+                } label: {
+                    Text("New collection", bundle: .module)
+                }
             }
         } label: {
             Label {

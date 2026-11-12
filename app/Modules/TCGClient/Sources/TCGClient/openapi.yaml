@@ -845,6 +845,208 @@ paths:
       summary: Replace an owned card
       tags:
         - Cards
+  /app-api/cards/offline/manifest:
+    get:
+      description: >-
+        List the authenticated account’s downloadable cards and collection
+        layouts. Use the manifest to request changed records and identify local
+        deletions.
+      operationId: getOfflineCollectionManifest
+      parameters:
+        - schema:
+            type: string
+            description: >-
+              A previous manifest ETag. A match returns 304 with no response
+              body.
+            example: W/"4f69558ba5ec3c0474fba5e798c701d179ed78501cacbc936c66af8ca8b43a18"
+          required: false
+          description: A previous manifest ETag. A match returns 304 with no response body.
+          name: if-none-match
+          in: header
+      responses:
+        '200':
+          description: Current collection manifest
+          headers:
+            ETag:
+              schema:
+                type: string
+                description: >-
+                  Weak validator for the manifest. Send this value as
+                  If-None-Match on a later request.
+                example: W/"4f69558ba5ec3c0474fba5e798c701d179ed78501cacbc936c66af8ca8b43a18"
+              required: true
+              description: >-
+                Weak validator for the manifest. Send this value as
+                If-None-Match on a later request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OfflineCollectionManifest'
+        '304':
+          description: Collection has not changed
+          headers:
+            ETag:
+              schema:
+                type: string
+                description: >-
+                  Weak validator for the manifest. Send this value as
+                  If-None-Match on a later request.
+                example: W/"4f69558ba5ec3c0474fba5e798c701d179ed78501cacbc936c66af8ca8b43a18"
+              required: true
+              description: >-
+                Weak validator for the manifest. Send this value as
+                If-None-Match on a later request.
+        '401':
+          description: Authenticated session not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearerAuth: []
+      summary: Check for offline collection changes
+      tags:
+        - Cards
+  /app-api/cards/offline/records:
+    post:
+      description: >-
+        Fetch records for selected manifest entries. If any entry is stale or
+        unavailable to this account, refresh the manifest and retry the batch.
+      operationId: getOfflineCollectionRecords
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                entries:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/OfflineCollectionEntry'
+                  minItems: 1
+                  maxItems: 100
+                  description: Between 1 and 100 entries copied from the current manifest.
+              required:
+                - entries
+              title: Offline Records Request
+              description: >-
+                The subset of manifest entries that the client wants to
+                download.
+              example:
+                entries:
+                  - kind: card
+                    id: 550e8400-e29b-41d4-a716-446655440000
+                    hash: 4f69558ba5ec3c0474fba5e798c701d179ed78501cacbc936c66af8ca8b43a18
+                  - kind: collection
+                    id: 550e8400-e29b-41d4-a716-446655440010
+                    hash: ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad
+      responses:
+        '200':
+          description: Requested collection records
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OfflineCollectionRecords'
+        '400':
+          description: Invalid offline collection request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '401':
+          description: Authenticated session not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: A requested record differs from the manifest
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearerAuth: []
+      summary: Download selected offline collection records
+      tags:
+        - Cards
+  /app-api/cards/offline/prepare:
+    post:
+      description: >-
+        Resolve provider details for owned cards with no cached result. Refresh
+        the manifest after preparation to get updated record digests.
+      operationId: prepareOfflineCollectionCards
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                card_ids:
+                  type: array
+                  items:
+                    type: string
+                    format: uuid
+                    description: UUID identifier, normalized to lowercase
+                    example: 550e8400-e29b-41d4-a716-446655440000
+                  minItems: 1
+                  maxItems: 100
+                  description: >-
+                    Between 1 and 100 owned card IDs from the manifest’s
+                    needs_preparation list.
+              required:
+                - card_ids
+              title: Prepare Offline Cards Request
+              description: >-
+                Requests provider lookups for owned cards missing cached
+                details.
+              example:
+                card_ids:
+                  - 550e8400-e29b-41d4-a716-446655440000
+      responses:
+        '200':
+          description: Temporary provider failures to retry
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  retry_card_ids:
+                    type: array
+                    items:
+                      type: string
+                      format: uuid
+                      description: UUID identifier, normalized to lowercase
+                      example: 550e8400-e29b-41d4-a716-446655440000
+                    description: >-
+                      Cards whose provider lookups failed temporarily. An empty
+                      list means no retries are needed.
+                required:
+                  - retry_card_ids
+                title: Prepare Offline Cards Response
+                description: >-
+                  Reports which provider lookups the client can retry before
+                  refreshing the manifest.
+                example:
+                  retry_card_ids:
+                    - 550e8400-e29b-41d4-a716-446655440000
+        '400':
+          description: Invalid offline collection request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '401':
+          description: Authenticated session not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearerAuth: []
+      summary: Resolve missing offline card details
+      tags:
+        - Cards
   /app-api/collections/import-preview:
     post:
       requestBody:
@@ -2926,86 +3128,112 @@ components:
       required:
         - card_ids
       title: Delete Cards
-    CollectionBackupPreview:
-      type: object
-      properties:
-        new_collection_count:
-          type: integer
-          minimum: 0
-          maximum: 2147483647
-        updated_collection_count:
-          type: integer
-          minimum: 0
-          maximum: 2147483647
-        new_card_count:
-          type: integer
-          minimum: 0
-          maximum: 2147483647
-        updated_card_count:
-          type: integer
-          minimum: 0
-          maximum: 2147483647
-        moved_card_count:
-          type: integer
-          minimum: 0
-          maximum: 2147483647
-      required:
-        - new_collection_count
-        - updated_collection_count
-        - new_card_count
-        - updated_card_count
-        - moved_card_count
-      title: Collection Backup Preview
-      description: >-
-        Projected collection, card, and membership changes without persisting
-        the backup
-      example:
-        new_collection_count: 1
-        updated_collection_count: 0
-        new_card_count: 1
-        updated_card_count: 0
-        moved_card_count: 0
-    ImportCollectionBackup:
+    OfflineCollectionManifest:
       type: object
       properties:
         version:
           type: number
           enum:
             - 1
+          description: Offline manifest format version.
+          example: 1
+        account_id:
+          type: string
+          description: Identifier of the authenticated account that owns this snapshot.
+          example: acct_demo_1
+        entries:
+          type: array
+          items:
+            $ref: '#/components/schemas/OfflineCollectionEntry'
+          description: >-
+            The full record inventory. Remove local records absent from this
+            list.
+        needs_preparation:
+          type: array
+          items:
+            type: string
+            format: uuid
+            description: UUID identifier, normalized to lowercase
+            example: 550e8400-e29b-41d4-a716-446655440000
+          description: >-
+            Owned card IDs with missing cached provider details that can be sent
+            for preparation.
+          example:
+            - 550e8400-e29b-41d4-a716-446655440000
+      required:
+        - version
+        - account_id
+        - entries
+        - needs_preparation
+      title: Offline Collection Manifest
+      description: >-
+        The authenticated account’s record inventory and pending provider
+        lookups.
+      example:
+        version: 1
+        account_id: acct_demo_1
+        entries:
+          - kind: card
+            id: 550e8400-e29b-41d4-a716-446655440000
+            hash: 4f69558ba5ec3c0474fba5e798c701d179ed78501cacbc936c66af8ca8b43a18
+          - kind: collection
+            id: 550e8400-e29b-41d4-a716-446655440010
+            hash: ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad
+        needs_preparation:
+          - 550e8400-e29b-41d4-a716-446655440000
+    OfflineCollectionEntry:
+      type: object
+      properties:
+        kind:
+          type: string
+          enum:
+            - card
+            - collection
+          description: Whether this entry identifies an owned card or a collection layout.
+          example: card
+        id:
+          type: string
+          format: uuid
+          description: Identifier of the record within its kind.
+          example: 550e8400-e29b-41d4-a716-446655440000
+        hash:
+          type: string
+          pattern: ^[a-f0-9]{64}$
+          description: >-
+            SHA-256 hex digest of the record returned by the offline records
+            endpoint.
+          example: 4f69558ba5ec3c0474fba5e798c701d179ed78501cacbc936c66af8ca8b43a18
+      required:
+        - kind
+        - id
+        - hash
+      title: Offline Collection Entry
+      description: The identity and current digest of one downloadable record.
+      example:
+        kind: card
+        id: 550e8400-e29b-41d4-a716-446655440000
+        hash: 4f69558ba5ec3c0474fba5e798c701d179ed78501cacbc936c66af8ca8b43a18
+    OfflineCollectionRecords:
+      type: object
+      properties:
+        cards:
+          type: array
+          items:
+            $ref: '#/components/schemas/CardWithPrice'
+          description: Requested owned cards with cached provider details.
         collections:
           type: array
           items:
             $ref: '#/components/schemas/CardCollection'
-          maxItems: 500
-        cards:
-          type: array
-          items:
-            $ref: '#/components/schemas/CollectionBackupCard'
-          maxItems: 5000
+          description: Requested collections with their binder layouts.
       required:
-        - version
-        - collections
         - cards
-      title: Import Collection Backup
+        - collections
+      title: Offline Collection Records
       description: >-
-        A complete backup to preview or merge, subject to the configured request
-        and collection budgets
+        A batch of owned cards and collection layouts verified against the
+        manifest.
       example:
-        version: 1
-        collections:
-          - id: 550e8400-e29b-41d4-a716-446655440010
-            name: Favorites
-            is_unfiled: false
-            revision: 0
-            columns: 1
-            rows: 4
-            pages:
-              - id: 550e8400-e29b-41d4-a716-446655440020
-                slots:
-                  - row: 1
-                    column: 1
-                    card_id: 550e8400-e29b-41d4-a716-446655440000
-                    quantity: 2
         cards:
           - id: 550e8400-e29b-41d4-a716-446655440000
             game: one_piece
@@ -3023,6 +3251,24 @@ components:
                 currency: USD
                 automatic_price_date: '2026-07-20'
             collection_id: 550e8400-e29b-41d4-a716-446655440010
+            purchase_price_change_percent: null
+            price:
+              card_id: 550e8400-e29b-41d4-a716-446655440000
+              status: unavailable
+        collections:
+          - id: 550e8400-e29b-41d4-a716-446655440010
+            name: Favorites
+            is_unfiled: false
+            revision: 0
+            columns: 1
+            rows: 4
+            pages:
+              - id: 550e8400-e29b-41d4-a716-446655440020
+                slots:
+                  - row: 1
+                    column: 1
+                    card_id: 550e8400-e29b-41d4-a716-446655440000
+                    quantity: 2
     CardCollectionSummary:
       type: object
       properties:
@@ -3174,6 +3420,103 @@ components:
                 column: 1
                 card_id: 550e8400-e29b-41d4-a716-446655440000
                 quantity: 2
+    CollectionBackupPreview:
+      type: object
+      properties:
+        new_collection_count:
+          type: integer
+          minimum: 0
+          maximum: 2147483647
+        updated_collection_count:
+          type: integer
+          minimum: 0
+          maximum: 2147483647
+        new_card_count:
+          type: integer
+          minimum: 0
+          maximum: 2147483647
+        updated_card_count:
+          type: integer
+          minimum: 0
+          maximum: 2147483647
+        moved_card_count:
+          type: integer
+          minimum: 0
+          maximum: 2147483647
+      required:
+        - new_collection_count
+        - updated_collection_count
+        - new_card_count
+        - updated_card_count
+        - moved_card_count
+      title: Collection Backup Preview
+      description: >-
+        Projected collection, card, and membership changes without persisting
+        the backup
+      example:
+        new_collection_count: 1
+        updated_collection_count: 0
+        new_card_count: 1
+        updated_card_count: 0
+        moved_card_count: 0
+    ImportCollectionBackup:
+      type: object
+      properties:
+        version:
+          type: number
+          enum:
+            - 1
+        collections:
+          type: array
+          items:
+            $ref: '#/components/schemas/CardCollection'
+          maxItems: 500
+        cards:
+          type: array
+          items:
+            $ref: '#/components/schemas/CollectionBackupCard'
+          maxItems: 5000
+      required:
+        - version
+        - collections
+        - cards
+      title: Import Collection Backup
+      description: >-
+        A complete backup to preview or merge, subject to the configured request
+        and collection budgets
+      example:
+        version: 1
+        collections:
+          - id: 550e8400-e29b-41d4-a716-446655440010
+            name: Favorites
+            is_unfiled: false
+            revision: 0
+            columns: 1
+            rows: 4
+            pages:
+              - id: 550e8400-e29b-41d4-a716-446655440020
+                slots:
+                  - row: 1
+                    column: 1
+                    card_id: 550e8400-e29b-41d4-a716-446655440000
+                    quantity: 2
+        cards:
+          - id: 550e8400-e29b-41d4-a716-446655440000
+            game: one_piece
+            name: Monkey D. Luffy
+            set_name: Romance Dawn
+            card_number: OP01-003
+            notes: Alternate art
+            created_at: '2026-07-20T10:30:00.000Z'
+            updated_at: '2026-07-20T10:30:00.000Z'
+            purchases:
+              - id: 550e8400-e29b-41d4-a716-446655440001
+                condition: near_mint
+                quantity: 2
+                purchase_price: '2.50'
+                currency: USD
+                automatic_price_date: '2026-07-20'
+            collection_id: 550e8400-e29b-41d4-a716-446655440010
     CollectionBackupCard:
       allOf:
         - $ref: '#/components/schemas/ImportCard'

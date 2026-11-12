@@ -1,4 +1,4 @@
-import { defineRelationsPart, sql } from 'drizzle-orm';
+import { sql } from 'drizzle-orm';
 import {
   check,
   boolean,
@@ -204,29 +204,4 @@ export const cardPurchaseBatch = pgTable(
       ),
     ];
   },
-);
-
-export const cardsRelations = defineRelationsPart(
-  { user, card, cardMetadata, cardConditionQuantity, cardPurchaseBatch },
-  r => ({
-    card: {
-      metadata: r.one.cardMetadata({
-        from: [r.card.pricingSource, r.card.game, r.card.pricingCardId],
-        to: [r.cardMetadata.pricingSource, r.cardMetadata.game, r.cardMetadata.pricingCardId],
-      }),
-      user: r.one.user({ from: r.card.userId, to: r.user.id }),
-      purchaseBatches: r.many.cardPurchaseBatch({ from: r.card.id, to: r.cardPurchaseBatch.cardId }),
-      quantities: r.many.cardConditionQuantity({
-        from: r.card.id,
-        to: r.cardConditionQuantity.cardId,
-      }),
-    },
-    cardMetadata: {},
-    cardPurchaseBatch: {
-      card: r.one.card({ from: r.cardPurchaseBatch.cardId, to: r.card.id }),
-    },
-    cardConditionQuantity: {
-      card: r.one.card({ from: r.cardConditionQuantity.cardId, to: r.card.id }),
-    },
-  }),
 );

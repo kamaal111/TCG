@@ -31,30 +31,32 @@ struct TCGBinderScreen: View {
                         Image(systemName: "rectangle.stack")
                     }
                 } description: {
-                    Text("Add an empty page to start arranging cards.", bundle: .module)
+                    if !cards.isReadOnly { Text("Add an empty page to start arranging cards.", bundle: .module) }
                 }
             }
             TCGZoomSlider(value: $zoom, range: Self.zoomRange, label: Text("Zoom", bundle: .module))
-            BinderPageActions(addPage: { Task { await addPage() } })
+            if !cards.isReadOnly { BinderPageActions(addPage: { Task { await addPage() } }) }
 
         }
         .padding()
         .navigationTitle(collection.isUnfiled ? String(localized: "Unfiled", bundle: .module) : collection.name)
         .toolbar {
-            Button {
-                isAddingCard = true
-            } label: {
-                Label {
-                    Text("Add card", bundle: .module)
-                } icon: {
-                    Image(systemName: "plus")
+            if !cards.isReadOnly {
+                Button {
+                    isAddingCard = true
+                } label: {
+                    Label {
+                        Text("Add card", bundle: .module)
+                    } icon: {
+                        Image(systemName: "plus")
+                    }
                 }
+                .help(Text("Add card", bundle: .module))
             }
-            .help(Text("Add card", bundle: .module))
         }
         .onChange(of: collection.pages.count) { pageIndex = min(pageIndex, max(0, collection.pages.count - 1)) }
         .sheet(item: $selection) { selection in
-            if let collections, isEditingCollection || selection.card == nil {
+            if let collections, !cards.isReadOnly, isEditingCollection || selection.card == nil {
                 NavigationStack {
                     BinderSlotEditor(collection: collection, position: selection.position, collections: collections)
                 }

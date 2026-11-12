@@ -1,4 +1,4 @@
-import crypto from 'node:crypto';
+import { sha256Hex } from '@tcg/crypto/sha256';
 
 import { createTestObjectStorage } from '../../tests/storage.ts';
 
@@ -6,7 +6,7 @@ describe('S3ObjectStorageClient with Garage', () => {
   test('round trips metadata and maps a deleted object to not found', async () => {
     const storage = await createTestObjectStorage();
     const body = new Uint8Array([1, 2, 3, 4]);
-    const checksum = crypto.createHash('sha256').update(body).digest('hex');
+    const checksum = sha256Hex(body);
 
     expect((await storage.put('cards/test.png', body, 'image/png', checksum)).isOk()).toBe(true);
     expect(await storage.head('cards/test.png')).toMatchObject({
@@ -36,7 +36,7 @@ describe('S3ObjectStorageClient with Garage', () => {
     const storage = await createTestObjectStorage();
     const first = new Uint8Array([1, 2, 3]);
     const second = new Uint8Array([4, 5]);
-    const checksum = crypto.createHash('sha256').update(second).digest('hex');
+    const checksum = sha256Hex(second);
 
     await storage.put('cards/overwritten.png', first, 'image/png', 'first-checksum');
 

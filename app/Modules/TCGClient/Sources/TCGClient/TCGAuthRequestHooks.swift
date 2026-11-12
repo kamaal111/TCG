@@ -103,9 +103,13 @@ struct TCGAuthRequestHooks: AuthRequestHooks {
                     expiresAt: payload.session.expiresAt,
                 )
             )
-        case .unauthorized(let unauthorized): return .failure(failure(status: 401, body: try? unauthorized.body.json))
+        case .unauthorized(let unauthorized):
+            NotificationCenter.default.post(name: TCGClient.sessionRejected, object: nil)
+            return .failure(failure(status: 401, body: try? unauthorized.body.json))
         case .internalServerError: return .failure(AuthRequestFailure(status: 500))
-        case .undocumented(let statusCode, _): return .failure(AuthRequestFailure(status: statusCode))
+        case .undocumented(let statusCode, _):
+            if statusCode == 404 { NotificationCenter.default.post(name: TCGClient.sessionRejected, object: nil) }
+            return .failure(AuthRequestFailure(status: statusCode))
         }
     }
 

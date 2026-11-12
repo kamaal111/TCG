@@ -5,6 +5,7 @@ import { PostgresCardRepository } from './cards.ts';
 import { PostgresCollectionRepository } from './collections.ts';
 import { PostgresPricingCoordinator } from './coordinator.ts';
 import { PostgresForexRepository } from './forex.ts';
+import { PostgresOfflineCollectionRepository } from './offline-collection.ts';
 import { DEFAULT_COLLECTION_POLICY, type ApplicationConfig } from '../../config.ts';
 import type { Database } from '../../db/index.ts';
 import type { Persistence } from '../contracts.ts';
@@ -21,6 +22,7 @@ export function createPostgresPersistence(db: Database, timeoutMs: number, confi
       const cardRepository = new PostgresCardRepository(db, identity, diagnostics, config);
 
       return {
+        offlineCollectionRepository: new PostgresOfflineCollectionRepository(db, identity),
         cardRepository,
         collectionRepository: new PostgresCollectionRepository({
           db,

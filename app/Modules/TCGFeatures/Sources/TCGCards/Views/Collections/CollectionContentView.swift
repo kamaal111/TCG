@@ -31,28 +31,34 @@ struct CollectionContentView: View {
                 }
             #endif
             ToolbarItemGroup(placement: .primaryAction) {
-                if collections.selected == nil && collections.selectedID == nil {
-                    #if os(macOS)
-                        CollectionOptionsMenu(collections: collections, actions: actions)
-                    #endif
-                } else if collections.selected != nil {
-                    if isEditing {
-                        CollectionOptionsMenu(collections: collections, actions: actions)
-                    }
-                    Button {
-                        isEditing.toggle()
-                    } label: {
+                if !cards.isReadOnly {
+                    if collections.selected == nil && collections.selectedID == nil {
+                        #if os(macOS)
+                            CollectionOptionsMenu(collections: collections, actions: actions)
+                        #endif
+                    } else if collections.selected != nil {
                         if isEditing {
-                            Text("Done", bundle: .module)
-                        } else {
-                            Text("Edit collection", bundle: .module)
+                            CollectionOptionsMenu(collections: collections, actions: actions)
                         }
+                        Button {
+                            isEditing.toggle()
+                        } label: {
+                            if isEditing {
+                                Text("Done", bundle: .module)
+                            } else {
+                                Text("Edit collection", bundle: .module)
+                            }
+                        }
+                        .help(isEditing ? Text("Done", bundle: .module) : Text("Edit collection", bundle: .module))
+                        .disabled(collections.isWorking)
                     }
-                    .help(isEditing ? Text("Done", bundle: .module) : Text("Edit collection", bundle: .module))
-                    .disabled(collections.isWorking)
                 }
             }
         }
+    }
+
+    private var cardList: TCGCardsListScreen {
+        TCGCardsListScreen(model: TCGCardsListScreenModel(preferences: cards.isReadOnly ? nil : .standard))
     }
 
     private var collectionContent: some View {
@@ -61,12 +67,12 @@ struct CollectionContentView: View {
                 if collections.view(for: selected.id) == .binder {
                     TCGBinderScreen(collection: selected).id(selected.id)
                 } else {
-                    TCGCardsListScreen().id(selected.id)
+                    cardList.id(selected.id)
                 }
             } else if collections.selectedID != nil {
                 ProgressView()
             } else {
-                TCGCardsListScreen()
+                cardList
             }
         }
     }

@@ -1,6 +1,6 @@
 import buffer from 'node:buffer';
-import crypto from 'node:crypto';
 
+import { sha256Hex } from '@tcg/crypto/sha256';
 import { SCRYDEX_SEARCH_PAGE_SIZE } from '@tcg/scrydex';
 import { z } from 'zod';
 
@@ -19,7 +19,7 @@ export function searchPageKey(key: string, offset: number): string {
 }
 
 export function searchCursorIdentity(key: string): string {
-  return crypto.createHash('sha256').update(key).digest('hex');
+  return sha256Hex(key);
 }
 
 export function encodeNextSearchCursor(key: string, offset: number): string {

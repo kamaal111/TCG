@@ -1,7 +1,7 @@
 import { authRelations } from './better-auth.ts';
 import { cardImageRelations } from './card-images.ts';
 import { cardPricingRelations } from './card-pricing.ts';
-import { cardsRelations } from './cards.ts';
+import { cardsRelations } from './cards-relations.ts';
 import { forexRelations } from './forex.ts';
 
 export * from './forex.ts';
