@@ -194,6 +194,9 @@ cleanup() {
     fi
     if [[ "$owns_lock" == 1 ]]; then rm -rf "$lock"; fi
     if [[ "$owns_reclaim" == 1 ]]; then rmdir "$lock.reclaim"; fi
+    if [[ "$status" == 0 && "$summary_state" == uploaded ]]; then
+        note "Release complete: $platform version $version (build $build_number). Uploaded to App Store Connect; processing pending."
+    fi
     exit "$status"
 }
 trap cleanup EXIT
@@ -239,39 +242,9 @@ if [[ "$mode" == release ]]; then
 fi
 note 'Signing: Xcode automatic signing. Upload: separate Apple CLI with private credentials.'
 
-wait_for_signing_session() {
-    local locked console_uid announced=0 last_notice=$SECONDS assertion_deadline
-    while true; do
-        locked="$(ioreg -a -n Root -d1 | plutil -extract IOConsoleLocked raw -o - -)" || die 'Cannot check the release Mac lock state. No signing command was started.'
-        [[ "$locked" == true || "$locked" == false ]] || die 'Unknown release Mac lock state. No signing command was started.'
-        console_uid="$(stat -f %u /dev/console)"
-        if [[ "$locked" == false && "$console_uid" == "$(id -u)" ]]; then break; fi
-        if [[ "$announced" == 0 || $(( SECONDS - last_notice )) -ge 30 ]]; then
-            note 'Waiting for the release Mac to be unlocked. Xcode signing has not started; Ctrl-C cancels safely.'
-            announced=1
-            last_notice=$SECONDS
-        fi
-        sleep 2
-    done
-    if [[ -z "$awake_pid" ]]; then
-        caffeinate -di -w "$$" </dev/null >/dev/null 2>&1 &
-        awake_pid=$!
-        assertion_deadline=$(( SECONDS + 5 ))
-        until pmset -g assertions | awk -v marker="pid $awake_pid(" '
-            index($0, marker) {
-                if ($0 ~ /PreventUserIdleDisplaySleep/) display_awake = 1
-                if ($0 ~ /PreventUserIdleSystemSleep/) system_awake = 1
-            }
-            END { exit !(display_awake && system_awake) }
-        '; do
-            kill -0 "$awake_pid" 2>/dev/null || die 'The temporary awake assertion failed. No signing command was started.'
-            (( SECONDS < assertion_deadline )) || die 'The temporary awake assertion did not become active. No signing command was started.'
-            sleep 0.1
-        done
-        note 'Keeping the release Mac display and system awake until this release ends.'
-    fi
-    if [[ "$announced" == 1 ]]; then note 'Release Mac unlocked; continuing signing.'; fi
-}
+# Keep remote releases running without requiring an unlocked display or console session.
+caffeinate -i -w "$$" </dev/null >/dev/null 2>&1 &
+awake_pid=$!
 
 redact_upload_output() {
     local line
@@ -286,7 +259,6 @@ run() {
     local label="$1" started=$SECONDS status now last formatted=0
     shift
     note "Starting: $label"
-    if [[ "$1" == xcodebuild ]]; then wait_for_signing_session; fi
     # Retain stdin and the terminal security context; no detached process/session wrapper.
     rm -f "$session/.command.pipe" "$session/.timed-out"
     mkfifo "$session/.command.pipe"
@@ -384,6 +356,8 @@ if [[ "$mode" != upload ]]; then
         ONLY_ACTIVE_ARCH=NO SWIFT_USE_INTEGRATED_DRIVER=NO "CURRENT_PROJECT_VERSION=$build_number" -allowProvisioningUpdates
 fi
 run 'Inspect archive' inspect_archive
+build_number="$(read_value "$archive/Info.plist" ApplicationProperties.CFBundleVersion)"
+[[ "$build_number" =~ ^[0-9]+(\.[0-9]+){0,2}$ ]] || die 'Invalid archive build number.'
 if [[ "$mode" == archive ]]; then note "Archive ready: $archive"; exit 0; fi
 
 stage=archive
@@ -412,7 +386,6 @@ if run 'Upload to App Store Connect' xcrun altool --upload-app -t "$platform" -f
     -u "$upload_email" -p @env:TCG_APP_STORE_PASSWORD; then
     unset TCG_APP_STORE_PASSWORD
     summary_state=uploaded
-    note 'Uploaded to App Store Connect; processing pending.'
 else
     status=$?
     unset TCG_APP_STORE_PASSWORD

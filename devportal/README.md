@@ -103,9 +103,9 @@ apps; no account credentials are sent to the client.
 
 Signing and local export use Xcode automatic signing. Setup saves the upload
 email and app-specific password privately; `xcrun altool` uploads the IPA/PKG
-separately. Neither credential is sent to the client. Signing waits for the Mac
-to be unlocked and temporarily keeps its display and system awake. See the
-[app release guide](../app/release.md) for setup, numbering, logs and recovery.
+separately. Neither credential is sent to the client. Releases also run with the
+display locked; a temporary idle-system-sleep assertion does not keep the display
+awake. See the [app release guide](../app/release.md) for setup, numbering, logs and recovery.
 
 ## Server release behavior
 

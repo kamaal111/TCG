@@ -54,33 +54,7 @@ async function fixture() {
     JSON.stringify({ email: 'release@example.invalid', password: 'test-test-test-test' }),
     { mode: 0o600 },
   );
-  await fs.writeFile(
-    path.join(bin, 'ioreg'),
-    `#!${process.execPath}
-const fs=require('node:fs');
-const locked=process.env.TCG_TEST_SCREEN_LOCK && fs.readFileSync(process.env.TCG_TEST_SCREEN_LOCK,'utf8').trim()==='locked';
-console.log('<plist version="1.0"><dict><key>IOConsoleLocked</key><'+(locked?'true':'false')+'/></dict></plist>');`,
-    { mode: 0o755 },
-  );
-  await fs.writeFile(
-    path.join(bin, 'stat'),
-    '#!/bin/bash\nif [[ "$*" == "-f %u /dev/console" ]]; then echo ' +
-      os.userInfo().uid +
-      '; else exec /usr/bin/stat "$@"; fi\n',
-    { mode: 0o755 },
-  );
-  await fs.writeFile(
-    path.join(bin, 'caffeinate'),
-    `#!${process.execPath}
-require('node:fs').writeFileSync(process.env.TCG_TEST_AWAKE, JSON.stringify({pid:process.pid,args:process.argv.slice(2)}));
-setInterval(()=>{try{process.kill(Number(process.argv.at(-1)),0);}catch{process.exit(0);}},100);`,
-    { mode: 0o755 },
-  );
-  await fs.writeFile(
-    path.join(bin, 'pmset'),
-    '#!/bin/bash\nif [[ -r "$TCG_TEST_AWAKE" ]]; then pid="$(/usr/bin/plutil -extract pid raw -o - "$TCG_TEST_AWAKE")"; printf "pid %s(caffeinate): PreventUserIdleDisplaySleep\\npid %s(caffeinate): PreventUserIdleSystemSleep\\n" "$pid" "$pid"; fi\n',
-    { mode: 0o755 },
-  );
+  await fs.writeFile(path.join(bin, 'caffeinate'), '#!/bin/bash\nexec sleep 60\n', { mode: 0o755 });
   const calls = path.join(directory, 'calls.jsonl');
   await fs.writeFile(calls, '');
   await fs.writeFile(
@@ -102,9 +76,8 @@ if (process.env.TCG_TEST_STALL) {
  const app=path.join(archive, 'Products/Applications/Mintomo.app');
  const info=path.join(app, mac?'Contents/Info.plist':'Info.plist');
  fs.mkdirSync(path.dirname(info), {recursive:true});
- fs.writeFileSync(path.join(archive,'Info.plist'), '<?xml version="1.0"?><plist version="1.0"><dict><key>CreationDate</key><date>2026-01-02T03:04:05Z</date><key>ApplicationProperties</key><dict><key>ApplicationPath</key><string>Applications/Mintomo.app</string><key>CFBundleShortVersionString</key><string>1.0</string></dict></dict></plist>');
- fs.writeFileSync(info, JSON.stringify({CFBundleIdentifier:'io.kamaal.TCG',CFBundleShortVersionString:'1.0',CFBundleSupportedPlatforms:[mac?'MacOSX':'iPhoneOS'],TCGAPIBaseURL:'https://api.mintomo.com',TCGAPIEnvironment:'remote'}));
- if(process.env.TCG_TEST_LOCK_AFTER_ARCHIVE){fs.writeFileSync(process.env.TCG_TEST_SCREEN_LOCK,'locked');}
+ fs.writeFileSync(path.join(archive,'Info.plist'), '<?xml version="1.0"?><plist version="1.0"><dict><key>CreationDate</key><date>2026-01-02T03:04:05Z</date><key>ApplicationProperties</key><dict><key>CFBundleVersion</key><string>'+args.find(arg=>arg.startsWith('CURRENT_PROJECT_VERSION=')).split('=')[1]+'</string><key>ApplicationPath</key><string>Applications/Mintomo.app</string><key>CFBundleShortVersionString</key><string>1.0</string></dict></dict></plist>');
+ fs.writeFileSync(info, JSON.stringify({CFBundleIdentifier:'io.kamaal.TCG',CFBundleShortVersionString:'1.0',CFBundleVersion:args.find(arg=>arg.startsWith('CURRENT_PROJECT_VERSION=')).split('=')[1],CFBundleSupportedPlatforms:[mac?'MacOSX':'iPhoneOS'],TCGAPIBaseURL:'https://api.mintomo.com',TCGAPIEnvironment:'remote'}));
  console.log('Archive fixture completed');
 } else if (process.env.TCG_TEST_ACCOUNT_FAILURE) {
  console.error('error: exportArchive Failed to Use Accounts'); process.exitCode=70;
@@ -141,7 +114,6 @@ if(process.env.TCG_TEST_UPLOAD_FAILURE){console.error('Upload credentials reject
     ...process.env,
     PATH: `${bin}:${process.env.PATH}`,
     TCG_TEST_CALLS: calls,
-    TCG_TEST_AWAKE: path.join(directory, 'awake.json'),
   };
 
   const invoke = (mode: string, platform: string, args: string[] = [], extra: Record<string, string> = {}) => {
@@ -192,6 +164,7 @@ describe.runIf(process.platform === 'darwin')('native shell release pipeline', (
       const f = await fixture();
       const result = await f.invoke('release', platform);
       expect(result.stdout).toContain('Uploaded to App Store Connect; processing pending.');
+      expect(result.stdout.trim().split('\n').at(-1)).toContain(`Release complete: ${platform} version 1.0 (build 1).`);
       expect(result.stdout).not.toContain('Approve');
       expect(result.stdout).toContain('archive → sign → inspect → export → upload');
       expect(result.stdout).toContain('Upload: separate Apple CLI with private credentials');
@@ -261,84 +234,37 @@ describe.runIf(process.platform === 'darwin')('native shell release pipeline', (
     expect(await f.summary()).toMatchObject({ state: 'failed' });
   });
 
-  test('waits for unlock before signing and releases its temporary awake assertion', async () => {
-    const f = await fixture();
-    const lock = path.join(f.directory, 'screen-lock');
-    await fs.writeFile(lock, 'locked');
+  test.each(['ios', 'macos'])(
+    'releases %s remotely without checking the display or console session',
+    async platform => {
+      const f = await fixture();
 
-    const child = childProcess.spawn(
-      'bash',
-      [path.join(f.root, 'scripts/app-release.sh'), 'archive', 'ios', '--config-dir', f.config],
-      { env: { ...f.env, TCG_TEST_SCREEN_LOCK: lock } },
-    );
+      for (const tool of ['ioreg', 'stat', 'pmset']) {
+        await fs.writeFile(
+          path.join(f.directory, 'bin', tool),
+          '#!/bin/bash\necho "Unexpected session check" >&2\nexit 1\n',
+          {
+            mode: 0o755,
+          },
+        );
+      }
 
-    const closed = new Promise(resolve => child.once('close', resolve));
-    onTestFinished(async () => {
-      child.kill('SIGTERM');
-      await closed;
-    });
-    let output = '';
-    child.stdout.setEncoding('utf8').on('data', (chunk: string) => {
-      output += chunk;
-    });
-    await waitForProcessOutput(child, 'Waiting for the release Mac to be unlocked');
-    expect(await f.records()).toEqual([]);
-    await fs.writeFile(lock, 'unlocked');
-    expect(await closed).toBe(0);
-    expect(output).toContain('Release Mac unlocked; continuing signing.');
-    expect(await f.records()).toHaveLength(1);
+      const result = await f.invoke('release', platform);
+      expect(result.stdout).toContain('Uploaded to App Store Connect; processing pending.');
+      expect(result.stdout).not.toContain('Waiting for the release Mac');
+      expect(result.stderr).not.toContain('Unexpected session check');
+      expect(await f.records()).toHaveLength(3);
+      expect(await f.summary()).toMatchObject({ state: 'uploaded' });
+    },
+  );
 
-    const awake = z
-      .object({ pid: z.number(), args: z.array(z.string()) })
-      .parse(JSON.parse(await fs.readFile(path.join(f.directory, 'awake.json'), 'utf8')));
-
-    expect(awake.args).toEqual(['-di', '-w', String(child.pid)]);
-    expect(() => process.kill(awake.pid, 0)).toThrow('ESRCH');
-  }, 10000);
-
-  test('checks the lock again before exporting a completed archive', async () => {
-    const f = await fixture();
-    const lock = path.join(f.directory, 'screen-lock');
-    await fs.writeFile(lock, 'unlocked');
-
-    const child = childProcess.spawn(
-      'bash',
-      [path.join(f.root, 'scripts/app-release.sh'), 'release', 'ios', '--config-dir', f.config],
-      { env: { ...f.env, TCG_TEST_SCREEN_LOCK: lock, TCG_TEST_LOCK_AFTER_ARCHIVE: '1' } },
-    );
-
-    const closed = new Promise(resolve => child.once('close', resolve));
-    onTestFinished(async () => {
-      child.kill('SIGTERM');
-      await closed;
-    });
-    let output = '';
-    child.stdout.setEncoding('utf8').on('data', (chunk: string) => {
-      output += chunk;
-    });
-    await waitForProcessOutput(child, 'Waiting for the release Mac to be unlocked');
-    expect(await f.records()).toHaveLength(1);
-    await fs.writeFile(lock, 'unlocked');
-    expect(await closed).toBe(0);
-    expect(await f.records()).toHaveLength(3);
-  }, 10000);
-
-  test('a failed awake assertion stops before any signing command', async () => {
+  test('a failed idle-sleep helper does not block release', async () => {
     const f = await fixture();
     await fs.writeFile(path.join(f.directory, 'bin/caffeinate'), '#!/bin/bash\nexit 1\n', { mode: 0o755 });
-    await expect(f.invoke('archive', 'ios')).rejects.toMatchObject({
-      stderr: expect.stringContaining('The temporary awake assertion failed. No signing command was started.'),
-    });
-    expect(await f.records()).toEqual([]);
-  });
-
-  test('unknown lock state stops before signing', async () => {
-    const f = await fixture();
-    await fs.writeFile(path.join(f.directory, 'bin/ioreg'), '#!/bin/bash\nprintf invalid-plist\n', { mode: 0o755 });
-    await expect(f.invoke('archive', 'ios')).rejects.toMatchObject({
-      stderr: expect.stringContaining('Cannot check the release Mac lock state'),
-    });
-    expect(await f.records()).toEqual([]);
+    const result = await f.invoke('release', 'ios');
+    expect(result.stdout).toContain('Uploaded to App Store Connect; processing pending.');
+    expect(await f.records()).toHaveLength(3);
+    expect(await f.summary()).toMatchObject({ state: 'uploaded' });
   });
 
   test('archive-only uses Xcode automatic signing without API credentials or upload', async () => {
@@ -469,6 +395,23 @@ describe.runIf(process.platform === 'darwin')('native shell release pipeline', (
     expect(await f.summary()).toMatchObject({ state: 'uploaded' });
   });
 
+  test('upload-only reports the retained archive version and build in the final message', async () => {
+    const f = await fixture();
+    await f.invoke('archive', 'ios');
+    const sessions = await fs.readdir(path.join(f.config, 'app-releases'));
+    const archive = path.join(f.config, 'app-releases', sessions[0] ?? '', 'Mintomo.xcarchive');
+    await execute('plutil', [
+      '-replace',
+      'ApplicationProperties.CFBundleVersion',
+      '-string',
+      '42',
+      path.join(archive, 'Info.plist'),
+    ]);
+    const result = await f.invoke('upload', 'ios', [archive]);
+    expect(result.stdout.trim().split('\n').at(-1)).toContain('Release complete: ios version 1.0 (build 42).');
+    expect((await f.records()).filter(args => args.includes('archive'))).toHaveLength(1);
+  });
+
   test('upload-only rejects changed release settings without modifying archive history', async () => {
     const f = await fixture();
     await f.invoke('archive', 'ios');
@@ -519,7 +462,6 @@ describe.runIf(process.platform === 'darwin')('native shell release pipeline', (
 
     vi.stubEnv('PATH', f.env.PATH);
     vi.stubEnv('TCG_TEST_CALLS', f.calls);
-    vi.stubEnv('TCG_TEST_AWAKE', f.env.TCG_TEST_AWAKE);
     onTestFinished(() => {
       vi.unstubAllEnvs();
     });
