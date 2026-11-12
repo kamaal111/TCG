@@ -54,11 +54,23 @@ export async function inspectArchive(options: {
 }): Promise<void> {
   const { archive, platform, settings, version, command } = options;
 
+  // Archive CreationDate is a plist date, which cannot be converted to JSON.
   const metadata = z
-    .object({ ApplicationProperties: z.object({ ApplicationPath: z.string() }) })
-    .parse(JSON.parse(await command('plutil', ['-convert', 'json', '-o', '-', path.join(archive, 'Info.plist')])));
+    .object({ ApplicationPath: z.string() })
+    .parse(
+      JSON.parse(
+        await command('plutil', [
+          '-extract',
+          'ApplicationProperties',
+          'json',
+          '-o',
+          '-',
+          path.join(archive, 'Info.plist'),
+        ]),
+      ),
+    );
 
-  const application = metadata.ApplicationProperties.ApplicationPath;
+  const application = metadata.ApplicationPath;
 
   if (!application.startsWith('Applications/') || application.includes('..') || !application.endsWith('.app')) {
     throw new InfraFailure('Archive contains an unexpected application path. Upload stopped.');
@@ -87,7 +99,7 @@ export async function inspectArchive(options: {
   await command('codesign', [
     '--verify',
     '-R',
-    `anchor apple generic and certificate leaf[subject.OU] = "${settings.teamID}"`,
+    `=anchor apple generic and certificate leaf[subject.OU] = "${settings.teamID}"`,
     app,
   ]);
 }

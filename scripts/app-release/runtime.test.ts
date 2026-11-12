@@ -36,7 +36,7 @@ async function fixture(t: TestContext, failure?: 'archive' | 'upload', platform:
     }
 
     if (program === 'plutil' && args.at(-1)?.endsWith('Mintomo.xcarchive/Info.plist')) {
-      return JSON.stringify({ ApplicationProperties: { ApplicationPath: 'Applications/Mintomo.app' } });
+      return JSON.stringify({ ApplicationPath: 'Applications/Mintomo.app' });
     }
 
     if (program === 'plutil') {
