@@ -6,6 +6,7 @@
 import Foundation
 import KamaalAuth
 import SwiftUI
+import TCGCurrency
 import TCGDesignSystem
 import TCGSnapshotTesting
 import Testing
@@ -20,6 +21,65 @@ import Testing
 @Suite("TCGSearch Screen Snapshot Tests", .serialized)
 @MainActor
 struct TCGSearchScreenSnapshotTests {
+    @Test
+    func `Hides prices percentages and trends in search results`() async throws {
+        let privacy = TCGPricePrivacy(defaults: nil)
+        privacy.hidePrices = true
+        let feature = TCGSearch(client: .preview(pricingOutcome: .success), history: TCGSearchHistoryStore())
+        let model = TCGSearchScreenModel(preferences: nil)
+        model.query = "Giratina"
+        try await feature.search(.init(game: model.game, query: model.query, languages: [], mode: .card, cursor: nil))
+            .get()
+        #expect(!feature.results.isEmpty)
+        await assertScreenSnapshot(testName: #function) {
+            makeScreen(feature: feature, model: model).environment(\.tcgPricePrivacy, privacy)
+        }
+    }
+
+    @Test
+    func `Hides financial sections in search details`() async {
+        let privacy = TCGPricePrivacy(defaults: nil)
+        privacy.hidePrices = true
+        #expect(detailCard.headline?.amount == 420)
+        await assertScreenSnapshot(testName: #function) {
+            TCGSearchDetailView(card: detailCard)
+                .tcgSearch(TCGSearch(client: .preview(), history: TCGSearchHistoryStore()))
+                .environment(\.tcgPricePrivacy, privacy)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(.background)
+                .cardImageLoader(PreviewCardImageLoader(outcome: .success))
+        }
+    }
+
+    @Test
+    func `Hides conversion failures in search details`() async {
+        let privacy = TCGPricePrivacy(defaults: nil)
+        privacy.hidePrices = true
+        let source = detailCard
+        let card = PricedCard(
+            id: source.id,
+            game: source.game,
+            name: source.name,
+            cardNumber: source.cardNumber,
+            illustrator: source.illustrator,
+            imageURL: source.imageURL,
+            headline: source.headline,
+            market: source.market,
+            display: .init(preferredCurrency: .eur, headline: nil, market: nil, conversionUnavailable: true),
+            pricedOn: source.pricedOn,
+            fetchedAt: source.fetchedAt
+        )
+        #expect(card.conversionUnavailable)
+        await assertScreenSnapshot(testName: #function) {
+            TCGSearchDetailView(card: card)
+                .tcgSearch(TCGSearch(client: .preview(), history: TCGSearchHistoryStore()))
+                .environment(\.tcgPricePrivacy, privacy)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(.background)
+                .cardImageLoader(PreviewCardImageLoader(outcome: .success))
+        }
+    }
+
     @Test
     func `Renders illustrator search results`() async {
         let feature = TCGSearch(client: .preview(pricingOutcome: .success), history: TCGSearchHistoryStore())

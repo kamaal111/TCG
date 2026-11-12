@@ -14,6 +14,7 @@ import UniformTypeIdentifiers
 public struct TCGSettingsScreen: View {
     @Environment(\.tcgCollections) private var collections
     @Environment(\.tcgCurrency) private var currencyState
+    @Environment(\.tcgPricePrivacy) private var pricePrivacy
     @Environment(KamaalAuth.self) private var auth
     #if os(macOS)
         @Environment(\.dismiss) private var dismiss
@@ -62,6 +63,20 @@ public struct TCGSettingsScreen: View {
 
     public var body: some View {
         Form {
+            if let pricePrivacy {
+                Section {
+                    Toggle(isOn: Binding(get: { pricePrivacy.hidePrices }, set: { pricePrivacy.hidePrices = $0 })) {
+                        Text("Hide prices", bundle: .module)
+                    }
+                } header: {
+                    Text("Privacy", bundle: .module)
+                } footer: {
+                    Text(
+                        "Hide prices and financial changes while browsing. Card quantities stay visible. Prices remain visible when adding or editing cards.",
+                        bundle: .module
+                    )
+                }
+            }
             offlineSettings?.content
             if let currencyState {
                 Section {

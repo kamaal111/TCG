@@ -7,6 +7,7 @@
 
 import Foundation
 import SwiftUI
+import TCGCurrency
 import TCGDesignSystem
 import TCGSnapshotTesting
 import Testing
@@ -17,6 +18,39 @@ import Testing
 @Suite("TCGCards List Screen Snapshot Tests")
 @MainActor
 struct TCGCardsListScreenSnapshotTests {
+    @Test
+    func `Hides prices and purchase changes while preserving card counts`() async {
+        let privacy = TCGPricePrivacy(defaults: nil)
+        privacy.hidePrices = true
+        let feature = TCGCards(
+            client: .preview(
+                cardsOutcome: .success(cards: [
+                    purchaseCard(id: CardsTestIDs.primary, change: 25)
+                ])
+            )
+        )
+        let model = TCGCardsListScreenModel(preferences: nil)
+        await model.load(using: feature)
+        #expect(feature.cards.first?.card.purchasePriceChangePercent == 25)
+        #expect(feature.cards.first?.card.totalQuantity == 3)
+        await assertScreenSnapshot(testName: #function) {
+            makeScreen(feature: feature, model: model).environment(\.tcgPricePrivacy, privacy)
+        }
+    }
+
+    @Test
+    func `Hides unavailable pricing status while preserving card counts`() async {
+        let privacy = TCGPricePrivacy(defaults: nil)
+        privacy.hidePrices = true
+        let feature = makeUnavailableFeature(allUnavailable: true)
+        let model = TCGCardsListScreenModel(preferences: nil)
+        await model.load(using: feature)
+        #expect(feature.cards.allSatisfy { $0.price.status == .unavailable })
+        await assertScreenSnapshot(testName: #function) {
+            makeScreen(feature: feature, model: model).environment(\.tcgPricePrivacy, privacy)
+        }
+    }
+
     @Test
     func `Renders selected illustrator filter`() async {
         let feature = TCGCards(client: .preview(cardsOutcome: .success(cards: PreviewTCGCardsClient.sampleCards)))

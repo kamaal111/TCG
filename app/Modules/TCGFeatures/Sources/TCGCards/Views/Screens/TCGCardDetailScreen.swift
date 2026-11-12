@@ -9,6 +9,7 @@ struct TCGCardDetailScreen: View {
     @Environment(TCGCards.self) private var cards
     @Environment(\.dismiss) private var dismiss
     @Environment(\.tcgCurrency) private var currencyState
+    @Environment(\.tcgPricePrivacy) private var pricePrivacy
     @State private var model: TCGCardDetailScreenModel
 
     init(model: TCGCardDetailScreenModel) {
@@ -105,6 +106,7 @@ struct TCGCardDetailScreen: View {
     }
 
     private var displayedCard: CardWithPrice? {
+        guard pricePrivacy?.hidePrices != true else { return model.card }
         guard let currencyState else { return model.card }
         return cards.cards.first {
             $0.card.id == model.card.card.id && $0.card.displayCurrency == currencyState.preferredCurrency
@@ -130,16 +132,18 @@ struct TCGCardDetailScreen: View {
                 HStack {
                     Text("\(batch.condition.title) ×\(batch.quantity)", bundle: .module)
                     Spacer()
-                    if let price = batch.displayPrice {
-                        CurrencyAmount(
-                            price.amount,
-                            currency: price.currency,
-                            conversionUnavailable: price.conversionUnavailable
-                        )
-                    } else if let amount = batch.purchasePrice, let currency = batch.currency {
-                        CurrencyAmount(amount, currency: currency)
-                    } else {
-                        Text("Purchase price unknown", bundle: .module).foregroundStyle(.secondary)
+                    if pricePrivacy?.hidePrices != true {
+                        if let price = batch.displayPrice {
+                            CurrencyAmount(
+                                price.amount,
+                                currency: price.currency,
+                                conversionUnavailable: price.conversionUnavailable
+                            )
+                        } else if let amount = batch.purchasePrice, let currency = batch.currency {
+                            CurrencyAmount(amount, currency: currency)
+                        } else {
+                            Text("Purchase price unknown", bundle: .module).foregroundStyle(.secondary)
+                        }
                     }
                 }
             }
@@ -147,7 +151,7 @@ struct TCGCardDetailScreen: View {
                 Text("Notes", bundle: .module).font(.headline)
                 Text(notes)
             }
-            if displayedCard.price.price == nil {
+            if pricePrivacy?.hidePrices != true, displayedCard.price.price == nil {
                 Text("Pricing", bundle: .module).font(.title2.bold())
                 CardPriceView(price: displayedCard.price)
             }

@@ -10,6 +10,7 @@ import TCGDesignSystem
 
 struct PricedCardRow: View {
     @Environment(\.tcgCurrency) private var currencyState
+    @Environment(\.tcgPricePrivacy) private var pricePrivacy
     let card: PricedCard
     let actions: Actions
 
@@ -60,29 +61,31 @@ struct PricedCardRow: View {
                 Text(card.name).font(.headline)
                 Text("\(card.rarity ?? card.game.title) • \(card.cardNumber)", bundle: .module)
                     .foregroundStyle(.secondary)
-                if pricesAreCurrent { marketDetails }
+                if pricePrivacy?.hidePrices != true, pricesAreCurrent { marketDetails }
             }
             Spacer(minLength: 12)
-            VStack(alignment: .trailing, spacing: 8) {
-                if !pricesAreCurrent {
-                    ProgressView()
-                } else if let headline = card.displayHeadline {
-                    CurrencyAmount(
-                        headline.amount,
-                        currency: headline.currency,
-                        conversionUnavailable: card.conversionUnavailable
-                    )
-                    .font(.title3.weight(.semibold).monospacedDigit())
-                    .fixedSize(horizontal: true, vertical: false)
-                } else {
-                    Text("No price", bundle: .module).foregroundStyle(.secondary)
-                }
-                if pricesAreCurrent, let trend = card.displayMarket?.trend7d?.trend {
-                    Label(trend.title, systemImage: trend.systemImage)
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(TrendColor.color(for: trend))
-                        .labelStyle(.iconOnly)
-                        .accessibilityLabel(trend.title)
+            if pricePrivacy?.hidePrices != true {
+                VStack(alignment: .trailing, spacing: 8) {
+                    if !pricesAreCurrent {
+                        ProgressView()
+                    } else if let headline = card.displayHeadline {
+                        CurrencyAmount(
+                            headline.amount,
+                            currency: headline.currency,
+                            conversionUnavailable: card.conversionUnavailable
+                        )
+                        .font(.title3.weight(.semibold).monospacedDigit())
+                        .fixedSize(horizontal: true, vertical: false)
+                    } else {
+                        Text("No price", bundle: .module).foregroundStyle(.secondary)
+                    }
+                    if pricesAreCurrent, let trend = card.displayMarket?.trend7d?.trend {
+                        Label(trend.title, systemImage: trend.systemImage)
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(TrendColor.color(for: trend))
+                            .labelStyle(.iconOnly)
+                            .accessibilityLabel(trend.title)
+                    }
                 }
             }
         }

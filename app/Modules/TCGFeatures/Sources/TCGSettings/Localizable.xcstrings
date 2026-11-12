@@ -34,6 +34,12 @@
     "Export your entire collection to CSV, or review and import cards from a CSV file." : {
 
     },
+    "Hide prices" : {
+
+    },
+    "Hide prices and financial changes while browsing. Card quantities stay visible. Prices remain visible when adding or editing cards." : {
+
+    },
     "Import Cards" : {
 
     },
@@ -41,6 +47,9 @@
 
     },
     "Preferred currency" : {
+
+    },
+    "Privacy" : {
 
     },
     "Settings" : {

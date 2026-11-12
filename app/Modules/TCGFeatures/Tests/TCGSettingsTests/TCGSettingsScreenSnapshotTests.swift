@@ -16,6 +16,19 @@ import Testing
 @Suite("TCGSettings Screen Snapshot Tests")
 @MainActor
 struct TCGSettingsScreenSnapshotTests {
+    @Test(arguments: [false, true])
+    func `Renders price privacy settings`(hidden: Bool) async {
+        let privacy = TCGPricePrivacy(defaults: nil)
+        privacy.hidePrices = hidden
+        let auth = KamaalAuth(client: PreviewKamaalAuthClient(), configuration: .init(appName: "Mintomo"))
+        #expect(privacy.hidePrices == hidden)
+        await assertScreenSnapshot(testName: "Price privacy settings \(hidden)") {
+            NavigationStack { TCGSettingsScreen(version: AppVersion(marketing: "1.0", build: "1")) }
+                .environment(auth)
+                .environment(\.tcgPricePrivacy, privacy)
+        }
+    }
+
     @Test
     func `Renders preferred currency settings`() async {
         let auth = KamaalAuth(client: PreviewKamaalAuthClient(), configuration: .init(appName: "Mintomo"))
