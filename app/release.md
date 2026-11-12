@@ -85,19 +85,26 @@ Upload-only still inspects and locally exports the archive. Its platform, team
 and production endpoint must match the saved settings. Successful identical
 uploads are rejected. Uploads are never retried automatically.
 
+The final success message includes the platform, app version and build number
+read from the signed archive, including when uploading a retained archive.
+For example: `Release complete: ios version 1.0 (build 123).`
+
 Success means **Uploaded to App Store Connect; processing pending**. Check
 [App Store Connect](https://appstoreconnect.apple.com) for processing, export
 compliance, tester distribution and App Review. These recipes do not submit
 for review or poll processing status.
 
-## Mac lock state and progress
+## Remote releases and progress
 
-Before each Xcode signing or export command, the recipe waits for the release
-user's Mac session to be unlocked. It reports that wait explicitly and can be
-cancelled with Ctrl-C. This avoids invoking Xcode against locked, protected
-account credentials. A temporary `caffeinate` assertion keeps the display and
-system awake through the release and ends when the process exits. It does not
-change screen-lock preferences or unlock the Mac. Keep signing Keychain unlocked.
+Releases can run over SSH or Devportal with the display locked. The recipe does
+not inspect screen-lock state or require an active console user. A temporary
+`caffeinate -i` process requests prevention of idle system sleep until the release
+ends, without keeping the display awake or changing screen-lock preferences.
+Failure to start this helper does not block signing or upload.
+
+Automatic signing still needs access to its signing certificates and Keychain.
+If Apple rejects signing credentials, the recipe shows the actual Xcode error
+and retains the archive. Private app-specific credentials handle upload separately.
 
 Each milestone reports its start, completion or failure. Active commands report
 elapsed time and time since the last raw tool output every 30 seconds. First
@@ -131,9 +138,9 @@ main commit, then start the release. Starting authorizes archive, signing, local
 export and upload without further app approvals. Server approvals are unchanged.
 
 All allowed operators can release any destination. Closing the client does not
-stop the job; reconnect for curated progress and unlock-wait messages. Raw tool
-output remains private on the release Mac. Missing upload setup blocks app
-releases while server releases remain available.
+stop the job; reconnect for curated progress messages. Raw tool output remains
+private on the release Mac. Missing upload setup blocks app releases while
+server releases remain available.
 
 A failed command retains its exit code and diagnostic output. Local export
 failures occur before upload. If the upload is interrupted, check App Store
