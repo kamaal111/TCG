@@ -25,6 +25,31 @@ struct PreviewTCGCardsClient: TCGCardsClient {
         state = PreviewTCGCardsState(cards: cards)
     }
 
+    func moveFromUnfiled(id: UUID, to collectionID: UUID) -> Result<Void, CollectionsError> {
+        state.cards.withLock { cards in
+            guard let index = cards.firstIndex(where: { $0.id == id }) else { return .failure(.notFound) }
+            guard cards[index].collectionID == nil else { return .failure(.conflict) }
+            let card = cards[index]
+            cards[index] = Card(
+                id: card.id,
+                game: card.game,
+                name: card.name,
+                setName: card.setName,
+                cardNumber: card.cardNumber,
+                notes: card.notes,
+                createdAt: card.createdAt,
+                updatedAt: card.updatedAt,
+                purchases: card.purchases,
+                purchasePriceChangePercent: card.purchasePriceChangePercent,
+                displayCurrency: card.displayCurrency,
+                collectionID: collectionID,
+                allocationAdjustments: card.allocationAdjustments,
+                illustrator: card.illustrator
+            )
+            return .success(())
+        }
+    }
+
     func exportCards() async -> Result<[Card], CardBackupErrors> {
         if case .serverUnavailable = outcome { return .failure(.unknown(status: 503)) }
         return .success(state.cards.withLock { $0 })

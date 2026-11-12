@@ -114,6 +114,9 @@
     "Add card" : {
 
     },
+    "Add more" : {
+
+    },
     "Add your first card to start your collection." : {
 
     },
@@ -127,6 +130,9 @@
 
     },
     "Average near-mint market price changed %@ since purchase" : {
+
+    },
+    "Back" : {
 
     },
     "Batch total" : {
@@ -245,6 +251,9 @@
 
     },
     "Couldn't load more cards" : {
+
+    },
+    "Couldn’t load cards" : {
 
     },
     "Couldn’t load price" : {
@@ -441,6 +450,9 @@
 
     },
     "List" : {
+
+    },
+    "Load more cards" : {
 
     },
     "Loading more cards…" : {
@@ -736,6 +748,9 @@
 
     },
     "Unfiled" : {
+
+    },
+    "Unfiled cards" : {
 
     },
     "Unnamed card" : {

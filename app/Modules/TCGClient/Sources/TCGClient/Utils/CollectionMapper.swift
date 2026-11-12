@@ -35,10 +35,13 @@ enum CollectionMapper {
             }
     }
 
-    static func makeLayout(_ collection: CardBinderCollection) -> Components.Schemas.SaveBinderLayout {
+    static func makeLayout(_ payload: SaveBinderLayoutPayload) -> Components.Schemas.SaveBinderLayout {
         .init(
-            value1: makeGeneratedLayout(collection),
-            value2: .init(revision: collection.revision)
+            value1: makeGeneratedLayout(payload.collection),
+            value2: .init(
+                revision: payload.collection.revision,
+                moveFromUnfiledCardId: payload.moveFromUnfiledCardID.map(UUIDCoding.encode)
+            )
         )
     }
 

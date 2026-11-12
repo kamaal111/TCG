@@ -41,9 +41,25 @@ export function createCollectionRequestSchemas(policy: CollectionPolicy) {
         LayoutSchema,
         z.object({
           revision: RevisionSchema,
+          move_from_unfiled_card_id: UuidSchema.optional().meta({
+            description:
+              'Move this owned unfiled entry into the named collection atomically with its placement in the submitted layout. All owned copies move; only submitted quantities are placed.',
+          }),
           pages: LayoutSchema.shape.pages.max(policy.COLLECTION_MAX_PAGES).optional(),
         }),
       )
+      .superRefine((layout, context) => {
+        if (
+          layout.move_from_unfiled_card_id != null &&
+          !layout.pages.some(page => page.slots.some(slot => slot.card_id === layout.move_from_unfiled_card_id))
+        ) {
+          context.addIssue({
+            code: 'custom',
+            path: ['move_from_unfiled_card_id'],
+            message: 'The moved card must occupy a slot.',
+          });
+        }
+      })
       .meta({
         $id: 'SaveBinderLayout',
         title: 'Save Binder Layout',

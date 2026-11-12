@@ -36,6 +36,16 @@ enum CollectionTestFixtures {
     }
 
     @MainActor
+    static func emptyBinderContext() async throws -> Context {
+        let context = await loadedContext()
+        #expect(await context.collections.create(name: "Favorites", using: context.cards))
+        var collection = try #require(context.collections.selected)
+        collection.pages = [emptyPage]
+        #expect(await context.collections.save(collection, using: context.cards))
+        return context
+    }
+
+    @MainActor
     static func selectedContext() async throws -> Context {
         let context = await loadedContext()
         let cards = context.cards.cards

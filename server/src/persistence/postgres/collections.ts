@@ -1,6 +1,6 @@
 import crypto from 'node:crypto';
 
-import { and, eq, inArray, or, sql, sum, count } from 'drizzle-orm';
+import { and, eq, inArray, isNull, or, sql, sum, count } from 'drizzle-orm';
 import type { z } from 'zod';
 
 import type { PostgresCardRepository } from './cards.ts';
@@ -239,7 +239,44 @@ export class PostgresCollectionRepository implements CollectionRepository {
 
   save(id: string, values: SaveLayout) {
     return this.transaction(async tx => {
-      await this.writeLayout(tx, await this.owned(tx, id), values);
+      const destination = await this.owned(tx, id);
+
+      if (destination.revision !== values.revision) {
+        throw new LayoutConflict();
+      }
+
+      if (values.move_from_unfiled_card_id != null) {
+        if (destination.isUnfiled) {
+          throw new LayoutConflict('Choose a named collection for this card.');
+        }
+
+        const cardId = values.move_from_unfiled_card_id;
+        const userId = this.identity.requireUserId();
+
+        const [moved] = await tx
+          .update(card)
+          .set({ collectionId: id })
+          .where(and(eq(card.id, cardId), eq(card.userId, userId), isNull(card.collectionId)))
+          .returning({ id: card.id });
+
+        if (moved == null) {
+          const [ownedCard] = await tx
+            .select({ id: card.id })
+            .from(card)
+            .where(and(eq(card.id, cardId), eq(card.userId, userId)));
+
+          if (ownedCard == null) {
+            throw new CollectionNotFound();
+          }
+
+          throw new LayoutConflict('This card is no longer unfiled.');
+        }
+
+        await clearPlacements(tx, this.identity, [cardId]);
+        await bumpCollections(tx, this.identity, [null]);
+      }
+
+      await this.writeLayout(tx, destination, values);
 
       return this.read(tx, id);
     }, true);

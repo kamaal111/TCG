@@ -73,8 +73,49 @@ struct TCGCollectionsClientTests {
         #expect(payload.value1.columns == 1)
         #expect(payload.value1.rows == 4)
         #expect(payload.value2.revision == 2)
+        #expect(payload.value2.moveFromUnfiledCardId == nil)
         #expect(payload.value1.pages.map(\.id) == collection.pages.map { UUIDCoding.encode($0.id) })
         #expect(payload.value1.pages.map { $0.slots.map(\.quantity) } == [[3, 1], []])
+    }
+
+    @Test func `Moves an unfiled card with its chosen layout through one save request`() async throws {
+        var collection = Self.emptyCollection
+        collection.pages = [
+            .init(id: ClientTestIDs.page, slots: [.init(row: 1, column: 2, cardID: ClientTestIDs.third, quantity: 1)])
+        ]
+        let transport = CollectionTransport(status: .ok, response: try JSONEncoder().encode(collection))
+        let saved = try await makeClient(transport)
+            .save(
+                SaveBinderLayoutPayload(collection: collection, moveFromUnfiledCardID: ClientTestIDs.third)
+            )
+            .get()
+        #expect(saved == collection)
+        let request = try #require(await transport.request)
+        #expect(request.method == .put)
+        #expect(await transport.operationID == "put/app-api/collections/{collectionId}/layout")
+        let body = try #require(await transport.body)
+        let payload = try JSONDecoder().decode(Components.Schemas.SaveBinderLayout.self, from: body)
+        #expect(payload.value2.moveFromUnfiledCardId == UUIDCoding.encode(ClientTestIDs.third))
+        #expect(payload.value1.pages.first?.slots.first?.column == 2)
+        #expect(payload.value1.pages.first?.slots.first?.quantity == 1)
+    }
+
+    @Test(arguments: [
+        (HTTPResponse.Status.conflict, CollectionsError.conflict), (.notFound, .notFound),
+        (.unauthorized, .unauthorized),
+    ])
+    func `Preserves domain failures when saving an unfiled placement`(failure: (HTTPResponse.Status, CollectionsError))
+        async
+    {
+        let transport = CollectionTransport(
+            status: failure.0,
+            response: Data("{\"message\":\"Rejected\",\"code\":\"COLLECTION_CONFLICT\"}".utf8)
+        )
+        let payload = SaveBinderLayoutPayload(
+            collection: Self.emptyCollection,
+            moveFromUnfiledCardID: ClientTestIDs.third
+        )
+        await #expect(throws: failure.1) { try await makeClient(transport).save(payload).get() }
     }
 
     @Test func `Renames a collection with its current revision through the generated update operation`() async throws {

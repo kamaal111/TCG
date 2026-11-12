@@ -5,79 +5,61 @@ import TCGDesignSystem
 struct BinderSlotEditor: View {
     @Environment(TCGCards.self) private var cards
     @Environment(\.dismiss) private var dismiss
-    let collection: CardBinderCollection
-    let position: BinderPosition
     let collections: TCGCollections
-    @State private var availableCards: [CardWithPrice] = []
-    @State private var cardID: UUID?
-    @State private var quantity = 1
-    @State private var error: String?
-    @State private var isLoading = true
+    @State private var model: BinderSlotEditorModel
     @State private var isShowingDetails = false
 
-    private var existing: BinderSlot? {
-        collection.pages.first { $0.id == position.pageID }?.slots.first {
-            $0.row == position.row && $0.column == position.column
-        }
+    struct Content {
+        let collection: CardBinderCollection
+        let position: BinderPosition
+        var card: CardWithPrice?
     }
-    private var selectedCard: CardWithPrice? { availableCards.first { $0.card.id == cardID } }
-    private var maximum: Int {
-        guard let selectedCard else { return 0 }
-        let total = selectedCard.card.totalQuantity
-        return max(
-            0,
-            total - collection.allocatedCopies(of: selectedCard.card.id)
-                + (existing?.cardID == selectedCard.card.id ? existing?.quantity ?? 0 : 0)
+
+    init(content: Content, collections: TCGCollections) {
+        self.init(
+            model: BinderSlotEditorModel(
+                collection: content.collection,
+                position: content.position,
+                card: content.card
+            ),
+            collections: collections
         )
     }
 
-    private var quantityPolicy: BinderSlotQuantity { BinderSlotQuantity(maximum: maximum) }
+    init(model: BinderSlotEditorModel, collections: TCGCollections) {
+        self.collections = collections
+        _model = State(initialValue: model)
+    }
 
     var body: some View {
-        Form {
-            if isLoading { ProgressView() }
-            NavigationLink {
-                BinderCardPicker(cards: availableCards, selection: $cardID)
-            } label: {
-                if let selectedCard {
-                    BinderCardLabel(card: selectedCard)
-                } else {
-                    Label {
-                        Text("Choose a card", bundle: .module)
-                    } icon: {
-                        Image(systemName: "photo.on.rectangle")
-                    }
-                }
+        Group {
+            switch model.screen {
+            case .collectionCards, .unfiledCards:
+                picker
+            case .contents:
+                if model.isLoading { ProgressView() } else { contents }
             }
-            .disabled(isLoading)
-            .help(Text("Choose a card", bundle: .module))
-            if maximum > 0 {
-                Stepper(value: $quantity, in: 1...maximum) { Text("Copies in this slot: \(quantity)", bundle: .module) }
-                Text("\(maximum) copies available for this slot", bundle: .module).foregroundStyle(.secondary)
-            } else if !isLoading && (selectedCard != nil || availableCards.isEmpty) {
-                Text(
-                    "No unplaced copies available. Clear another slot or add cards to this collection.",
-                    bundle: .module
-                )
-            }
-            if selectedCard != nil {
-                Button {
-                    isShowingDetails = true
-                } label: {
-                    Text("Card details", bundle: .module)
-                }
-            }
-            if existing != nil {
-                Button(role: .destructive) {
-                    Task { await save(clear: true) }
-                } label: {
-                    Text("Clear slot", bundle: .module)
-                }
-            }
-            if let error { TCGInlineError(error) }
         }
-        .formStyle(.grouped)
-        .navigationTitle(Text("Slot contents", bundle: .module))
+        .safeAreaInset(edge: .bottom) {
+            if let error = model.error {
+                VStack {
+                    TCGInlineError(error)
+                    Button {
+                        Task {
+                            if model.needsReload {
+                                await model.reload(using: cards, collections: collections)
+                            } else {
+                                await model.load(using: cards, collections: collections)
+                            }
+                        }
+                    } label: {
+                        Text("Retry", bundle: .module)
+                    }
+                    .disabled(model.isSaving || model.isLoading)
+                }
+                .padding()
+            }
+        }
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
                 Button {
@@ -85,49 +67,125 @@ struct BinderSlotEditor: View {
                 } label: {
                     Text("Cancel", bundle: .module)
                 }
+                .disabled(model.isSaving)
             }
-            ToolbarItem(placement: .confirmationAction) {
-                Button {
-                    Task { await save(clear: false) }
-                } label: {
-                    Text("Save", bundle: .module)
+            if model.screen != .collectionCards {
+                ToolbarItem(placement: backPlacement) {
+                    Button {
+                        Task { await model.showCards(unfiled: false, using: cards, collections: collections) }
+                    } label: {
+                        Text("Back", bundle: .module)
+                    }
+                    .disabled(model.isSaving || model.isLoading || model.needsReload)
                 }
-                .disabled(
-                    cardID == nil || !quantityPolicy.permits(quantity) || collections.isWorking
-                )
+            }
+            if model.screen == .contents {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button {
+                        Task { await save() }
+                    } label: {
+                        Text("Save", bundle: .module)
+                    }
+                    .disabled(!model.canSave || collections.isWorking)
+                }
             }
         }
-        .onChange(of: cardID) { quantity = quantityPolicy.clamped(quantity) }
         .task {
-            guard isLoading else { return }
-            switch await cards.allCardsInSelectedCollection() {
-            case .success(let result): availableCards = result
-            case .failure(let failure): error = failure.localizedDescription
-            }
-            cardID = existing?.cardID
-            quantity = existing?.quantity ?? 1
-            isLoading = false
+            if model.isLoading { await model.load(using: cards, collections: collections) }
         }
         .sheet(isPresented: $isShowingDetails) {
-            if let selectedCard { NavigationStack { TCGCardDetailScreen(model: .init(card: selectedCard)) } }
+            if let selectedCard = model.selectedCard {
+                NavigationStack { TCGCardDetailScreen(model: .init(card: selectedCard)) }
+            }
         }
-        .frame(minWidth: 300, minHeight: 300)
+        .interactiveDismissDisabled(model.isSaving)
+        .frame(minWidth: 300, minHeight: 400)
     }
 
-    private func save(clear: Bool) async {
-        guard clear || (cardID != nil && quantityPolicy.permits(quantity)) else { return }
-        guard let index = collection.pages.firstIndex(where: { $0.id == position.pageID }) else { return }
-        var updated = collection
-        updated.pages[index].slots.removeAll { $0.row == position.row && $0.column == position.column }
-        if !clear, let cardID {
-            updated.pages[index].slots.append(
-                .init(row: position.row, column: position.column, cardID: cardID, quantity: quantity)
+    private var backPlacement: ToolbarItemPlacement {
+        #if os(iOS)
+            .topBarLeading
+        #else
+            .navigation
+        #endif
+    }
+
+    private var picker: some View {
+        BinderCardPicker(
+            content: .init(
+                cards: model.availableCards,
+                selection: model.selectedCard?.card.id,
+                isUnfiled: model.screen == .unfiledCards,
+                isLoading: model.isLoading,
+                error: model.error,
+                isLoadingNextPage: model.isLoadingNextPage,
+                hasMore: model.hasMoreCards,
+                nextPageError: model.nextPageError
+            ),
+            query: Binding(get: { model.query }, set: model.setQuery),
+            actions: .init(
+                choose: model.choose,
+                addMore: model.screen == .collectionCards && !model.collection.isUnfiled
+                    ? {
+                        Task { await model.showCards(unfiled: true, using: cards, collections: collections) }
+                    } : nil,
+                loadNext: { Task { await model.loadNextPage(using: cards) } },
+                retryNext: { Task { await model.loadNextPage(retry: true, using: cards) } },
+                search: { await model.search(using: cards, collections: collections) }
             )
+        )
+    }
+
+    private var contents: some View {
+        Form {
+            if let selectedCard = model.selectedCard {
+                Button {
+                    Task { await model.showCards(unfiled: false, using: cards, collections: collections) }
+                } label: {
+                    HStack {
+                        BinderCardLabel(card: selectedCard)
+                        Spacer()
+                        Image(systemName: "chevron.right").foregroundStyle(.tertiary).accessibilityHidden(true)
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .disabled(model.isSaving || model.needsReload)
+                .help(Text("Choose a card", bundle: .module))
+            }
+            if model.maximum > 0 {
+                Stepper(value: $model.quantity, in: 1...model.maximum) {
+                    Text("Copies in this slot: \(model.quantity)", bundle: .module)
+                }
+                .disabled(model.isSaving)
+                Text("\(model.maximum) copies available for this slot", bundle: .module).foregroundStyle(.secondary)
+            } else {
+                Text(
+                    "No unplaced copies available. Clear another slot or add cards to this collection.",
+                    bundle: .module
+                )
+            }
+            if model.selectedCard != nil {
+                Button {
+                    isShowingDetails = true
+                } label: {
+                    Text("Card details", bundle: .module)
+                }
+            }
+            if model.existing != nil {
+                Button(role: .destructive) {
+                    Task { await save(clear: true) }
+                } label: {
+                    Text("Clear slot", bundle: .module)
+                }
+                .disabled(model.isSaving || model.needsReload)
+            }
         }
-        if await collections.save(updated, using: cards) {
-            dismiss()
-        } else {
-            error = collections.error?.localizedDescription
-        }
+        .formStyle(.grouped)
+        .navigationTitle(Text("Slot contents", bundle: .module))
+    }
+
+    private func save(clear: Bool = false) async {
+        if await model.save(clear: clear, using: cards, collections: collections) { dismiss() }
     }
 }

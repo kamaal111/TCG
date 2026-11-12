@@ -3729,6 +3729,14 @@ components:
                 Current collection revision; send this value when renaming or
                 replacing a layout to detect stale edits
               example: 0
+            move_from_unfiled_card_id:
+              type: string
+              format: uuid
+              description: >-
+                Move this owned unfiled entry into the named collection
+                atomically with its placement in the submitted layout. All owned
+                copies move; only submitted quantities are placed.
+              example: 550e8400-e29b-41d4-a716-446655440000
             pages:
               type: array
               items:

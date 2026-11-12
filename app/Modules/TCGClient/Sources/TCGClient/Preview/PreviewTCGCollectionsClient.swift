@@ -1,6 +1,12 @@
 import Foundation
 
 actor PreviewTCGCollectionsClient: TCGCollectionsClient {
+    private let cards: PreviewTCGCardsClient
+
+    init(cards: PreviewTCGCardsClient) {
+        self.cards = cards
+    }
+
     private static let defaultBinderColumns = 3
     private static let defaultBinderRows = 3
 
@@ -43,8 +49,29 @@ actor PreviewTCGCollectionsClient: TCGCollectionsClient {
     }
 
     func save(_ collection: CardBinderCollection) -> Result<CardBinderCollection, CollectionsError> {
+        save(SaveBinderLayoutPayload(collection: collection))
+    }
+
+    func save(_ payload: SaveBinderLayoutPayload) -> Result<CardBinderCollection, CollectionsError> {
+        let collection = payload.collection
         guard let index = collections.firstIndex(where: { $0.id == collection.id }) else { return .failure(.notFound) }
         guard collection.revision == collections[index].revision else { return .failure(.conflict) }
+        if let id = payload.moveFromUnfiledCardID {
+            guard !collection.isUnfiled else { return .failure(.conflict) }
+            guard collection.pages.contains(where: { $0.slots.contains(where: { $0.cardID == id }) }) else {
+                return .failure(.conflict)
+            }
+            switch cards.moveFromUnfiled(id: id, to: collection.id) {
+            case .failure(let error): return .failure(error)
+            case .success: break
+            }
+            if let unfiledIndex = collections.firstIndex(where: \.isUnfiled) {
+                collections[unfiledIndex].revision += 1
+                for pageIndex in collections[unfiledIndex].pages.indices {
+                    collections[unfiledIndex].pages[pageIndex].slots.removeAll { $0.cardID == id }
+                }
+            }
+        }
         var updated = collection
         updated.revision += 1
         collections[index] = updated
