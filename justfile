@@ -220,12 +220,12 @@ release-server *args:
 setup-app-release *args:
     node scripts/app-release-cli.ts setup "$@"
 
-# Archive, sign and upload the previously verified iOS app to App Store Connect
+# Archive, sign, export an IPA and upload iOS using saved private App Store credentials
 [positional-arguments]
 release-ios *args:
     bash scripts/app-release.sh release ios "$@"
 
-# Archive, sign and upload the previously verified macOS app to App Store Connect
+# Archive, sign, export a PKG and upload macOS using saved private App Store credentials
 [positional-arguments]
 release-macos *args:
     bash scripts/app-release.sh release macos "$@"

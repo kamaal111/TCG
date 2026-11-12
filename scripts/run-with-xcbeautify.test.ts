@@ -99,6 +99,48 @@ describe('xcbeautify installation', () => {
   });
 });
 
+describe('xcbeautify stream rendering', () => {
+  it('formats stdin without applying the test runner warning gate', () => {
+    const { env } = fixture();
+
+    const result = childProcess.spawnSync('/bin/bash', [runner, '--stdin'], {
+      env,
+      encoding: 'utf8',
+      input: 'TCG/TCGApp.swift:10:2: warning: sample\n',
+    });
+
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain('formatted: TCG/TCGApp.swift:10:2: warning: sample');
+  });
+
+  it('preserves raw stdin when formatting is disabled', () => {
+    const { env } = fixture();
+
+    const result = childProcess.spawnSync('/bin/bash', [runner, '--stdin'], {
+      env: { ...env, TCG_XCODE_RAW_OUTPUT: '1' },
+      encoding: 'utf8',
+      input: 'raw build output\n',
+    });
+
+    expect(result.status).toBe(0);
+    expect(result.stdout).toBe('raw build output\n');
+  });
+
+  it('preserves stdin when xcbeautify is unavailable', () => {
+    const { env, bin } = fixture();
+    fs.unlinkSync(path.join(bin, 'xcbeautify'));
+
+    const result = childProcess.spawnSync('/bin/bash', [runner, '--stdin'], {
+      env,
+      encoding: 'utf8',
+      input: 'raw build output\n',
+    });
+
+    expect(result.status).toBe(0);
+    expect(result.stdout).toBe('raw build output\n');
+  });
+});
+
 describe('xcbeautify runner', () => {
   it('preserves build and test output with the installed xcbeautify', { skip: !hasXcbeautify }, () => {
     const result = childProcess.spawnSync('/bin/bash', [formatterCompatibility], { encoding: 'utf8', timeout: 10_000 });

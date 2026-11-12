@@ -10,6 +10,7 @@ import {
   APP_SETUP_REQUIRED,
   appFingerprint,
   readAppSettings,
+  readAppAuthentication,
   type Platform,
 } from '../../scripts/app-release/config.ts';
 import { inspectAppSource, lastAppUpload } from '../../scripts/app-release/runtime.ts';
@@ -145,6 +146,11 @@ async function inspectAppReview(options: ReleaseSettings, platform: Platform, pa
   if (settings) {
     blocker =
       uploaded?.fingerprint === appFingerprint(platform, sha, settings) ? APP_ALREADY_UPLOADED : (git.blocker ?? '');
+
+    if (!(await readAppAuthentication(options.configDirectory).catch(() => null))) {
+      blocker =
+        'Upload setup is required. Run just setup-app-release on the release Mac to save private upload credentials.';
+    }
   }
 
   return AppStatusSchema.parse({
