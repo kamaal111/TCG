@@ -22,7 +22,7 @@ Usage: just release-ios [REVISION] [--config-dir DIRECTORY]
 
 Default source: origin/main. Settings: $HOME/.config/tcg.
 Release runs archive, signing and upload without tests or confirmation prompts.
-Uploads use app-store-connect.json API-key settings, independently of Xcode login.
+Automatic signing and uploads use your Xcode account; API-key settings are optional.
 Logs use tail -n 100 -F. Ctrl-C stops the viewer, not the release.
 USAGE
 }
@@ -91,7 +91,7 @@ host="$(read_value "$settings" apiHost)"
 auth=()
 load_upload_key() {
     local file="$config/app-store-connect.json" key_path key_id issuer
-    [[ -r "$file" ]] || die 'Upload authentication is not configured. Run just setup-app-release to select an App Store Connect API key. The recipe does not use or reset Xcode account credentials.'
+    [[ -r "$file" ]] || die 'The optional App Store Connect API-key settings are not readable.'
     key_path="$(read_value "$file" keyPath)"
     key_id="$(read_value "$file" keyID)"
     issuer="$(read_value "$file" issuerID 2>/dev/null || true)"
@@ -103,9 +103,9 @@ load_upload_key() {
     auth+=(-authenticationKeyIssuerID "$issuer")
 }
 
-# Check credentials before rebuilding; GUI account sessions are never reset or repaired here.
-if [[ "$mode" == release || "$mode" == upload ]]; then load_upload_key; fi
-if [[ "$mode" == archive && -r "$config/app-store-connect.json" ]]; then load_upload_key; fi
+# Without an optional API key, xcodebuild uses the account signed into Xcode.
+if [[ "$mode" != inspect && -e "$config/app-store-connect.json" ]]; then load_upload_key; fi
+signing=(-allowProvisioningUpdates ${auth[@]+"${auth[@]}"})
 
 inspect_archive() {
     local app_path app info supported
@@ -237,6 +237,14 @@ log="$session/release.log"
 touch "$log"
 chmod 600 "$log"
 note "Release log: $log"
+if [[ "$mode" == release ]]; then
+    note "Release $platform: archive → sign → inspect → upload"
+fi
+if [[ ${#auth[@]} == 0 ]]; then
+    note 'Authentication: Xcode account; automatic signing enabled.'
+else
+    note 'Authentication: configured App Store Connect API key; automatic signing enabled.'
+fi
 
 run() {
     local label="$1" started=$SECONDS status now last
@@ -311,12 +319,10 @@ if [[ "$mode" != upload ]]; then
     [[ "$platform" != macos ]] || destination='generic/platform=macOS'
     stage=archive
     cd "$checkout"
-    provision=()
-    [[ ${#auth[@]} == 0 ]] || provision=(-allowProvisioningUpdates "${auth[@]}")
     run "Archive and sign $platform" xcodebuild -project app/TCG.xcodeproj -scheme TCG -configuration Release \
         -destination "$destination" -archivePath "$archive" archive \
         CODE_SIGN_STYLE=Automatic CODE_SIGNING_ALLOWED=YES "DEVELOPMENT_TEAM=$team" "TCG_API_HOST=$host" \
-        ONLY_ACTIVE_ARCH=NO SWIFT_USE_INTEGRATED_DRIVER=NO ${provision[@]+"${provision[@]}"}
+        ONLY_ACTIVE_ARCH=NO SWIFT_USE_INTEGRATED_DRIVER=NO "${signing[@]}"
 fi
 run 'Inspect archive' inspect_archive
 if [[ "$mode" == archive ]]; then note "Archive ready: $archive"; exit 0; fi
@@ -337,14 +343,18 @@ cat > "$session/ExportOptions.plist" <<PLIST
 PLIST
 if run 'Upload to App Store Connect' xcodebuild -exportArchive -archivePath "$archive" \
     -exportOptionsPlist "$session/ExportOptions.plist" -exportPath "$session/export" \
-    -allowProvisioningUpdates "${auth[@]}"; then
+    "${signing[@]}"; then
     summary_state=uploaded
     note 'Uploaded to App Store Connect; processing pending.'
 else
     status=$?
     summary_state=failed
     if grep -Eq 'Failed to Use Accounts|missing Xcode-Username|Account credentials.*expired' "$session/.command.log"; then
-        note 'Authentication failed before transfer. Check the configured App Store Connect API key.'
+        if [[ ${#auth[@]} == 0 ]]; then
+            note 'Xcode account authentication failed before transfer. Xcode could not use its stored account credentials; see the Apple error above. The archive is retained for upload-ios or upload-macos after resolving account access.'
+        else
+            note 'Authentication failed before transfer. Check the configured App Store Connect API key.'
+        fi
     else
         note 'Upload result is uncertain. Check App Store Connect before retrying; no automatic retry was made.'
     fi

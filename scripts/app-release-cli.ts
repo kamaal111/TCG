@@ -10,13 +10,18 @@ import { terminalPrompts } from './infra/prompts.ts';
 
 try {
   const args = util.parseArgs({
-    options: { help: { type: 'boolean' }, edit: { type: 'boolean' }, 'config-dir': { type: 'string' } },
+    options: {
+      help: { type: 'boolean' },
+      edit: { type: 'boolean' },
+      'api-key': { type: 'boolean' },
+      'config-dir': { type: 'string' },
+    },
     allowPositionals: true,
   });
 
   if (args.values.help) {
     console.log(
-      'Usage: just setup-app-release [--edit] [--config-dir DIRECTORY]\nSettings: $HOME/.config/tcg. Release recipes use shell scripts and default to origin/main.',
+      'Usage: just setup-app-release [--edit] [--api-key] [--config-dir DIRECTORY]\nSettings: $HOME/.config/tcg. Release recipes use shell scripts and default to origin/main.',
     );
   } else {
     if (args.positionals.length !== 1 || args.positionals[0] !== 'setup') {
@@ -38,6 +43,7 @@ try {
       directory: homePath(directory),
       prompts: terminalPrompts,
       edit: args.values.edit,
+      apiKey: args.values['api-key'],
     });
   }
 } catch (cause) {

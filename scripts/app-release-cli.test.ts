@@ -11,13 +11,14 @@ import { appFingerprint } from './app-release/config.ts';
 import { runAppRelease } from './app-release/runtime.ts';
 import type { Prompts } from './infra/prompts.ts';
 import { acquireLocalLease } from './release/lock.ts';
+import { inspectApp } from '../devportal/src/inspection.ts';
 
 const execute = util.promisify(childProcess.execFile);
 const repository = url.fileURLToPath(new URL('../', import.meta.url));
 const script = path.join(repository, 'scripts/app-release.sh');
 const settings = { version: 1, teamID: 'DXUKH9VF73', apiHost: 'api.mintomo.com' } as const;
 
-async function fixture() {
+async function fixture(apiKey = false) {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'shell app release-'));
   onTestFinished(() => fs.rm(directory, { recursive: true, force: true }));
   const root = path.join(directory, 'repo');
@@ -40,11 +41,15 @@ async function fixture() {
   await fs.writeFile(path.join(config, 'app-release.json'), JSON.stringify(settings), { mode: 0o600 });
   const keyPath = path.join(config, 'AuthKey_ABCDEF1234.p8');
   await fs.writeFile(keyPath, 'fixture-private-key', { mode: 0o600 });
-  await fs.writeFile(
-    path.join(config, 'app-store-connect.json'),
-    JSON.stringify({ keyPath, keyID: 'ABCDEF1234', issuerID: '12345678-1234-4234-9234-123456789012' }),
-    { mode: 0o600 },
-  );
+
+  if (apiKey) {
+    await fs.writeFile(
+      path.join(config, 'app-store-connect.json'),
+      JSON.stringify({ keyPath, keyID: 'ABCDEF1234', issuerID: '12345678-1234-4234-9234-123456789012' }),
+      { mode: 0o600 },
+    );
+  }
+
   const calls = path.join(directory, 'calls.jsonl');
   await fs.writeFile(calls, '');
   await fs.writeFile(
@@ -124,18 +129,21 @@ describe.runIf(process.platform === 'darwin')('native shell release pipeline', (
     { platform: 'ios', destination: 'generic/platform=iOS' },
     { platform: 'macos', destination: 'generic/platform=macOS' },
   ] as const)(
-    'releases $platform without stdin questions and uses explicit API credentials',
+    'releases $platform without stdin questions using the Xcode account',
     async ({ platform, destination }) => {
       const f = await fixture();
       const result = await f.invoke('release', platform);
       expect(result.stdout).toContain('Uploaded to App Store Connect; processing pending.');
       expect(result.stdout).not.toContain('Approve');
+      expect(result.stdout).toContain('archive → sign → inspect → upload');
+      expect(result.stdout).toContain('Authentication: Xcode account');
       const calls = await f.records();
       expect(calls).toHaveLength(2);
       expect(calls[0]).toContain(destination);
-      expect(calls[0]).toContain('-authenticationKeyPath');
-      expect(calls[1]).toContain('-authenticationKeyID');
-      expect(calls[1]).toContain('-authenticationKeyIssuerID');
+      expect(calls[0]).toContain('-allowProvisioningUpdates');
+      expect(calls[0]).not.toContain('-authenticationKeyPath');
+      expect(calls[1]).toContain('-allowProvisioningUpdates');
+      expect(calls[1]).not.toContain('-authenticationKeyID');
       expect(calls.flat()).not.toContain('test');
       expect(await f.summary()).toMatchObject({
         platform,
@@ -149,13 +157,12 @@ describe.runIf(process.platform === 'darwin')('native shell release pipeline', (
     },
   );
 
-  test('archive-only works with installed signing assets without API credentials or upload', async () => {
+  test('archive-only uses Xcode automatic signing without API credentials or upload', async () => {
     const f = await fixture();
-    await fs.rm(path.join(f.config, 'app-store-connect.json'));
     const result = await f.invoke('archive', 'ios');
     expect(result.stdout).toContain('Archive ready:');
     expect(await f.records()).toHaveLength(1);
-    expect((await f.records())[0]).not.toContain('-allowProvisioningUpdates');
+    expect((await f.records())[0]).toContain('-allowProvisioningUpdates');
   });
 
   test('cancellation stops the compiler tree and releases the lease', async () => {
@@ -240,11 +247,28 @@ describe.runIf(process.platform === 'darwin')('native shell release pipeline', (
     expect(await fs.readFile(path.join(f.config, 'app-release.lock/pid'), 'utf8')).toBe(String(process.pid));
   });
 
-  test('missing API credentials stop before any xcodebuild call', async () => {
-    const f = await fixture();
-    await fs.rm(path.join(f.config, 'app-store-connect.json'));
+  test('uses explicitly configured API credentials for both archive and upload', async () => {
+    const f = await fixture(true);
+    await f.invoke('release', 'ios');
+    const calls = await f.records();
+    expect(calls).toHaveLength(2);
+    expect(calls[0]).toContain('-authenticationKeyPath');
+    expect(calls[1]).toContain('-authenticationKeyID');
+    expect(calls[1]).toContain('-authenticationKeyIssuerID');
+  });
+
+  test('invalid optional API credentials stop before any xcodebuild call', async () => {
+    const f = await fixture(true);
+    await fs.writeFile(
+      path.join(f.config, 'app-store-connect.json'),
+      JSON.stringify({
+        keyPath: path.join(f.config, 'AuthKey_ABCDEF1234.p8'),
+        keyID: 'ABCDEF1234',
+        issuerID: 'invalid',
+      }),
+    );
     await expect(f.invoke('release', 'ios')).rejects.toMatchObject({
-      stderr: expect.stringContaining('Upload authentication is not configured'),
+      stderr: expect.stringContaining('Issuer ID is required'),
     });
     expect(await f.records()).toEqual([]);
   });
@@ -253,7 +277,7 @@ describe.runIf(process.platform === 'darwin')('native shell release pipeline', (
     const f = await fixture();
     await expect(f.invoke('release', 'ios', [], { TCG_TEST_ACCOUNT_FAILURE: '1' })).rejects.toMatchObject({
       code: 70,
-      stdout: expect.stringContaining('Authentication failed before transfer'),
+      stdout: expect.stringContaining('Xcode account authentication failed before transfer'),
     });
     const sessions = await fs.readdir(path.join(f.config, 'app-releases'));
     const archive = path.join(f.config, 'app-releases', sessions[0] ?? '', 'Mintomo.xcarchive');
@@ -279,6 +303,13 @@ describe.runIf(process.platform === 'darwin')('native shell release pipeline', (
     });
     expect(await f.records()).toHaveLength(1);
     expect(await f.summary()).toEqual(original);
+  });
+
+  test('Devportal inspection allows release with saved team and hostname and no API key', async () => {
+    const f = await fixture();
+    const status = await inspectApp({ root: f.root, configDirectory: f.config }, 'ios', 0);
+    expect(status).toMatchObject({ blocker: null, main: f.sha, fingerprint: appFingerprint('ios', f.sha, settings) });
+    expect(await f.records()).toEqual([]);
   });
 
   test('Devportal invokes the same shell pipeline under its existing lease without extra approvals', async () => {

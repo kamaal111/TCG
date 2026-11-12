@@ -17,7 +17,6 @@ async function fixture() {
   const keyPath = path.join(directory, 'AuthKey_ABCDEF1234.p8');
   await fs.writeFile(keyPath, 'fixture key');
   const authentication = { keyPath, keyID: 'ABCDEF1234', issuerID: '12345678-1234-4234-9234-123456789012' };
-  await fs.writeFile(path.join(directory, 'app-store-connect.json'), JSON.stringify(authentication), { mode: 0o600 });
   await fs.mkdir(path.join(root, 'app/Configuration'), { recursive: true });
   await fs.writeFile(path.join(root, 'app/Configuration/App.xcconfig'), `DEVELOPMENT_TEAM = ${settings.teamID}\n`);
   const text = vi.fn<Prompts['text']>().mockResolvedValue(settings.apiHost);
@@ -154,13 +153,9 @@ test('saves settings without an extra confirmation', async () => {
 test('explicit edit mode keeps known values as defaults and allows changing them', async () => {
   const f = await fixture();
   await saveAppSettings(f.directory, settings);
-  f.text
-    .mockResolvedValueOnce(settings.teamID)
-    .mockResolvedValueOnce('new.mintomo.com')
-    .mockResolvedValueOnce(f.authentication.keyPath)
-    .mockResolvedValueOnce(f.authentication.issuerID);
+  f.text.mockResolvedValueOnce(settings.teamID).mockResolvedValueOnce('new.mintomo.com');
   await setupAppRelease({ root: f.root, directory: f.directory, prompts: f.prompts, edit: true });
-  expect(f.text).toHaveBeenCalledTimes(4);
+  expect(f.text).toHaveBeenCalledTimes(2);
   expect(f.text).toHaveBeenNthCalledWith(2, expect.objectContaining({ initialValue: settings.apiHost }));
   expect((await readAppSettings(f.directory)).apiHost).toBe('new.mintomo.com');
 });
@@ -234,12 +229,21 @@ test('keeps the current checkout infrastructure hostname ahead of the primary ch
 test('new API-key setup asks only for path and issuer, preserves the key and saves private metadata', async () => {
   const f = await fixture();
   await saveAppSettings(f.directory, settings);
-  await fs.rm(path.join(f.directory, 'app-store-connect.json'));
   f.text.mockResolvedValueOnce(f.authentication.keyPath).mockResolvedValueOnce(f.authentication.issuerID);
-  await setupAppRelease({ root: f.root, directory: f.directory, prompts: f.prompts });
+  await setupAppRelease({ root: f.root, directory: f.directory, prompts: f.prompts, apiKey: true });
   expect(f.text).toHaveBeenCalledTimes(2);
   expect(f.confirm).not.toHaveBeenCalled();
   expect(await readAppAuthentication(f.directory)).toEqual(f.authentication);
   expect(await fs.readFile(f.authentication.keyPath, 'utf8')).toBe('fixture key');
   expect((await fs.stat(path.join(f.directory, 'app-store-connect.json'))).mode & 0o777).toBe(0o600);
+});
+
+test('default setup needs no API key and preserves existing optional credentials', async () => {
+  const f = await fixture();
+  await saveAppSettings(f.directory, settings);
+  await fs.writeFile(path.join(f.directory, 'app-store-connect.json'), JSON.stringify(f.authentication));
+  await setupAppRelease({ root: f.root, directory: f.directory, prompts: f.prompts });
+  expect(f.text).not.toHaveBeenCalled();
+  expect(f.confirm).not.toHaveBeenCalled();
+  expect(await readAppAuthentication(f.directory)).toEqual(f.authentication);
 });

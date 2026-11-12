@@ -19,6 +19,7 @@ interface SetupOptions {
   directory: string;
   prompts: Prompts;
   edit?: boolean;
+  apiKey?: boolean;
 }
 
 const execute = util.promisify(childProcess.execFile);
@@ -71,7 +72,13 @@ async function configuredHostname(root: string, directory: string, saved?: strin
   return undefined;
 }
 
-export async function setupAppRelease({ root, directory, prompts, edit = false }: SetupOptions): Promise<void> {
+export async function setupAppRelease({
+  root,
+  directory,
+  prompts,
+  edit = false,
+  apiKey = false,
+}: SetupOptions): Promise<void> {
   const saved = await readAppSettings(directory).catch(() => undefined);
   const project = await fs.readFile(path.join(root, 'app/Configuration/App.xcconfig'), 'utf8');
   const knownHost = await configuredHostname(root, directory, saved?.apiHost);
@@ -81,7 +88,7 @@ export async function setupAppRelease({ root, directory, prompts, edit = false }
   );
 
   prompts.note(
-    'Signing uses this Mac’s installed certificates and profiles. Unattended signing and uploads use an App Store Connect API key, independently of Xcode’s cached Apple-account session. Create or reuse a team API key in App Store Connect → Users and Access → Integrations. The .p8 key remains in its existing private file; no Apple password is requested or saved.',
+    'Automatic signing and uploads use the Apple Developer account signed into Xcode Settings → Accounts. Keep the signing Keychain unlocked. API keys are optional; use just setup-app-release --api-key only to configure one. No Apple password is requested or saved.',
     'App release setup',
   );
 
@@ -111,6 +118,17 @@ export async function setupAppRelease({ root, directory, prompts, edit = false }
           },
         });
 
+  if (apiKey) {
+    await configureAPIKey(directory, prompts, edit);
+  }
+
+  await saveAppSettings(directory, { version: 1, teamID, apiHost });
+  prompts.note(
+    `Saved release settings.\nTeam: ${teamID}\nAPI: https://${apiHost}\nAuthentication: Xcode account, or optional API key if configured\nDestination: App Store Connect`,
+  );
+}
+
+async function configureAPIKey(directory: string, prompts: Prompts, edit: boolean): Promise<void> {
   const savedAuthentication = await readAppAuthentication(directory).catch(() => undefined);
 
   const keyPath =
@@ -146,9 +164,5 @@ export async function setupAppRelease({ root, directory, prompts, edit = false }
         });
 
   const authentication = AppAuthenticationSchema.parse({ keyPath, keyID, issuerID });
-  await saveAppSettings(directory, { version: 1, teamID, apiHost });
   await saveAppAuthentication(directory, authentication);
-  prompts.note(
-    `Saved release settings.\nTeam: ${teamID}\nAPI: https://${apiHost}\nAuthentication: App Store Connect API key ${keyID}\nDestination: App Store Connect`,
-  );
 }
