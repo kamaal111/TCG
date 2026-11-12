@@ -21,6 +21,7 @@ public struct TCGScene: Scene {
         )
     )
     @State private var currencyState = TCGCurrency()
+    @State private var pricePrivacy = TCGPricePrivacy()
     @State private var cards = TCGCards.default()
     @State private var collections = TCGCollections(client: .default(), defaults: .standard)
     @State private var search = TCGSearch.default()
@@ -40,6 +41,7 @@ public struct TCGScene: Scene {
                     offline: offline
                 )
             }
+            .environment(\.tcgPricePrivacy, pricePrivacy)
         }
         #if os(macOS)
             Settings {
@@ -48,6 +50,7 @@ public struct TCGScene: Scene {
                     .environment(\.tcgCollections, collections)
                     .environment(auth)
                     .environment(\.tcgCurrency, currencyState)
+                    .environment(\.tcgPricePrivacy, pricePrivacy)
                     .frame(width: 450)
             }
             .commands {

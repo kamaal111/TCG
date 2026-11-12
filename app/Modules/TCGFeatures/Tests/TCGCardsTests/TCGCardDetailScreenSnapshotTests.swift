@@ -1,4 +1,5 @@
 import SwiftUI
+import TCGCurrency
 import TCGDesignSystem
 import TCGSnapshotTesting
 import Testing
@@ -9,6 +10,46 @@ import Testing
 @Suite("Collection Detail Screen Snapshot Tests")
 @MainActor
 struct TCGCardDetailScreenSnapshotTests {
+    @Test
+    func `Hides purchase costs and market pricing while preserving quantities`() async {
+        let privacy = TCGPricePrivacy(defaults: nil)
+        privacy.hidePrices = true
+        let source = PreviewTCGCardsClient.sampleCards[0]
+        let card = Card(
+            id: source.id,
+            game: source.game,
+            name: source.name,
+            setName: source.setName,
+            cardNumber: source.cardNumber,
+            notes: nil,
+            createdAt: source.createdAt,
+            updatedAt: source.updatedAt,
+            purchases: [.init(condition: .nearMint, quantity: 3, purchasePrice: 5, currency: .eur)],
+            collectionID: nil,
+            allocationAdjustments: nil,
+            illustrator: nil
+        )
+        let model = TCGCardDetailScreenModel(card: .init(card: card, price: PreviewTCGCardsClient.price(for: card)))
+        #expect(model.card.card.purchases.first?.purchasePrice == 5)
+        #expect(model.card.card.totalQuantity == 3)
+        await assertScreenSnapshot(testName: #function) {
+            makeScreen(model)
+                .environment(\.tcgPricePrivacy, privacy)
+                .environment(\.tcgCurrency, TCGCurrency(client: .preview(), defaults: nil))
+        }
+    }
+
+    @Test
+    func `Hides unavailable pricing in collection details`() async {
+        let privacy = TCGPricePrivacy(defaults: nil)
+        privacy.hidePrices = true
+        let model = makeModel(status: .unavailable)
+        #expect(model.card.price.status == .unavailable)
+        await assertScreenSnapshot(testName: #function) {
+            makeScreen(model).environment(\.tcgPricePrivacy, privacy)
+        }
+    }
+
     @Test
     func `Renders known illustrator while current pricing is unavailable`() async {
         let source = PreviewTCGCardsClient.sampleCards[1]

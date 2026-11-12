@@ -31,6 +31,7 @@ public struct CardDetailMetadata {
 }
 
 public struct CardDetailContent<Supplemental: View>: View {
+    @Environment(\.tcgPricePrivacy) private var pricePrivacy
     @State private var presentedImageURL: URL?
     private let metadata: CardDetailMetadata
     private let card: PricedCard?
@@ -79,7 +80,7 @@ public struct CardDetailContent<Supplemental: View>: View {
 
                 supplemental
 
-                if let card {
+                if pricePrivacy?.hidePrices != true, let card {
                     VStack(alignment: .leading, spacing: 12) {
                         Text("Pricing", bundle: .module).font(.title2.bold()).accessibilityAddTraits(.isHeader)
                         if let headline = card.displayHeadline {

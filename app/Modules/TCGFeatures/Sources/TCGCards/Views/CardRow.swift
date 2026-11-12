@@ -8,9 +8,11 @@
 import KamaalExtensions
 import SwiftUI
 import TCGClient
+import TCGCurrency
 import TCGDesignSystem
 
 struct CardRow: View {
+    @Environment(\.tcgPricePrivacy) private var pricePrivacy
     let cardWithPrice: CardWithPrice
     let showDetails: () -> Void
     let exploreImage: () -> Void
@@ -47,23 +49,28 @@ struct CardRow: View {
             VStack(alignment: .trailing, spacing: 6) {
                 Text("×\(amountOfCards)")
                     .font(.title3.monospacedDigit())
-                CardPriceView(price: cardWithPrice.price)
-                if let change = cardWithPrice.card.purchasePriceChangePercent, abs(change) >= 0.005 {
-                    VStack(alignment: .trailing, spacing: 2) {
-                        Text(change / 100, format: .percent.precision(.fractionLength(0...2)).sign(strategy: .always()))
+                if pricePrivacy?.hidePrices != true {
+                    CardPriceView(price: cardWithPrice.price)
+                    if let change = cardWithPrice.card.purchasePriceChangePercent, abs(change) >= 0.005 {
+                        VStack(alignment: .trailing, spacing: 2) {
+                            Text(
+                                change / 100,
+                                format: .percent.precision(.fractionLength(0...2)).sign(strategy: .always())
+                            )
                             .font(.subheadline.weight(.semibold).monospacedDigit())
                             .foregroundStyle(change > 0 ? .green : .red)
-                        Text("vs. purchase · NM market", bundle: .module)
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                    }
-                    .accessibilityElement(children: .ignore)
-                    .accessibilityLabel(
-                        Text(
-                            "Average near-mint market price changed \(change / 100, format: .percent.precision(.fractionLength(0...2)).sign(strategy: .always())) since purchase",
-                            bundle: .module
+                            Text("vs. purchase · NM market", bundle: .module)
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+                        .accessibilityElement(children: .ignore)
+                        .accessibilityLabel(
+                            Text(
+                                "Average near-mint market price changed \(change / 100, format: .percent.precision(.fractionLength(0...2)).sign(strategy: .always())) since purchase",
+                                bundle: .module
+                            )
                         )
-                    )
+                    }
                 }
             }
         }

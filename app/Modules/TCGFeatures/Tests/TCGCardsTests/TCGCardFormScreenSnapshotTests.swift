@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import TCGCurrency
 import TCGSnapshotTesting
 import Testing
 
@@ -15,6 +16,21 @@ import Testing
 @Suite("TCGCard Form Screen Snapshot Tests")
 @MainActor
 struct TCGCardFormScreenSnapshotTests {
+    @Test
+    func `Keeps purchase inputs and totals visible when browsing prices are hidden`() async {
+        let privacy = TCGPricePrivacy(defaults: nil)
+        privacy.hidePrices = true
+        let model = TCGCardFormScreenModel(mode: .edit(PreviewTCGCardsClient.sampleCards[0]), initialValues: nil)
+        model.values.batches[0].priceText = "5.00"
+        model.values.batches[0].quantity = 2
+        model.values.batches[0].priceWasEdited = true
+        #expect(model.values.batches[0].price == 5)
+        #expect(model.values.batches[0].quantity == 2)
+        await assertScreenSnapshot(testName: #function) {
+            makeScreen(model: model).environment(\.tcgPricePrivacy, privacy)
+        }
+    }
+
     @Test
     func `Renders multiple purchase batches`() async {
         let model = TCGCardFormScreenModel(
