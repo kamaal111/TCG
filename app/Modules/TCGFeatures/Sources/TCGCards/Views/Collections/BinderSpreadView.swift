@@ -5,16 +5,18 @@ import TCGCurrency
 struct BinderSpreadView: View {
     struct Content {
         let collection: CardBinderCollection
-        let zoom: Double
+        let canArrange: Bool
     }
 
     struct Actions {
         let selectSlot: (BinderSlotSelection) -> Void
         let deletePage: () -> Void
+        let moveSlot: (BinderSlotDragPayload, BinderPosition) -> Bool
     }
 
     @Environment(\.tcgCollections) private var collections
     @Environment(\.tcgCurrency) private var currency
+    @State private var interactionSession = BinderInteractionSession()
     @State private var viewport = CGSize.zero
     @State private var pageCards: [UUID: [CardWithPrice]] = [:]
     @State private var loadError: String?
@@ -24,7 +26,7 @@ struct BinderSpreadView: View {
     let actions: Actions
 
     private var layout: BinderSpreadLayout {
-        .make(collection: content.collection, viewport: viewport, zoom: content.zoom)
+        .make(collection: content.collection, viewport: viewport)
     }
 
     private var visiblePages: [BinderPage] {
@@ -61,6 +63,8 @@ struct BinderSpreadView: View {
                 BinderPageLoadError(message: loadError, retry: { Task { await loadPages() } })
             }
         }
+        .onChange(of: content.collection.id) { interactionSession.end() }
+        .onDisappear { interactionSession.end() }
         .task(
             id: PageIdentity(
                 pages: visiblePages.map(\.id),
@@ -82,12 +86,29 @@ struct BinderSpreadView: View {
                         cards: pageCards[page.id] ?? [],
                         slotWidth: layout.slotWidth
                     ),
-                    selectSlot: actions.selectSlot
+                    selectSlot: actions.selectSlot,
+                    canArrange: content.canArrange,
+                    interactionSession: interactionSession,
+                    moveSlot: actions.moveSlot,
+                    navigate: navigate
                 )
                 .frame(width: visiblePages.count > 1 ? layout.pageSize.width : nil)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private func navigate(_ direction: BinderPageDirection) {
+        guard interactionSession.payload == nil else { return }
+        let range = layout.pageRange(startingAt: pageIndex, totalPages: content.collection.pages.count)
+        if let index = BinderSpreadLayout.adjacentIndex(
+            direction: direction,
+            visibleRange: range,
+            capacity: layout.capacity,
+            totalPages: content.collection.pages.count
+        ) {
+            pageIndex = index
+        }
     }
 
     private struct PageIdentity: Hashable {

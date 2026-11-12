@@ -3,8 +3,6 @@ import TCGClient
 import TCGDesignSystem
 
 struct TCGBinderScreen: View {
-    private static let zoomRange = 0.5...3.0
-
     @Environment(\.isEditingCollection) private var isEditingCollection
     @Environment(\.tcgCollections) private var collections
     @Environment(TCGCards.self) private var cards
@@ -12,16 +10,20 @@ struct TCGBinderScreen: View {
     @State private var pageIndex = 0
     @State private var selection: BinderSlotSelection?
     @State private var isDeletingPage = false
-    @State private var zoom = 1.0
+    @State private var isSavingLayout = false
     @State private var isAddingCard = false
 
     var body: some View {
         VStack(spacing: 12) {
             if !collection.pages.isEmpty {
                 BinderSpreadView(
-                    content: .init(collection: collection, zoom: zoom),
+                    content: .init(collection: collection, canArrange: canArrange),
                     pageIndex: $pageIndex,
-                    actions: .init(selectSlot: { selection = $0 }, deletePage: { isDeletingPage = true })
+                    actions: .init(
+                        selectSlot: { selection = $0 },
+                        deletePage: { isDeletingPage = true },
+                        moveSlot: moveSlot
+                    )
                 )
             } else {
                 ContentUnavailableView {
@@ -34,8 +36,14 @@ struct TCGBinderScreen: View {
                     if !cards.isReadOnly { Text("Add an empty page to start arranging cards.", bundle: .module) }
                 }
             }
-            TCGZoomSlider(value: $zoom, range: Self.zoomRange, label: Text("Zoom", bundle: .module))
-            if !cards.isReadOnly { BinderPageActions(addPage: { Task { await addPage() } }) }
+            if !cards.isReadOnly {
+                BinderPageActions(
+                    addPage: { Task { await addPage() } },
+                    selectedPageNumber: currentPage == nil ? nil : pageIndex + 1,
+                    insertPage: { Task { await insertPage() } }
+                )
+                .disabled(!canArrange)
+            }
 
         }
         .padding()
@@ -87,18 +95,66 @@ struct TCGBinderScreen: View {
         collection.pages.indices.contains(pageIndex) ? collection.pages[pageIndex] : nil
     }
 
+    private var canArrange: Bool {
+        !cards.isReadOnly && !isSavingLayout && collections?.isWorking != true
+    }
+
+    private var latestCollection: CardBinderCollection? {
+        guard let selected = collections?.selected else { return nil }
+        guard selected.id == collection.id else { return nil }
+        return selected
+    }
+
     private func addPage() async {
-        var updated = collection
-        updated.pages.append(BinderPage(id: UUID(), slots: []))
-        if await collections?.save(updated, using: cards) == true { pageIndex = updated.pages.count - 1 }
+        guard canArrange else { return }
+        guard var updated = latestCollection else { return }
+        let pageID = UUID()
+        updated.pages.append(BinderPage(id: pageID, slots: []))
+        isSavingLayout = true
+        await saveLayout(updated, selecting: pageID)
+    }
+
+    private func insertPage() async {
+        guard canArrange else { return }
+        guard let latest = latestCollection else { return }
+        guard let page = currentPage else { return }
+        let newPageID = UUID()
+        guard let updated = BinderLayout.insertingEmptyPage(in: latest, before: page.id, pageID: newPageID) else {
+            return
+        }
+        isSavingLayout = true
+        await saveLayout(updated, selecting: newPageID)
+    }
+
+    private func moveSlot(_ payload: BinderSlotDragPayload, to destination: BinderPosition) -> Bool {
+        guard canArrange else { return false }
+        guard let latest = latestCollection else { return false }
+        guard payload.matches(latest) else { return false }
+        guard let updated = BinderLayout.movingSlot(in: latest, from: payload.source, to: destination) else {
+            return false
+        }
+        isSavingLayout = true
+        Task { await saveLayout(updated) }
+        return true
+    }
+
+    private func saveLayout(_ updated: CardBinderCollection, selecting pageID: UUID? = nil) async {
+        defer { isSavingLayout = false }
+        guard await collections?.save(updated, using: cards) == true else { return }
+        guard let saved = latestCollection else { return }
+        if let pageID, let index = saved.pages.firstIndex(where: { $0.id == pageID }) {
+            pageIndex = index
+        }
     }
 
     private func deleteCurrentPage() async {
         guard isEditingCollection else { return }
+        guard canArrange else { return }
         guard let page = currentPage else { return }
-        var updated = collection
+        guard var updated = latestCollection else { return }
         updated.pages.removeAll { $0.id == page.id }
-        _ = await collections?.save(updated, using: cards)
+        isSavingLayout = true
+        await saveLayout(updated)
     }
 
 }

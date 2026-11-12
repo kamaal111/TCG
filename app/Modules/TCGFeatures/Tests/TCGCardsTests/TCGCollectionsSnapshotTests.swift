@@ -129,6 +129,16 @@ struct TCGCollectionsSnapshotTests {
         }
     }
 
+    @Test func `Renders read only binder pages without mutation controls`() async {
+        let collection = CollectionTestFixtures.binder(columns: 2, rows: 2)
+        let cards = TCGCards(client: .preview())
+        cards.useDownloadedCards([])
+        #expect(cards.isReadOnly)
+        await assertCollectionSnapshot(testName: #function) {
+            NavigationStack { TCGBinderScreen(collection: collection) }.environment(cards)
+        }
+    }
+
     @Test func `Renders explicit collection edit mode`() async throws {
         let context = try await CollectionTestFixtures.selectedContext()
         #expect(context.collections.selected != nil)
