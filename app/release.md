@@ -14,10 +14,8 @@ create the app record for `io.kamaal.TCG`, with iOS and macOS platforms enabled.
 Keep the release user logged in, the Mac awake and signing Keychain unlocked.
 Devportal's LaunchAgent must run as the same user.
 
-For unattended signing and uploads, create or reuse an **App Store Connect API
-team key** with the necessary app and signing permissions in **Users and Access →
-Integrations**. Keep its downloaded `.p8` file in a private location on this Mac.
-Then run:
+Sign into **Xcode Settings → Accounts** with your Apple Developer account, with
+access to signing assets and App Store Connect for the saved team. Then run:
 
 ```sh
 just setup-app-release
@@ -26,22 +24,34 @@ just setup-app-release
 The wizard reuses the saved team and API hostname. If missing, the team comes
 from the Xcode project; the hostname comes from the infrastructure's
 `configuration.api_hostname`, then the private app configuration. Linked worktrees
-also read the primary checkout's private files. It asks only for missing values,
-including the API key's path, Key ID (inferred from `AuthKey_KEYID.p8`) and Issuer
-ID. Xcode requires all three API-key fields. Use `--edit` to change saved values.
+also read the primary checkout's private files. It asks only for missing values.
+Use `--edit` to change them. Default setup does not ask for API keys or passwords.
 
-Settings live in `$HOME/.config/tcg/app-release.json` and
-`$HOME/.config/tcg/app-store-connect.json`, with directory mode 0700 and file mode
-0600. The key stays in its original file; its contents and Apple passwords are
-never copied into settings, logs or Devportal. `--config-dir` selects another
-private settings directory.
+Automatic signing and uploads use the account already signed into Xcode.
+The commands pass `-allowProvisioningUpdates` for both archiving and uploading,
+allowing Xcode to create or update certificates and profiles. The scripts do not
+delete, reset or rewrite Xcode accounts, preferences or Keychain credentials.
+Xcode’s command-line tools use its stored account credentials. Apple failures
+are streamed directly and the archive is retained.
 
-Uploads pass explicit API-key authentication to Xcode instead of relying on its
-cached Apple-account session. The scripts do not delete, reset or rewrite Xcode
-accounts, preferences or Keychain credentials. Missing upload authentication
-fails before any build, with setup instructions. API-key authentication still
-requires valid Apple permissions; configuring a key is not proof that Apple will
-accept it. Xcode may create or update signing assets through automatic signing.
+An API key is optional for machines configured to use one:
+
+```sh
+just setup-app-release --api-key
+```
+
+This explicitly configures a team key's existing `.p8` path, Key ID (inferred
+from `AuthKey_KEYID.p8`) and Issuer ID. When
+`$HOME/.config/tcg/app-store-connect.json` exists, its credentials are passed to
+Xcode instead of using the account session. Invalid existing key settings fail
+with their error rather than silently changing authentication methods.
+Ordinary setup preserves any existing key settings.
+
+Release settings live in `$HOME/.config/tcg/app-release.json`; optional key
+metadata lives in `app-store-connect.json` in the same directory. Directory mode
+is 0700 and settings files use 0600. The key stays in its original file; its
+contents and Apple passwords are never copied into settings, logs or Devportal.
+`--config-dir` selects another private settings directory.
 
 ## Terminal release
 
@@ -66,8 +76,7 @@ version comes from that commit's `App.xcconfig`; change it in a merged PR for a
 new store version. Xcode manages the uploaded build number. Archive inspection
 checks the platform, bundle ID, version, endpoint and signing team.
 
-To archive without uploading, using installed signing assets when no API key is
-configured:
+To archive with automatic signing without uploading:
 
 ```sh
 just archive-ios
@@ -132,8 +141,10 @@ lease. The caller's checkout is unchanged, and archives and logs are retained.
 A failed command prints its output, milestone, exit status and full log path.
 Known account-authentication failures report that transfer did not start;
 other attempted upload failures ask you to check App Store Connect before retrying.
-Fix API-key access or signing assets before retrying; repeatedly signing into
-Xcode does not repair API-key permissions.
+For account authentication failures, the Apple diagnostic identifies the problem
+with Xcode’s stored credentials or account access. For optional API keys, check
+the key’s permissions. Neither path automatically resets credentials or retries
+an upload.
 
 Private artifacts live under `$HOME/.config/tcg/app-releases`, and Devportal
 history under `$HOME/.config/tcg/devportal-releases`. Terminal and Devportal app

@@ -101,9 +101,9 @@ processing is pending, not that the app is published. Check App Store Connect
 before retrying an interrupted upload. All existing allowed operators can release
 apps; no account credentials are sent to the client.
 
-Uploads use the App Store Connect API key configured during setup, independently
-of Xcode’s cached Apple-account session. Keep the release user logged in and
-signing Keychain unlocked. See the
+Automatic signing and uploads use the account signed into Xcode on the release
+Mac. API keys are optional (`just setup-app-release --api-key`). Keep the release
+user logged in and signing Keychain unlocked. See the
 [app release guide](../app/release.md) for prerequisites, build numbering and logs.
 
 ## Server release behavior
