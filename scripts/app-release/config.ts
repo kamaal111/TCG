@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
+import { sha256Hex } from '@tcg/crypto/sha256';
 import z from 'zod';
 
 import { readSettingsFile } from '../infra/config.ts';
@@ -82,8 +83,5 @@ async function savePrivateSettings(
 }
 
 export function appFingerprint(platform: Platform, sha: string, settings: AppSettings): string {
-  return crypto
-    .createHash('sha256')
-    .update(JSON.stringify([platform, sha, settings]))
-    .digest('hex');
+  return sha256Hex(JSON.stringify([platform, sha, settings]));
 }

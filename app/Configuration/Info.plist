@@ -8,6 +8,8 @@
     <string>$(APP_DISPLAY_NAME)</string>
     <key>ITSAppUsesNonExemptEncryption</key>
     <false/>
+    <key>NSFaceIDUsageDescription</key>
+    <string>Unlock your downloaded collection while offline.</string>
     <key>TCGAPIBaseURL</key>
     <string>$(TCG_API_SCHEME)://$(TCG_API_HOST)</string>
     <key>TCGAPIEnvironment</key>

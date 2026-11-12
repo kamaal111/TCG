@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 
+import { sha256Hex } from '@tcg/crypto/sha256';
 import type { DomainLogger } from '@tcg/http/logging';
 
 import type { ImagesLogFields } from './logging.ts';
@@ -208,7 +209,7 @@ export class CardImageMaterializer {
       'Fetched card image from origin.',
     );
 
-    const checksum = crypto.createHash('sha256').update(fetched.value.body).digest('hex');
+    const checksum = sha256Hex(fetched.value.body);
 
     const image: MaterializedImage = {
       body: fetched.value.body,

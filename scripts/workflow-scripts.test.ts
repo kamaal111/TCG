@@ -1,10 +1,10 @@
 import childProcess from 'node:child_process';
-import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import url from 'node:url';
 
+import { sha256Hex } from '@tcg/crypto/sha256';
 import type { TestContext } from 'vitest';
 
 const repo = url.fileURLToPath(new URL('../', import.meta.url));
@@ -13,7 +13,7 @@ const sha = 'd'.repeat(40);
 
 const plan = 'reviewed Terraform plan';
 
-const planHash = crypto.createHash('sha256').update(plan).digest('hex');
+const planHash = sha256Hex(plan);
 
 async function fixture(t: Pick<TestContext, 'onTestFinished'>) {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'tcg-workflow audit-'));

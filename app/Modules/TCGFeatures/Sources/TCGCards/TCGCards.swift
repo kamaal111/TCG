@@ -28,6 +28,8 @@ public final class TCGCards {
     var onCollectionMutation: (@MainActor () async -> Void)?
     private(set) var selectedCollection: CardBinderCollection?
     private let client: TCGClient
+    private var downloadedCards: [CardWithPrice]?
+    var isReadOnly: Bool { downloadedCards != nil }
     private var collectionState = CollectionState(illustrators: [])
     private var displayIdentity: TCGCurrency.DisplayIdentity?
 
@@ -41,6 +43,11 @@ public final class TCGCards {
     }
 
     public static func `default`() -> TCGCards { TCGCards(client: .default()) }
+
+    func useDownloadedCards(_ cards: [CardWithPrice]) {
+        downloadedCards = cards
+        invalidateDisplayPrices()
+    }
 
     func selectCollection(_ collection: CardBinderCollection?) async {
         let changed = selectedCollection?.id != collection?.id
@@ -170,6 +177,22 @@ public final class TCGCards {
         isLoadingNextPage = false
         nextPageError = nil
         setCards(cards)
+
+        if let downloadedCards {
+            let scoped = downloadedCards.filter { entry in
+                if let selectedCollection {
+                    let collectionID = selectedCollection.isUnfiled ? nil : selectedCollection.id
+                    guard entry.card.collectionID == collectionID else { return false }
+                }
+                return request.game == nil || entry.card.game == request.game
+            }
+            availableSetNames = Set(scoped.map(\.card.setName))
+            availableIllustrators = Set(scoped.filter { $0.card.game == .pokemon }.compactMap(\.card.illustrator))
+            let query = request.query?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            setCards(query.isEmpty ? scoped : scoped.filter { $0.card.matchesSearch(query) })
+            collectionState.status = .loaded
+            return .success(())
+        }
 
         var pages = CollectionPages(cards: [], state: .init(illustrators: []))
 

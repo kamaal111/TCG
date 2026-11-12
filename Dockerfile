@@ -7,6 +7,7 @@ WORKDIR /app
 
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
 COPY server/package.json ./server/package.json
+COPY packages/crypto/package.json ./packages/crypto/package.json
 COPY packages/http/package.json ./packages/http/package.json
 COPY packages/scrydex/package.json ./packages/scrydex/package.json
 RUN pnpm install --prod --frozen-lockfile --ignore-scripts
@@ -19,7 +20,9 @@ WORKDIR /app
 COPY --from=dependencies /app/node_modules ./node_modules
 COPY --from=dependencies /app/server/node_modules ./server/node_modules
 COPY --from=dependencies /app/packages/http/node_modules ./packages/http/node_modules
+COPY packages/crypto/package.json ./packages/crypto/package.json
 COPY packages/http/package.json ./packages/http/package.json
+COPY packages/crypto/src ./packages/crypto/src
 COPY packages/http/src ./packages/http/src
 COPY --from=dependencies /app/packages/scrydex/node_modules ./packages/scrydex/node_modules
 COPY packages/scrydex/package.json ./packages/scrydex/package.json

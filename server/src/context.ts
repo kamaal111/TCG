@@ -40,6 +40,7 @@ export interface InjectedContext {
 }
 
 interface RepositoryVariables {
+  offlineCollectionRepository: ReturnType<Persistence['forRequest']>['offlineCollectionRepository'];
   userPreferencesRepository: UserPreferencesRepository;
   forexRepository: ForexRepository;
   cardPricingRepository: CardPricingRepository;
@@ -108,6 +109,7 @@ export function injectRequestContext({
 
     c.set('cardPricingRepository', repositories.cardPricingRepository);
     c.set('userPreferencesRepository', repositories.userPreferencesRepository);
+    c.set('offlineCollectionRepository', repositories.offlineCollectionRepository);
     c.set('cardRepository', repositories.cardRepository);
     c.set('collectionRepository', repositories.collectionRepository);
     c.set('forexRepository', persistence.forexRepository);

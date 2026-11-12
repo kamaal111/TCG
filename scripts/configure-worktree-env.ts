@@ -1,8 +1,9 @@
-import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import net from 'node:net';
 import path from 'node:path';
 import url from 'node:url';
+
+import { sha256Hex } from '@tcg/crypto/sha256';
 
 interface WorktreePorts {
   app: number;
@@ -249,7 +250,7 @@ async function main(): Promise<void> {
   }
 
   const ports = await availablePorts(reserved.ports);
-  const name = `tcg-wt-${crypto.createHash('sha256').update(root).digest('hex').slice(0, 12)}`;
+  const name = `tcg-wt-${sha256Hex(root).slice(0, 12)}`;
 
   if (reserved.projects.has(name)) {
     throw new Error('Generated Compose project name is already reserved by another worktree');

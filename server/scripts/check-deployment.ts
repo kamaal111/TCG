@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
 
+import { sha256Hex } from '@tcg/crypto/sha256';
+
 import { withDeploymentDatabase } from './deployment-database.ts';
 import { EnvSchema } from '../src/config.ts';
 import type { ObjectStorageClient } from '../src/storage/client.ts';
@@ -9,7 +11,7 @@ import { createConfiguredObjectStorage } from '../src/storage/config.ts';
 async function verifyStorage(storage: ObjectStorageClient): Promise<void> {
   const key = `.deployment-check/${crypto.randomUUID()}`;
   const body = Buffer.from('TCG deployment storage check');
-  const checksum = crypto.createHash('sha256').update(body).digest('hex');
+  const checksum = sha256Hex(body);
   const put = await storage.put(key, body, 'text/plain', checksum);
   assert(put.isOk(), 'Storage upload failed');
 

@@ -14,6 +14,7 @@ let package = Package(
         .package(url: "https://github.com/Kamaalio/kamaal-auth", .upToNextMinor(from: "0.1.1")),
         .package(path: "../TCGFeatures"),
         .package(path: "../TCGClient"),
+        .package(path: "../TCGDesignSystem"),
     ],
     targets: [
         .target(
@@ -25,11 +26,13 @@ let package = Package(
                 .product(name: "TCGSettings", package: "TCGFeatures"),
                 .product(name: "KamaalAuth", package: "kamaal-auth"),
                 "TCGClient",
+                "TCGDesignSystem",
             ],
             swiftSettings: [
                 .enableUpcomingFeature("ApproachableConcurrency"),
                 .treatAllWarnings(as: .error),
             ],
-        )
+        ),
+        .testTarget(name: "TCGAppTests", dependencies: ["TCGApp"]),
     ]
 )

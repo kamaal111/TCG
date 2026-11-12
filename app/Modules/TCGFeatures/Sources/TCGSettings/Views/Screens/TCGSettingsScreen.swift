@@ -19,6 +19,8 @@ public struct TCGSettingsScreen: View {
         @Environment(\.dismiss) private var dismiss
     #endif
 
+    @Environment(\.offlineCollectionSettings) private var offlineSettings
+
     @State private var isConfirmingSignOut = false
     @State private var isSigningOut = false
 
@@ -60,6 +62,7 @@ public struct TCGSettingsScreen: View {
 
     public var body: some View {
         Form {
+            offlineSettings?.content
             if let currencyState {
                 Section {
                     Picker(
@@ -271,6 +274,7 @@ public struct TCGSettingsScreen: View {
     private func signOut() {
         Task {
             isSigningOut = true
+            offlineSettings?.signOut()
             currencyState?.clearSession()
             await auth.signOut()
             isSigningOut = false
@@ -278,5 +282,23 @@ public struct TCGSettingsScreen: View {
                 dismiss()
             #endif
         }
+    }
+}
+
+private struct OfflineCollectionSettingsContent {
+    let content: AnyView
+    let signOut: @MainActor () -> Void
+}
+
+extension EnvironmentValues {
+    @Entry fileprivate var offlineCollectionSettings: OfflineCollectionSettingsContent?
+}
+
+extension View {
+    public func offlineCollectionSettings<Content: View>(
+        @ViewBuilder content: () -> Content,
+        onSignOut: @escaping @MainActor () -> Void
+    ) -> some View {
+        environment(\.offlineCollectionSettings, .init(content: AnyView(content()), signOut: onSignOut))
     }
 }

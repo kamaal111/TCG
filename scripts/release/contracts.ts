@@ -1,5 +1,4 @@
-import crypto from 'node:crypto';
-
+import { sha256Hex } from '@tcg/crypto/sha256';
 import z from 'zod';
 
 import { InfraFailure } from '../infra/errors.ts';
@@ -27,7 +26,7 @@ export type Host = z.infer<typeof HostSchema>;
 export type Artifacts = z.infer<typeof ArtifactsSchema>;
 
 export function fingerprint(values: readonly string[]): string {
-  return crypto.createHash('sha256').update(JSON.stringify(values)).digest('hex');
+  return sha256Hex(JSON.stringify(values));
 }
 
 interface MigrationStatus {

@@ -18,6 +18,7 @@
     "@kamaalio/kamaal": "catalog:",
     "@kamaalio/kamaal-auth-core": "catalog:",
     "@kamaalio/kamaal-auth-hono": "catalog:",
+    "@tcg/crypto": "workspace:*",
     "@tcg/http": "workspace:*",
     "@tcg/scrydex": "workspace:*",
     "better-auth": "catalog:",

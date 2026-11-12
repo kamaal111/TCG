@@ -13,6 +13,8 @@ public final class TCGCollections {
     private(set) var isWorking = false
     var error: CollectionsError?
     private let client: TCGCollectionsClient
+    private var downloadedCollections: [UUID: CardBinderCollection]?
+    private var downloadedCards: [UUID: CardWithPrice] = [:]
     private let preferences: CollectionPreferences
     private let logger = KamaalLogger(from: TCGCollections.self)
     private var account: String?
@@ -27,7 +29,15 @@ public final class TCGCollections {
 
     private(set) var selected: CardBinderCollection?
     var unfiled: CardCollectionSummary? { collections.first(where: \.isUnfiled) }
-    var namedCollections: [CardCollectionSummary] { collections.filter { !$0.isUnfiled } }
+    var namedCollections: [CardCollectionSummary] {
+        collections.filter { downloadedCollections != nil || !$0.isUnfiled }
+    }
+
+    func useDownload(cards: [CardWithPrice], collections: [CardBinderCollection]) {
+        downloadedCollections = Dictionary(collections.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        downloadedCards = Dictionary(cards.map { ($0.card.id, $0) }, uniquingKeysWith: { first, _ in first })
+        self.collections = collections.map(\.summary)
+    }
 
     func view(for collectionID: UUID) -> CollectionViewMode {
         views[collectionID]
@@ -71,6 +81,7 @@ public final class TCGCollections {
     }
 
     func reload(using cards: TCGCards) async {
+        guard downloadedCollections == nil else { return }
         cards.onCollectionMutation = { [weak self, weak cards] in
             guard let self else { return }
             guard let cards else { return }
@@ -106,6 +117,11 @@ public final class TCGCollections {
         }
         guard let summary = collections.first(where: { $0.id == id }) else { return }
         selectedID = summary.id
+        if let downloadedCollections {
+            selected = downloadedCollections[id]
+            await cards.selectCollection(selected)
+            return
+        }
         if let account { preferences.save(summary.id, account: account) }
         if let selected, selected.id == summary.id, selected.revision == summary.revision {
             await cards.selectCollection(selected)
@@ -219,6 +235,11 @@ public final class TCGCollections {
     }
 
     func page(_ pageID: UUID) async -> Result<BinderPageCards, CollectionsError> {
+        if downloadedCollections != nil {
+            guard let page = selected?.pages.first(where: { $0.id == pageID }) else { return .failure(.notFound) }
+            let ids = Set(page.slots.map(\.cardID))
+            return .success(BinderPageCards(cards: ids.compactMap { downloadedCards[$0] }))
+        }
         guard let selectedID else { return .failure(.notFound) }
         let token = generation
         let result = await client.page(collectionID: selectedID, pageID: pageID)

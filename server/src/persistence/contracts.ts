@@ -6,6 +6,7 @@ import type { CardImageRepository } from '../card-images/repository.ts';
 import type { PricingCoordinator } from '../card-pricing/coordinator.ts';
 import type { CardPricingRepository } from '../card-pricing/repository.ts';
 import type { CardsLogFields } from '../cards/logging.ts';
+import type { OfflineCollectionRepository } from '../cards/offline-collection-repository.ts';
 import type { CardRepository } from '../cards/repository.ts';
 import type { CollectionRepository } from '../collections/repository.ts';
 import type { ForexRepository } from '../forex/repository.ts';
@@ -21,6 +22,7 @@ export interface RepositoryDiagnostics {
 }
 
 interface RequestRepositories {
+  offlineCollectionRepository: OfflineCollectionRepository;
   cardRepository: CardRepository;
   collectionRepository: CollectionRepository;
   cardPricingRepository: CardPricingRepository;

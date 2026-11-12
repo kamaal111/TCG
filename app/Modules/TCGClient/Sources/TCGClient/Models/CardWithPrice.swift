@@ -3,7 +3,7 @@
 //  TCGClient
 //
 
-public struct CardWithPrice: Hashable, Sendable {
+public struct CardWithPrice: Codable, Hashable, Sendable {
     public let card: Card
     public let price: OwnedCardPrice
 

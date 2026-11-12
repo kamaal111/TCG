@@ -30,16 +30,18 @@ public struct TCGCardsListScreen: View {
             .navigationTitle(collectionTitle)
             .searchable(text: $model.query, prompt: Text("Search cards", bundle: .module))
             .toolbar {
-                Button {
-                    model.presentedForm = .add
-                } label: {
-                    Label {
-                        Text("Add card", bundle: .module)
-                    } icon: {
-                        Image(systemName: "plus")
+                if !cardCollection.isReadOnly {
+                    Button {
+                        model.presentedForm = .add
+                    } label: {
+                        Label {
+                            Text("Add card", bundle: .module)
+                        } icon: {
+                            Image(systemName: "plus")
+                        }
                     }
+                    .help(Text("Add card", bundle: .module))
                 }
-                .help(Text("Add card", bundle: .module))
             }
             .sheet(item: $model.presentedForm) { route in
                 NavigationStack {
