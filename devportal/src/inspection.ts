@@ -11,6 +11,7 @@ import {
   appFingerprint,
   readAppSettings,
   readAppAuthentication,
+  readAppSigning,
   type Platform,
 } from '../../scripts/app-release/config.ts';
 import { inspectAppSource, lastAppUpload } from '../../scripts/app-release/runtime.ts';
@@ -146,6 +147,10 @@ async function inspectAppReview(options: ReleaseSettings, platform: Platform, pa
   if (settings) {
     blocker =
       uploaded?.fingerprint === appFingerprint(platform, sha, settings) ? APP_ALREADY_UPLOADED : (git.blocker ?? '');
+
+    if (!(await readAppSigning(options.configDirectory, platform, settings.teamID).catch(() => null))) {
+      blocker = `Local distribution signing setup is required. Run just setup-app-release --platform ${platform} on the release Mac.`;
+    }
 
     if (!(await readAppAuthentication(options.configDirectory).catch(() => null))) {
       blocker =

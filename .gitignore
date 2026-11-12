@@ -392,3 +392,6 @@ release.env
 # Private App Store Connect email and app-specific password
 app-store-connect.json
 .app-release-*
+
+# Private distribution certificates, keychain secrets and provisioning profiles
+app-signing/

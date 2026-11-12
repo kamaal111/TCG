@@ -215,7 +215,7 @@ unreleased-server-commits *args:
 release-server *args:
     node scripts/release-cli.ts "$@"
 
-# Configure app signing and production release settings
+# Configure private local signing and upload settings (iOS by default)
 [positional-arguments]
 setup-app-release *args:
     node scripts/app-release-cli.ts setup "$@"
