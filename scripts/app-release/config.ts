@@ -28,6 +28,18 @@ export const AppSettingsSchema = z.strictObject({
 
 export type AppSettings = z.infer<typeof AppSettingsSchema>;
 
+export const AppAuthenticationSchema = z.strictObject({
+  keyPath: z.string().nonempty(),
+  keyID: z.string().regex(/^[A-Z0-9]{10}$/),
+  issuerID: z.uuid(),
+});
+
+export async function readAppAuthentication(directory: string) {
+  return AppAuthenticationSchema.parse(
+    JSON.parse(await readSettingsFile(path.join(directory, 'app-store-connect.json'))),
+  );
+}
+
 export async function readAppSettings(directory: string): Promise<AppSettings> {
   try {
     return AppSettingsSchema.parse(JSON.parse(await readSettingsFile(path.join(directory, 'app-release.json'))));
@@ -37,14 +49,28 @@ export async function readAppSettings(directory: string): Promise<AppSettings> {
 }
 
 export async function saveAppSettings(directory: string, input: AppSettings): Promise<void> {
-  const settings = AppSettingsSchema.parse(input);
+  await savePrivateSettings(directory, 'app-release.json', AppSettingsSchema.parse(input));
+}
+
+export async function saveAppAuthentication(
+  directory: string,
+  input: z.infer<typeof AppAuthenticationSchema>,
+): Promise<void> {
+  await savePrivateSettings(directory, 'app-store-connect.json', AppAuthenticationSchema.parse(input));
+}
+
+async function savePrivateSettings(
+  directory: string,
+  filename: string,
+  settings: AppSettings | z.infer<typeof AppAuthenticationSchema>,
+): Promise<void> {
   await fs.mkdir(directory, { recursive: true, mode: 0o700 });
   await fs.chmod(directory, 0o700);
   const temporary = path.join(directory, `.app-release-${crypto.randomUUID()}`);
 
   try {
     await fs.writeFile(temporary, `${JSON.stringify(settings, null, 2)}\n`, { mode: 0o600, flag: 'wx' });
-    await fs.rename(temporary, path.join(directory, 'app-release.json'));
+    await fs.rename(temporary, path.join(directory, filename));
   } finally {
     await fs.rm(temporary, { force: true });
   }

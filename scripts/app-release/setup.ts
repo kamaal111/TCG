@@ -3,9 +3,15 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import util from 'node:util';
 
-import { AppSettingsSchema, readAppSettings, saveAppSettings } from './config.ts';
-import { ConfigStore } from '../infra/config.ts';
-import { InfraFailure } from '../infra/errors.ts';
+import {
+  AppAuthenticationSchema,
+  AppSettingsSchema,
+  readAppAuthentication,
+  readAppSettings,
+  saveAppSettings,
+  saveAppAuthentication,
+} from './config.ts';
+import { ConfigStore, homePath } from '../infra/config.ts';
 import type { Prompts } from '../infra/prompts.ts';
 
 interface SetupOptions {
@@ -75,7 +81,7 @@ export async function setupAppRelease({ root, directory, prompts, edit = false }
   );
 
   prompts.note(
-    'Sign into Xcode Settings → Accounts with your Apple Developer account. The account needs access to signing certificates and App Store Connect uploads for your team. Keep the release user logged in, the Mac awake and Keychain unlocked. Accept Apple agreements and create the app record with iOS and macOS platforms before uploading. No Apple password is saved here.',
+    'Signing uses this Mac’s installed certificates and profiles. Unattended signing and uploads use an App Store Connect API key, independently of Xcode’s cached Apple-account session. Create or reuse a team API key in App Store Connect → Users and Access → Integrations. The .p8 key remains in its existing private file; no Apple password is requested or saved.',
     'App release setup',
   );
 
@@ -105,13 +111,44 @@ export async function setupAppRelease({ root, directory, prompts, edit = false }
           },
         });
 
-  prompts.note(
-    `Team: ${teamID}\nAPI: https://${apiHost}\nAuthentication: this Mac’s Xcode account\nDestination: App Store Connect\nUse just setup-app-release --edit to change reused values.`,
-  );
+  const savedAuthentication = await readAppAuthentication(directory).catch(() => undefined);
 
-  if (!(await prompts.confirm('Save these app release settings?', true))) {
-    throw new InfraFailure('Setup cancelled. Previous settings were preserved.', 130);
-  }
+  const keyPath =
+    !edit && savedAuthentication
+      ? savedAuthentication.keyPath
+      : homePath(
+          await prompts.text({
+            message: 'Path to the App Store Connect API private key (.p8)',
+            initialValue: savedAuthentication?.keyPath,
+          }),
+        );
 
+  await fs.access(keyPath, fs.constants.R_OK);
+  const keyFromName = /AuthKey_([A-Z0-9]{10})\.p8$/.exec(keyPath)?.[1];
+
+  const keyID =
+    !edit && savedAuthentication
+      ? savedAuthentication.keyID
+      : (keyFromName ??
+        (await prompts.text({ message: 'App Store Connect Key ID', initialValue: savedAuthentication?.keyID })));
+
+  const issuerID =
+    !edit && savedAuthentication
+      ? savedAuthentication.issuerID
+      : await prompts.text({
+          message: 'App Store Connect Issuer ID',
+          initialValue: savedAuthentication?.issuerID,
+          validate: value => {
+            return AppAuthenticationSchema.shape.issuerID.safeParse(value).success
+              ? undefined
+              : 'Enter the Issuer ID shown above the team API keys.';
+          },
+        });
+
+  const authentication = AppAuthenticationSchema.parse({ keyPath, keyID, issuerID });
   await saveAppSettings(directory, { version: 1, teamID, apiHost });
+  await saveAppAuthentication(directory, authentication);
+  prompts.note(
+    `Saved release settings.\nTeam: ${teamID}\nAPI: https://${apiHost}\nAuthentication: App Store Connect API key ${keyID}\nDestination: App Store Connect`,
+  );
 }

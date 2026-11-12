@@ -95,14 +95,15 @@ Run `just setup-app-release` on the release Mac first, using the same settings
 directory as the service. The app reports a setup blocker until configured.
 
 Review pins main and the platform's saved team and production API hostname.
-Approve signing and upload separately. Closing the client does not stop the job;
-reconnect to see progress and pending approvals. Successful upload means Apple
+Starting authorizes signing and upload without additional questions. Closing the
+client does not stop the job; reconnect to see progress. Successful upload means Apple
 processing is pending, not that the app is published. Check App Store Connect
 before retrying an interrupted upload. All existing allowed operators can release
 apps; no account credentials are sent to the client.
 
-Keep the release user logged in and Keychain unlocked. First-time signing or an
-expired Apple session may require local action in Xcode. See the
+Uploads use the App Store Connect API key configured during setup, independently
+of Xcode’s cached Apple-account session. Keep the release user logged in and
+signing Keychain unlocked. See the
 [app release guide](../app/release.md) for prerequisites, build numbering and logs.
 
 ## Server release behavior

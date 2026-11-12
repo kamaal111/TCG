@@ -5,7 +5,7 @@ import path from 'node:path';
 import util from 'node:util';
 
 import { inspectAppSource } from './runtime.ts';
-import type { Command } from './xcode.ts';
+import type { Command } from './runtime.ts';
 
 const execute = util.promisify(childProcess.execFile);
 
