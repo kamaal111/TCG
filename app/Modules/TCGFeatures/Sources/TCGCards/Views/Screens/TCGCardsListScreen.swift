@@ -61,10 +61,18 @@ public struct TCGCardsListScreen: View {
             }
     }
 
+    private var canDeleteCards: Bool {
+        #if os(iOS)
+            !cardCollection.isReadOnly
+        #else
+            isEditingCollection
+        #endif
+    }
+
     private var deleteCards: ((IndexSet) -> Void)? {
-        guard isEditingCollection else { return nil }
+        guard canDeleteCards else { return nil }
         return { offsets in
-            guard isEditingCollection else { return }
+            guard canDeleteCards else { return }
             Task { await model.delete(at: offsets, using: cardCollection) }
         }
     }
