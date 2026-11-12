@@ -47,19 +47,16 @@ async function fixture(t: TestContext) {
 
   const upload = vi.fn<() => void>();
 
+  const proceed = Promise.withResolvers<boolean>();
+  const cancellation = new AbortController();
+
   const runApp = vi.fn<NonNullable<ConstructorParameters<typeof ReleaseSessions>[0]['runApp']>>(async options => {
     options.stage?.('archive');
-
-    if (!(await options.prompts.confirm('Provision?', false, { kind: 'provision' }))) {
-      throw new InfraFailure('Declined');
-    }
-
+    await new Promise<boolean>((resolve, reject) => {
+      cancellation.signal.addEventListener('abort', () => reject(new InfraFailure('Cancelled', 130)), { once: true });
+      proceed.promise.then(resolve, reject);
+    });
     options.stage?.('upload');
-
-    if (!(await options.prompts.confirm('Upload?', false, { kind: 'upload' }))) {
-      throw new InfraFailure('Declined');
-    }
-
     upload();
   });
 
@@ -86,7 +83,14 @@ async function fixture(t: TestContext) {
 
   const input = { platform: 'ios', sha, fingerprint, requestId: crypto.randomUUID() };
 
-  return { directory, dependencies, sessions, request, input, inspectApp, runApp, upload };
+  const shutdown = async () => {
+    cancellation.abort();
+    await sessions.shutdownApp();
+  };
+
+  t.onTestFinished(shutdown);
+
+  return { directory, dependencies, sessions, request, input, inspectApp, runApp, upload, proceed, shutdown };
 }
 
 test('app routes reject missing and disallowed identities and invalid platforms', async t => {
@@ -98,27 +102,19 @@ test('app routes reject missing and disallowed identities and invalid platforms'
   expect(f.runApp).not.toHaveBeenCalled();
 });
 
-test('runs both app approval stages once, reconnects and keeps platform history separate', async t => {
+test('starts without additional approvals, reconnects and keeps platform history separate', async t => {
   const f = await fixture(t);
   const release = ReleaseSchema.parse(await (await f.request('/v1/app-releases', f.input)).json());
-  await vi.waitFor(() => expect(f.sessions.get(release.id).approval?.kind).toBe('provision'));
+  await vi.waitFor(() => expect(f.sessions.get(release.id).stage).toBe('archive'));
   expect((await f.request('/v1/app-releases', f.input)).status).toBe(202);
   expect((await f.request('/v1/app-releases', { ...f.input, platform: 'macos' })).status).toBe(409);
   expect(f.runApp).toHaveBeenCalledOnce();
   const recovered = ReleaseSchema.parse(await (await f.request(`/v1/releases/${release.id}`)).json());
-  const provision = recovered.approval;
-  expect(provision).not.toBeNull();
-  const decision = { approved: true, requestId: crypto.randomUUID() };
-  expect((await f.request(`/v1/releases/${release.id}/approvals/${provision?.id}`, decision)).status).toBe(200);
-  expect((await f.request(`/v1/releases/${release.id}/approvals/${provision?.id}`, decision)).status).toBe(200);
-  await vi.waitFor(() => expect(f.sessions.get(release.id).approval?.kind).toBe('upload'));
+  expect(recovered.approval).toBeNull();
+  expect(recovered.state).toBe('running');
   expect(f.upload).not.toHaveBeenCalled();
   await expect(acquireAllReleaseLocks(f.directory)).rejects.toThrow('Another app-release');
-  const uploadApproval = f.sessions.get(release.id).approval;
-  await f.request(`/v1/releases/${release.id}/approvals/${uploadApproval?.id}`, {
-    approved: true,
-    requestId: crypto.randomUUID(),
-  });
+  f.proceed.resolve(true);
   await vi.waitFor(() => expect(f.sessions.get(release.id).state).toBe('succeeded'));
   expect(f.upload).toHaveBeenCalledOnce();
   expect((await f.sessions.appStatus('ios', 0)).latestRelease).toBe(release.id);
@@ -127,7 +123,7 @@ test('runs both app approval stages once, reconnects and keeps platform history 
   const restored = new ReleaseSessions(f.dependencies);
   await restored.initialize();
   expect(restored.get(release.id).target).toBe('ios');
-  expect(restored.get(release.id).decisions).toHaveLength(2);
+  expect(restored.get(release.id).decisions).toHaveLength(0);
 });
 
 test('stale review and setup blockers stop before starting work', async t => {
@@ -141,25 +137,21 @@ test('stale review and setup blockers stop before starting work', async t => {
 test('service restart interrupts an app release without retrying an upload', async t => {
   const f = await fixture(t);
   const release = ReleaseSchema.parse(await (await f.request('/v1/app-releases', f.input)).json());
-  await vi.waitFor(() => expect(f.sessions.get(release.id).state).toBe('approval'));
+  await vi.waitFor(() => expect(f.sessions.get(release.id).stage).toBe('archive'));
   const restored = new ReleaseSessions(f.dependencies);
   await restored.initialize();
   expect(restored.get(release.id)).toMatchObject({ state: 'interrupted', approval: null });
   expect(restored.get(release.id).failure).toContain('upload may have completed');
   expect(f.upload).not.toHaveBeenCalled();
-  const approval = f.sessions.get(release.id).approval;
-  await f.request(`/v1/releases/${release.id}/approvals/${approval?.id}`, {
-    approved: false,
-    requestId: crypto.randomUUID(),
-  });
-  await vi.waitFor(() => expect(f.sessions.get(release.id).state).toBe('failed'));
+  await f.shutdown();
+  expect(f.sessions.get(release.id).state).toBe('interrupted');
 });
 
-test('graceful service shutdown declines pending app approval and retains an interrupted session', async t => {
+test('graceful service shutdown cancels the running app pipeline and retains an interrupted session', async t => {
   const f = await fixture(t);
   const release = ReleaseSchema.parse(await (await f.request('/v1/app-releases', f.input)).json());
-  await vi.waitFor(() => expect(f.sessions.get(release.id).approval?.kind).toBe('provision'));
-  await f.sessions.shutdownApp();
+  await vi.waitFor(() => expect(f.sessions.get(release.id).stage).toBe('archive'));
+  await f.shutdown();
   expect(f.sessions.get(release.id).state).toBe('interrupted');
   expect(f.upload).not.toHaveBeenCalled();
   await expect(fs.access(path.join(f.directory, 'app-release.lock'))).rejects.toThrow('ENOENT');
@@ -187,7 +179,7 @@ test('persists live app milestones and elapsed updates while keeping host output
   });
   t.onTestFinished(async () => {
     work.resolve(true);
-    await f.sessions.shutdownApp();
+    await f.shutdown();
   });
   const release = ReleaseSchema.parse(await (await f.request('/v1/app-releases', f.input)).json());
   await vi.waitFor(() => expect(f.sessions.get(release.id).events).toHaveLength(3));

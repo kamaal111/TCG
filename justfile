@@ -223,17 +223,37 @@ setup-app-release *args:
 # Archive, sign and upload the previously verified iOS app to App Store Connect
 [positional-arguments]
 release-ios *args:
-    node scripts/app-release-cli.ts ios "$@"
+    bash scripts/app-release.sh release ios "$@"
 
 # Archive, sign and upload the previously verified macOS app to App Store Connect
 [positional-arguments]
 release-macos *args:
-    node scripts/app-release-cli.ts macos "$@"
+    bash scripts/app-release.sh release macos "$@"
+
+# Build a signed iOS archive without uploading it
+[positional-arguments]
+archive-ios *args:
+    bash scripts/app-release.sh archive ios "$@"
+
+# Build a signed macOS archive without uploading it
+[positional-arguments]
+archive-macos *args:
+    bash scripts/app-release.sh archive macos "$@"
+
+# Upload an existing signed iOS archive without rebuilding it
+[positional-arguments]
+upload-ios archive *args:
+    bash scripts/app-release.sh upload ios "$@"
+
+# Upload an existing signed macOS archive without rebuilding it
+[positional-arguments]
+upload-macos archive *args:
+    bash scripts/app-release.sh upload macos "$@"
 
 # Follow the latest app release log in another terminal tab (optionally ios or macos)
 [positional-arguments]
 logs-app-release *args:
-    node scripts/app-release-cli.ts logs "$@"
+    bash scripts/app-release.sh logs "" "$@"
 
 # Guide private Devportal setup on the release Mac
 [positional-arguments]

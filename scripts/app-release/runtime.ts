@@ -1,17 +1,17 @@
+import childProcess from 'node:child_process';
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import readline from 'node:readline';
 
 import z from 'zod';
 
-import { appCommands } from './commands.ts';
-import { APP_ALREADY_UPLOADED, appFingerprint, readAppSettings, type Platform } from './config.ts';
-import { appReleaseProgress } from './progress.ts';
-import { archiveArguments, exportOptions, inspectArchive, type Command } from './xcode.ts';
-import { gitAddDetachedWorktree, gitFetch, gitRemoveWorktree, gitRevision } from '../git.ts';
+import type { Platform } from './config.ts';
+import { gitFetch, gitRevision } from '../git.ts';
 import { InfraFailure } from '../infra/errors.ts';
 import type { Prompts } from '../infra/prompts.ts';
 import { selectRelease } from '../release/commits.ts';
-import { acquireLocalLease } from '../release/lock.ts';
+
+export type Command = (program: string, args: string[], cwd?: string) => Promise<string>;
 
 export type AppStage = 'checks' | 'archive' | 'upload';
 
@@ -23,9 +23,7 @@ export interface AppRuntimeOptions {
   prompts: Prompts;
   reviewedFingerprint?: string;
   stage?: (stage: AppStage) => void;
-  command?: Command;
   signal?: AbortSignal;
-  output?: (chunk: string) => void;
 }
 
 const SummarySchema = z.object({
@@ -86,162 +84,84 @@ export async function inspectAppSource(root: string, revision: string, command: 
   return { sha, version };
 }
 
+/** Devportal bridge; the same shell pipeline is called directly by just. */
 export async function runAppRelease(options: AppRuntimeOptions): Promise<void> {
-  const { root, configDirectory, platform, prompts } = options;
-
-  if (!options.command && process.platform !== 'darwin') {
-    throw new InfraFailure('App releases require the release Mac with Xcode.');
+  if (options.signal?.aborted) {
+    throw new InfraFailure('App release cancelled before starting.', 130);
   }
 
-  const settings = await readAppSettings(configDirectory);
-  const state = path.join(configDirectory, 'app-releases');
-  await fs.mkdir(state, { recursive: true, mode: 0o700 });
-  await fs.chmod(state, 0o700);
-  const session = await fs.mkdtemp(path.join(state, `${platform}-`));
-  const log = path.join(session, 'release.log');
-  await fs.writeFile(log, '', { mode: 0o600 });
-
-  let lastOutput = performance.now();
-
-  const output = (chunk: string) => {
-    lastOutput = performance.now();
-    options.output?.(chunk);
-  };
-
-  const command = options.command ?? appCommands({ root, log, signal: options.signal, output });
-
-  const cleanup = options.command ?? appCommands({ root, log, output });
-
-  const step = appReleaseProgress(
-    message => prompts.note(message),
-    () => lastOutput,
+  const child = childProcess.spawn(
+    'bash',
+    [
+      path.join(options.root, 'scripts/app-release.sh'),
+      'release',
+      options.platform,
+      options.revision,
+      '--config-dir',
+      options.configDirectory,
+    ],
+    {
+      cwd: options.root,
+      env: {
+        ...process.env,
+        TCG_APP_PORTAL_EVENTS: '1',
+        TCG_APP_LEASE_PID: String(process.pid),
+        TCG_APP_REVIEWED_FINGERPRINT: options.reviewedFingerprint ?? '',
+      },
+      stdio: ['ignore', 'pipe', 'pipe'],
+    },
   );
 
-  prompts.note(`Detailed output and artifacts are saved privately in ${session}.`);
-  let added = false;
-  const checkout = path.join(session, 'source');
-  let summary: z.infer<typeof SummarySchema> | undefined;
+  const lines = readline.createInterface({ input: child.stdout });
+  const stageSchema = z.enum(['checks', 'archive', 'upload']);
+  let diagnostics = '';
+  let failure = '';
 
-  async function save(next: z.infer<typeof SummarySchema>) {
-    summary = next;
-    const temporary = path.join(session, 'summary.tmp');
-    await fs.writeFile(temporary, JSON.stringify(next), { mode: 0o600 });
-    await fs.rename(temporary, path.join(session, 'summary.json'));
+  const abort = () => {
+    child.kill('SIGTERM');
+  };
+
+  options.signal?.addEventListener('abort', abort, { once: true });
+
+  if (options.signal?.aborted) {
+    abort();
   }
 
-  try {
-    const { sha, version } = await step('Inspecting merged release source', () => {
-      return inspectAppSource(root, options.revision, command);
-    });
+  child.stderr.setEncoding('utf8').on('data', (chunk: string) => {
+    diagnostics = (diagnostics + chunk).slice(-16000);
+  });
+  lines.on('line', line => {
+    const [kind, stage, ...message] = line.split('\t');
+    const parsed = stageSchema.safeParse(stage);
 
-    const fingerprint = appFingerprint(platform, sha, settings);
-    await save({ platform, sha, fingerprint, state: 'started', createdAt: new Date().toISOString() });
-
-    if (options.reviewedFingerprint && options.reviewedFingerprint !== fingerprint) {
-      throw new InfraFailure('App release settings changed. Refresh and review again.');
-    }
-
-    const previous = await lastAppUpload(configDirectory, platform);
-
-    if (previous?.fingerprint === fingerprint) {
-      throw new InfraFailure(`${APP_ALREADY_UPLOADED} Select a new merged commit.`);
-    }
-
-    async function assertSettings() {
-      if (appFingerprint(platform, sha, await readAppSettings(configDirectory)) !== fingerprint) {
-        throw new InfraFailure('App release settings changed. Refresh and review again.');
+    if (kind === 'TCG_APP_EVENT' && parsed.success) {
+      if (message.join('\t').startsWith('Stopped:')) {
+        failure = message.join('\t');
       }
+
+      options.stage?.(parsed.data);
+      options.prompts.note(message.join('\t'));
     }
-
-    const review = { platform, sha, version, teamID: settings.teamID, apiHost: settings.apiHost, fingerprint };
-    prompts.note(
-      `Platform: ${platform}\nCommit: ${sha}\nVersion: ${version}\nBundle: io.kamaal.TCG\nTeam: ${settings.teamID}\nAPI: https://${settings.apiHost}`,
-    );
-    options.stage?.('checks');
-    await step('Preparing isolated release source', () => {
-      return gitAddDetachedWorktree((program, args) => command(program, args, root), checkout, sha);
-    });
-    added = true;
-    prompts.note(
-      'Using previously verified source. Release preparation is complete; archive signing approval is next.',
-    );
-    options.stage?.('archive');
-
-    if (
-      !(await prompts.confirm(
-        'Archive and sign this app? Xcode may create or update certificates, app IDs and provisioning profiles.',
-        false,
-        { kind: 'provision', appReview: review },
-      ))
-    ) {
-      throw new InfraFailure('App release cancelled before signing.', 130);
-    }
-
-    await assertSettings();
-    const archive = path.join(session, 'Mintomo.xcarchive');
-    await step(`Archiving and signing the ${platform} app`, () => {
-      return command('xcodebuild', archiveArguments({ platform, archive, settings }), checkout);
-    });
-    await step('Validating archive identity and signatures', () => {
-      return inspectArchive({ archive, platform, settings, version, command });
-    });
-    const plist = path.join(session, 'ExportOptions.plist');
-    await fs.writeFile(plist, exportOptions(settings), { mode: 0o600 });
-    options.stage?.('upload');
-
-    if (
-      !(await prompts.confirm(
-        'Upload this signed archive to App Store Connect? Xcode will manage the upload build number. This does not submit for App Review.',
-        false,
-        { kind: 'upload', appReview: review },
-      ))
-    ) {
-      throw new InfraFailure('App release cancelled before upload.', 130);
-    }
-
-    await assertSettings();
-    await save({ platform, sha, fingerprint, state: 'uploading', createdAt: new Date().toISOString() });
-    await step('Uploading the signed app to App Store Connect', () => {
-      return command(
-        'xcodebuild',
-        [
-          '-exportArchive',
-          '-archivePath',
-          archive,
-          '-exportOptionsPlist',
-          plist,
-          '-exportPath',
-          path.join(session, 'export'),
-          '-allowProvisioningUpdates',
-        ],
-        checkout,
-      );
-    });
-    await save({ platform, sha, fingerprint, state: 'uploaded', createdAt: new Date().toISOString() });
-    prompts.note(
-      'Uploaded to App Store Connect; processing pending. Check https://appstoreconnect.apple.com for the final build number and processing result.',
-    );
-  } catch (error) {
-    if (summary && summary.state !== 'uploaded') {
-      await save({ ...summary, state: 'failed' });
-    }
-
-    throw error;
-  } finally {
-    if (added) {
-      await step('Cleaning up isolated release source', () => {
-        return gitRemoveWorktree((program, args) => cleanup(program, args, root), { path: checkout, force: true });
-      });
-    }
-  }
-}
-
-export async function releaseAppFromTerminal(options: AppRuntimeOptions): Promise<void> {
-  const unlock = await acquireLocalLease(options.configDirectory, 'app-release');
+  });
 
   try {
-    await runAppRelease(options);
+    await new Promise<void>((resolve, reject) => {
+      child.once('error', cause => reject(new InfraFailure(`Could not start app release: ${cause.message}`)));
+      child.once('close', code => {
+        if (code === 0 && !options.signal?.aborted) {
+          resolve();
+        } else {
+          reject(
+            new InfraFailure(
+              diagnostics.trim() || failure || 'App release stopped. Read the private shell release log.',
+              options.signal?.aborted ? 130 : code || 1,
+            ),
+          );
+        }
+      });
+    });
   } finally {
-    await unlock();
+    options.signal?.removeEventListener('abort', abort);
+    lines.close();
   }
 }
