@@ -3,6 +3,8 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
+import { waitForProcessOutput } from './process-test-utils.ts';
+
 const supervisor = path.resolve('scripts/run-ios-snapshots-ci.ts');
 
 const simulatorId = '24E299B4-C77B-4426-AC2B-71243825F07C';
@@ -498,7 +500,7 @@ describe('iOS snapshot CI supervisor', () => {
   it('cancels simulator boot without starting tests', async () => {
     const directory = fixture('boot-hang');
     const run = start({ directory, destination: simulatorDestination });
-    await vi.waitFor(() => expect(run.output()).toContain('boot ready'));
+    await waitForProcessOutput(run.child, 'boot ready');
     run.child.kill('SIGTERM');
 
     expect(await run.exited).toBe(143);
@@ -629,7 +631,7 @@ setTimeout(() => {
   it('forwards SIGINT to the child and grandchild and exits 130', async () => {
     const directory = fixture('graceful');
     const run = start({ directory });
-    await vi.waitFor(() => expect(run.output()).toContain('worker ready'));
+    await waitForProcessOutput(run.child, 'worker ready');
     run.child.kill('SIGINT');
 
     expect(await run.exited).toBe(130);
@@ -641,7 +643,7 @@ setTimeout(() => {
   it('kills signal-resistant children within the cleanup budget', async () => {
     const directory = fixture('stubborn');
     const run = start({ directory });
-    await vi.waitFor(() => expect(run.output()).toContain('worker ready'));
+    await waitForProcessOutput(run.child, 'worker ready');
     const started = performance.now();
     run.child.kill('SIGINT');
 
@@ -655,7 +657,7 @@ setTimeout(() => {
   it('kills a grandchild even when its parent exits on SIGINT', async () => {
     const directory = fixture('parent-exit');
     const run = start({ directory });
-    await vi.waitFor(() => expect(run.output()).toContain('worker ready'));
+    await waitForProcessOutput(run.child, 'worker ready');
     run.child.kill('SIGINT');
 
     expect(await run.exited).toBe(130);
@@ -665,7 +667,7 @@ setTimeout(() => {
   it('escalates SIGTERM immediately and exits 143', async () => {
     const directory = fixture('stubborn');
     const run = start({ directory });
-    await vi.waitFor(() => expect(run.output()).toContain('worker ready'));
+    await waitForProcessOutput(run.child, 'worker ready');
     run.child.kill('SIGTERM');
 
     expect(await run.exited).toBe(143);
@@ -676,9 +678,9 @@ setTimeout(() => {
   it('escalates a repeated cancellation immediately', async () => {
     const directory = fixture('stubborn');
     const run = start({ directory });
-    await vi.waitFor(() => expect(run.output()).toContain('worker ready'));
+    await waitForProcessOutput(run.child, 'worker ready');
     run.child.kill('SIGINT');
-    await vi.waitFor(() => expect(run.output()).toContain('just received SIGINT'));
+    await waitForProcessOutput(run.child, 'just received SIGINT');
     run.child.kill('SIGINT');
 
     expect(await run.exited).toBe(130);
@@ -711,7 +713,7 @@ setTimeout(() => {
       { mode: 0o755 },
     );
     const run = start({ directory });
-    await vi.waitFor(() => expect(run.output()).toContain('shutdown ready'));
+    await waitForProcessOutput(run.child, 'shutdown ready');
     run.child.kill('SIGTERM');
 
     expect(await run.exited).toBe(143);
@@ -755,7 +757,7 @@ setTimeout(() => {
     processes.push(unrelated);
     const directory = fixture('stubborn');
     const run = start({ directory });
-    await vi.waitFor(() => expect(run.output()).toContain('worker ready'));
+    await waitForProcessOutput(run.child, 'worker ready');
     run.child.kill('SIGTERM');
 
     expect(await run.exited).toBe(143);

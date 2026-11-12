@@ -2,125 +2,116 @@
 
 [App guide](README.md) · [Devportal](../devportal/README.md)
 
-Run `just release-ios` or `just release-macos` on the release Mac. Each calls the
-same shell pipeline used by Devportal: archive, sign, inspect, then upload to
-App Store Connect. There are no confirmation questions or release-time tests.
-Uploading does not distribute to testers or submit for App Review.
+`just release-ios` and `just release-macos` run this sequence:
+
+1. Archive and sign with `xcodebuild`.
+2. Inspect the archive's platform, identity, version and production endpoint.
+3. Export a signed IPA or PKG locally with `xcodebuild -exportArchive`.
+4. Upload that file with `xcrun altool` using private upload credentials.
+
+Terminal and Devportal share the same shell pipeline. There are no release-time
+tests, dependency installations or confirmation questions. XcTools is not used.
 
 ## One-time setup
 
-Install Xcode and accept its license. Accept outstanding Apple agreements and
-create the app record for `io.kamaal.TCG`, with iOS and macOS platforms enabled.
-Keep the release user logged in, the Mac awake and signing Keychain unlocked.
-Devportal's LaunchAgent must run as the same user.
-
-Sign into **Xcode Settings → Accounts** with your Apple Developer account, with
-access to signing assets and App Store Connect for the saved team. Then run:
+Install Xcode and accept its license and outstanding Apple agreements. Create the
+`io.kamaal.TCG` app record in App Store Connect with iOS and macOS platforms.
+Sign into Xcode Settings → Accounts for automatic signing and access to cloud
+signing certificates. If a previous locked-screen run removed the Xcode account,
+restore it there once; the recipes never reset account or Keychain settings.
 
 ```sh
 just setup-app-release
 ```
 
-The wizard reuses the saved team and API hostname. If missing, the team comes
-from the Xcode project; the hostname comes from the infrastructure's
-`configuration.api_hostname`, then the private app configuration. Linked worktrees
-also read the primary checkout's private files. It asks only for missing values.
-Use `--edit` to change them. Default setup does not ask for API keys or passwords.
+Setup reuses the saved signing team and API hostname. If missing, the team comes
+from the project, and the hostname from infrastructure's
+`configuration.api_hostname`, then private app configuration. Linked worktrees
+also read the primary checkout's private files.
 
-Automatic signing and uploads use the account already signed into Xcode.
-The commands pass `-allowProvisioningUpdates` for both archiving and uploading,
-allowing Xcode to create or update certificates and profiles. The scripts do not
-delete, reset or rewrite Xcode accounts, preferences or Keychain credentials.
-Xcode’s command-line tools use its stored account credentials. Apple failures
-are streamed directly and the archive is retained.
+It asks for your **App Store Connect email** and a masked **app-specific
+password**, then saves them privately for future releases. Generate an app-specific
+password at [Apple Account](https://account.apple.com/) under Sign-In and Security
+→ App-Specific Passwords. Your main Apple Account password is not accepted.
+Use `just setup-app-release --edit` to change saved values.
 
-An API key is optional for machines configured to use one:
+Private files live under `$HOME/.config/tcg` (directory mode 0700):
 
-```sh
-just setup-app-release --api-key
-```
+- `app-release.json`: signing team and production hostname.
+- `app-store-connect.json`: email and app-specific password (file mode 0600).
 
-This explicitly configures a team key's existing `.p8` path, Key ID (inferred
-from `AuthKey_KEYID.p8`) and Issuer ID. When
-`$HOME/.config/tcg/app-store-connect.json` exists, its credentials are passed to
-Xcode instead of using the account session. Invalid existing key settings fail
-with their error rather than silently changing authentication methods.
-Ordinary setup preserves any existing key settings.
+The credentials filename is ignored by Git even with a custom `--config-dir`.
+The upload command uses a password environment reference; credentials are
+redacted from echoed commands and upload output. No email or password is sent
+to Devportal clients. API keys are not needed.
 
-Release settings live in `$HOME/.config/tcg/app-release.json`; optional key
-metadata lives in `app-store-connect.json` in the same directory. Directory mode
-is 0700 and settings files use 0600. The key stays in its original file; its
-contents and Apple passwords are never copied into settings, logs or Devportal.
-`--config-dir` selects another private settings directory.
+## Release commands
 
-## Terminal release
-
-Merge and verify the changes, then run from the repository root:
+Merge and verify source, then run:
 
 ```sh
 just release-ios
 just release-macos
-# Optional: a specific commit already merged into main
+# Optionally choose a commit already merged into main:
 just release-ios origin/main
 ```
 
-Both commands fetch main, pin the commit and use an isolated source checkout.
-Only the selected platform is archived. They do not install Node dependencies,
-run tests, start simulators or run quality/localization checks. Run
-`just ready-app` separately before releasing when needed. The terminal pipeline
-is `scripts/app-release.sh`; it uses Bash, Git and native macOS/Xcode tools.
-TypeScript remains in the existing configuration wizard and Devportal bridge.
+The commands fetch main, pin the selected commit and use an isolated source
+checkout. Only the selected platform is built. Run `just ready-app` separately
+before releasing when needed. The saved production hostname is passed into the
+build; the caller's checkout and private app configuration are unchanged.
 
-The saved production hostname is passed directly into the build. The marketing
-version comes from that commit's `App.xcconfig`; change it in a merged PR for a
-new store version. Xcode manages the uploaded build number. Archive inspection
-checks the platform, bundle ID, version, endpoint and signing team.
+The marketing version comes from the selected commit's `App.xcconfig`.
+New archives use that commit's Git commit count as their build number; a new
+merged commit produces a new build number. Local export preserves this number,
+and upload-only retries keep it. Older retained archives keep their original
+build number; build a fresh archive if Apple has already received that number.
 
-To archive with automatic signing without uploading:
+Archive without uploading:
 
 ```sh
 just archive-ios
 just archive-macos
 ```
 
-After fixing an upload failure, reuse its retained archive without rebuilding:
+Reuse a retained archive without recompiling:
 
 ```sh
 just upload-ios "$HOME/.config/tcg/app-releases/ios-SESSION/Mintomo.xcarchive"
 just upload-macos "$HOME/.config/tcg/app-releases/macos-SESSION/Mintomo.xcarchive"
 ```
 
-Check App Store Connect before retrying an uncertain upload. Upload-only commands
-check that the archive still matches the saved team, endpoint and platform.
-A completed identical upload is rejected. There are no automatic upload retries.
+Upload-only still inspects and locally exports the archive. Its platform, team
+and production endpoint must match the saved settings. Successful identical
+uploads are rejected. Uploads are never retried automatically.
 
 Success means **Uploaded to App Store Connect; processing pending**. Check
 [App Store Connect](https://appstoreconnect.apple.com) for processing, export
-compliance, tester distribution and App Review. Recipes do not poll Apple processing.
+compliance, tester distribution and App Review. These recipes do not submit
+for review or poll processing status.
 
-## Devportal release
+## Mac lock state and progress
 
-Update the service with `just install-devportal-agent` after merging. Run setup
-on that Mac using the service's settings directory. Choose **iOS release** or
-**macOS release** from **Release destination**, review the selected main commit,
-then start the release. Starting authorizes signing and upload; there are no
-additional app-release approvals.
+Before each Xcode signing or export command, the recipe waits for the release
+user's Mac session to be unlocked. It reports that wait explicitly and can be
+cancelled with Ctrl-C. This avoids invoking Xcode against locked, protected
+account credentials. A temporary `caffeinate` assertion keeps the display and
+system awake through the release and ends when the process exits. It does not
+change screen-lock preferences or unlock the Mac. Keep signing Keychain unlocked.
 
-All allowed operators can release any destination. Signing credentials stay on
-the Mac. Missing app setup blocks app releases while server releases remain
-available. Closing the client does not stop the job; reconnect for progress.
-Upload history is separate for each platform and records uploads, not App Store
-publication. Server release approvals are unchanged.
+Each milestone reports its start, completion or failure. Active commands report
+elapsed time and time since the last raw tool output every 30 seconds. First
+archives can spend several minutes compiling dependencies. A command with no
+output for ten minutes stops with exit 124 and retains its log and archive.
 
-## Progress and failures
+Xcode output is pretty-printed with the existing `xcbeautify` renderer when
+installed. Formatting does not add test or warning gates. Raw output remains
+in the private release log, and the last raw diagnostics are printed if Xcode
+fails. `TCG_XCODE_RAW_OUTPUT=1 just release-ios` shows raw output directly.
+A missing or failed formatter does not block the release or replace Apple's
+exit code. Inactivity is measured from raw output, not formatted output.
 
-Each milestone announces its start, completion or failure: fetching source,
-preparing the checkout, archiving/signing, inspecting the archive, uploading and
-cleanup. Active commands report their name, elapsed time and time since the last
-tool output every 30 seconds. The terminal streams the complete command output;
-Devportal retains curated milestones while raw diagnostics stay on the Mac.
-
-Watch output from another terminal tab:
+Watch the complete log from another terminal tab:
 
 ```sh
 just logs-app-release
@@ -128,25 +119,28 @@ just logs-app-release ios
 just logs-app-release macos --config-dir "$HOME/.config/tcg"
 ```
 
-This runs native `tail -n 100 -F` on the most recently updated matching session
-log. It keeps following that file; rerun for a newer release. Ctrl-C stops only
+This uses native `tail -n 100 -F` on the latest matching session log. It keeps
+following that file; restart the viewer for a newer release. Ctrl-C stops only
 the viewer.
 
-First archives can take several minutes to compile dependencies. The separate
-Swift compiler driver avoids the dependency-planning stall observed on the
-release Mac. Ten minutes without tool output stops the current command with
-exit 124. Cancelling stops its child processes and releases the app-release
-lease. The caller's checkout is unchanged, and archives and logs are retained.
+## Devportal and failure recovery
 
-A failed command prints its output, milestone, exit status and full log path.
-Known account-authentication failures report that transfer did not start;
-other attempted upload failures ask you to check App Store Connect before retrying.
-For account authentication failures, the Apple diagnostic identifies the problem
-with Xcode’s stored credentials or account access. For optional API keys, check
-the key’s permissions. Neither path automatically resets credentials or retries
-an upload.
+Update the service with `just install-devportal-agent` after merging, and run
+setup on that Mac using its settings directory. Select iOS or macOS, review the
+main commit, then start the release. Starting authorizes archive, signing, local
+export and upload without further app approvals. Server approvals are unchanged.
 
-Private artifacts live under `$HOME/.config/tcg/app-releases`, and Devportal
-history under `$HOME/.config/tcg/devportal-releases`. Terminal and Devportal app
-releases share one lease. Service updates refuse to interrupt releases. Never
-remove a lease while its commands are running.
+All allowed operators can release any destination. Closing the client does not
+stop the job; reconnect for curated progress and unlock-wait messages. Raw tool
+output remains private on the release Mac. Missing upload setup blocks app
+releases while server releases remain available.
+
+A failed command retains its exit code and diagnostic output. Local export
+failures occur before upload. If the upload is interrupted, check App Store
+Connect before retrying because Apple may have received the file. Failed uploads
+can reuse the retained archive without compilation.
+
+Private artifacts live under `$HOME/.config/tcg/app-releases`; Devportal history
+is under `$HOME/.config/tcg/devportal-releases`. Terminal and Devportal app
+releases share one lease, and service updates refuse to interrupt releases.
+Never remove a lease while its commands are running.

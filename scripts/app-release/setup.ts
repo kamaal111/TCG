@@ -11,7 +11,7 @@ import {
   saveAppSettings,
   saveAppAuthentication,
 } from './config.ts';
-import { ConfigStore, homePath } from '../infra/config.ts';
+import { ConfigStore } from '../infra/config.ts';
 import type { Prompts } from '../infra/prompts.ts';
 
 interface SetupOptions {
@@ -19,7 +19,6 @@ interface SetupOptions {
   directory: string;
   prompts: Prompts;
   edit?: boolean;
-  apiKey?: boolean;
 }
 
 const execute = util.promisify(childProcess.execFile);
@@ -72,13 +71,7 @@ async function configuredHostname(root: string, directory: string, saved?: strin
   return undefined;
 }
 
-export async function setupAppRelease({
-  root,
-  directory,
-  prompts,
-  edit = false,
-  apiKey = false,
-}: SetupOptions): Promise<void> {
+export async function setupAppRelease({ root, directory, prompts, edit = false }: SetupOptions): Promise<void> {
   const saved = await readAppSettings(directory).catch(() => undefined);
   const project = await fs.readFile(path.join(root, 'app/Configuration/App.xcconfig'), 'utf8');
   const knownHost = await configuredHostname(root, directory, saved?.apiHost);
@@ -88,7 +81,7 @@ export async function setupAppRelease({
   );
 
   prompts.note(
-    'Automatic signing and uploads use the Apple Developer account signed into Xcode Settings → Accounts. Keep the signing Keychain unlocked. API keys are optional; use just setup-app-release --api-key only to configure one. No Apple password is requested or saved.',
+    'Signing uses Xcode automatic signing. Uploads use your App Store Connect email and an app-specific password from account.apple.com → Sign-In and Security → App-Specific Passwords. Credentials are saved only in your private settings directory, never in Git. Use an app-specific password, not your main Apple Account password.',
     'App release setup',
   );
 
@@ -118,51 +111,30 @@ export async function setupAppRelease({
           },
         });
 
-  if (apiKey) {
-    await configureAPIKey(directory, prompts, edit);
-  }
-
-  await saveAppSettings(directory, { version: 1, teamID, apiHost });
-  prompts.note(
-    `Saved release settings.\nTeam: ${teamID}\nAPI: https://${apiHost}\nAuthentication: Xcode account, or optional API key if configured\nDestination: App Store Connect`,
-  );
-}
-
-async function configureAPIKey(directory: string, prompts: Prompts, edit: boolean): Promise<void> {
   const savedAuthentication = await readAppAuthentication(directory).catch(() => undefined);
 
-  const keyPath =
+  const email =
     !edit && savedAuthentication
-      ? savedAuthentication.keyPath
-      : homePath(
-          await prompts.text({
-            message: 'Path to the App Store Connect API private key (.p8)',
-            initialValue: savedAuthentication?.keyPath,
-          }),
-        );
-
-  await fs.access(keyPath, fs.constants.R_OK);
-  const keyFromName = /AuthKey_([A-Z0-9]{10})\.p8$/.exec(keyPath)?.[1];
-
-  const keyID =
-    !edit && savedAuthentication
-      ? savedAuthentication.keyID
-      : (keyFromName ??
-        (await prompts.text({ message: 'App Store Connect Key ID', initialValue: savedAuthentication?.keyID })));
-
-  const issuerID =
-    !edit && savedAuthentication
-      ? savedAuthentication.issuerID
+      ? savedAuthentication.email
       : await prompts.text({
-          message: 'App Store Connect Issuer ID',
-          initialValue: savedAuthentication?.issuerID,
+          message: 'App Store Connect email',
+          initialValue: savedAuthentication?.email,
           validate: value => {
-            return AppAuthenticationSchema.shape.issuerID.safeParse(value).success
+            return AppAuthenticationSchema.shape.email.safeParse(value).success
               ? undefined
-              : 'Enter the Issuer ID shown above the team API keys.';
+              : 'Enter your App Store Connect email.';
           },
         });
 
-  const authentication = AppAuthenticationSchema.parse({ keyPath, keyID, issuerID });
+  const password =
+    !edit && savedAuthentication
+      ? savedAuthentication.password
+      : await prompts.password('App Store Connect app-specific password');
+
+  const authentication = AppAuthenticationSchema.parse({ email, password });
+  await saveAppSettings(directory, { version: 1, teamID, apiHost });
   await saveAppAuthentication(directory, authentication);
+  prompts.note(
+    `Saved private release settings.\nTeam: ${teamID}\nAPI: https://${apiHost}\nUpload email and app-specific password are saved privately.`,
+  );
 }

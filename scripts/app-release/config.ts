@@ -29,9 +29,14 @@ export const AppSettingsSchema = z.strictObject({
 export type AppSettings = z.infer<typeof AppSettingsSchema>;
 
 export const AppAuthenticationSchema = z.strictObject({
-  keyPath: z.string().nonempty(),
-  keyID: z.string().regex(/^[A-Z0-9]{10}$/),
-  issuerID: z.uuid(),
+  email: z.email().trim().toLowerCase(),
+  password: z
+    .string()
+    .trim()
+    .regex(
+      /^[A-Za-z0-9]{4}(?:-[A-Za-z0-9]{4}){3}$/,
+      'Use an Apple app-specific password, not your main Apple Account password.',
+    ),
 });
 
 export async function readAppAuthentication(directory: string) {

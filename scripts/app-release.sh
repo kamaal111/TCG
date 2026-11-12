@@ -21,8 +21,8 @@ Usage: just release-ios [REVISION] [--config-dir DIRECTORY]
        just logs-app-release [ios|macos] [--config-dir DIRECTORY]
 
 Default source: origin/main. Settings: $HOME/.config/tcg.
-Release runs archive, signing and upload without tests or confirmation prompts.
-Automatic signing and uploads use your Xcode account; API-key settings are optional.
+Release runs archive, signing, local export and upload without tests or confirmation prompts.
+Xcode archives and exports locally; xcrun altool uploads using private email/password settings.
 Logs use tail -n 100 -F. Ctrl-C stops the viewer, not the release.
 USAGE
 }
@@ -88,24 +88,15 @@ host="$(read_value "$settings" apiHost)"
 [[ "$team" =~ ^[A-Z0-9]{10}$ ]] || die 'Invalid signing team in app release settings.'
 [[ ${#host} -le 253 && "$host" =~ ^([A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z]{2,63}$ && "$(printf '%s' "$host" | tr '[:upper:]' '[:lower:]')" != api.example.com && "$host" != *.[Ll][Oo][Cc][Aa][Ll][Hh][Oo][Ss][Tt] ]] || die 'Invalid API hostname in app release settings.'
 
-auth=()
-load_upload_key() {
-    local file="$config/app-store-connect.json" key_path key_id issuer
-    [[ -r "$file" ]] || die 'The optional App Store Connect API-key settings are not readable.'
-    key_path="$(read_value "$file" keyPath)"
-    key_id="$(read_value "$file" keyID)"
-    issuer="$(read_value "$file" issuerID 2>/dev/null || true)"
-    case "$key_path" in '~/'*) key_path="$HOME/${key_path:2}" ;; esac
-    [[ "$key_path" == /* && -f "$key_path" && -r "$key_path" ]] || die 'The configured App Store Connect private key is not readable.'
-    [[ "$key_id" =~ ^[A-Z0-9]{10}$ ]] || die 'Invalid App Store Connect Key ID.'
-    auth=(-authenticationKeyPath "$key_path" -authenticationKeyID "$key_id")
-    [[ "$issuer" =~ ^[A-Fa-f0-9]{8}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{12}$ ]] || die 'A valid team API key Issuer ID is required. Run just setup-app-release --edit.'
-    auth+=(-authenticationKeyIssuerID "$issuer")
-}
-
-# Without an optional API key, xcodebuild uses the account signed into Xcode.
-if [[ "$mode" != inspect && -e "$config/app-store-connect.json" ]]; then load_upload_key; fi
-signing=(-allowProvisioningUpdates ${auth[@]+"${auth[@]}"})
+upload_email=""
+upload_password=""
+if [[ "$mode" == release || "$mode" == upload ]]; then
+    credentials="$config/app-store-connect.json"
+    [[ -r "$credentials" ]] || die 'Run just setup-app-release once to save your App Store Connect email and app-specific password privately.'
+    upload_email="$(read_value "$credentials" email 2>/dev/null)" || die 'Run just setup-app-release to save your private upload email and app-specific password.'
+    upload_password="$(read_value "$credentials" password 2>/dev/null)" || die 'Run just setup-app-release to save your private upload email and app-specific password.'
+    [[ "$upload_email" == *@* && "$upload_password" =~ ^[A-Za-z0-9]{4}(-[A-Za-z0-9]{4}){3}$ ]] || die 'Invalid upload credentials. Run just setup-app-release --edit.'
+fi
 
 inspect_archive() {
     local app_path app info supported
@@ -146,6 +137,7 @@ fingerprint=""
 child=""
 ticker=""
 tee_pid=""
+awake_pid=""
 
 descendants() {
     local pid
@@ -181,6 +173,7 @@ stop_ticker() {
 cleanup() {
     local status=$?
     trap - EXIT INT TERM
+    unset TCG_APP_STORE_PASSWORD
     stop_ticker
     if [[ -n "$child" ]]; then
         terminate_step
@@ -194,6 +187,10 @@ cleanup() {
         cd "$root"
         git -C "$root" worktree remove --force "$checkout" >> "$log" 2>&1 || true
         note 'Completed: Cleaning up isolated release source'
+    fi
+    if [[ -n "$awake_pid" ]]; then
+        kill "$awake_pid" 2>/dev/null || true
+        wait "$awake_pid" 2>/dev/null || true
     fi
     if [[ "$owns_lock" == 1 ]]; then rm -rf "$lock"; fi
     if [[ "$owns_reclaim" == 1 ]]; then rmdir "$lock.reclaim"; fi
@@ -238,25 +235,82 @@ touch "$log"
 chmod 600 "$log"
 note "Release log: $log"
 if [[ "$mode" == release ]]; then
-    note "Release $platform: archive → sign → inspect → upload"
+    note "Release $platform: archive → sign → inspect → export → upload"
 fi
-if [[ ${#auth[@]} == 0 ]]; then
-    note 'Authentication: Xcode account; automatic signing enabled.'
-else
-    note 'Authentication: configured App Store Connect API key; automatic signing enabled.'
-fi
+note 'Signing: Xcode automatic signing. Upload: separate Apple CLI with private credentials.'
+
+wait_for_signing_session() {
+    local locked console_uid announced=0 last_notice=$SECONDS assertion_deadline
+    while true; do
+        locked="$(ioreg -a -n Root -d1 | plutil -extract IOConsoleLocked raw -o - -)" || die 'Cannot check the release Mac lock state. No signing command was started.'
+        [[ "$locked" == true || "$locked" == false ]] || die 'Unknown release Mac lock state. No signing command was started.'
+        console_uid="$(stat -f %u /dev/console)"
+        if [[ "$locked" == false && "$console_uid" == "$(id -u)" ]]; then break; fi
+        if [[ "$announced" == 0 || $(( SECONDS - last_notice )) -ge 30 ]]; then
+            note 'Waiting for the release Mac to be unlocked. Xcode signing has not started; Ctrl-C cancels safely.'
+            announced=1
+            last_notice=$SECONDS
+        fi
+        sleep 2
+    done
+    if [[ -z "$awake_pid" ]]; then
+        caffeinate -di -w "$$" </dev/null >/dev/null 2>&1 &
+        awake_pid=$!
+        assertion_deadline=$(( SECONDS + 5 ))
+        until pmset -g assertions | awk -v marker="pid $awake_pid(" '
+            index($0, marker) {
+                if ($0 ~ /PreventUserIdleDisplaySleep/) display_awake = 1
+                if ($0 ~ /PreventUserIdleSystemSleep/) system_awake = 1
+            }
+            END { exit !(display_awake && system_awake) }
+        '; do
+            kill -0 "$awake_pid" 2>/dev/null || die 'The temporary awake assertion failed. No signing command was started.'
+            (( SECONDS < assertion_deadline )) || die 'The temporary awake assertion did not become active. No signing command was started.'
+            sleep 0.1
+        done
+        note 'Keeping the release Mac display and system awake until this release ends.'
+    fi
+    if [[ "$announced" == 1 ]]; then note 'Release Mac unlocked; continuing signing.'; fi
+}
+
+redact_upload_output() {
+    local line
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        line="${line//"$upload_email"/[private email]}"
+        line="${line//"$upload_password"/[private password]}"
+        printf '%s\n' "$line"
+    done
+}
 
 run() {
-    local label="$1" started=$SECONDS status now last
+    local label="$1" started=$SECONDS status now last formatted=0
     shift
     note "Starting: $label"
+    if [[ "$1" == xcodebuild ]]; then wait_for_signing_session; fi
     # Retain stdin and the terminal security context; no detached process/session wrapper.
     rm -f "$session/.command.pipe" "$session/.timed-out"
     mkfifo "$session/.command.pipe"
     : > "$session/.command.log"
-    tee -a "$log" "$session/.command.log" < "$session/.command.pipe" &
+    if [[ "$1" == xcrun && "${2:-}" == altool ]]; then
+        redact_upload_output < "$session/.command.pipe" | tee -a "$log" "$session/.command.log" &
+    elif [[ "$1" == xcodebuild && "${TCG_XCODE_RAW_OUTPUT:-}" != 1 ]] && command -v xcbeautify >/dev/null; then
+        formatted=1
+        tee -a "$log" "$session/.command.log" < "$session/.command.pipe" | {
+            bash "$root/scripts/run-with-xcbeautify.sh" --stdin || printf 'Xcode output formatting stopped; raw output remains in %s.\n' "$log" >&2
+            # Drain remaining output even if the formatter exits early.
+            cat
+        } &
+    else
+        tee -a "$log" "$session/.command.log" < "$session/.command.pipe" &
+    fi
     tee_pid=$!
-    { printf '+ '; printf '%q ' "$@"; printf '\n'; } | tee -a "$log"
+    {
+        printf '+ '
+        for argument in "$@"; do
+            if [[ -n "$upload_email" && "$argument" == "$upload_email" ]]; then printf '%s ' '[private email]'; else printf '%q ' "$argument"; fi
+        done
+        printf '\n'
+    } | tee -a "$log"
     "$@" <&0 > "$session/.command.pipe" 2>&1 &
     child=$!
     (
@@ -271,7 +325,7 @@ run() {
                 break
             fi
         done
-    ) &
+    ) 2>/dev/null &
     ticker=$!
     if wait "$child"; then status=0; else status=$?; fi
     wait "$tee_pid" || true
@@ -281,6 +335,10 @@ run() {
     rm -f "$session/.command.pipe"
     [[ ! -e "$session/.timed-out" ]] || status=124
     if [[ "$status" != 0 ]]; then
+        if [[ "$formatted" == 1 ]]; then
+            printf '\nLast raw Xcode diagnostics:\n'
+            tail -n 100 "$session/.command.log"
+        fi
         note "Stopped: $label (exit $status). Full log: $log"
         return "$status"
     fi
@@ -314,6 +372,7 @@ if [[ "$mode" != upload ]]; then
     save_summary
     checkout="$session/source"
     run 'Prepare source' git -C "$root" worktree add --detach "$checkout" "$sha"
+    build_number="$(git -C "$root" rev-list --count "$sha")"
     archive="$session/Mintomo.xcarchive"
     destination='generic/platform=iOS'
     [[ "$platform" != macos ]] || destination='generic/platform=macOS'
@@ -322,41 +381,42 @@ if [[ "$mode" != upload ]]; then
     run "Archive and sign $platform" xcodebuild -project app/TCG.xcodeproj -scheme TCG -configuration Release \
         -destination "$destination" -archivePath "$archive" archive \
         CODE_SIGN_STYLE=Automatic CODE_SIGNING_ALLOWED=YES "DEVELOPMENT_TEAM=$team" "TCG_API_HOST=$host" \
-        ONLY_ACTIVE_ARCH=NO SWIFT_USE_INTEGRATED_DRIVER=NO "${signing[@]}"
+        ONLY_ACTIVE_ARCH=NO SWIFT_USE_INTEGRATED_DRIVER=NO "CURRENT_PROJECT_VERSION=$build_number" -allowProvisioningUpdates
 fi
 run 'Inspect archive' inspect_archive
 if [[ "$mode" == archive ]]; then note "Archive ready: $archive"; exit 0; fi
 
-stage=upload
-summary_state=uploading
-save_summary
+stage=archive
 cat > "$session/ExportOptions.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <plist version="1.0"><dict>
 <key>method</key><string>app-store-connect</string>
-<key>destination</key><string>upload</string>
+<key>destination</key><string>export</string>
 <key>signingStyle</key><string>automatic</string>
 <key>teamID</key><string>$team</string>
-<key>manageAppVersionAndBuildNumber</key><true/>
+<key>manageAppVersionAndBuildNumber</key><false/>
 <key>uploadSymbols</key><true/>
 </dict></plist>
 PLIST
-if run 'Upload to App Store Connect' xcodebuild -exportArchive -archivePath "$archive" \
-    -exportOptionsPlist "$session/ExportOptions.plist" -exportPath "$session/export" \
-    "${signing[@]}"; then
+run 'Export signed app locally' xcodebuild -exportArchive -archivePath "$archive" \
+    -exportOptionsPlist "$session/ExportOptions.plist" -exportPath "$session/export" -allowProvisioningUpdates
+extension=ipa
+[[ "$platform" != macos ]] || extension=pkg
+packages=("$session/export/"*."$extension")
+[[ ${#packages[@]} == 1 && -f "${packages[0]}" ]] || die 'Xcode did not export exactly one upload package. See the private release log.'
+stage=upload
+summary_state=uploading
+save_summary
+export TCG_APP_STORE_PASSWORD="$upload_password"
+if run 'Upload to App Store Connect' xcrun altool --upload-app -t "$platform" -f "${packages[0]}" \
+    -u "$upload_email" -p @env:TCG_APP_STORE_PASSWORD; then
+    unset TCG_APP_STORE_PASSWORD
     summary_state=uploaded
     note 'Uploaded to App Store Connect; processing pending.'
 else
     status=$?
+    unset TCG_APP_STORE_PASSWORD
     summary_state=failed
-    if grep -Eq 'Failed to Use Accounts|missing Xcode-Username|Account credentials.*expired' "$session/.command.log"; then
-        if [[ ${#auth[@]} == 0 ]]; then
-            note 'Xcode account authentication failed before transfer. Xcode could not use its stored account credentials; see the Apple error above. The archive is retained for upload-ios or upload-macos after resolving account access.'
-        else
-            note 'Authentication failed before transfer. Check the configured App Store Connect API key.'
-        fi
-    else
-        note 'Upload result is uncertain. Check App Store Connect before retrying; no automatic retry was made.'
-    fi
+    note 'Apple upload stopped. Check App Store Connect before retrying; no automatic retry was made.'
     exit "$status"
 fi

@@ -101,10 +101,11 @@ processing is pending, not that the app is published. Check App Store Connect
 before retrying an interrupted upload. All existing allowed operators can release
 apps; no account credentials are sent to the client.
 
-Automatic signing and uploads use the account signed into Xcode on the release
-Mac. API keys are optional (`just setup-app-release --api-key`). Keep the release
-user logged in and signing Keychain unlocked. See the
-[app release guide](../app/release.md) for prerequisites, build numbering and logs.
+Signing and local export use Xcode automatic signing. Setup saves the upload
+email and app-specific password privately; `xcrun altool` uploads the IPA/PKG
+separately. Neither credential is sent to the client. Signing waits for the Mac
+to be unlocked and temporarily keeps its display and system awake. See the
+[app release guide](../app/release.md) for setup, numbering, logs and recovery.
 
 ## Server release behavior
 

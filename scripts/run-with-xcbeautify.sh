@@ -2,6 +2,21 @@
 
 set -euo pipefail
 
+render_output() {
+    local renderer=terminal
+    if [[ "${GITHUB_ACTIONS:-}" == true ]]; then renderer=github-actions; fi
+    "$formatter" --renderer "$renderer"
+}
+
+# Stream-only mode leaves command execution, raw logging and exit codes to its caller.
+if [[ $# == 1 && "$1" == --stdin ]]; then
+    if [[ "${TCG_XCODE_RAW_OUTPUT:-}" == 1 ]] || ! formatter="$(command -v xcbeautify)"; then
+        exec cat
+    fi
+    render_output
+    exit 0
+fi
+
 if [[ $# -lt 2 ]]; then
     echo 'Usage: bash scripts/run-with-xcbeautify.sh LOG_NAME COMMAND [ARGUMENTS...]' >&2
     exit 1
@@ -46,14 +61,9 @@ cancel() {
 trap 'cancel INT 130' INT
 trap 'cancel TERM 143' TERM
 
-renderer=terminal
-if [[ "${GITHUB_ACTIONS:-}" == true ]]; then
-    renderer=github-actions
-fi
-
 tee "$log_file" < "$pipe_directory/output" | {
     formatter_status=0
-    "$formatter" --renderer "$renderer" || formatter_status=$?
+    render_output || formatter_status=$?
     # Also stop the command if the formatter exits before consuming its output.
     kill -TERM -- "-$command_pid" 2>/dev/null || true
     exit "$formatter_status"
