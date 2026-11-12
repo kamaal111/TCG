@@ -66,7 +66,10 @@ struct TCGBinderScreen: View {
         .sheet(item: $selection) { selection in
             if let collections, !cards.isReadOnly, isEditingCollection || selection.card == nil {
                 NavigationStack {
-                    BinderSlotEditor(collection: collection, position: selection.position, collections: collections)
+                    BinderSlotEditor(
+                        content: .init(collection: collection, position: selection.position, card: selection.card),
+                        collections: collections
+                    )
                 }
                 .environment(cards)
             } else if let card = selection.card {

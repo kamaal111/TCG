@@ -64,25 +64,13 @@ public final class TCGCards {
         invalidateDisplayPrices()
     }
 
-    func allCardsInSelectedCollection() async -> Result<[CardWithPrice], TCGCardsOperationError> {
+    func cardPage(_ query: ListCardsQuery) async -> Result<CardCollectionPage, TCGCardsOperationError> {
         let identity = selectedCollection?.id
-        var result: [CardWithPrice] = []
-        var cursor: String?
-        var visited: Set<String> = []
-        repeat {
-            guard selectedCollection?.id == identity else { return .failure(.serverUnavailable) }
-            switch await client.cards.listPage(
-                .init(game: nil, setNames: [], cursor: cursor, collectionID: identity, query: nil, illustrators: [])
-            ) {
-            case .failure: return .failure(.serverUnavailable)
-            case .success(let page):
-                result.append(contentsOf: page.cards)
-                cursor = page.nextCursor
-                if let cursor { guard visited.insert(cursor).inserted else { return .failure(.serverUnavailable) } }
-            }
-        } while cursor != nil
+        let generation = collectionState.generation
+        let result = await client.cards.listPage(query).mapError { _ in TCGCardsOperationError.serverUnavailable }
         guard selectedCollection?.id == identity else { return .failure(.serverUnavailable) }
-        return .success(result)
+        guard collectionState.generation == generation else { return .failure(.serverUnavailable) }
+        return result
     }
 
     public func resetDisplayPrices() {
@@ -140,7 +128,14 @@ public final class TCGCards {
         isLoadingNextPage = true
         nextPageError = nil
 
-        var pages = CollectionPages(cards: cards, state: collectionState)
+        var pages = CardCollectionPages(
+            cards: cards,
+            pagination: .init(
+                nextCursor: collectionState.nextCursor,
+                visitedCursors: collectionState.visitedCursors,
+                pageCount: collectionState.pageCount
+            )
+        )
         let result = await loadPage(into: &pages, generation: generation)
 
         guard generation == collectionState.generation else { return .success(()) }
@@ -194,7 +189,7 @@ public final class TCGCards {
             return .success(())
         }
 
-        var pages = CollectionPages(cards: [], state: .init(illustrators: []))
+        var pages = CardCollectionPages()
 
         repeat {
             let result = await loadPage(into: &pages, generation: generation)
@@ -217,7 +212,7 @@ public final class TCGCards {
         return .success(())
     }
 
-    private func loadPage(into pages: inout CollectionPages, generation: Int) async -> Result<
+    private func loadPage(into pages: inout CardCollectionPages, generation: Int) async -> Result<
         Bool, TCGCardsOperationError
     > {
         guard generation == collectionState.generation else { return .success(false) }
@@ -251,7 +246,7 @@ public final class TCGCards {
         }
     }
 
-    private func publish(_ pages: CollectionPages) {
+    private func publish(_ pages: CardCollectionPages) {
         setCards(pages.cards)
         availableSetNames = pages.availableSetNames
         availableIllustrators = pages.availableIllustrators
@@ -426,39 +421,6 @@ public final class TCGCards {
             case idle
             case loading
             case loaded
-        }
-    }
-
-    private struct CollectionPages {
-        var cards: [CardWithPrice]
-        var availableSetNames: Set<String> = []
-        var availableIllustrators: Set<String> = []
-        var nextCursor: String?
-        var visitedCursors: Set<String>
-        var pageCount: Int
-
-        private var cardIDs: Set<UUID>
-
-        init(cards: [CardWithPrice], state: CollectionState) {
-            self.cards = cards
-            nextCursor = state.nextCursor
-            visitedCursors = state.visitedCursors
-            pageCount = state.pageCount
-            cardIDs = Set(cards.map(\.card.id))
-        }
-
-        mutating func append(_ page: CardCollectionPage) -> Bool {
-            if let next = page.nextCursor {
-                guard !next.isEmpty else { return false }
-                guard visitedCursors.insert(next).inserted else { return false }
-            }
-
-            cards.append(contentsOf: page.cards.filter { cardIDs.insert($0.card.id).inserted })
-            availableSetNames = page.availableSetNames
-            availableIllustrators = page.availableIllustrators
-            nextCursor = page.nextCursor
-            pageCount += 1
-            return true
         }
     }
 

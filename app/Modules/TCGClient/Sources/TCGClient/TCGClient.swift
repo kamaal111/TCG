@@ -125,7 +125,7 @@ public struct TCGClient: Sendable {
             currency: PreviewTCGCurrencyClient(),
             auth: auth,
             cards: cards,
-            collections: PreviewTCGCollectionsClient(),
+            collections: PreviewTCGCollectionsClient(cards: cards),
             pricing: pricing,
             credentialsKeychainKey: credentialsKeychainKey,
             credentialsStore: credentialsStore,

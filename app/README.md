@@ -438,9 +438,13 @@ data.
 
 A slot allocates copies from one owned entry. Four copies can occupy one slot
 with quantity three and another with quantity one. Choose an empty slot to place
-unassigned copies using the searchable image picker, or add an empty page, while
-browsing. Edit collection is reserved for arranging occupied slots, removing
-pages, changing dimensions, renaming, and deleting the collection. Reducing ownership trims
+unassigned copies directly in the searchable image picker, or add an empty page,
+while browsing. In the picker, **Add more** lists owned cards without a named collection.
+Choices load as you scroll, and search covers the whole collection.
+Choosing one and saving moves its entire entry into this collection and places the
+chosen quantity in the tapped slot; remaining copies stay unplaced. Cancelling
+leaves both membership and placement unchanged. Edit collection is reserved for
+arranging occupied slots, removing pages, changing dimensions, renaming, and deleting the collection. Reducing ownership trims
 later slots and reports the adjustment. Moving
 an entry to another collection clears its old placements.
 

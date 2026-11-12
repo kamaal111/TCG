@@ -8,57 +8,129 @@ struct BinderCardPicker: View {
         static let rowCornerRadius: CGFloat = 12
     }
 
-    @Environment(\.dismiss) private var dismiss
-    @State private var query = ""
-    let cards: [CardWithPrice]
-    @Binding var selection: UUID?
-
-    private var filteredCards: [CardWithPrice] {
-        let search = query.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !search.isEmpty else { return cards }
-        return cards.filter { $0.card.matchesSearch(search) }
+    struct Content {
+        let cards: [CardWithPrice]
+        let selection: UUID?
+        var isUnfiled = false
+        var isLoading = false
+        var error: String?
+        var isLoadingNextPage = false
+        var hasMore = false
+        var nextPageError: TCGCardsOperationError?
     }
+
+    struct Actions {
+        let choose: (CardWithPrice) -> Void
+        var addMore: (() -> Void)?
+        var loadNext: (() -> Void)?
+        var retryNext: (() -> Void)?
+        var search: (() async -> Void)?
+    }
+
+    struct EmptyMessage: View {
+        let hasError: Bool
+        let hasQuery: Bool
+
+        var body: some View {
+            ContentUnavailableView {
+                Label {
+                    if hasError {
+                        Text("Couldn’t load cards", bundle: .module)
+                    } else if hasQuery {
+                        Text("No matching cards", bundle: .module)
+                    } else {
+                        Text("No cards", bundle: .module)
+                    }
+                } icon: {
+                    Image(systemName: hasError ? "exclamationmark.triangle" : "rectangle.stack")
+                }
+            }
+        }
+    }
+
+    let content: Content
+    @Binding var query: String
+    let actions: Actions
+
+    private var cards: [CardWithPrice] { content.cards }
+    private var selection: UUID? { content.selection }
 
     var body: some View {
-        content(filteredCards)
+        pickerContent
+            .toolbar {
+                if let addMore = actions.addMore {
+                    ToolbarItem(placement: .primaryAction) {
+                        Button(action: addMore) { Text("Add more", bundle: .module) }
+                    }
+                }
+            }
+            .task(id: query.trimmingCharacters(in: .whitespacesAndNewlines)) {
+                guard let search = actions.search else { return }
+                do { try await Task.sleep(for: .milliseconds(250)) } catch { return }
+                await search()
+            }
     }
 
-    private func content(_ visibleCards: [CardWithPrice]) -> some View {
+    private var pickerContent: some View {
         Group {
             #if os(macOS)
                 ScrollView {
-                    LazyVStack(spacing: 12) { cardRows(visibleCards) }
-                        .padding()
+                    LazyVStack(spacing: 12) {
+                        cardRows
+                        pagination
+                    }
+                    .padding()
                 }
             #else
-                List { cardRows(visibleCards) }
+                List {
+                    cardRows
+                    pagination
+                }
             #endif
         }
         .overlay {
-            if visibleCards.isEmpty {
-                ContentUnavailableView {
-                    Label {
-                        if cards.isEmpty {
-                            Text("No cards", bundle: .module)
-                        } else {
-                            Text("No matching cards", bundle: .module)
-                        }
-                    } icon: {
-                        Image(systemName: "rectangle.stack")
-                    }
+            if cards.isEmpty {
+                if content.isLoading {
+                    ProgressView()
+                } else {
+                    EmptyMessage(
+                        hasError: content.error != nil,
+                        hasQuery: !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                    )
                 }
             }
         }
         .searchable(text: $query, prompt: Text("Search cards", bundle: .module))
-        .navigationTitle(Text("Choose a card", bundle: .module))
+        .navigationTitle(
+            content.isUnfiled
+                ? Text("Unfiled cards", bundle: .module) : Text("Choose a card", bundle: .module)
+        )
         .frame(minWidth: Metrics.minimumWidth, minHeight: Metrics.minimumHeight)
     }
 
-    private func cardRows(_ cards: [CardWithPrice]) -> some View {
+    @ViewBuilder
+    private var pagination: some View {
+        if content.isLoadingNextPage || content.nextPageError != nil {
+            CollectionPaginationFooter(
+                isLoading: content.isLoadingNextPage,
+                error: content.nextPageError,
+                retry: { actions.retryNext?() }
+            )
+        } else if content.hasMore {
+            Button {
+                actions.loadNext?()
+            } label: {
+                Text("Load more cards", bundle: .module)
+            }
+            .buttonStyle(.bordered)
+            .padding()
+        }
+    }
+
+    private var cardRows: some View {
         ForEach(cards, id: \.card.id) { card in
             Button {
-                selection = card.card.id
-                dismiss()
+                actions.choose(card)
             } label: {
                 HStack {
                     BinderCardLabel(card: card)
@@ -79,6 +151,9 @@ struct BinderCardPicker: View {
             #endif
             .accessibilityAddTraits(selection == card.card.id ? .isSelected : [])
             .help(Text("Choose \(card.card.name)", bundle: .module))
+            .onAppear {
+                if content.hasMore && card.card.id == cards.last?.card.id { actions.loadNext?() }
+            }
         }
     }
 }

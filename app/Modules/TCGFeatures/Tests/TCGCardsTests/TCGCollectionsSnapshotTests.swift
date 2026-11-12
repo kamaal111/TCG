@@ -33,7 +33,11 @@ struct TCGCollectionsSnapshotTests {
         #expect(context.cards.cards.count == 2)
         await assertCollectionSnapshot(testName: #function) {
             NavigationStack {
-                BinderCardPicker(cards: context.cards.cards, selection: .constant(first.card.id))
+                BinderCardPicker(
+                    content: .init(cards: context.cards.cards, selection: first.card.id),
+                    query: .constant(""),
+                    actions: .init(choose: { _ in }, addMore: {})
+                )
             }
         }
     }
@@ -41,8 +45,102 @@ struct TCGCollectionsSnapshotTests {
     @Test func `Renders an empty binder card chooser`() async {
         await assertCollectionSnapshot(testName: #function) {
             NavigationStack {
-                BinderCardPicker(cards: [], selection: .constant(nil))
+                BinderCardPicker(
+                    content: .init(cards: [], selection: nil),
+                    query: .constant(""),
+                    actions: .init(choose: { _ in }, addMore: {})
+                )
             }
+        }
+    }
+
+    @Test func `Renders the binder card no matches message`() async {
+        await assertCollectionSnapshot(testName: #function) {
+            BinderCardPicker.EmptyMessage(hasError: false, hasQuery: true)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+    }
+
+    @Test func `Renders a failed later binder card page without hiding choices`() async throws {
+        let context = await CollectionTestFixtures.loadedContext()
+        let first = try #require(context.cards.cards.first)
+        await assertCollectionSnapshot(testName: #function) {
+            NavigationStack {
+                BinderCardPicker(
+                    content: .init(cards: [first], selection: nil, hasMore: true, nextPageError: .serverUnavailable),
+                    query: .constant(""),
+                    actions: .init(choose: { _ in }, retryNext: {})
+                )
+            }
+        }
+    }
+
+    @Test func `Renders empty slot choices directly with Add more`() async throws {
+        let context = try await CollectionTestFixtures.emptyBinderContext()
+        let collection = try #require(context.collections.selected)
+        let model = BinderSlotEditorModel(
+            collection: collection,
+            position: .init(pageID: CardsTestIDs.secondary, row: 1, column: 2)
+        )
+        await model.load(using: context.cards, collections: context.collections)
+        #expect(model.screen == .collectionCards)
+        await assertCollectionSnapshot(testName: #function) {
+            NavigationStack {
+                BinderSlotEditor(model: model, collections: context.collections)
+            }
+            .environment(context.cards)
+        }
+    }
+
+    @Test func `Renders unfiled card choices with a way back`() async throws {
+        let context = try await CollectionTestFixtures.emptyBinderContext()
+        let collection = try #require(context.collections.selected)
+        let model = BinderSlotEditorModel(
+            collection: collection,
+            position: .init(pageID: CardsTestIDs.secondary, row: 1, column: 2)
+        )
+        await model.showCards(unfiled: true, using: context.cards, collections: context.collections)
+        #expect(model.availableCards.count == 2)
+        await assertCollectionSnapshot(testName: #function) {
+            NavigationStack {
+                BinderSlotEditor(model: model, collections: context.collections)
+            }
+            .environment(context.cards)
+        }
+    }
+
+    @Test func `Renders unfiled selection copy confirmation before saving`() async throws {
+        let context = try await CollectionTestFixtures.emptyBinderContext()
+        let collection = try #require(context.collections.selected)
+        let model = BinderSlotEditorModel(
+            collection: collection,
+            position: .init(pageID: CardsTestIDs.secondary, row: 1, column: 2)
+        )
+        await model.showCards(unfiled: true, using: context.cards, collections: context.collections)
+        let card = try #require(model.availableCards.first)
+        model.choose(card)
+        #expect(model.canSave)
+        await assertCollectionSnapshot(testName: #function) {
+            NavigationStack {
+                BinderSlotEditor(model: model, collections: context.collections)
+            }
+            .environment(context.cards)
+        }
+    }
+
+    @Test func `Renders a retry when slot card loading fails`() async {
+        let client = TCGClient.preview(cardsOutcome: .serverUnavailable)
+        let cards = TCGCards(client: client)
+        let collections = TCGCollections(client: client, defaults: nil)
+        let collection = CollectionTestFixtures.binder(columns: 3, rows: 3)
+        let model = BinderSlotEditorModel(
+            collection: collection,
+            position: .init(pageID: CardsTestIDs.secondary, row: 1, column: 2)
+        )
+        await model.load(using: cards, collections: collections)
+        #expect(model.error != nil)
+        await assertCollectionSnapshot(testName: #function) {
+            NavigationStack { BinderSlotEditor(model: model, collections: collections) }.environment(cards)
         }
     }
 
@@ -178,21 +276,25 @@ struct TCGCollectionsSnapshotTests {
         }
     }
 
-    @Test func `Renders split quantity slot editing`() async {
-        let context = await CollectionTestFixtures.loadedContext()
+    @Test func `Renders split quantity slot editing`() async throws {
+        let context = try await CollectionTestFixtures.selectedContext()
         let cards = context.cards
         let collections = context.collections
         let page = BinderPage(
             id: CardsTestIDs.secondary,
             slots: [.init(row: 1, column: 1, cardID: PreviewTCGCardsClient.sampleCards[0].id, quantity: 2)]
         )
-        let collection = CollectionTestFixtures.collection(columns: 3, rows: 3, pages: [page])
+        var collection = try #require(context.collections.selected)
+        collection.pages = [page]
         #expect(collection.allocatedCopies(of: PreviewTCGCardsClient.sampleCards[0].id) == 2)
         await assertCollectionSnapshot(testName: #function) {
             NavigationStack {
                 BinderSlotEditor(
-                    collection: collection,
-                    position: .init(pageID: page.id, row: 1, column: 1),
+                    content: .init(
+                        collection: collection,
+                        position: .init(pageID: page.id, row: 1, column: 1),
+                        card: context.cards.cards.first
+                    ),
                     collections: collections
                 )
                 .environment(\.isEditingCollection, true)

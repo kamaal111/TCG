@@ -48,6 +48,8 @@ public protocol TCGCollectionsClient: Sendable {
 
     func save(_ collection: CardBinderCollection) async -> Result<CardBinderCollection, CollectionsError>
 
+    func save(_ payload: SaveBinderLayoutPayload) async -> Result<CardBinderCollection, CollectionsError>
+
     func delete(id: UUID) async -> Result<Void, CollectionsError>
 
     func page(collectionID: UUID, pageID: UUID) async -> Result<BinderPageCards, CollectionsError>
@@ -230,7 +232,12 @@ struct TCGCollectionsClientImpl: TCGCollectionsClient {
     }
 
     func save(_ collection: CardBinderCollection) async -> Result<CardBinderCollection, CollectionsError> {
-        let payload = CollectionMapper.makeLayout(collection)
+        await save(SaveBinderLayoutPayload(collection: collection))
+    }
+
+    func save(_ request: SaveBinderLayoutPayload) async -> Result<CardBinderCollection, CollectionsError> {
+        let collection = request.collection
+        let payload = CollectionMapper.makeLayout(request)
         let output: Operations.PutAppApiCollectionsCollectionIdLayout.Output
         do {
             output = try await client.putAppApiCollectionsCollectionIdLayout(

@@ -173,7 +173,15 @@ public final class TCGCollections {
     }
 
     func save(_ collection: CardBinderCollection, using cards: TCGCards) async -> Bool {
-        await perform(using: cards, action: { await client.save(collection) }, apply: replace)
+        await save(SaveBinderLayoutPayload(collection: collection), using: cards)
+    }
+
+    func save(_ payload: SaveBinderLayoutPayload, using cards: TCGCards) async -> Bool {
+        let saved = await perform(using: cards, action: { await client.save(payload) }, apply: replace)
+        if saved, payload.moveFromUnfiledCardID != nil, cards.selectedCollection?.id == payload.collection.id {
+            await cards.refresh()
+        }
+        return saved
     }
 
     func delete(_ collection: CardBinderCollection, using cards: TCGCards) async -> Bool {
