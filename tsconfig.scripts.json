@@ -11,5 +11,5 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true
   },
-  "include": ["scripts/**/*.ts", "*.config.ts"]
+  "include": ["scripts/**/*.ts", "server/devportal/**/*.ts", "*.config.ts"]
 }

@@ -258,30 +258,30 @@ logs-app-release *args:
 # Guide private Devportal setup on the release Mac
 [positional-arguments]
 setup-devportal *args:
-    node devportal/src/setup-cli.ts "$@"
+    node server/devportal/setup-cli.ts "$@"
 
 # Run the private Devportal Hono service in the foreground
-devportal:
-    node devportal/src/index.ts
+devportal: build-devportal-web
+    node server/devportal/index.ts
 
 # Install Devportal or update an existing agent from merged main
 [positional-arguments]
 install-devportal-agent *args:
-    node devportal/src/agent.ts install "$@"
+    node server/devportal/agent.ts install "$@"
 
 # Inspect the private release service
 [positional-arguments]
 devportal-agent-status *args:
-    node devportal/src/agent.ts status "$@"
+    node server/devportal/agent.ts status "$@"
 
 # Remove the LaunchAgent, preserving private settings and history
 [positional-arguments]
 uninstall-devportal-agent *args:
-    node devportal/src/agent.ts uninstall "$@"
+    node server/devportal/agent.ts uninstall "$@"
 
-# Regenerate the independent Devportal client contract
-download-devportal-spec:
-    node devportal/src/spec.ts
+# Build the web bundle served by the private Devportal
+build-devportal-web:
+    pnpm --filter @tcg/devportal-web build
 
 # Inspect the macOS daily currency job
 currency-schedule-status:
@@ -384,7 +384,6 @@ test-snapshots-macos:
         -project "{{ APP_PROJECT }}" \
         -scheme "{{ APP_SCHEME }}" \
         -destination "platform=macOS" \
-        -only-testing:MintomoDevportalTests/MintomoDevportalScreenSnapshotTests \
         -only-testing:TCGCardsTests/ScreenSnapshotSettlingTests \
         -only-testing:TCGCardsTests/TCGCardsListScreenSnapshotTests \
         -only-testing:TCGCardsTests/TCGCollectionsSnapshotTests \
@@ -429,7 +428,6 @@ _snapshots-ios action *args:
     bash ../scripts/run-with-xcbeautify.sh "snapshots-ios-$action" ../scripts/with-ios-simulator-lock \
         "${selection_args[@]}" \
         -destination "{{ APP_IOS_TEST_DESTINATION }}" \
-        -only-testing:MintomoDevportalTests/MintomoDevportalScreenSnapshotTests \
         -only-testing:TCGCardsTests/ScreenSnapshotSettlingTests \
         -only-testing:TCGCardsTests/TCGCardsListScreenSnapshotTests \
         -only-testing:TCGCardsTests/TCGCollectionsSnapshotTests \
@@ -503,7 +501,7 @@ test-server-image: build-server-image
     exit 1
 
 # Run repository script tests with Vitest
-test-scripts:
+test-scripts: build-devportal-web
     {{ PNR }} test
 
 # Log available app destinations
@@ -544,6 +542,7 @@ typecheck-server: typecheck-packages
 # Typecheck repository scripts
 typecheck-scripts:
     {{ PNX }} tsc -p tsconfig.scripts.json
+    pnpm --filter @tcg/devportal-web typecheck
 
 # Lint the project
 lint: lint-js lint-app
@@ -636,8 +635,8 @@ xcode:
 
 # Run workspace package tests with coverage
 test-packages:
-    {{ PN }} --filter '@tcg/*' run test
+    {{ PN }} --filter './packages/*' run test
 
 # Typecheck workspace packages
 typecheck-packages:
-    {{ PN }} --filter '@tcg/*' run typecheck
+    {{ PN }} --filter './packages/*' run typecheck

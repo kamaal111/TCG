@@ -12,7 +12,7 @@ import { runAppRelease } from './app-release/runtime.ts';
 import type { Prompts } from './infra/prompts.ts';
 import { waitForProcessOutput } from './process-test-utils.ts';
 import { acquireLocalLease } from './release/lock.ts';
-import { inspectApp } from '../devportal/src/inspection.ts';
+import { inspectApp } from '../server/devportal/inspection.ts';
 
 const execute = util.promisify(childProcess.execFile);
 const repository = url.fileURLToPath(new URL('../', import.meta.url));

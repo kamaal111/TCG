@@ -16,5 +16,5 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true
   },
-  "exclude": ["node_modules"]
+  "exclude": ["node_modules", "devportal"]
 }

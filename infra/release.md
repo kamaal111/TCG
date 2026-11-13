@@ -121,7 +121,7 @@ approvals. See [GitHub Actions](github-actions.md).
 
 ## Release from Mintomo Devportal
 
-The separate native Mintomo Devportal app can review pending commits and approve
+The private Mintomo Devportal web app can review pending commits and approve
 application releases from Tailscale-connected iPhone, iPad and Mac devices. A
 private Hono service runs the existing release pipeline on the Mac mini. It uses
 an explicit Tailscale user allowlist and keeps credentials on that host.

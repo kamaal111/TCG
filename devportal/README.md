@@ -1,9 +1,8 @@
 # Mintomo Devportal service
 
-The native **Mintomo Devportal** target in `app/` connects to this private Hono
-service on the release Mac mini. Production continues running the existing
-`server/` application. Shared HTTP infrastructure lives in `packages/http`;
-release selection, connection settings and execution reuse `scripts/release`.
+The private Hono service on the release Mac mini serves the Mintomo Devportal
+web app and release API. Release selection, settings and execution reuse
+`scripts/release`.
 
 ## Set up the Mac mini
 
@@ -20,10 +19,9 @@ its summary, approve installation, and follow any Tailscale HTTPS approval link
 shown in the terminal. It saves private settings, installs startup at login,
 preserves other Serve/Funnel services, and prints the exact app URL.
 
-On your iPhone or Mac, connect Tailscale, open **Mintomo Devportal → Connection
-settings**, and paste that URL. Build the **MintomoDevportal** Xcode scheme to
-install the app. All allowed users can view, start and approve portal releases.
-No release runs during setup.
+Connect your device to Tailscale and open the printed HTTPS URL in your browser.
+All allowed users can view, start and approve portal releases. Setup starts no
+release.
 
 If your tailnet policy blocks access, the wizard prints the destination and port
 to give your administrator. It cannot change your organization's access policy.
@@ -40,8 +38,8 @@ just install-devportal-agent
 
 It detects the existing LaunchAgent, reuses its saved settings directory, fetches
 merged `origin/main`, updates the checkout by fast-forward, refreshes the pinned
-tools and locked dependencies, and reinstalls/restarts the service using the new
-runtime. Settings, release history and Tailscale configuration are preserved;
+tools and locked dependencies, builds the web app, and restarts the service
+using the updated runtime and bundle. Settings, release history and Tailscale configuration are preserved;
 the setup questions are skipped. No production release runs.
 
 The command refuses to change an active release, a dirty checkout or a development
@@ -75,7 +73,7 @@ The backend listens only on `127.0.0.1`. Tailscale Serve supplies the authentica
 `Tailscale-User-Login` header, which the backend checks against its allowlist.
 Local processes on the release Mac are trusted. Keep the backend private and use
 Serve for access from other devices. Tagged devices without user identity are
-rejected. The app stores only an HTTPS `*.ts.net` URL, with no deployment secrets.
+rejected. The browser uses the same HTTPS `*.ts.net` origin for the page and API.
 
 The wizard uses HTTPS 443, 8443 or 9443, choosing a free listener or reusing the
 same portal mapping. It refuses to overwrite another service or reuse a public
@@ -118,7 +116,7 @@ required, the portal blocks before building. Migration and deployment each requi
 a separate explicit approval. If the host changes during approval, review the
 refreshed target and approve again. Declining stops before that operation.
 
-Closing the app does not cancel a build. Reconnect to its active release; pending
+Closing the browser tab does not cancel a build. Reconnect to its active release; pending
 approvals remain paused. Restarting the service marks unfinished sessions
 interrupted. Retry explicitly to recheck the host and reuse verified published
 images. There is no automatic application or database rollback.
@@ -141,19 +139,16 @@ unrelated Tailscale settings.
 
 ## Contract and verification
 
-The Hono routes define the independent OpenAPI contract used by the Swift build
-plugin. Regenerate after route changes:
+The Hono service, LaunchAgent, and release API contract live in
+`server/devportal/`. The `@tcg/devportal-web` workspace package imports its
+contract types for type checking.
 
 ```sh
-just download-devportal-spec
-pnpm --filter @tcg/devportal typecheck
-pnpm --filter @tcg/devportal test
+just build-devportal-web
+just test-scripts
 just quality
-just ready
 ```
 
-Integration tests exercise authorization, persistence, approvals and retries
-through Hono, with controlled external commands. The existing release tests cover
-real temporary Git histories and the shared pipeline. Root app checks build both
-targets and run Devportal model and snapshot tests on macOS and iOS. Follow the
-repository's simulator recipes and localization-catalog workflow.
+The tooling tests cover Tailscale authorization, release persistence, approvals,
+retries, and the installer. The release tests exercise temporary Git histories
+and the shared pipeline.

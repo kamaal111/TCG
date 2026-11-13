@@ -67,7 +67,6 @@ describe('iOS snapshot recipes', () => {
     expect(args).not.toContain('-scheme');
     expect(args).not.toContain('-clonedSourcePackagesDirPath');
     expect(args.filter(argument => argument.startsWith('-only-testing:'))).toEqual([
-      '-only-testing:MintomoDevportalTests/MintomoDevportalScreenSnapshotTests',
       '-only-testing:TCGCardsTests/ScreenSnapshotSettlingTests',
       '-only-testing:TCGCardsTests/TCGCardsListScreenSnapshotTests',
       '-only-testing:TCGCardsTests/TCGCollectionsSnapshotTests',

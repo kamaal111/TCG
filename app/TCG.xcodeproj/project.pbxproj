@@ -8,19 +8,12 @@
 
 /* Begin PBXBuildFile section */
 		2CDD18A62FF1860400D5D03D /* TCGApp in Frameworks */ = {isa = PBXBuildFile; productRef = 2CDD18A52FF1860400D5D03D /* TCGApp */; };
-		D00000000000000000000001 /* MintomoDevportal in Frameworks */ = {isa = PBXBuildFile; productRef = D00000000000000000000002 /* MintomoDevportal */; };
-		D00000000000000000000003 /* TCG/Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = D00000000000000000000004 /* TCG/Assets.xcassets */; };
-		D00000000000000000000005 /* TCG/PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = D00000000000000000000006 /* TCG/PrivacyInfo.xcprivacy */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		000000000000000000000120 /* Mintomo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Mintomo.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		2C2F3432300BDB5B005F8F89 /* TCG.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = TCG.entitlements; sourceTree = "<group>"; };
 		2C553C282FF941AD0030B3A0 /* TCG.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; path = TCG.xctestplan; sourceTree = "<group>"; };
-		D00000000000000000000004 /* TCG/Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = TCG/Assets.xcassets; sourceTree = "<group>"; };
-		D00000000000000000000006 /* TCG/PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = TCG/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
-		D00000000000000000000007 /* Mintomo Devportal.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; path = "Mintomo Devportal.app"; sourceTree = BUILT_PRODUCTS_DIR; };
-		D00000000000000000000008 /* Configuration/Devportal.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Configuration/Devportal.xcconfig; sourceTree = "<group>"; };
 		F00000000000000000000001 /* Configuration/ProjectDebug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Configuration/ProjectDebug.xcconfig; sourceTree = "<group>"; };
 		F00000000000000000000002 /* Configuration/ProjectRelease.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Configuration/ProjectRelease.xcconfig; sourceTree = "<group>"; };
 		F00000000000000000000003 /* Configuration/Remote.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Configuration/Remote.xcconfig; sourceTree = "<group>"; };
@@ -38,11 +31,6 @@
 			path = Modules;
 			sourceTree = "<group>";
 		};
-		D00000000000000000000009 /* MintomoDevportal */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = MintomoDevportal;
-			sourceTree = "<group>";
-		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -52,12 +40,6 @@
 				2CDD18A62FF1860400D5D03D /* TCGApp in Frameworks */,
 			);
 		};
-		D00000000000000000000010 /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			files = (
-				D00000000000000000000001 /* MintomoDevportal in Frameworks */,
-			);
-		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -65,16 +47,12 @@
 			isa = PBXGroup;
 			children = (
 				2C2F3432300BDB5B005F8F89 /* TCG.entitlements */,
-				D00000000000000000000004 /* TCG/Assets.xcassets */,
-				D00000000000000000000008 /* Configuration/Devportal.xcconfig */,
 				F00000000000000000000004 /* Configuration/Local.xcconfig */,
 				F00000000000000000000001 /* Configuration/ProjectDebug.xcconfig */,
 				F00000000000000000000002 /* Configuration/ProjectRelease.xcconfig */,
 				F00000000000000000000003 /* Configuration/Remote.xcconfig */,
-				D00000000000000000000006 /* TCG/PrivacyInfo.xcprivacy */,
 				2C553C282FF941AD0030B3A0 /* TCG.xctestplan */,
 				2CDD18A42FF1860400D5D03D /* Frameworks */,
-				D00000000000000000000009 /* MintomoDevportal */,
 				2C61CFCD2FF17F8200B44EDB /* Modules */,
 				000000000000000000000020 /* Products */,
 				000000000000000000000010 /* TCG */,
@@ -85,7 +63,6 @@
 			isa = PBXGroup;
 			children = (
 				000000000000000000000120 /* Mintomo.app */,
-				D00000000000000000000007 /* Mintomo Devportal.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -122,27 +99,6 @@
 			productReference = 000000000000000000000120 /* Mintomo.app */;
 			productType = "com.apple.product-type.application";
 		};
-		D00000000000000000000013 /* MintomoDevportal */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = D00000000000000000000014 /* Build configuration list for PBXNativeTarget "MintomoDevportal" */;
-			buildPhases = (
-				D00000000000000000000012 /* Sources */,
-				D00000000000000000000010 /* Frameworks */,
-				D00000000000000000000011 /* Resources */,
-			);
-			buildRules = (
-			);
-			fileSystemSynchronizedGroups = (
-				D00000000000000000000009 /* MintomoDevportal */,
-			);
-			name = MintomoDevportal;
-			packageProductDependencies = (
-				D00000000000000000000002 /* MintomoDevportal */,
-			);
-			productName = "Mintomo Devportal";
-			productReference = D00000000000000000000007 /* Mintomo Devportal.app */;
-			productType = "com.apple.product-type.application";
-		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -172,7 +128,6 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				D00000000000000000000013 /* MintomoDevportal */,
 				000000000000000100000000 /* TCG */,
 			);
 		};
@@ -182,13 +137,6 @@
 		000000000000000140000000 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			files = (
-			);
-		};
-		D00000000000000000000011 /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			files = (
-				D00000000000000000000003 /* TCG/Assets.xcassets in Resources */,
-				D00000000000000000000005 /* TCG/PrivacyInfo.xcprivacy in Resources */,
 			);
 		};
 /* End PBXResourcesBuildPhase section */
@@ -214,11 +162,6 @@
 
 /* Begin PBXSourcesBuildPhase section */
 		000000000000000120000000 /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			files = (
-			);
-		};
-		D00000000000000000000012 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			files = (
 			);
@@ -282,34 +225,6 @@
 			};
 			name = ReleaseLocal;
 		};
-		D00000000000000000000020 /* Debug configuration for PBXNativeTarget "MintomoDevportal" */ = {
-			isa = XCBuildConfiguration;
-			baseConfigurationReference = D00000000000000000000008 /* Configuration/Devportal.xcconfig */;
-			buildSettings = {
-			};
-			name = Debug;
-		};
-		D00000000000000000000021 /* Release configuration for PBXNativeTarget "MintomoDevportal" */ = {
-			isa = XCBuildConfiguration;
-			baseConfigurationReference = D00000000000000000000008 /* Configuration/Devportal.xcconfig */;
-			buildSettings = {
-			};
-			name = Release;
-		};
-		D00000000000000000000022 /* DebugLocal configuration for PBXNativeTarget "MintomoDevportal" */ = {
-			isa = XCBuildConfiguration;
-			baseConfigurationReference = D00000000000000000000008 /* Configuration/Devportal.xcconfig */;
-			buildSettings = {
-			};
-			name = DebugLocal;
-		};
-		D00000000000000000000023 /* ReleaseLocal configuration for PBXNativeTarget "MintomoDevportal" */ = {
-			isa = XCBuildConfiguration;
-			baseConfigurationReference = D00000000000000000000008 /* Configuration/Devportal.xcconfig */;
-			buildSettings = {
-			};
-			name = ReleaseLocal;
-		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -333,26 +248,12 @@
 			);
 			defaultConfigurationName = Release;
 		};
-		D00000000000000000000014 /* Build configuration list for PBXNativeTarget "MintomoDevportal" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				D00000000000000000000020 /* Debug configuration for PBXNativeTarget "MintomoDevportal" */,
-				D00000000000000000000021 /* Release configuration for PBXNativeTarget "MintomoDevportal" */,
-				D00000000000000000000022 /* DebugLocal configuration for PBXNativeTarget "MintomoDevportal" */,
-				D00000000000000000000023 /* ReleaseLocal configuration for PBXNativeTarget "MintomoDevportal" */,
-			);
-			defaultConfigurationName = Release;
-		};
 /* End XCConfigurationList section */
 
 /* Begin XCSwiftPackageProductDependency section */
 		2CDD18A52FF1860400D5D03D /* TCGApp */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = TCGApp;
-		};
-		D00000000000000000000002 /* MintomoDevportal */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = MintomoDevportal;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

@@ -264,7 +264,7 @@ No names, card contents, or backup bodies are logged. Other failures use request
 
 The separate Mac mini Hono service uses `@tcg/http` request logging with
 `service=mintomo-devportal`. It does not initialize the production application.
-`devportal/src/logging.ts` owns `devportal.release.transition`, emitted after
+`server/devportal/logging.ts` owns `devportal.release.transition`, emitted after
 release state is durably saved. Fields are `release_id`, `release_sha`,
 `release_stage`, `release_state`, and `operator_login`; the operator is the
 initiator or most recent approver. Failed/interrupted transitions are warnings.
