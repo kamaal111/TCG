@@ -1,4 +1,5 @@
 import type { CardGame, PricingSource, CardPriceRow, CardPriceSearchRow, CardPriceUpsertValues } from './types.ts';
+import type { OwnedCard } from '../cards/types.ts';
 import type { NonEmptyArray } from '../utils/type-utils.ts';
 
 export type { CardPriceRow } from './types.ts';
@@ -10,12 +11,12 @@ export interface CardPricingRepository {
     cardId: string,
     pricedOn: string,
   ): Promise<CardPriceRow | undefined>;
-  getCachedCardPriceById(
+  getCachedCardPriceById(source: PricingSource, game: CardGame, id: string): Promise<CardPriceRow | undefined>;
+  findCachedPrinting(
     source: PricingSource,
     game: CardGame,
-    id: string,
-    pricedOn: string,
-  ): Promise<CardPriceRow | undefined>;
+    printing: { name: string; setName: string; cardNumber: string },
+  ): Promise<string | undefined>;
   getCachedCardPrices(source: PricingSource, game: CardGame, ids: string[], pricedOn: string): Promise<CardPriceRow[]>;
   upsertCardPrice(values: CardPriceUpsertValues): Promise<CardPriceRow>;
   upsertCardPrices(values: NonEmptyArray<CardPriceUpsertValues>): Promise<NonEmptyArray<CardPriceRow>>;
@@ -33,5 +34,5 @@ export interface CardPricingRepository {
     pricingCardIds: string[];
     hasMore: boolean;
   }): Promise<void>;
-  setOwnedCardPricingIdentity(id: string, pricingCardId: string, source: PricingSource): Promise<void>;
+  setOwnedCardPricingIdentity(owned: OwnedCard, pricingCardId: string, source: PricingSource): Promise<void>;
 }

@@ -50,8 +50,11 @@ export const CREATE_CARD_ROUTE_PATH = `${APP_API_ROUTE_NAME}${CARDS_ROUTE_NAME}`
 const createCardRoute = defineOpenAPIRoute<HonoEnvironment, typeof routeConfig>({
   route: routeConfig,
   handler: async c => {
+    const values = c.req.valid('json');
+    const pricingLink = await c.get('cardPricingService').resolveSelectedPricingLink(values);
+
     const [createdCard, display] = await Promise.all([
-      c.get('cardRepository').create(c.req.valid('json')),
+      c.get('cardRepository').create(values, pricingLink),
       c.get('forexService').displayContext(),
     ]);
 

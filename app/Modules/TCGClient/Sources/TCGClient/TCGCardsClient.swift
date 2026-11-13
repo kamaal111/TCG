@@ -423,7 +423,8 @@ struct TCGCardsClientImpl: TCGCardsClient {
             cardNumber: payload.cardNumber,
             collectionId: payload.collectionID.map(UUIDCoding.encode),
             notes: payload.notes,
-            purchases: payload.purchases.map(Self.makeGeneratedBatch)
+            purchases: payload.purchases.map(Self.makeGeneratedBatch),
+            pricedCardId: payload.pricedCardID.map(UUIDCoding.encode)
         )
     }
 

@@ -18,7 +18,9 @@ final class TCGCardFormScreenModel {
     var values: CardFormValues {
         didSet {
             if values.game != oldValue.game || values.name != oldValue.name || values.cardNumber != oldValue.cardNumber
+                || values.setName != oldValue.setName
             {
+                values.selectedPricedCardID = nil
                 values.defaultMarketPrice = nil
                 values.defaultMarketCurrency = nil
                 values.marketPricedOn = nil
@@ -98,11 +100,12 @@ final class TCGCardFormScreenModel {
     private struct PricingIdentity: Equatable {
         let game: ClientCardGame
         let name: String
+        let setName: String
         let cardNumber: String
     }
 
     private var pricingIdentity: PricingIdentity {
-        PricingIdentity(game: values.game, name: values.name, cardNumber: values.cardNumber)
+        PricingIdentity(game: values.game, name: values.name, setName: values.setName, cardNumber: values.cardNumber)
     }
 
     func refreshPurchaseDefault(using cards: TCGCards) async {

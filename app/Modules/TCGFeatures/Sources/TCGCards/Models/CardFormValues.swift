@@ -23,6 +23,7 @@ struct CardFormValues: Equatable {
     var defaultMarketCurrency: Currency?
     var marketPricedOn: Date?
     var pricingCardID: String?
+    var selectedPricedCardID: UUID?
 
     var quantities: [CardCondition: Int] {
         get {
@@ -91,6 +92,7 @@ struct CardFormValues: Equatable {
         cardNumber = pricedCard.cardNumber
         notes = ""
         quantities = [:]
+        selectedPricedCardID = UUID(uuidString: pricedCard.id)
         updateMarketDefault(pricedCard)
     }
 
@@ -111,7 +113,8 @@ struct CardFormValues: Equatable {
             cardNumber: cardNumber.trimmingCharacters(in: .whitespacesAndNewlines),
             notes: trimmedNotes.isEmpty ? nil : trimmedNotes,
             purchases: batches.filter { $0.quantity > 0 }.map(\.purchase),
-            collectionID: collectionID
+            collectionID: collectionID,
+            pricedCardID: selectedPricedCardID
         )
     }
 

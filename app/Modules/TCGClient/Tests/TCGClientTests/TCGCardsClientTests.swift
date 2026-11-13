@@ -82,6 +82,7 @@ struct TCGCardsClientTests {
             """.utf8
         )
         let transport = CardsRequestTransport(status: .created, body: body)
+        let selectedID = try #require(UUID(uuidString: "550e8400-e29b-41d4-a716-446655440000"))
         let input = UpsertCardPayload(
             game: .onePiece,
             name: "Luffy",
@@ -89,7 +90,8 @@ struct TCGCardsClientTests {
             cardNumber: "OP01-003",
             notes: nil,
             purchases: [.init(condition: .nearMint, quantity: 2, purchasePrice: 1500, currency: .jpy)],
-            collectionID: nil
+            collectionID: nil,
+            pricedCardID: selectedID
         )
         let client = makeClient(transport: transport)
         let result = try await client.cards.create(with: input).get()
@@ -102,7 +104,11 @@ struct TCGCardsClientTests {
         #expect(purchase.displayPrice?.conversionUnavailable == false)
         let request = try #require(await transport.request)
         let requestBody = try #require(request.body)
+        #expect(request.method == .post)
+        #expect(request.path == "/app-api/cards")
+        #expect(request.operationID == "post/app-api/cards")
         let sent = try JSONDecoder().decode(Components.Schemas.UpsertCard.self, from: requestBody)
+        #expect(sent.pricedCardId == selectedID.uuidString.lowercased())
         #expect(sent.purchases.first?.purchasePrice == "1500")
         #expect(sent.purchases.first?.currency?.rawValue == "JPY")
     }

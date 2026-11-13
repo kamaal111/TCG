@@ -28,6 +28,8 @@ export interface OwnedCard {
   updatedAt: Date;
 }
 
+export type CardPricingLink = Pick<OwnedCard, 'pricingCardId' | 'pricingSource'>;
+
 export interface PurchaseBatch {
   id: string;
   cardId: string;
