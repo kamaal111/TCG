@@ -1,6 +1,6 @@
 import crypto from 'node:crypto';
 
-import { and, count, desc, eq, sql } from 'drizzle-orm';
+import { and, desc, eq } from 'drizzle-orm';
 
 import { ensureUnfiled, type Transaction } from './collection-transactions.ts';
 import { BinderFull, CollectionNotFound } from '../../collections/exceptions.ts';
@@ -36,46 +36,32 @@ export async function placeCardInBinder({
     throw new CollectionNotFound();
   }
 
+  const [lastOccupied] = await tx
+    .select({ position: binderPage.position, row: binderSlot.row, column: binderSlot.column })
+    .from(binderPage)
+    .innerJoin(binderSlot, eq(binderSlot.pageId, binderPage.id))
+    .where(eq(binderPage.collectionId, collection.id))
+    .orderBy(desc(binderPage.position), desc(binderSlot.row), desc(binderSlot.column))
+    .limit(1);
+
   const capacity = collection.rows * collection.columns;
-  const occupancy = tx.select({ count: count() }).from(binderSlot).where(eq(binderSlot.pageId, binderPage.id));
+  const nextSlot = lastOccupied == null ? 0 : (lastOccupied.row - 1) * collection.columns + lastOccupied.column;
+  const position = (lastOccupied?.position ?? 0) + Math.floor(nextSlot / capacity);
+  const slotIndex = nextSlot % capacity;
+  const row = Math.floor(slotIndex / collection.columns) + 1;
+  const column = (slotIndex % collection.columns) + 1;
 
   const [page] = await tx
     .select({ id: binderPage.id })
     .from(binderPage)
-    .where(and(eq(binderPage.collectionId, collection.id), sql`(${occupancy}) < ${capacity}`))
-    .orderBy(binderPage.position)
+    .where(and(eq(binderPage.collectionId, collection.id), eq(binderPage.position, position)))
     .limit(1);
 
   if (page != null) {
-    const occupied = await tx
-      .select({ row: binderSlot.row, column: binderSlot.column })
-      .from(binderSlot)
-      .where(eq(binderSlot.pageId, page.id));
+    await tx.insert(binderSlot).values({ pageId: page.id, cardId, row, column, quantity });
 
-    const positions = new Set(occupied.map(slot => `${slot.row}:${slot.column}`));
-
-    for (let position = 0; position < capacity; position += 1) {
-      const row = Math.floor(position / collection.columns) + 1;
-      const column = (position % collection.columns) + 1;
-
-      if (!positions.has(`${row}:${column}`)) {
-        await tx.insert(binderSlot).values({ pageId: page.id, cardId, row, column, quantity });
-
-        return;
-      }
-    }
-
-    throw new BinderFull();
+    return;
   }
-
-  const [last] = await tx
-    .select({ position: binderPage.position })
-    .from(binderPage)
-    .where(eq(binderPage.collectionId, collection.id))
-    .orderBy(desc(binderPage.position))
-    .limit(1);
-
-  const position = last == null ? 0 : last.position + 1;
 
   if (position >= maximumPages) {
     throw new BinderFull();
@@ -83,5 +69,5 @@ export async function placeCardInBinder({
 
   const pageId = crypto.randomUUID();
   await tx.insert(binderPage).values({ id: pageId, collectionId: collection.id, position });
-  await tx.insert(binderSlot).values({ pageId, cardId, row: 1, column: 1, quantity });
+  await tx.insert(binderSlot).values({ pageId, cardId, row, column, quantity });
 }

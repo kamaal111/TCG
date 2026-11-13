@@ -3,30 +3,32 @@ import SwiftUI
 struct BinderPageActions: View {
     let addPage: () -> Void
     let selectedPageNumber: Int?
-    let insertPage: () -> Void
+    let insertPage: (BinderLayout.PageInsertion) -> Void
 
     var body: some View {
         HStack {
-            Button(action: addPage) {
-                Label {
-                    Text("Empty page", bundle: .module)
-                } icon: {
-                    Image(systemName: "plus")
-                }
-            }
-            .help(Text("Add an empty page", bundle: .module))
             if let selectedPageNumber {
-                Button(action: insertPage) {
-                    Label {
-                        Text("Insert page before", bundle: .module)
-                    } icon: {
-                        Image(systemName: "rectangle.stack.badge.plus")
-                    }
-                }
-                .help(Text("Insert before page \(selectedPageNumber)", bundle: .module))
-                .accessibilityLabel(Text("Insert before page \(selectedPageNumber)", bundle: .module))
+                pageButton(Text("Add page before", bundle: .module)) { insertPage(.before) }
+                    .help(Text("Add page before page \(selectedPageNumber)", bundle: .module))
+                    .accessibilityLabel(Text("Add page before page \(selectedPageNumber)", bundle: .module))
+                Spacer()
+                pageButton(Text("Add page after", bundle: .module)) { insertPage(.after) }
+                    .help(Text("Add page after page \(selectedPageNumber)", bundle: .module))
+                    .accessibilityLabel(Text("Add page after page \(selectedPageNumber)", bundle: .module))
+            } else {
+                pageButton(Text("Add page", bundle: .module), action: addPage)
+                Spacer()
             }
-            Spacer()
+        }
+    }
+
+    private func pageButton(_ title: Text, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Label {
+                title
+            } icon: {
+                Image(systemName: "plus")
+            }
         }
     }
 }

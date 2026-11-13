@@ -2,6 +2,11 @@ import Foundation
 import TCGClient
 
 enum BinderLayout {
+    enum PageInsertion {
+        case before
+        case after
+    }
+
     static let maximumDimension = 20
 
     static func capacity(columns: Int, rows: Int) -> Int? {
@@ -12,13 +17,14 @@ enum BinderLayout {
 
     static func insertingEmptyPage(
         in collection: CardBinderCollection,
-        before pageID: UUID,
+        beside pageID: UUID,
+        side: PageInsertion,
         pageID newPageID: UUID
     ) -> CardBinderCollection? {
         guard let index = collection.pages.firstIndex(where: { $0.id == pageID }) else { return nil }
         guard !collection.pages.contains(where: { $0.id == newPageID }) else { return nil }
         var updated = collection
-        updated.pages.insert(BinderPage(id: newPageID, slots: []), at: index)
+        updated.pages.insert(BinderPage(id: newPageID, slots: []), at: side == .before ? index : index + 1)
         return updated
     }
 

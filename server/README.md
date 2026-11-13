@@ -208,11 +208,11 @@ Collection request budgets are configurable through these environment variables:
 Binder dimensions must each be between 1 and 20, allowing at most 400 slots
 per page. Rectangular layouts such as 1 by 4 are supported.
 Adding a card or moving it to another collection places all its copies in the
-first empty slot, scanning pages in order and slots row by row. A new page is
-created when necessary, up to `COLLECTION_MAX_PAGES`. If the binder is full at
-that limit, the card change is rejected without saving partial data. Existing
-gaps are preserved when editing a card in its current collection, and backup
-imports retain their explicit layouts.
+slot immediately after the last occupied slot in page and row order. Earlier
+empty slots and pages are preserved. A new page is created when necessary, up
+to `COLLECTION_MAX_PAGES`. If placement would exceed that limit, the card
+change is rejected without saving partial data. Editing a card in its current
+collection preserves gaps, and backup imports retain their explicit layouts.
 
 Counts apply to submitted data, including empty pages, across the entire request.
 The collection count also limits explicit export IDs. Export all collections by
