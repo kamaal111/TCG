@@ -771,6 +771,49 @@ describe('Scrydex search through the authenticated pricing API', () => {
   );
 
   integrationTest(
+    'refreshes a cached Japanese promo miss using the printed suffix and expansion',
+    async ({ createApp, user, db }) => {
+      await db.insert(cardPriceSearch).values({
+        game: 'pokemon',
+        pricingSource: 'scrydex_real',
+        queryKey: searchPageKey('pokemon|v4|265/s-p', 0),
+        pricedOn: todayUTC(),
+        pricingCardIds: [],
+      });
+
+      const expectedQuery = '(!printed_number:"265/S-P" OR (!expansion.id:swshp_ja AND !number:265))';
+
+      const search = createSearchApp({
+        createApp,
+        user,
+        expectedQuery,
+        cards: [
+          {
+            id: 'swshp_ja-265',
+            name: 'ピカチュウVMAX',
+            number: '265',
+            artist: 'AKIRA EGAWA',
+            language_code: 'JA',
+            expansion: { id: 'swshp_ja', name: 'Sword & Shield Promos' },
+            translation: { en: { name: 'Pikachu VMAX' } },
+          },
+        ],
+      });
+
+      const response = await search.request('265/S-P');
+
+      expect(response.status).toBe(200);
+      expect(PricingSearchResponseSchema.parse(await response.json()).matches).toMatchObject([
+        { name: 'ピカチュウVMAX', card_number: '265', illustrator: 'AKIRA EGAWA' },
+      ]);
+      expect(search.transport.queries).toEqual([expectedQuery]);
+      expect(
+        await db.query.cardPriceSearch.findFirst({ where: { queryKey: searchPageKey('pokemon|v5|265/s-p', 0) } }),
+      ).toMatchObject({ pricingCardIds: ['swshp_ja-265'] });
+    },
+  );
+
+  integrationTest(
     'ignores empty search results cached under the previous query version',
     async ({ createApp, user, db }) => {
       await db.insert(cardPriceSearch).values({
