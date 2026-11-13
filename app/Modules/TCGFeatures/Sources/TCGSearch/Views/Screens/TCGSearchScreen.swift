@@ -8,7 +8,7 @@ import TCGClient
 import TCGDesignSystem
 import TCGModels
 
-public struct TCGSearchScreen: View {
+public struct TCGSearchScreen<AddForm: View>: View {
     @Environment(TCGSearch.self) private var search
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -16,17 +16,21 @@ public struct TCGSearchScreen: View {
     @State private var isShowingHistory = false
     @State private var isConfirmingClear = false
     @State private var model: TCGSearchScreenModel
+    @State private var cardToAdd: PricedCard?
 
-    private let onAdd: (PricedCard) -> Void
+    private let addForm: (PricedCard, @escaping () -> Void) -> AddForm
 
-    public init(onAdd: @escaping (PricedCard) -> Void) {
+    public init(@ViewBuilder addForm: @escaping (PricedCard, @escaping () -> Void) -> AddForm) {
         _model = State(initialValue: TCGSearchScreenModel())
-        self.onAdd = onAdd
+        self.addForm = addForm
     }
 
-    init(model: TCGSearchScreenModel, onAdd: @escaping (PricedCard) -> Void) {
+    init(
+        model: TCGSearchScreenModel,
+        @ViewBuilder addForm: @escaping (PricedCard, @escaping () -> Void) -> AddForm
+    ) {
         _model = State(initialValue: model)
-        self.onAdd = onAdd
+        self.addForm = addForm
     }
 
     public var body: some View {
@@ -72,7 +76,10 @@ public struct TCGSearchScreen: View {
                 if let error { model.show(error) }
             }
             .sheet(item: $model.presentedDetail) { card in
-                TCGSearchDetailView(card: card)
+                TCGSearchDetailView(card: card, addForm: addForm)
+            }
+            .sheet(item: $cardToAdd) { card in
+                addForm(card, {})
             }
             .modifier(SearchImagePresentation(card: $model.presentedImage))
     }
@@ -231,7 +238,7 @@ public struct TCGSearchScreen: View {
                     actions: .init(
                         add: {
                             model.finishEditing(using: search)
-                            onAdd(card)
+                            cardToAdd = card
                         },
                         showDetails: {
                             model.finishEditing(using: search)

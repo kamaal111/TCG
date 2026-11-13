@@ -4,12 +4,20 @@ import TCGClient
 import TCGCurrency
 import TCGDesignSystem
 
-struct TCGSearchDetailView: View {
+struct TCGSearchDetailView<AddForm: View>: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.tcgCurrency) private var currencyState
     @Environment(TCGSearch.self) private var search
+    @State private var cardToAdd: PricedCard?
+    @State private var didAddCard = false
 
-    let card: PricedCard
+    private let card: PricedCard
+    private let addForm: (PricedCard, @escaping () -> Void) -> AddForm
+
+    init(card: PricedCard, addForm: @escaping (PricedCard, @escaping () -> Void) -> AddForm) {
+        self.card = card
+        self.addForm = addForm
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -37,12 +45,40 @@ struct TCGSearchDetailView: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
-
+            Divider()
+            addButton
         }
         .background(.background)
         #if os(macOS)
             .frame(minWidth: 480, idealWidth: 600, maxWidth: 760, minHeight: 560, idealHeight: 800)
         #endif
+        .sheet(item: $cardToAdd, onDismiss: addFormDismissed) { card in
+            addForm(card) { didAddCard = true }
+        }
+    }
+
+    private var addButton: some View {
+        HStack {
+            Spacer()
+            Button {
+                cardToAdd = displayedCard ?? card
+            } label: {
+                Label {
+                    Text("Add", bundle: .module)
+                } icon: {
+                    Image(systemName: "plus")
+                }
+            }
+            .buttonStyle(.borderedProminent)
+            .accessibilityLabel(Text("Add \(card.name) to collection", bundle: .module))
+        }
+        .padding()
+    }
+
+    private func addFormDismissed() {
+        guard didAddCard else { return }
+        didAddCard = false
+        dismiss()
     }
 
     private var displayedCard: PricedCard? {

@@ -17,13 +17,16 @@ public struct TCGCardFormScreen: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var model: TCGCardFormScreenModel
+    private let onAdded: () -> Void
 
-    public init(pricedCard: PricedCard) {
+    public init(pricedCard: PricedCard, onAdded: @escaping () -> Void = {}) {
         _model = State(initialValue: TCGCardFormScreenModel(mode: .add, initialValues: .init(pricedCard: pricedCard)))
+        self.onAdded = onAdded
     }
 
     init(model: TCGCardFormScreenModel) {
         _model = State(initialValue: model)
+        onAdded = {}
     }
 
     public var body: some View {
@@ -143,7 +146,11 @@ public struct TCGCardFormScreen: View {
     }
 
     private func submit() {
-        Task { if await model.submit(using: cards) { dismiss() } }
+        Task {
+            guard await model.submit(using: cards) else { return }
+            onAdded()
+            dismiss()
+        }
     }
 
 }
