@@ -1,5 +1,6 @@
 import SwiftUI
 import TCGClient
+import TCGDesignSystem
 
 struct BinderCardPicker: View {
     private enum Metrics {
@@ -72,6 +73,12 @@ struct BinderCardPicker: View {
     }
 
     private var pickerContent: some View {
+        TCGSearchKeyboardScope(query: $query, prompt: Text("Search cards", bundle: .module)) {
+            pickerResults
+        }
+    }
+
+    private var pickerResults: some View {
         Group {
             #if os(macOS)
                 ScrollView {
@@ -100,7 +107,6 @@ struct BinderCardPicker: View {
                 }
             }
         }
-        .searchable(text: $query, prompt: Text("Search cards", bundle: .module))
         .navigationTitle(
             content.isUnfiled
                 ? Text("Unfiled cards", bundle: .module) : Text("Choose a card", bundle: .module)

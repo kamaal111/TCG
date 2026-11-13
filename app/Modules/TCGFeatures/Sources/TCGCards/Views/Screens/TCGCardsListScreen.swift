@@ -28,10 +28,7 @@ public struct TCGCardsListScreen: View {
     }
 
     public var body: some View {
-        content
-            .overlay { if cardCollection.isLoading { ProgressView() } }
-            .navigationTitle(collectionTitle)
-            .searchable(text: $model.query, prompt: Text("Search cards", bundle: .module))
+        keyboardScopedContent
             .toolbar {
                 if !cardCollection.isReadOnly {
                     Button {
@@ -80,6 +77,14 @@ public struct TCGCardsListScreen: View {
             .onChange(of: cardCollection.displayRefreshError) { _, error in
                 if let error { model.show(error) }
             }
+    }
+
+    private var keyboardScopedContent: some View {
+        TCGSearchKeyboardScope(query: $model.query, prompt: Text("Search cards", bundle: .module)) {
+            content
+                .overlay { if cardCollection.isLoading { ProgressView() } }
+                .navigationTitle(collectionTitle)
+        }
     }
 
     private var isConfirmingDeletion: Binding<Bool> {

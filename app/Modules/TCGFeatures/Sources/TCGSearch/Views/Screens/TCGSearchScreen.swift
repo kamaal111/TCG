@@ -35,7 +35,7 @@ public struct TCGSearchScreen<AddForm: View>: View {
     }
 
     public var body: some View {
-        content
+        keyboardScopedContent
             .navigationTitle(Text("Card search", bundle: .module))
             .onAppear { model.resumeSearchIfNeeded(using: search) }
             .onDisappear(perform: finishEditing)
@@ -86,8 +86,14 @@ public struct TCGSearchScreen<AddForm: View>: View {
             .modifier(SearchImagePresentation(card: $model.presentedImage))
     }
 
+    private var keyboardScopedContent: some View {
+        TCGSearchKeyboardScope(focus: $isSearchFocused) { focus in
+            content(searchFocus: focus)
+        }
+    }
+
     @ViewBuilder
-    private var content: some View {
+    private func content(searchFocus: FocusState<Bool>.Binding) -> some View {
         #if os(macOS)
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 16) {
@@ -99,7 +105,7 @@ public struct TCGSearchScreen<AddForm: View>: View {
                         gameSelection: gameBinding,
                         availableSetNames: model.availableSetNames(using: search),
                         setNames: $model.setNames,
-                        isFocused: $isSearchFocused
+                        isFocused: searchFocus
                     ) {
                         Task { await model.performSearch(using: search) }
                     }
@@ -118,7 +124,7 @@ public struct TCGSearchScreen<AddForm: View>: View {
                     gameSelection: gameBinding,
                     availableSetNames: model.availableSetNames(using: search),
                     setNames: $model.setNames,
-                    isFocused: $isSearchFocused
+                    isFocused: searchFocus
                 ) {
                     Task { await model.performSearch(using: search) }
                 }
