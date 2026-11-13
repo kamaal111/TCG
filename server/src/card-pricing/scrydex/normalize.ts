@@ -2,7 +2,16 @@ import type { ScrydexRawCard, ScrydexRawPrice } from '@tcg/scrydex';
 import z from 'zod';
 
 import { CurrencySchema } from '../../forex/currencies.ts';
-import type { CardGame, Currency, NormalizedPricing, NormalizedPricingCard, PriceMovement } from '../types.ts';
+import type { PricingSearchResult } from '../client.ts';
+import { ONE_PIECE_VARIANT_SEPARATOR } from '../constants.ts';
+import type {
+  CardGame,
+  Currency,
+  NormalizedPricing,
+  NormalizedPricingCard,
+  PriceMovement,
+  PricingCardRecord,
+} from '../types.ts';
 import { CARD_GAME_MAP } from '../types.ts';
 import { IllustratorNameSchema } from '../utils/illustrator.ts';
 
@@ -15,17 +24,133 @@ const NonEmptyStringSchema = z.string().trim().nonempty();
 
 const FiniteNumberSchema = z.number();
 
-const BASE_VARIANT_NAMES = {
-  [CARD_GAME_MAP.ONE_PIECE]: ['normal'],
-  [CARD_GAME_MAP.POKEMON]: ['normal', 'unlimitednormal', 'holofoil', 'unlimitedholofoil'],
-} satisfies Record<CardGame, readonly string[]>;
+const POKEMON_BASE_VARIANT_NAMES = ['normal', 'unlimitednormal', 'holofoil', 'unlimitedholofoil'];
 
 export interface ScrydexNormalizationResult {
   card: NormalizedPricingCard;
   hasBaseVariant: boolean;
 }
 
+type RawVariant = NonNullable<ScrydexRawCard['variants']>[number];
+
 export function normalizeScrydexCard(game: CardGame, raw: ScrydexRawCard): ScrydexNormalizationResult | null {
+  const baseVariant =
+    game === CARD_GAME_MAP.ONE_PIECE
+      ? (findVariant(raw, 'normal') ?? findVariant(raw, 'foil'))
+      : raw.variants?.find(variant => {
+          const name = stringValue(variant.name)?.toLowerCase();
+
+          return name != null && POKEMON_BASE_VARIANT_NAMES.includes(name);
+        });
+
+  return normalizePrinting(game, raw, baseVariant);
+}
+
+export function normalizeScrydexSearch(
+  game: CardGame,
+  rawCards: readonly ScrydexRawCard[],
+  {
+    providerResultCount,
+    hasMore,
+    rejectedCount,
+  }: Pick<PricingSearchResult, 'providerResultCount' | 'hasMore' | 'rejectedCount'>,
+): PricingSearchResult {
+  const records: PricingCardRecord[] = [];
+  let normalizationRejections = 0;
+  let missingBaseVariantCount = 0;
+
+  for (const raw of rawCards) {
+    const printings = normalizeScrydexSearchCard(game, raw);
+    const base = printings[0];
+
+    if (base == null) {
+      normalizationRejections += 1;
+      continue;
+    }
+
+    if (!base.hasBaseVariant) {
+      missingBaseVariantCount += 1;
+    }
+
+    for (const { card } of printings) {
+      records.push({ card, raw });
+    }
+  }
+
+  return {
+    records,
+    providerResultCount,
+    hasMore,
+    rejectedCount: rejectedCount + normalizationRejections,
+    missingBaseVariantCount,
+  };
+}
+
+function normalizeScrydexSearchCard(game: CardGame, raw: ScrydexRawCard): ScrydexNormalizationResult[] {
+  const base = normalizeScrydexCard(game, raw);
+
+  if (base == null) {
+    return [];
+  }
+
+  if (game !== CARD_GAME_MAP.ONE_PIECE) {
+    return [base];
+  }
+
+  const printings = [base];
+  const names = new Set([base.card.pricing.variantName?.toLowerCase()]);
+
+  for (const variant of raw.variants ?? []) {
+    const name = stringValue(variant.name)?.toLowerCase();
+
+    if (name == null || names.has(name)) {
+      continue;
+    }
+
+    const printing = normalizePrinting(game, raw, variant, name);
+
+    if (printing != null) {
+      printings.push(printing);
+    }
+
+    names.add(name);
+  }
+
+  return printings;
+}
+
+export function splitScrydexPricingId(game: CardGame, id: string): { providerId: string; variantName?: string } {
+  const separator = game === CARD_GAME_MAP.ONE_PIECE ? id.indexOf(ONE_PIECE_VARIANT_SEPARATOR) : -1;
+
+  return separator < 0
+    ? { providerId: id }
+    : { providerId: id.slice(0, separator), variantName: id.slice(separator + ONE_PIECE_VARIANT_SEPARATOR.length) };
+}
+
+export function normalizeScrydexLookup(
+  game: CardGame,
+  raw: ScrydexRawCard,
+  variantName: string | undefined,
+): ScrydexNormalizationResult | null {
+  if (variantName == null) {
+    return normalizeScrydexCard(game, raw);
+  }
+
+  const variant = findVariant(raw, variantName);
+
+  return variant != null ? normalizePrinting(game, raw, variant, variantName) : null;
+}
+
+function findVariant(raw: ScrydexRawCard, name: string): RawVariant | undefined {
+  return raw.variants?.find(variant => stringValue(variant.name)?.toLowerCase() === name);
+}
+
+function normalizePrinting(
+  game: CardGame,
+  raw: ScrydexRawCard,
+  variant: RawVariant | undefined,
+  variantKey?: string,
+): ScrydexNormalizationResult | null {
   const parsed = RequiredCardSchema.safeParse(raw);
   const cardNumber = stringValue(raw.printed_number) ?? stringValue(raw.number);
 
@@ -33,18 +158,21 @@ export function normalizeScrydexCard(game: CardGame, raw: ScrydexRawCard): Scryd
     return null;
   }
 
-  const baseVariant = raw.variants?.find(variant => {
-    const name = stringValue(variant.name)?.toLowerCase();
-
-    return name != null && BASE_VARIANT_NAMES[game].includes(name);
-  });
-
-  const rawPrice = baseVariant?.prices?.find(price => price.condition === 'NM' && price.type === 'raw');
+  const rawPrice = variant?.prices?.find(price => price.condition === 'NM' && price.type === 'raw');
   const market = normalizeRawPrice(rawPrice);
-  const image = imageURL(baseVariant?.images) ?? imageURL(raw.images);
+  const image = imageURL(variant?.images) ?? (variantKey == null ? imageURL(raw.images) : undefined);
   const rarity = stringValue(raw.rarity);
   const pricing: NormalizedPricingCard['pricing'] = {};
-  const illustrator = IllustratorNameSchema.safeParse(raw.artist);
+
+  const illustrator = IllustratorNameSchema.safeParse(
+    game === CARD_GAME_MAP.POKEMON ? raw.artist : (variant?.artist ?? (variantKey == null ? raw.artist : undefined)),
+  );
+
+  const variantName = game === CARD_GAME_MAP.ONE_PIECE ? stringValue(variant?.name) : undefined;
+
+  if (variantName != null) {
+    pricing.variantName = variantName;
+  }
 
   if (illustrator.success) {
     pricing.illustrator = illustrator.data;
@@ -68,12 +196,12 @@ export function normalizeScrydexCard(game: CardGame, raw: ScrydexRawCard): Scryd
 
   return {
     card: {
-      id: parsed.data.id,
+      id: variantKey == null ? parsed.data.id : parsed.data.id + ONE_PIECE_VARIANT_SEPARATOR + variantKey,
       name: parsed.data.name,
       cardNumber,
       pricing,
     },
-    hasBaseVariant: baseVariant != null,
+    hasBaseVariant: variant != null,
   };
 }
 

@@ -125,12 +125,15 @@ final class TCGCardFormScreenModel {
         guard !Task.isCancelled else { return }
         guard identity == pricingIdentity else { return }
         guard case .success(let matches) = result else { return }
+        let allowsFallback = identity.game != .onePiece || values.pricingCardID == nil
         let match =
             values.pricingCardID.flatMap { id in matches.matches.first { $0.id == id } }
-            ?? matches.matches.first {
-                $0.cardNumber.caseInsensitiveCompare(identity.cardNumber) == .orderedSame
-                    && $0.name.caseInsensitiveCompare(identity.name) == .orderedSame
-            }
+            ?? (allowsFallback
+                ? matches.matches.first {
+                    $0.cardNumber.caseInsensitiveCompare(identity.cardNumber) == .orderedSame
+                        && $0.name.caseInsensitiveCompare(identity.name) == .orderedSame
+                }
+                : nil)
         guard let match else { return }
         applyMarketDefault(match)
     }

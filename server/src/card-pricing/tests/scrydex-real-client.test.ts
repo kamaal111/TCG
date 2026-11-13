@@ -204,7 +204,7 @@ describe('RealScrydexClient', () => {
     const result = await client.searchCards('one_piece', 'query', { languages: [], searchBy: 'card' }, 1);
     assert(result.isOk());
     expect(result.value).toMatchObject({ providerResultCount: 4, rejectedCount: 2, missingBaseVariantCount: 1 });
-    expect(result.value.records.map(record => record.card.id)).toEqual(['OP14-069', 'alt']);
+    expect(result.value.records.map(record => record.card.id)).toEqual(['OP14-069', 'alt', 'alt|variant|mangaaltart']);
     expect(result.value.records[1]?.raw).toEqual(withoutBaseVariant);
   });
 

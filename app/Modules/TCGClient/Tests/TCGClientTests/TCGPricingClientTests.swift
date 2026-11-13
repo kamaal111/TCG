@@ -14,6 +14,26 @@ import Testing
 @Suite("TCGClient Pricing Tests")
 struct TCGPricingClientTests {
     @Test
+    func `Decodes a One Piece alternate art through the generated search client`() async throws {
+        let body = Data(
+            """
+            {"matches":[{"id":"zoro-alt","game":"one_piece","name":"Roronoa Zoro","card_number":"OP01-025",
+              "variant_name":"altArt","image_url":"https://images.example.com/zoro-alt.png",
+              "priced_on":"2026-10-16T00:00:00.000Z","fetched_at":"2026-10-16T10:00:00.000Z"}]}
+            """.utf8
+        )
+        let transport = PricingRequestTransport(status: .ok, body: body)
+        let result = try await makeClient(transport: transport).pricing.search(
+            .init(game: .onePiece, query: "OP01-025", languages: [], mode: .card, cursor: nil)
+        )
+        .get()
+        let match = try #require(result.matches.first)
+        #expect(match.id == "zoro-alt")
+        #expect(match.variantName == "altArt")
+        #expect(match.imageURL?.absoluteString == "https://images.example.com/zoro-alt.png")
+    }
+
+    @Test
     func `Searches illustrators through the generated client and decodes their names`() async throws {
         let body = Data(
             """

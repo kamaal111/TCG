@@ -1,4 +1,4 @@
-import { SCRYDEX_SEARCH_PAGE_SIZE, type ScrydexRawCard, ScrydexRawCardSchema } from '@tcg/scrydex';
+import { SCRYDEX_SEARCH_PAGE_SIZE, type ScrydexRawCard } from '@tcg/scrydex';
 import { ok } from 'neverthrow';
 
 import type { PricingClient, PricingClientResult, PricingSearchResult } from '../client.ts';
@@ -10,7 +10,7 @@ import {
   type PricingSearchOptions,
   PRICING_SOURCES,
 } from '../types.ts';
-import { normalizeScrydexCard } from './normalize.ts';
+import { normalizeScrydexLookup, normalizeScrydexSearch, splitScrydexPricingId } from './normalize.ts';
 import { IllustratorNameSchema } from '../utils/illustrator.ts';
 
 const CANNED_CARDS: Record<CardGame, ScrydexRawCard[]> = {
@@ -169,55 +169,31 @@ export class StaticScrydexClient implements PricingClient {
     const end = page * SCRYDEX_SEARCH_PAGE_SIZE;
     const pageCards = filtered.slice(end - SCRYDEX_SEARCH_PAGE_SIZE, end);
 
-    return ok(makeSearchResult(game, pageCards, filtered.length, end < filtered.length));
+    return ok(
+      normalizeScrydexSearch(game, pageCards, {
+        providerResultCount: filtered.length,
+        hasMore: end < filtered.length,
+        rejectedCount: 0,
+      }),
+    );
   }
 
   async getCardById(game: CardGame, id: string): Promise<PricingClientResult<PricingCardRecord | null>> {
-    const raw = CANNED_CARDS[game].find(card => card.id === id);
+    const { providerId, variantName } = splitScrydexPricingId(game, id);
+    const raw = CANNED_CARDS[game].find(card => card.id === providerId);
 
     if (raw == null) {
       return ok(null);
     }
 
-    return ok(makeRecord(game, raw));
+    const normalized = normalizeScrydexLookup(game, raw, variantName);
+
+    return ok(normalized != null ? { card: normalized.card, raw } : null);
   }
 }
 
 function emptySearchResult(): PricingSearchResult {
   return { records: [], providerResultCount: 0, hasMore: false, rejectedCount: 0, missingBaseVariantCount: 0 };
-}
-
-function makeSearchResult(
-  game: CardGame,
-  rawCards: ScrydexRawCard[],
-  providerResultCount: number,
-  hasMore: boolean,
-): PricingSearchResult {
-  const records = rawCards.flatMap(raw => {
-    const record = makeRecord(game, raw);
-
-    return record == null ? [] : [record];
-  });
-
-  return {
-    records,
-    providerResultCount,
-    hasMore,
-    rejectedCount: rawCards.length - records.length,
-    missingBaseVariantCount: records.filter(record => record.card.pricing.market == null).length,
-  };
-}
-
-function makeRecord(game: CardGame, value: ScrydexRawCard): PricingCardRecord | null {
-  const parsed = ScrydexRawCardSchema.safeParse(value);
-
-  if (!parsed.success) {
-    return null;
-  }
-
-  const normalized = normalizeScrydexCard(game, parsed.data);
-
-  return normalized != null ? { card: normalized.card, raw: parsed.data } : null;
 }
 
 function makeSyntheticCard(game: CardGame, query: string): ScrydexRawCard {

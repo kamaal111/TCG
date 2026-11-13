@@ -11,6 +11,46 @@ import Testing
 @MainActor
 struct TCGSearchScreenModelTests {
     @Test
+    func `Groups One Piece variants across pages without grouping Pokémon by number`() throws {
+        let base = PricedCard(
+            id: "zoro-foil",
+            game: .onePiece,
+            name: "Roronoa Zoro",
+            cardNumber: "OP01-025",
+            illustrator: nil,
+            variantName: "foil",
+            pricedOn: .now,
+            fetchedAt: .now
+        )
+        let alternate = PricedCard(
+            id: "zoro-alt",
+            game: .onePiece,
+            name: "Roronoa Zoro",
+            cardNumber: " op01-025 ",
+            illustrator: nil,
+            variantName: "altArt",
+            pricedOn: .now,
+            fetchedAt: .now
+        )
+        let pokemon = ["pikachu-one", "pikachu-two"].map { id in
+            PricedCard(
+                id: id,
+                game: .pokemon,
+                name: "Pikachu",
+                cardNumber: "25",
+                illustrator: nil,
+                pricedOn: .now,
+                fetchedAt: .now
+            )
+        }
+        let groups = SearchResultGroup.group([base] + pokemon + [alternate])
+        #expect(groups.map(\.card.id) == ["zoro-foil", "pikachu-one", "pikachu-two"])
+        let zoro = try #require(groups.first)
+        #expect(zoro.variants == [base, alternate])
+        #expect(groups.dropFirst().allSatisfy { $0.variants.count == 1 })
+    }
+
+    @Test
     func `An old card response cannot replace an illustrator search with identical text`() async {
         let transport = HistoryPricingTransport(suspended: true)
         let feature = makeFeature(transport: transport)

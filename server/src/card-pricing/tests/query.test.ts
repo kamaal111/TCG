@@ -104,12 +104,12 @@ describe('card pricing query utilities', () => {
   });
 
   it('versions One Piece searches while sharing normalized promo cache keys', () => {
-    expect(queryKey('one_piece', 'p-110', { languages: [], searchBy: 'card' })).toBe('one_piece|v2|p-110');
+    expect(queryKey('one_piece', 'p-110', { languages: [], searchBy: 'card' })).toBe('one_piece|v3|p-110');
     expect(queryKey('one_piece', ' P-110 ', { languages: ['en'], searchBy: 'card' })).toBe(
       queryKey('one_piece', 'p-110', { languages: [], searchBy: 'card' }),
     );
     expect(queryKey('one_piece', ' Monkey.D.Luffy   P-110 ', { languages: [], searchBy: 'card' })).toBe(
-      'one_piece|v2|monkey.d.luffy p-110',
+      'one_piece|v3|monkey.d.luffy p-110',
     );
   });
 
@@ -189,6 +189,6 @@ describe('card pricing query utilities', () => {
 
   it('preserves standalone One Piece set-number searches with versioned cache keys', () => {
     expect(buildScrydexQuery('one_piece', 'OP14-069', { languages: [], searchBy: 'card' })).toBe('!id:OP14-069');
-    expect(queryKey('one_piece', ' OP14-069 ', { languages: [], searchBy: 'card' })).toBe('one_piece|v2|op14-069');
+    expect(queryKey('one_piece', ' OP14-069 ', { languages: [], searchBy: 'card' })).toBe('one_piece|v3|op14-069');
   });
 });

@@ -17,7 +17,7 @@ public struct TCGSearchScreen<AddForm: View>: View {
     @State private var isShowingHistory = false
     @State private var isConfirmingClear = false
     @State private var model: TCGSearchScreenModel
-    @State private var cardToAdd: PricedCard?
+    @State private var groupToAdd: SearchResultGroup?
 
     private let addForm: (PricedCard, @escaping () -> Void) -> AddForm
 
@@ -78,10 +78,16 @@ public struct TCGSearchScreen<AddForm: View>: View {
                 if let error { model.show(error) }
             }
             .sheet(item: $model.presentedDetail) { card in
-                TCGSearchDetailView(card: card, addForm: addForm)
+                TCGSearchDetailView(
+                    card: card,
+                    variants: model.resultGroups(using: search).first { $0.card.id == card.id }?.variants ?? [],
+                    addForm: addForm
+                )
             }
-            .sheet(item: $cardToAdd) { card in
-                addForm(card, {})
+            .sheet(item: $groupToAdd) { group in
+                SearchResultAddView(card: group.card, variants: group.variants) { card in
+                    addForm(card, {})
+                }
             }
             .modifier(SearchImagePresentation(card: $model.presentedImage))
     }
@@ -224,7 +230,7 @@ public struct TCGSearchScreen<AddForm: View>: View {
 
     @ViewBuilder
     private var searchResults: some View {
-        let visibleResults = model.filteredResults(using: search)
+        let visibleResults = model.resultGroups(using: search)
         if search.isSearching {
             HStack {
                 Spacer()
@@ -246,13 +252,14 @@ public struct TCGSearchScreen<AddForm: View>: View {
         } else if search.hasSearched && !search.results.isEmpty && visibleResults.isEmpty {
             noMatchingSets
         } else {
-            ForEach(visibleResults) { card in
+            ForEach(visibleResults) { group in
+                let card = group.card
                 PricedCardRow(
                     card: card,
                     actions: .init(
                         add: {
                             finishEditing()
-                            cardToAdd = card
+                            groupToAdd = group
                         },
                         showDetails: {
                             finishEditing()

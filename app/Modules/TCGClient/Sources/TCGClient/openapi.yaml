@@ -2834,6 +2834,9 @@ components:
           type: string
           description: Illustrator when provided
           example: Mitsuhiro Arita
+        variant_name:
+          type: string
+          description: Collectible variant name when provided
         rarity:
           type: string
           description: Card rarity when provided

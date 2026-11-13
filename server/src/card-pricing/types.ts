@@ -36,6 +36,7 @@ export interface PricingSearchOptions {
 
 export interface NormalizedPricing {
   illustrator?: string;
+  variantName?: string;
   setName?: string;
   market?: {
     condition: 'near_mint';

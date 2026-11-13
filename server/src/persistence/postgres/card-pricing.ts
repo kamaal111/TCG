@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 
 import { and, eq, sql } from 'drizzle-orm';
 
+import { ONE_PIECE_VARIANT_SEPARATOR } from '../../card-pricing/constants.ts';
 import type { CardPricingRepository } from '../../card-pricing/repository.ts';
 import type {
   CardGame,
@@ -74,6 +75,9 @@ export class PostgresCardPricingRepository implements CardPricingRepository {
         and(
           eq(cardPrice.pricingSource, pricingSource),
           eq(cardPrice.game, game),
+          game === 'one_piece'
+            ? sql`strpos(${cardPrice.pricingCardId}, ${ONE_PIECE_VARIANT_SEPARATOR}) = 0`
+            : undefined,
           sql`upper(btrim(regexp_replace(${cardPrice.cardNumber}, '[[:space:]]+', ' ', 'g'))) = ${normalizeCardNumber(printing.cardNumber)}`,
           sql`lower(btrim(regexp_replace(${cardPrice.name}, '[[:space:]]+', ' ', 'g'))) = ${normalizeName(printing.name).toLowerCase()}`,
           sql`lower(btrim(regexp_replace(${cardPrice.prices}->>'setName', '[[:space:]]+', ' ', 'g'))) = ${normalizeName(printing.setName).toLowerCase()}`,

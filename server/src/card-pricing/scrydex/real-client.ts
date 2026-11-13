@@ -8,7 +8,7 @@ import {
   type PricingSearchResult,
 } from '../client.ts';
 import { type CardGame, type PricingCardRecord, type PricingSearchOptions, PRICING_SOURCES } from '../types.ts';
-import { normalizeScrydexCard } from './normalize.ts';
+import { normalizeScrydexLookup, normalizeScrydexSearch, splitScrydexPricingId } from './normalize.ts';
 import { buildScrydexQuery } from './query.ts';
 
 export class RealScrydexClient implements PricingClient {
@@ -31,36 +31,12 @@ export class RealScrydexClient implements PricingClient {
       return err(result.error);
     }
 
-    const records: PricingCardRecord[] = [];
-    let rejectedCount = result.value.rejectedCount;
-    let missingBaseVariantCount = 0;
-
-    for (const raw of result.value.cards) {
-      const normalized = normalizeScrydexCard(game, raw);
-
-      if (normalized == null) {
-        rejectedCount += 1;
-        continue;
-      }
-
-      if (!normalized.hasBaseVariant) {
-        missingBaseVariantCount += 1;
-      }
-
-      records.push({ card: normalized.card, raw });
-    }
-
-    return ok({
-      records,
-      providerResultCount: result.value.providerResultCount,
-      hasMore: result.value.hasMore,
-      rejectedCount,
-      missingBaseVariantCount,
-    });
+    return ok(normalizeScrydexSearch(game, result.value.cards, result.value));
   }
 
   async getCardById(game: CardGame, id: string): Promise<PricingClientResult<PricingCardRecord | null>> {
-    const result = await this.client.getCardById(game, id);
+    const { providerId, variantName } = splitScrydexPricingId(game, id);
+    const result = await this.client.getCardById(game, providerId);
 
     if (result.isErr()) {
       return err(result.error);
@@ -70,7 +46,11 @@ export class RealScrydexClient implements PricingClient {
       return ok(null);
     }
 
-    const normalized = normalizeScrydexCard(game, result.value.card);
+    const normalized = normalizeScrydexLookup(game, result.value.card, variantName);
+
+    if (normalized == null && variantName != null) {
+      return ok(null);
+    }
 
     if (normalized == null) {
       return err({
