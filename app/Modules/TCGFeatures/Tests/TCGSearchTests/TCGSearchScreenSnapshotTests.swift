@@ -42,7 +42,7 @@ struct TCGSearchScreenSnapshotTests {
         privacy.hidePrices = true
         #expect(detailCard.headline?.amount == 420)
         await assertScreenSnapshot(testName: #function) {
-            TCGSearchDetailView(card: detailCard)
+            TCGSearchDetailView(card: detailCard, addForm: { _, _ in EmptyView() })
                 .tcgSearch(TCGSearch(client: .preview(), history: TCGSearchHistoryStore()))
                 .environment(\.tcgPricePrivacy, privacy)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -71,7 +71,7 @@ struct TCGSearchScreenSnapshotTests {
         )
         #expect(card.conversionUnavailable)
         await assertScreenSnapshot(testName: #function) {
-            TCGSearchDetailView(card: card)
+            TCGSearchDetailView(card: card, addForm: { _, _ in EmptyView() })
                 .tcgSearch(TCGSearch(client: .preview(), history: TCGSearchHistoryStore()))
                 .environment(\.tcgPricePrivacy, privacy)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -279,7 +279,7 @@ struct TCGSearchScreenSnapshotTests {
     @Test
     func `Renders complete card details`() async {
         await assertScreenSnapshot(testName: #function) {
-            TCGSearchDetailView(card: detailCard)
+            TCGSearchDetailView(card: detailCard, addForm: { _, _ in EmptyView() })
                 .tcgSearch(TCGSearch(client: .preview(), history: TCGSearchHistoryStore()))
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(.background)
@@ -300,7 +300,7 @@ struct TCGSearchScreenSnapshotTests {
             fetchedAt: Date(timeIntervalSince1970: 1_750_000_000)
         )
         await assertScreenSnapshot(testName: #function) {
-            TCGSearchDetailView(card: card)
+            TCGSearchDetailView(card: card, addForm: { _, _ in EmptyView() })
                 .tcgSearch(TCGSearch(client: .preview(), history: TCGSearchHistoryStore()))
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(.background)
@@ -435,7 +435,7 @@ struct TCGSearchScreenSnapshotTests {
             #expect(!UIView.areAnimationsEnabled)
         #endif
 
-        return NavigationStack { TCGSearchScreen(model: model, onAdd: { _ in }) }
+        return NavigationStack { TCGSearchScreen(model: model) { _, _ in EmptyView() } }
             .environment(feature)
             .cardImageLoader(PreviewCardImageLoader(outcome: .success))
     }

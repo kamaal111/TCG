@@ -1,7 +1,6 @@
 import KamaalAuth
 import SwiftUI
 import TCGCards
-import TCGClient
 import TCGCurrency
 import TCGSearch
 
@@ -66,15 +65,12 @@ struct TCGAppTabs: View {
 }
 
 private struct TCGSearchTab: View {
-    @State private var selectedCard: PricedCard?
-
     var body: some View {
         NavigationStack {
-            TCGSearchScreen { selectedCard = $0 }
-        }
-        .sheet(item: $selectedCard) { card in
-            NavigationStack {
-                TCGCardFormScreen(pricedCard: card)
+            TCGSearchScreen { card, onAdded in
+                NavigationStack {
+                    TCGCardFormScreen(pricedCard: card, onAdded: onAdded)
+                }
             }
         }
     }
