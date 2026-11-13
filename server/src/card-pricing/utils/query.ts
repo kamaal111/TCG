@@ -16,7 +16,7 @@ export function buildSearchQuery(name: string, cardNumber: string): string {
 }
 
 export function queryKey(game: CardGame, query: string, options: PricingSearchOptions): string {
-  const cardVersion = game === 'pokemon' ? 'v4' : 'v2';
+  const cardVersion = game === 'pokemon' ? 'v5' : 'v2';
   const version = options.searchBy === 'illustrator' ? 'illustrator-v1' : cardVersion;
 
   const selected = normalizeCardLanguages(game, options.languages);

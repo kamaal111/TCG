@@ -80,7 +80,7 @@ describe('card pricing query utilities', () => {
     expect(normalizeCardNumber(' op09-093 ')).toBe('OP09-093');
     expect(buildSearchQuery('  Charizard ex ', ' 199 ')).toBe('Charizard ex 199');
     expect(queryKey('pokemon', '  Charizard   EX 199 ', { languages: [], searchBy: 'card' })).toBe(
-      'pokemon|v4|charizard ex 199',
+      'pokemon|v5|charizard ex 199',
     );
   });
 
@@ -114,9 +114,9 @@ describe('card pricing query utilities', () => {
   });
 
   it('versions unrestricted and language-filtered Pokémon promo cache keys', () => {
-    expect(queryKey('pokemon', ' MEP   056 ', { languages: [], searchBy: 'card' })).toBe('pokemon|v4|mep 056');
+    expect(queryKey('pokemon', ' MEP   056 ', { languages: [], searchBy: 'card' })).toBe('pokemon|v5|mep 056');
     expect(queryKey('pokemon', 'mep 056', { languages: ['en'], searchBy: 'card' })).toBe(
-      'pokemon|v4|languages-v1|en|mep 056',
+      'pokemon|v5|languages-v1|en|mep 056',
     );
   });
 
@@ -160,6 +160,31 @@ describe('card pricing query utilities', () => {
     expect(buildScrydexQuery('pokemon', 'gg69/gg70', { languages: ['en'], searchBy: 'card' })).toBe(
       '(!printed_number:"GG69/GG70") AND (!language_code:EN)',
     );
+  });
+
+  it.each([
+    ['265/S-P', [], '(!printed_number:"265/S-P" OR (!expansion.id:swshp_ja AND !number:265))'],
+    ['  001/s-p  ', [], '(!printed_number:"001/S-P" OR (!expansion.id:swshp_ja AND !number:1))'],
+    ['248/SM-P', [], '(!printed_number:"248/SM-P" OR (!expansion.id:smp_ja AND !number:248))'],
+    ['001/SV-P', [], '(!printed_number:"001/SV-P" OR (!expansion.id:svp_ja AND !number:1))'],
+    ['204/XY-P', [], '(!printed_number:"204/XY-P" OR (!expansion.id:xyp_ja AND !number:204))'],
+    ['006/DPt-P', [], '(!printed_number:"006/DPT-P" OR (!expansion.id:ptp_ja AND !number:6))'],
+    ['007/AB1-C', [], '!printed_number:"007/AB1-C"'],
+    ['007/NEW', [], '!printed_number:"007/NEW"'],
+    [
+      'Pikachu VMAX 265/S-P',
+      ['ja'],
+      '(name:"Pikachu VMAX" AND (!printed_number:"265/S-P" OR (!expansion.id:swshp_ja AND !number:265))) AND (!language_code:JA)',
+    ],
+    [
+      'SWSHP_JA 265/S-P',
+      [],
+      '!expansion.id:swshp_ja AND (!printed_number:"265/S-P" OR (!expansion.id:swshp_ja AND !number:265))',
+    ],
+  ])('translates Pokémon collector numbers with set suffixes for %s', (input, languages, expected) => {
+    expect(
+      buildScrydexQuery('pokemon', input, { languages: parseCardLanguages(languages.join(',')), searchBy: 'card' }),
+    ).toBe(expected);
   });
 
   it('preserves standalone One Piece set-number searches with versioned cache keys', () => {
