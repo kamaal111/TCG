@@ -47,18 +47,18 @@ final class TCGSearchScreenModel {
         return selection
     }
 
-    var presentedDetail: PricedCard?
-    var presentedImage: PricedCard?
+    var presentedDetail: SearchResultGroup?
+    var presentedImage: SearchResultGroup?
 
     private(set) var toast: Toast?
 
-    func showDetails(of card: PricedCard) {
-        presentedDetail = card
+    func showDetails(of group: SearchResultGroup) {
+        presentedDetail = group
     }
 
-    func exploreImage(of card: PricedCard) {
-        guard card.imageURL != nil else { return }
-        presentedImage = card
+    func exploreImage(of group: SearchResultGroup) {
+        guard group.hasArtwork else { return }
+        presentedImage = group
     }
 
     @ObservationIgnored private var searchTask: Task<Void, Never>?

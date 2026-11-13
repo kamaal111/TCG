@@ -10,6 +10,9 @@ struct TCGSearchDetailView<AddForm: View>: View {
     @Environment(TCGSearch.self) private var search
     @State private var cardToAdd: PricedCard?
     @State private var didAddCard = false
+    @State private var selection = SearchDetailVariantSelection()
+    @State private var isChoosingVariant = false
+    @State private var imageGroup: SearchResultGroup?
 
     private let card: PricedCard
     private let variants: [PricedCard]
@@ -39,8 +42,30 @@ struct TCGSearchDetailView<AddForm: View>: View {
             }
             .padding()
             Divider()
+            if variants.count > 1 {
+                Button {
+                    isChoosingVariant = true
+                } label: {
+                    HStack {
+                        Text("Variant", bundle: .module)
+                        SearchVariantLabel(card: selectedCard)
+                        Image(systemName: "chevron.up.chevron.down")
+                    }
+                }
+                .padding(.vertical, 8)
+                if selectedCard.imageURL == nil, let exploreVariants {
+                    Button(action: exploreVariants) {
+                        Text("Explore variant artwork", bundle: .module)
+                    }
+                    .padding(.bottom, 8)
+                }
+            }
             if let displayedCard {
-                CardDetailContent(metadata: .init(card: displayedCard), price: displayedCard) { EmptyView() }
+                CardDetailContent(
+                    metadata: .init(card: displayedCard),
+                    price: displayedCard,
+                    onExplore: exploreVariants
+                ) { EmptyView() }
             } else if search.isSearching {
                 ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
@@ -59,17 +84,22 @@ struct TCGSearchDetailView<AddForm: View>: View {
             .frame(minWidth: 480, idealWidth: 600, maxWidth: 760, minHeight: 560, idealHeight: 800)
         #endif
         .sheet(item: $cardToAdd, onDismiss: addFormDismissed) { card in
-            SearchResultAddView(card: card, variants: currentVariants) { selected in
-                addForm(selected) { didAddCard = true }
+            addForm(card) { didAddCard = true }
+        }
+        .sheet(isPresented: $isChoosingVariant) {
+            SearchVariantPicker(variants: currentVariants, purpose: .details, selectedID: selectedCard.id) { variant in
+                selection.select(variant)
+                isChoosingVariant = false
             }
         }
+        .modifier(SearchImagePresentation(group: $imageGroup))
     }
 
     private var addButton: some View {
         HStack {
             Spacer()
             Button {
-                cardToAdd = displayedCard ?? card
+                cardToAdd = displayedCard ?? selectedCard
             } label: {
                 Label {
                     Text("Add", bundle: .module)
@@ -95,7 +125,16 @@ struct TCGSearchDetailView<AddForm: View>: View {
         }
     }
 
+    private var selectedCard: PricedCard { selection.selectedCard(defaultCard: card, results: search.results) }
+
+    private var exploreVariants: (() -> Void)? {
+        let group = SearchResultGroup(card: selectedCard, variants: currentVariants)
+        guard variants.count > 1, group.hasArtwork else { return nil }
+        return { imageGroup = group }
+    }
+
     private var displayedCard: PricedCard? {
+        let card = selectedCard
         guard let currencyState else { return card }
         let matches = search.results.filter { $0.display?.preferredCurrency == currencyState.preferredCurrency }
         let exactMatch = matches.first { $0.id == card.id }

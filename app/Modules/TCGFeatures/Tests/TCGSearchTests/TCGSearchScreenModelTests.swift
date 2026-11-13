@@ -10,6 +10,27 @@ import Testing
 @Suite("TCGSearch Screen Model Tests")
 @MainActor
 struct TCGSearchScreenModelTests {
+    @Test(arguments: [1, 2, 3, 4, 5])
+    func `Collage uses one two or four unique artworks`(count: Int) throws {
+        let group = try #require(SearchVariantFixtures.groups(count: count).first)
+        let expected = count >= 4 ? 4 : min(count, 2)
+        #expect(group.collageURLs.count == expected)
+        #expect(group.variants.count == count)
+    }
+
+    @Test
+    func `Missing and repeated artwork does not reduce the variant count`() throws {
+        let cards = [
+            SearchVariantFixtures.variant(0, hasArtwork: false),
+            SearchVariantFixtures.variant(1),
+            SearchVariantFixtures.variant(2, image: 1),
+        ]
+        let group = try #require(SearchResultGroup.group(cards).first)
+        let imageURL = try #require(cards[1].imageURL)
+        #expect(group.collageURLs == [imageURL])
+        #expect(group.variants.count == 3)
+    }
+
     @Test
     func `Groups One Piece variants across pages without grouping Pokémon by number`() throws {
         let base = PricedCard(
