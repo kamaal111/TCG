@@ -10,11 +10,10 @@ struct TCGSearchInput: View {
     @Binding var gameSelection: CardGame
     let availableSetNames: [String]
     @Binding var setNames: Set<String>
-    @Binding var isFocused: Bool
+    let isFocused: FocusState<Bool>.Binding
     let onSubmit: () -> Void
 
     @State private var isShowingSearchHelp = false
-    @FocusState private var isSearchFocused: Bool
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -55,7 +54,7 @@ struct TCGSearchInput: View {
                     )
                 }
                 .textFieldStyle(.plain)
-                .focused($isSearchFocused)
+                .focused(isFocused)
                 .autocorrectionDisabled()
                 .onSubmit(onSubmit)
                 #if os(iOS)
@@ -65,7 +64,7 @@ struct TCGSearchInput: View {
                 if !query.isEmpty {
                     Button {
                         query = ""
-                        isSearchFocused = true
+                        isFocused.wrappedValue = true
                     } label: {
                         Image(systemName: "xmark.circle.fill")
                             .foregroundStyle(.secondary)
@@ -103,7 +102,5 @@ struct TCGSearchInput: View {
                 }
             #endif
         }
-        .onChange(of: isSearchFocused) { _, focused in isFocused = focused }
-        .onChange(of: isFocused) { _, focused in isSearchFocused = focused }
     }
 }
