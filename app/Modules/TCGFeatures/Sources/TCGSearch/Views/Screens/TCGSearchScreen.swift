@@ -13,6 +13,7 @@ public struct TCGSearchScreen<AddForm: View>: View {
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.scenePhase) private var scenePhase
+    @FocusState private var isSearchFocused: Bool
     @State private var isShowingHistory = false
     @State private var isConfirmingClear = false
     @State private var model: TCGSearchScreenModel
@@ -37,9 +38,10 @@ public struct TCGSearchScreen<AddForm: View>: View {
         content
             .navigationTitle(Text("Card search", bundle: .module))
             .onAppear { model.resumeSearchIfNeeded(using: search) }
-            .onDisappear { model.finishEditing(using: search) }
+            .onDisappear(perform: finishEditing)
+            .onChange(of: isSearchFocused) { _, focused in model.isSearchFocused = focused }
             .onChange(of: scenePhase) { _, phase in
-                if phase == .background { model.finishEditing(using: search) }
+                if phase == .background { finishEditing() }
                 if phase == .active { model.resumeSearchIfNeeded(using: search) }
             }
             .navigationDestination(isPresented: $isShowingHistory) {
@@ -97,7 +99,7 @@ public struct TCGSearchScreen<AddForm: View>: View {
                         gameSelection: gameBinding,
                         availableSetNames: model.availableSetNames(using: search),
                         setNames: $model.setNames,
-                        isFocused: $model.isSearchFocused
+                        isFocused: $isSearchFocused
                     ) {
                         Task { await model.performSearch(using: search) }
                     }
@@ -116,7 +118,7 @@ public struct TCGSearchScreen<AddForm: View>: View {
                     gameSelection: gameBinding,
                     availableSetNames: model.availableSetNames(using: search),
                     setNames: $model.setNames,
-                    isFocused: $model.isSearchFocused
+                    isFocused: $isSearchFocused
                 ) {
                     Task { await model.performSearch(using: search) }
                 }
@@ -147,7 +149,13 @@ public struct TCGSearchScreen<AddForm: View>: View {
     }
 
     private func selectHistory(_ entry: TCGSearchHistoryEntry) {
+        isSearchFocused = false
         Task { await model.selectHistory(entry, using: search) }
+    }
+
+    private func finishEditing() {
+        isSearchFocused = false
+        model.finishEditing(using: search)
     }
 
     @ViewBuilder
@@ -171,7 +179,7 @@ public struct TCGSearchScreen<AddForm: View>: View {
         )
         if search.history.entries(for: model.game).count > 5 {
             Button {
-                model.finishEditing(using: search)
+                finishEditing()
                 isShowingHistory = true
             } label: {
                 Text("See all", bundle: .module)
@@ -237,15 +245,15 @@ public struct TCGSearchScreen<AddForm: View>: View {
                     card: card,
                     actions: .init(
                         add: {
-                            model.finishEditing(using: search)
+                            finishEditing()
                             cardToAdd = card
                         },
                         showDetails: {
-                            model.finishEditing(using: search)
+                            finishEditing()
                             model.showDetails(of: card)
                         },
                         exploreImage: {
-                            model.finishEditing(using: search)
+                            finishEditing()
                             model.exploreImage(of: card)
                         }
                     )
