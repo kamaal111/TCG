@@ -456,15 +456,6 @@ Legacy card CSV import/export remains available; CSV does not contain layouts.
 
 ## Mintomo Devportal
 
-The separate **MintomoDevportal** scheme installs **Mintomo Devportal** alongside
-Mintomo on iPhone, iPad and Mac. Its dashboard contains a Server release block;
-reviewing it shows all commits on remote main absent from the deployed server.
-Build/publish, migration approval, deployment approval and health checks execute
-on the Mac mini, independently of the device connection. Infrastructure and server
-setup remain in the terminal.
-
-Run `just install-devportal-agent` on the release Mac, then paste its URL into the app's
-Connection settings. See
-[Devportal setup and operation](../devportal/README.md) for the Mac mini Hono
-service, Tailscale allowlist, login startup and recovery. Root app checks build
-both app targets and include Devportal tests, snapshots and localization coverage.
+Open the private Tailscale HTTPS URL printed by `just install-devportal-agent`
+to review and run releases from your browser. See
+[Devportal setup and operation](../devportal/README.md).

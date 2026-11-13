@@ -1,7 +1,7 @@
 packages:
   - '.'
   - server
-  - devportal
+  - devportal/web
   - 'packages/*'
 
 allowBuilds:
@@ -24,8 +24,12 @@ catalog:
   '@kamaalio/kamaal-auth-core': '~0.0.15'
   '@kamaalio/kamaal-auth-hono': '~0.0.15'
   '@standard-schema/spec': '^1.1.0'
+  '@testing-library/react': ^16.3.0
   '@types/node': '^26.6.4'
   '@types/pg': '^8.23.1'
+  '@types/react': ^19.2.0
+  '@types/react-dom': ^19.2.0
+  '@vitejs/plugin-react': ^6.0.0
   '@vitest/coverage-v8': '^5.0.3'
   'auth': '1.7.7'
   'better-auth': '1.7.7'
@@ -37,6 +41,7 @@ catalog:
   'husky': '^9.1.7'
   'jose': '^6.2.12'
   'js-yaml': '^5.4.3'
+  jsdom: ^29.0.0
   'lint-staged': '^17.6.0'
   'neverthrow': '^8.2.0'
   'oxfmt': '^0.72.0'
@@ -45,9 +50,12 @@ catalog:
   'pg': '^8.23.1'
   'pino': '^10.4.0'
   'pino-pretty': '^13.2.0'
+  react: ^19.3.1
+  react-dom: ^19.3.1
   'smol-toml': '^1.9.1'
   'testcontainers': '^12.2.0'
   'typescript': '^7.0.2'
+  vite: ^8.3.0
   'vitest': '^5.0.3'
   'zod': '^4.6.5'
 

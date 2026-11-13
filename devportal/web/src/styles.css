@@ -1,0 +1,151 @@
+:root {
+  font-family: Inter, system-ui, sans-serif;
+  color-scheme: light dark;
+  --surface: light-dark(#ffffff, #171b24);
+  --background: light-dark(#eef1f5, #10131a);
+  --ink: light-dark(#141c2e, #eef2ff);
+  --muted: light-dark(#48556d, #b0bbcf);
+  --line: light-dark(#ced6e3, #394356);
+  --accent: light-dark(#1749b8, #adc4ff);
+  --on-accent: light-dark(#ffffff, #101b36);
+  --warning: light-dark(#fff2d3, #38301f);
+  background: var(--background);
+  color: var(--ink);
+}
+
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+}
+main {
+  width: min(100% - 2rem, 58rem);
+  margin: 2.5rem auto;
+}
+header {
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 1.25rem;
+  margin-bottom: 1.25rem;
+}
+h1 {
+  font-size: clamp(1.75rem, 5vw, 2.6rem);
+  letter-spacing: -0.045em;
+  margin: 0 0 1rem;
+}
+h2 {
+  font-size: 1.25rem;
+  margin: 0;
+}
+h3 {
+  font-size: 1rem;
+  margin: 1rem 0 0.5rem;
+}
+nav,
+.actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+button {
+  font: inherit;
+  font-weight: 600;
+  background: var(--surface);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 0.5rem;
+  min-height: 2.75rem;
+  padding: 0.55rem 0.9rem;
+  cursor: pointer;
+}
+button[aria-pressed='true'],
+.primary {
+  background: var(--accent);
+  color: var(--on-accent);
+  border-color: var(--accent);
+}
+button:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+.title {
+  margin-bottom: 1rem;
+}
+.card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 0.85rem;
+  padding: clamp(1rem, 4vw, 1.5rem);
+  margin-bottom: 1rem;
+  overflow-wrap: anywhere;
+}
+.notice,
+.approval {
+  background: var(--warning);
+  padding: 0.85rem;
+  border-radius: 0.5rem;
+}
+.approval h3 {
+  margin-top: 0;
+}
+dl {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
+  gap: 0.8rem;
+  margin-block: 1.2rem;
+}
+dt,
+.commits span,
+.stages span,
+time {
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+dd {
+  margin: 0.2rem 0 0;
+}
+code {
+  font-size: 0.9em;
+}
+.commits,
+.stages,
+.activity {
+  padding: 0;
+  list-style: none;
+}
+.commits li,
+.stages li,
+.activity li {
+  border-top: 1px solid var(--line);
+  padding: 0.65rem 0;
+}
+.commits span {
+  display: block;
+  margin-top: 0.2rem;
+}
+.stages li {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.stages [aria-current] {
+  font-weight: 700;
+}
+details {
+  margin-top: 1rem;
+}
+summary {
+  cursor: pointer;
+  font-weight: 600;
+}

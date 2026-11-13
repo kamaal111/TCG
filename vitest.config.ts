@@ -6,6 +6,11 @@ export default defineConfig({
     maxWorkers: 2,
     environment: 'node',
     globals: true,
-    include: ['scripts/**/*.test.ts', 'devportal/src/**/*.test.ts', 'packages/http/tests/**/*.test.ts'],
+    include: [
+      'scripts/**/*.test.ts',
+      'server/devportal/**/*.test.ts',
+      'devportal/web/src/**/*.test.tsx',
+      'packages/http/tests/**/*.test.ts',
+    ],
   },
 });
