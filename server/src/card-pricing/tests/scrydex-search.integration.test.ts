@@ -1,10 +1,12 @@
+import assert from 'node:assert/strict';
+
 import type { ScrydexRawCard } from '@tcg/scrydex';
 
 import { createTestScrydexClient } from './utils.ts';
 import { proxyURLForOriginURL } from '../../card-images/keys.ts';
 import { LIST_CARDS_ROUTE_PATH } from '../../cards/routes/list-cards.ts';
 import { CardsListResponseSchema, CardWithPriceSchema } from '../../cards/schemas/responses.ts';
-import { createCardRequest } from '../../cards/tests/utils.ts';
+import { createCardRequest, createTestCard } from '../../cards/tests/utils.ts';
 import { cardPriceSearch } from '../../db/schema/card-pricing.ts';
 import { card } from '../../db/schema/cards.ts';
 import type App from '../../runtime/node/app.ts';
@@ -52,6 +54,26 @@ const TORCHIC_PROMO = {
 } satisfies ScrydexRawCard;
 
 const MEP_AND_NUMBER = '(!expansion.id:mep OR !expansion.id:mep_ja) AND !number:56';
+
+const CHI_YU_IMAGE = 'https://images.example.com/chi-yu.png';
+
+const CHI_YU = {
+  id: 'sv2-259',
+  name: 'Chi-Yu ex',
+  number: '259',
+  printed_number: '259/193',
+  artist: 'Akira Egawa',
+  expansion: { name: 'Paldea Evolved' },
+  images: [{ type: 'front', large: CHI_YU_IMAGE }],
+} satisfies ScrydexRawCard;
+
+const CHI_YU_PAYLOAD = {
+  game: 'pokemon',
+  name: CHI_YU.name,
+  set_name: CHI_YU.expansion.name,
+  card_number: CHI_YU.printed_number,
+  purchases: [{ condition: 'near_mint', quantity: 1, purchase_price: null, currency: null }],
+} satisfies Parameters<typeof createCardRequest>[2];
 
 const PRINTED_NUMBER_CASES = [
   {
@@ -148,6 +170,97 @@ describe('Scrydex search through the authenticated pricing API', () => {
     },
   );
 
+  integrationTest(
+    'saves the selected artwork when the same name and number are ambiguous',
+    async ({ createApp, user, db }) => {
+      const alternate = {
+        ...CHI_YU,
+        id: 'sv2-alt-259',
+        images: [{ type: 'front', large: 'https://images.example.com/other-chi-yu.png' }],
+      };
+
+      const search = createSearchApp({
+        createApp,
+        user,
+        expectedQuery: '!printed_number:"259/193"',
+        cards: [alternate, CHI_YU],
+      });
+
+      const results = PricingSearchResponseSchema.parse(await (await search.request('259/193')).json());
+      const expectedImage = proxyURLForOriginURL(CHI_YU_IMAGE, 'http://localhost:8080');
+      const selected = results.matches.find(match => match.image_url === expectedImage);
+      assert(selected != null);
+
+      const saved = await createTestCard(search.app, user.sessionToken, {
+        ...CHI_YU_PAYLOAD,
+        priced_card_id: selected.id,
+      });
+
+      expect(saved.price).toMatchObject({ status: 'no_price', priced_card: { image_url: expectedImage } });
+      expect(await db.query.card.findFirst({ where: { id: saved.id } })).toMatchObject({
+        pricingCardId: CHI_YU.id,
+        pricingSource: 'scrydex_real',
+      });
+
+      const headers = sessionHeaders(user.sessionToken);
+      const list = await search.app.request(LIST_CARDS_ROUTE_PATH, { headers });
+      expect(CardsListResponseSchema.parse(await list.json()).cards).toMatchObject([
+        { id: saved.id, price: saved.price },
+      ]);
+      expect(search.transport.queries).toEqual(['!printed_number:"259/193"']);
+
+      const replacement = results.matches.find(match => match.id !== selected.id);
+      assert(replacement != null);
+
+      const update = await search.app.request(`${LIST_CARDS_ROUTE_PATH}/${saved.id}`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify({ ...CHI_YU_PAYLOAD, priced_card_id: replacement.id }),
+      });
+
+      expect(update.status).toBe(200);
+      expect(CardWithPriceSchema.parse(await update.json()).price.priced_card?.image_url).toBe(replacement.image_url);
+      expect(await db.query.card.findFirst({ where: { id: saved.id } })).toMatchObject({
+        pricingCardId: alternate.id,
+      });
+
+      const wrongPrinting = await createTestCard(search.app, user.sessionToken, {
+        ...CHI_YU_PAYLOAD,
+        set_name: 'Other Set',
+        priced_card_id: selected.id,
+      });
+
+      expect(wrongPrinting.price.status).toBe('no_match');
+      expect(await db.query.card.findFirst({ where: { id: wrongPrinting.id } })).toMatchObject({ pricingCardId: null });
+
+      const ambiguous = await createTestCard(search.app, user.sessionToken, {
+        ...CHI_YU_PAYLOAD,
+        priced_card_id: '550e8400-e29b-41d4-a716-446655440000',
+      });
+
+      expect(ambiguous.price.status).toBe('no_match');
+      expect(await db.query.card.findFirst({ where: { id: ambiguous.id } })).toMatchObject({ pricingCardId: null });
+    },
+  );
+
+  integrationTest('recovers an existing unlinked card after a number-only search', async ({ createApp, user, db }) => {
+    const search = createSearchApp({ createApp, user, expectedQuery: '!printed_number:"259/193"', cards: [CHI_YU] });
+    const saved = await createTestCard(search.app, user.sessionToken, CHI_YU_PAYLOAD);
+    expect(saved.price.status).toBe('no_match');
+
+    const results = PricingSearchResponseSchema.parse(await (await search.request('259/193')).json());
+    expect(results.matches).toHaveLength(1);
+    const list = await search.app.request(LIST_CARDS_ROUTE_PATH, { headers: sessionHeaders(user.sessionToken) });
+    expect(CardsListResponseSchema.parse(await list.json()).cards).toMatchObject([
+      { id: saved.id, price: { status: 'no_price', priced_card: { image_url: results.matches[0]?.image_url } } },
+    ]);
+    expect(await db.query.card.findFirst({ where: { id: saved.id } })).toMatchObject({ pricingCardId: CHI_YU.id });
+    expect(search.transport.queries).toEqual([
+      'name:"Chi\\-Yu ex" AND !printed_number:"259/193"',
+      '!printed_number:"259/193"',
+    ]);
+  });
+
   for (const { providerCard, status } of PRINTED_NUMBER_CASES) {
     integrationTest(
       `preserves artwork when saving and listing ${providerCard.printed_number} with ${status} pricing`,
@@ -205,7 +318,7 @@ describe('Scrydex search through the authenticated pricing API', () => {
 
         expect(repeated.status).toBe(200);
         expect(CardsListResponseSchema.parse(await repeated.json())).toEqual(collection);
-        expect(search.transport.queries).toEqual([nameQuery, expectedQuery]);
+        expect(search.transport.queries).toEqual([nameQuery]);
       },
     );
 

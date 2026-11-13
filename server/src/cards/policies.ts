@@ -3,7 +3,10 @@ import type { OwnedCard, PurchaseBatch } from './types.ts';
 
 export function pricingLinkFields(existing: OwnedCard, values: UpsertCard) {
   const identityChanged =
-    existing.game !== values.game || existing.name !== values.name || existing.cardNumber !== values.card_number;
+    existing.game !== values.game ||
+    existing.name !== values.name ||
+    existing.setName !== values.set_name ||
+    existing.cardNumber !== values.card_number;
 
   return {
     pricingCardId: identityChanged ? null : existing.pricingCardId,

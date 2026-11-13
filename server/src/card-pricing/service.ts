@@ -18,6 +18,8 @@ import { imageKeyForOriginURL, storageKeyForImageKey } from '../card-images/keys
 import { imagesLogger } from '../card-images/logging.ts';
 import type { CardImageRow } from '../card-images/repository.ts';
 import type { CardWithPurchases } from '../cards/repository.ts';
+import type { UpsertCard } from '../cards/schemas/payloads.ts';
+import type { CardPricingLink } from '../cards/types.ts';
 import type { HonoContext } from '../context.ts';
 import { isNonEmpty, type NonEmptyArray } from '../utils/type-utils.ts';
 import { searchPageKey } from './utils/pagination.ts';
@@ -195,11 +197,40 @@ export class CardPricingService {
     return [priced, ...rest];
   }
 
+  async resolveSelectedPricingLink(values: UpsertCard): Promise<CardPricingLink | undefined> {
+    if (values.priced_card_id == null) {
+      return undefined;
+    }
+
+    const source = this.client.source;
+    const row = await this.repository.getCachedCardPriceById(source, values.game, values.priced_card_id);
+
+    if (
+      row == null ||
+      row.prices.setName == null ||
+      normalizeName(row.prices.setName).toLowerCase() !== normalizeName(values.set_name).toLowerCase() ||
+      normalizeName(row.name).toLowerCase() !== normalizeName(values.name).toLowerCase() ||
+      normalizeCardNumber(row.cardNumber) !== normalizeCardNumber(values.card_number)
+    ) {
+      return undefined;
+    }
+
+    return { pricingCardId: row.pricingCardId, pricingSource: source };
+  }
+
   private async priceOwnedCard(card: CardWithPurchases): Promise<OwnedCardPriceResponse> {
     const pricingCardId = card.pricingCardId;
 
     if (pricingCardId != null && card.pricingSource === this.client.source) {
       return this.priceOwnedCardById({ ...card, pricingCardId });
+    }
+
+    const cachedIdentity = await this.repository.findCachedPrinting(this.client.source, card.game, card);
+
+    if (cachedIdentity != null) {
+      await this.repository.setOwnedCardPricingIdentity(card, cachedIdentity, this.client.source);
+
+      return this.priceOwnedCardById({ ...card, pricingCardId: cachedIdentity });
     }
 
     const query = buildSearchQuery(card.name, card.cardNumber);
@@ -219,18 +250,13 @@ export class CardPricingService {
       return { card_id: card.id, status: OWNED_CARD_PRICE_STATUSES.NO_MATCH };
     }
 
-    const matchedRow = await this.repository.getCachedCardPriceById(
-      this.client.source,
-      card.game,
-      matched.id,
-      todayUTC(),
-    );
+    const matchedRow = await this.repository.getCachedCardPriceById(this.client.source, card.game, matched.id);
 
     if (matchedRow == null) {
       return { card_id: card.id, status: OWNED_CARD_PRICE_STATUSES.NO_MATCH };
     }
 
-    await this.repository.setOwnedCardPricingIdentity(card.id, matchedRow.pricingCardId, this.client.source);
+    await this.repository.setOwnedCardPricingIdentity(card, matchedRow.pricingCardId, this.client.source);
 
     return this.makeOwnedResponse(card.id, matched);
   }

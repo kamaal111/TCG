@@ -363,6 +363,30 @@ struct TCGCardFormScreenModelTests {
     }
 
     @Test
+    func `Only an explicit search selection is sent when saving`() throws {
+        let id = try #require(UUID(uuidString: "550e8400-e29b-41d4-a716-446655440000"))
+        let card = PricedCard(
+            id: id.uuidString,
+            game: .pokemon,
+            name: "Chi-Yu ex",
+            cardNumber: "259/193",
+            setName: "Paldea Evolved",
+            illustrator: nil,
+            pricedOn: .distantPast,
+            fetchedAt: .distantPast
+        )
+        let selected = TCGCardFormScreenModel(mode: .add, initialValues: .init(pricedCard: card))
+        selected.values.notes = "Alternate art"
+        #expect(selected.values.payload.pricedCardID == id)
+        selected.values.setName = "Other Set"
+        #expect(selected.values.payload.pricedCardID == nil)
+
+        let manual = TCGCardFormScreenModel(mode: .add, initialValues: nil)
+        manual.applyMarketDefault(card)
+        #expect(manual.values.payload.pricedCardID == nil)
+    }
+
+    @Test
     func `Missing searched set remains required and can be supplied`() async {
         let card = PricedCard(
             id: "missing-set",

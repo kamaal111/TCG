@@ -46,19 +46,23 @@ function validatePurchases(values: z.infer<typeof CardInputSchema>, context: z.R
   }
 }
 
-export const UpsertCardSchema = CardInputSchema.superRefine(validatePurchases).meta({
-  $id: 'UpsertCard',
-  title: 'Upsert Card',
-  description: 'Fields used to create or fully replace an owned card entry',
-  example: {
-    game: 'one_piece',
-    name: 'Monkey D. Luffy',
-    set_name: 'Romance Dawn',
-    card_number: 'OP01-003',
-    notes: 'Alternate art',
-    purchases: [{ condition: 'near_mint', quantity: 2, purchase_price: null, currency: null }],
-  },
-});
+export const UpsertCardSchema = CardInputSchema.extend({
+  priced_card_id: UuidSchema.optional().meta({ description: 'Selected priced card from search' }),
+})
+  .superRefine(validatePurchases)
+  .meta({
+    $id: 'UpsertCard',
+    title: 'Upsert Card',
+    description: 'Fields used to create or fully replace an owned card entry',
+    example: {
+      game: 'one_piece',
+      name: 'Monkey D. Luffy',
+      set_name: 'Romance Dawn',
+      card_number: 'OP01-003',
+      notes: 'Alternate art',
+      purchases: [{ condition: 'near_mint', quantity: 2, purchase_price: null, currency: null }],
+    },
+  });
 
 export type UpsertCard = z.infer<typeof UpsertCardSchema>;
 

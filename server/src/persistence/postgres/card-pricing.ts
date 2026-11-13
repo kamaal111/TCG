@@ -11,6 +11,8 @@ import type {
   CardPriceUpsertValues,
 } from '../../card-pricing/types.ts';
 import { cachedIllustrator } from '../../card-pricing/utils/illustrator.ts';
+import { normalizeCardNumber, normalizeName } from '../../card-pricing/utils/query.ts';
+import type { OwnedCard } from '../../cards/types.ts';
 import type { Database } from '../../db/index.ts';
 import { cardPrice, cardPriceSearch } from '../../db/schema/card-pricing.ts';
 import { card, cardMetadata } from '../../db/schema/cards.ts';
@@ -49,21 +51,37 @@ export class PostgresCardPricingRepository implements CardPricingRepository {
   }
 
   /**
-   * Gets the cached price for a card by its internal price row id and pricing date.
+   * Gets a cached price by its internal price row ID.
    *
    * @param pricingSource Provider and client mode that produced the row.
    * @param game Card game the price belongs to.
    * @param id Card price row identifier.
-   * @param pricedOn Pricing date the cache entry applies to.
    * @returns The cached price row, or undefined when absent.
    */
-  getCachedCardPriceById(
+  getCachedCardPriceById(pricingSource: PricingSource, game: CardGame, id: string): Promise<CardPriceRow | undefined> {
+    return this.db.query.cardPrice.findFirst({ where: { id, pricingSource, game } });
+  }
+
+  async findCachedPrinting(
     pricingSource: PricingSource,
     game: CardGame,
-    id: string,
-    pricedOn: string,
-  ): Promise<CardPriceRow | undefined> {
-    return this.db.query.cardPrice.findFirst({ where: { id, pricingSource, game, pricedOn } });
+    printing: { name: string; setName: string; cardNumber: string },
+  ): Promise<string | undefined> {
+    const matches = await this.db
+      .selectDistinct({ pricingCardId: cardPrice.pricingCardId })
+      .from(cardPrice)
+      .where(
+        and(
+          eq(cardPrice.pricingSource, pricingSource),
+          eq(cardPrice.game, game),
+          sql`upper(btrim(regexp_replace(${cardPrice.cardNumber}, '[[:space:]]+', ' ', 'g'))) = ${normalizeCardNumber(printing.cardNumber)}`,
+          sql`lower(btrim(regexp_replace(${cardPrice.name}, '[[:space:]]+', ' ', 'g'))) = ${normalizeName(printing.name).toLowerCase()}`,
+          sql`lower(btrim(regexp_replace(${cardPrice.prices}->>'setName', '[[:space:]]+', ' ', 'g'))) = ${normalizeName(printing.setName).toLowerCase()}`,
+        ),
+      )
+      .limit(2);
+
+    return matches.length === 1 ? matches[0]?.pricingCardId : undefined;
   }
 
   /**
@@ -223,18 +241,29 @@ export class PostgresCardPricingRepository implements CardPricingRepository {
   /**
    * Links an owned card to its resolved provider identity when owned by the current session user.
    *
-   * @param ownedCardId Owned card identifier.
+   * @param owned Owned card as read before pricing.
    * @param pricingCardId Provider card identifier to link.
    * @param pricingSource Provider and client mode that owns the identifier.
    */
   async setOwnedCardPricingIdentity(
-    ownedCardId: string,
+    owned: OwnedCard,
     pricingCardId: string,
     pricingSource: PricingSource,
   ): Promise<void> {
     await this.db
       .update(card)
       .set({ pricingCardId, pricingSource })
-      .where(and(eq(card.id, ownedCardId), eq(card.userId, this.userId)));
+      .where(
+        and(
+          eq(card.id, owned.id),
+          eq(card.userId, this.userId),
+          eq(card.game, owned.game),
+          eq(card.name, owned.name),
+          eq(card.setName, owned.setName),
+          eq(card.cardNumber, owned.cardNumber),
+          sql`${card.pricingCardId} is not distinct from ${owned.pricingCardId}`,
+          sql`${card.pricingSource} is not distinct from ${owned.pricingSource}`,
+        ),
+      );
   }
 }

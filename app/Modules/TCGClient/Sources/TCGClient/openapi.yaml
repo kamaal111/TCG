@@ -2970,6 +2970,11 @@ components:
             Complete list of owned purchases. On update, retain IDs to edit
             purchases, omit IDs to add purchases, and omit existing purchases to
             remove them. Condition totals are derived from this list.
+        priced_card_id:
+          type: string
+          format: uuid
+          description: Selected priced card from search
+          example: 550e8400-e29b-41d4-a716-446655440000
       required:
         - game
         - name

@@ -26,7 +26,7 @@ import {
 import type { CardRepository } from '../../cards/repository.ts';
 import type { ImportCard, UpsertCard } from '../../cards/schemas/payloads.ts';
 import type { DeleteCardsResponse, ImportCardsResponse } from '../../cards/schemas/responses.ts';
-import type { CardWithPurchases, CardCollection } from '../../cards/types.ts';
+import type { CardWithPurchases, CardCollection, CardPricingLink } from '../../cards/types.ts';
 import { encodeCardCursor } from '../../cards/utils/pagination.ts';
 import { marketPurchaseAmount } from '../../cards/utils/purchase-price.ts';
 import { purchaseQuantities } from '../../cards/utils/quantities.ts';
@@ -232,7 +232,7 @@ export class PostgresCardRepository implements CardRepository {
    * @param values Card fields and purchases to persist.
    * @returns The created card with its purchases.
    */
-  create(values: UpsertCard): Promise<CardWithPurchases> {
+  create(values: UpsertCard, pricingLink?: CardPricingLink): Promise<CardWithPurchases> {
     if (values.purchases.some(batch => batch.id != null)) {
       throw new CardNotFound();
     }
@@ -247,6 +247,7 @@ export class PostgresCardRepository implements CardRepository {
           userId: this.userId,
           collectionId,
           ...cardFields(values),
+          ...pricingLink,
         })
         .returning();
 
@@ -539,7 +540,7 @@ export class PostgresCardRepository implements CardRepository {
    * @param values Replacement card fields and purchases.
    * @returns The updated card with its purchases, or undefined when absent.
    */
-  update(cardId: string, values: UpsertCard): Promise<CardWithPurchases | undefined> {
+  update(cardId: string, values: UpsertCard, pricingLink?: CardPricingLink): Promise<CardWithPurchases | undefined> {
     return this.db.transaction(async tx => {
       await lockCollections(tx, this.identity);
 
@@ -576,7 +577,7 @@ export class PostgresCardRepository implements CardRepository {
           ...cardFields(values),
           collectionId,
           updatedAt: new Date(),
-          ...pricingLinkFields(ownedCard, values),
+          ...(pricingLink ?? pricingLinkFields(ownedCard, values)),
         })
         .where(and(eq(card.id, cardId), eq(card.userId, this.userId)))
         .returning();

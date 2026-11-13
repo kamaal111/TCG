@@ -58,8 +58,11 @@ const updateCardRoute = defineOpenAPIRoute<HonoEnvironment, typeof routeConfig>(
   handler: async c => {
     const { cardId } = c.req.valid('param');
 
+    const values = c.req.valid('json');
+    const pricingLink = await c.get('cardPricingService').resolveSelectedPricingLink(values);
+
     const [updatedCard, display] = await Promise.all([
-      c.get('cardRepository').update(cardId, c.req.valid('json')),
+      c.get('cardRepository').update(cardId, values, pricingLink),
       c.get('forexService').displayContext(),
     ]);
 
