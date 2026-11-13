@@ -134,6 +134,10 @@ final class TCGSearchScreenModel {
         }
     }
 
+    func resultGroups(using search: TCGSearch) -> [SearchResultGroup] {
+        SearchResultGroup.group(filteredResults(using: search))
+    }
+
     func resumeSearchIfNeeded(using search: TCGSearch) {
         guard !search.hasSearched else { return }
         guard !search.isSearching else { return }

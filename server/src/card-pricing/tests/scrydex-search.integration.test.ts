@@ -1,13 +1,14 @@
 import assert from 'node:assert/strict';
 
 import type { ScrydexRawCard } from '@tcg/scrydex';
+import { eq } from 'drizzle-orm';
 
 import { createTestScrydexClient } from './utils.ts';
 import { proxyURLForOriginURL } from '../../card-images/keys.ts';
 import { LIST_CARDS_ROUTE_PATH } from '../../cards/routes/list-cards.ts';
 import { CardsListResponseSchema, CardWithPriceSchema } from '../../cards/schemas/responses.ts';
 import { createCardRequest, createTestCard } from '../../cards/tests/utils.ts';
-import { cardPriceSearch } from '../../db/schema/card-pricing.ts';
+import { cardPrice, cardPriceSearch } from '../../db/schema/card-pricing.ts';
 import { card } from '../../db/schema/cards.ts';
 import type App from '../../runtime/node/app.ts';
 import { expectValidationIssueForField, sessionHeaders } from '../../tests/auth.ts';
@@ -111,6 +112,113 @@ const PRINTED_NUMBER_CASES = [
 ] as const satisfies { providerCard: ScrydexRawCard; status: string }[];
 
 describe('Scrydex search through the authenticated pricing API', () => {
+  integrationTest(
+    'caches Zoro variants and refreshes the exact version saved to the collection',
+    async ({ createApp, user, db, authenticatedHeaders }) => {
+      const foil = {
+        name: 'foil',
+        images: [{ type: 'front', large: 'https://images.example.com/zoro-foil.png' }],
+        prices: [{ condition: 'NM', type: 'raw', currency: 'USD', market: 4 }],
+      };
+
+      const alternate = {
+        name: 'altArt',
+        artist: 'Akira Egawa',
+        images: [{ type: 'front', large: 'https://images.example.com/zoro-alt.png' }],
+        prices: [{ condition: 'NM', type: 'raw', currency: 'USD', market: 220 }],
+      };
+
+      const zoro = {
+        id: 'OP01-025',
+        name: 'Roronoa Zoro',
+        printed_number: 'OP01-025',
+        expansion: { name: 'Romance Dawn' },
+        variants: [alternate, foil, { name: 'treasureCupStamp' }],
+      } satisfies ScrydexRawCard;
+
+      const paths: string[] = [];
+      let variants = zoro.variants;
+
+      const pricingClient = createTestScrydexClient(async input => {
+        const url = new URL(input instanceof Request ? input.url : input.toString());
+        paths.push(url.pathname);
+
+        if (url.pathname.endsWith('/cards')) {
+          expect(url.searchParams.get('q')).toBe('!id:OP01-025');
+
+          return Response.json({ data: [zoro] });
+        }
+
+        expect(url.pathname).toBe('/onepiece/v1/cards/OP01-025');
+
+        return Response.json({ data: { ...zoro, variants } });
+      });
+
+      const app = createApp({ pricingClient });
+      const path = `${SEARCH_PRICING_ROUTE_PATH}?game=one_piece&query=OP01-025&search_by=card`;
+      const first = await app.request(path, { headers: authenticatedHeaders });
+      expect(first.status).toBe(200);
+      const page = PricingSearchResponseSchema.parse(await first.json());
+      const [base, alt, unpriced] = page.matches;
+      assert(base != null && alt != null && unpriced != null);
+      expect(page.matches).toHaveLength(3);
+      expect(page.next_cursor).toBeNull();
+      expect(page.matches.map(match => match.card_number)).toEqual(['OP01-025', 'OP01-025', 'OP01-025']);
+      expect(new Set(page.matches.map(match => match.id)).size).toBe(3);
+      expect(base).toMatchObject({ variant_name: 'foil', market: { market: 4 } });
+      expect(alt).toMatchObject({ variant_name: 'altArt', illustrator: 'Akira Egawa', market: { market: 220 } });
+      expect(base.image_url).toEqual(expect.any(String));
+      expect(alt.image_url).toEqual(expect.any(String));
+      expect(base.image_url).not.toBe(alt.image_url);
+      expect(unpriced).toMatchObject({ variant_name: 'treasureCupStamp' });
+      expect(unpriced.market).toBeUndefined();
+      const cached = await app.request(path, { headers: authenticatedHeaders });
+      expect(cached.status).toBe(200);
+      expect(PricingSearchResponseSchema.parse(await cached.json())).toEqual(page);
+      expect(paths).toEqual(['/onepiece/v1/cards']);
+
+      const payload = {
+        game: 'one_piece',
+        name: zoro.name,
+        set_name: zoro.expansion.name,
+        card_number: zoro.printed_number,
+        purchases: [{ condition: 'near_mint', quantity: 1, purchase_price: null, currency: null }],
+      } satisfies Parameters<typeof createCardRequest>[2];
+
+      const saved = await createTestCard(app, user.sessionToken, { ...payload, priced_card_id: alt.id });
+      const defaultCard = await createTestCard(app, user.sessionToken, payload);
+      expect(saved.price.priced_card?.image_url).toBe(alt.image_url);
+      expect(defaultCard.price.priced_card?.image_url).toBe(base.image_url);
+      expect(await db.query.card.findFirst({ where: { id: saved.id } })).toMatchObject({
+        pricingCardId: 'OP01-025|variant|altart',
+      });
+      expect(await db.query.card.findFirst({ where: { id: defaultCard.id } })).toMatchObject({
+        pricingCardId: 'OP01-025',
+      });
+
+      // Age the cached rows to exercise the next day's lookup while keeping the selected UUID valid.
+      await db.update(cardPrice).set({ pricedOn: '2025-01-01' }).where(eq(cardPrice.pricedOn, todayUTC()));
+      variants = [foil, { ...alternate, prices: [{ condition: 'NM', type: 'raw', currency: 'USD', market: 230 }] }];
+      const refreshed = await app.request(LIST_CARDS_ROUTE_PATH, { headers: authenticatedHeaders });
+      expect(refreshed.status).toBe(200);
+      const entries = CardsListResponseSchema.parse(await refreshed.json()).cards;
+      expect(entries.find(entry => entry.id === saved.id)?.price.priced_card).toMatchObject({
+        variant_name: 'altArt',
+        image_url: alt.image_url,
+        market: { market: 230 },
+      });
+      expect(entries.find(entry => entry.id === defaultCard.id)?.price.priced_card?.variant_name).toBe('foil');
+
+      variants = [foil];
+      await db.delete(cardPrice).where(eq(cardPrice.pricedOn, todayUTC()));
+      const missing = await app.request(LIST_CARDS_ROUTE_PATH, { headers: authenticatedHeaders });
+      expect(missing.status).toBe(200);
+      expect(
+        CardsListResponseSchema.parse(await missing.json()).cards.find(entry => entry.id === saved.id)?.price,
+      ).toMatchObject({ status: 'no_match' });
+    },
+  );
+
   integrationTest(
     'follows Scrydex search pages and caches each continuation independently',
     async ({ createApp, user, db }) => {
@@ -437,7 +545,12 @@ describe('Scrydex search through the authenticated pricing API', () => {
         expect(response.status).toBe(200);
 
         const body = PricingSearchResponseSchema.parse(await response.json());
-        expect(body.matches).toMatchObject([{ game: 'one_piece', name: 'Monkey.D.Luffy', card_number: 'P-110' }]);
+        expect(body.matches.map(match => match.variant_name)).toEqual([
+          undefined,
+          'fourthAnniversaryStamp',
+          'fourthAnniversaryWinnerStamp',
+        ]);
+        expect(body.matches.every(match => match.card_number === 'P-110')).toBe(true);
         expect(body.matches[0]).not.toHaveProperty('market');
         expect(body.matches[0]).not.toHaveProperty('headline');
         expect(search.transport.paths).toEqual(['/onepiece/v1/cards']);
@@ -452,7 +565,7 @@ describe('Scrydex search through the authenticated pricing API', () => {
       await db.insert(cardPriceSearch).values({
         game: 'one_piece',
         pricingSource: 'scrydex_real',
-        queryKey: 'one_piece|p-110',
+        queryKey: searchPageKey('one_piece|v2|p-110', 0),
         pricedOn: todayUTC(),
         pricingCardIds: [],
       });
@@ -470,15 +583,15 @@ describe('Scrydex search through the authenticated pricing API', () => {
       expect(first.status).toBe(200);
 
       const body = PricingSearchResponseSchema.parse(await first.json());
-      expect(body.matches).toMatchObject([{ name: 'Monkey.D.Luffy', card_number: 'P-110' }]);
+      expect(body.matches).toHaveLength(3);
       expect(await db.query.cardPrice.findFirst({ where: { pricingCardId: 'P-110' } })).toMatchObject({
         pricingSource: 'scrydex_real',
         cardNumber: 'P-110',
       });
       expect(
-        await db.query.cardPriceSearch.findFirst({ where: { queryKey: searchPageKey('one_piece|v2|p-110', 0) } }),
+        await db.query.cardPriceSearch.findFirst({ where: { queryKey: searchPageKey('one_piece|v3|p-110', 0) } }),
       ).toMatchObject({
-        pricingCardIds: ['P-110'],
+        pricingCardIds: ['P-110', 'P-110|variant|fourthanniversarystamp', 'P-110|variant|fourthanniversarywinnerstamp'],
       });
 
       const second = await search.request(' P-110 ', 'en');

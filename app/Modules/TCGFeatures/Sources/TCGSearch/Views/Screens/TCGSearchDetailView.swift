@@ -12,10 +12,16 @@ struct TCGSearchDetailView<AddForm: View>: View {
     @State private var didAddCard = false
 
     private let card: PricedCard
+    private let variants: [PricedCard]
     private let addForm: (PricedCard, @escaping () -> Void) -> AddForm
 
-    init(card: PricedCard, addForm: @escaping (PricedCard, @escaping () -> Void) -> AddForm) {
+    init(
+        card: PricedCard,
+        variants: [PricedCard] = [],
+        addForm: @escaping (PricedCard, @escaping () -> Void) -> AddForm
+    ) {
         self.card = card
+        self.variants = variants
         self.addForm = addForm
     }
 
@@ -53,7 +59,9 @@ struct TCGSearchDetailView<AddForm: View>: View {
             .frame(minWidth: 480, idealWidth: 600, maxWidth: 760, minHeight: 560, idealHeight: 800)
         #endif
         .sheet(item: $cardToAdd, onDismiss: addFormDismissed) { card in
-            addForm(card) { didAddCard = true }
+            SearchResultAddView(card: card, variants: currentVariants) { selected in
+                addForm(selected) { didAddCard = true }
+            }
         }
     }
 
@@ -81,10 +89,19 @@ struct TCGSearchDetailView<AddForm: View>: View {
         dismiss()
     }
 
+    private var currentVariants: [PricedCard] {
+        variants.map { variant in
+            search.results.first { $0.id == variant.id } ?? variant
+        }
+    }
+
     private var displayedCard: PricedCard? {
         guard let currencyState else { return card }
         let matches = search.results.filter { $0.display?.preferredCurrency == currencyState.preferredCurrency }
-        return matches.first { $0.id == card.id }
+        let exactMatch = matches.first { $0.id == card.id }
+        if card.game == .onePiece { return exactMatch }
+
+        return exactMatch
             ?? matches.first {
                 $0.game == card.game && $0.name == card.name && $0.cardNumber == card.cardNumber
                     && $0.setName == card.setName

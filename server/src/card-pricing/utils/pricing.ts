@@ -48,6 +48,7 @@ export function serializePricedCard(game: CardGame, row: CardPriceRow, baseURL: 
     set_name: row.prices.setName,
     card_number: row.cardNumber,
     rarity: row.prices.rarity,
+    variant_name: row.prices.variantName,
     illustrator: cachedIllustrator(row),
     image_url: imageUrl,
     headline,

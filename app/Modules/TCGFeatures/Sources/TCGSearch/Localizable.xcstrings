@@ -57,6 +57,9 @@
     "Change your set filter to see more cards." : {
 
     },
+    "Choose a variant" : {
+
+    },
     "Clear history" : {
 
     },
@@ -172,6 +175,9 @@
 
     },
     "Try a name and card number, like Charizard ex 199, or a set and printed number, like sv5m 072/071." : {
+
+    },
+    "Standard" : {
 
     },
     "Try an illustrator name, like Mitsuhiro Arita." : {
