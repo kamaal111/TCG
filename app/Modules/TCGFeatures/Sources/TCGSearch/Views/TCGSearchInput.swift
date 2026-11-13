@@ -1,5 +1,6 @@
 import SwiftUI
 import TCGClient
+import TCGDesignSystem
 import TCGModels
 
 struct TCGSearchInput: View {
@@ -39,45 +40,47 @@ struct TCGSearchInput: View {
 
     private var searchField: some View {
         HStack(spacing: 8) {
-            HStack(spacing: 8) {
-                Image(systemName: "magnifyingglass")
-                    .foregroundStyle(.secondary)
-                    .accessibilityHidden(true)
-                TextField(text: $query) {
-                    Text(
-                        mode == .illustrator
-                            ? LocalizedStringKey("Illustrator name")
-                            : game == .pokemon
-                                ? LocalizedStringKey("Card name or set + number")
-                                : LocalizedStringKey("Card name or number"),
-                        bundle: .module
-                    )
-                }
-                .textFieldStyle(.plain)
-                .focused(isFocused)
-                .autocorrectionDisabled()
-                .onSubmit(onSubmit)
-                #if os(iOS)
-                    .textInputAutocapitalization(.never)
-                    .submitLabel(.search)
-                #endif
-                if !query.isEmpty {
-                    Button {
-                        query = ""
-                        isFocused.wrappedValue = true
-                    } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .foregroundStyle(.secondary)
+            TCGSearchEditingRegion {
+                HStack(spacing: 8) {
+                    Image(systemName: "magnifyingglass")
+                        .foregroundStyle(.secondary)
+                        .accessibilityHidden(true)
+                    TextField(text: $query) {
+                        Text(
+                            mode == .illustrator
+                                ? LocalizedStringKey("Illustrator name")
+                                : game == .pokemon
+                                    ? LocalizedStringKey("Card name or set + number")
+                                    : LocalizedStringKey("Card name or number"),
+                            bundle: .module
+                        )
                     }
-                    .buttonStyle(.borderless)
-                    .accessibilityLabel(Text("Clear search", bundle: .module))
+                    .textFieldStyle(.plain)
+                    .focused(isFocused)
+                    .autocorrectionDisabled()
+                    .onSubmit(onSubmit)
+                    #if os(iOS)
+                        .textInputAutocapitalization(.never)
+                        .submitLabel(.search)
+                    #endif
+                    if !query.isEmpty {
+                        Button {
+                            query = ""
+                            isFocused.wrappedValue = true
+                        } label: {
+                            Image(systemName: "xmark.circle.fill")
+                                .foregroundStyle(.secondary)
+                        }
+                        .buttonStyle(.borderless)
+                        .accessibilityLabel(Text("Clear search", bundle: .module))
+                    }
                 }
-            }
-            .padding(10)
-            .background(.background.secondary, in: RoundedRectangle(cornerRadius: 10))
-            .overlay {
-                RoundedRectangle(cornerRadius: 10)
-                    .strokeBorder(.quaternary)
+                .padding(10)
+                .background(.background.secondary, in: RoundedRectangle(cornerRadius: 10))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 10)
+                        .strokeBorder(.quaternary)
+                }
             }
 
             Button {
