@@ -33,7 +33,12 @@ struct BinderLayoutSaveFailureTests {
         await collections.select(original.id, using: cards)
         #expect(collections.selected == original)
         let updated = try #require(
-            BinderLayout.insertingEmptyPage(in: original, before: CardsTestIDs.secondary, pageID: CardsTestIDs.third)
+            BinderLayout.insertingEmptyPage(
+                in: original,
+                beside: CardsTestIDs.secondary,
+                side: .before,
+                pageID: CardsTestIDs.third
+            )
         )
         #expect(!(await collections.save(updated, using: cards)))
         #expect(collections.selected == original)

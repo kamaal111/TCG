@@ -99,9 +99,6 @@
     "Add" : {
 
     },
-    "Add an empty page" : {
-
-    },
     "Add an empty page to start arranging cards." : {
 
     },
@@ -115,6 +112,21 @@
 
     },
     "Add more" : {
+
+    },
+    "Add page" : {
+
+    },
+    "Add page after" : {
+
+    },
+    "Add page after page %lld" : {
+
+    },
+    "Add page before" : {
+
+    },
+    "Add page before page %lld" : {
 
     },
     "Add to collection" : {
@@ -432,12 +444,6 @@
       }
     },
     "Include this purchase" : {
-
-    },
-    "Insert before page %lld" : {
-
-    },
-    "Insert page before" : {
 
     },
     "Invalid or excluded purchase rows skipped: %lld" : {

@@ -12,7 +12,7 @@ import { card, cardPurchaseBatch } from '../../db/schema/cards.ts';
 import { CollectionsSchema, CollectionSummarySchema } from '../schemas/responses.ts';
 
 integrationTest(
-  'places all copies in the first empty slot and grows full binders',
+  'appends all copies after the last occupied slot and preserves earlier gaps',
   async ({ app, user, authenticatedHeaders: headers }) => {
     const collection = await createBinder(app, headers, 1, 2);
     const first = await addCard(app, user.sessionToken, collection.id);
@@ -22,11 +22,13 @@ integrationTest(
 
     const pageId = crypto.randomUUID();
     const emptyId = crypto.randomUUID();
+    const earlierEmptyId = crypto.randomUUID();
     await saveLayout(app, headers, collection.id, {
       revision: initial.revision,
       rows: 1,
-      columns: 2,
+      columns: 3,
       pages: [
+        { id: earlierEmptyId, slots: [] },
         { id: pageId, slots: [{ row: 1, column: 2, card_id: first.id, quantity: 3 }] },
         { id: emptyId, slots: [] },
       ],
@@ -35,13 +37,15 @@ integrationTest(
     const third = await addCard(app, user.sessionToken, collection.id);
     const fourth = await addCard(app, user.sessionToken, collection.id);
     const fifth = await addCard(app, user.sessionToken, collection.id);
+    const sixth = await addCard(app, user.sessionToken, collection.id);
     const result = await readCollection(app, headers, collection.id);
     expect(result.pages).toMatchObject([
+      { id: earlierEmptyId, slots: [] },
       {
         id: pageId,
         slots: [
-          { row: 1, column: 1, card_id: second.id, quantity: 3 },
           { row: 1, column: 2, card_id: first.id, quantity: 3 },
+          { row: 1, column: 3, card_id: second.id, quantity: 3 },
         ],
       },
       {
@@ -49,9 +53,10 @@ integrationTest(
         slots: [
           { row: 1, column: 1, card_id: third.id, quantity: 3 },
           { row: 1, column: 2, card_id: fourth.id, quantity: 3 },
+          { row: 1, column: 3, card_id: fifth.id, quantity: 3 },
         ],
       },
-      { slots: [{ row: 1, column: 1, card_id: fifth.id, quantity: 3 }] },
+      { slots: [{ row: 1, column: 1, card_id: sixth.id, quantity: 3 }] },
     ]);
   },
 );
@@ -115,8 +120,15 @@ integrationTest(
   async ({ db, limitedApp, user, authenticatedHeaders: headers }) => {
     const instance = limitedApp({ COLLECTION_MAX_PAGES: 1 });
 
-    const collection = await createBinder(instance, headers, 1, 1);
-    await addCard(instance, user.sessionToken, collection.id);
+    const collection = await createBinder(instance, headers, 1, 2);
+    const first = await addCard(instance, user.sessionToken, collection.id);
+    const initial = await readCollection(instance, headers, collection.id);
+    await saveLayout(instance, headers, collection.id, {
+      revision: initial.revision,
+      rows: 1,
+      columns: 2,
+      pages: [{ id: crypto.randomUUID(), slots: [{ row: 1, column: 2, card_id: first.id, quantity: 3 }] }],
+    });
     const before = await readCollection(instance, headers, collection.id);
     const storedCards = await db.select().from(card).where(eq(card.userId, user.userId));
 
@@ -160,15 +172,15 @@ integrationTest(
     await saveLayout(instance, headers, collection.id, {
       revision: before.revision,
       rows: 1,
-      columns: 2,
+      columns: 3,
       pages: before.pages,
     });
     const retry = await addCard(instance, user.sessionToken, collection.id);
     expect((await readCollection(instance, headers, collection.id)).pages).toMatchObject([
       {
         slots: [
-          { row: 1, column: 1 },
-          { row: 1, column: 2, card_id: retry.id },
+          { row: 1, column: 2, card_id: first.id },
+          { row: 1, column: 3, card_id: retry.id },
         ],
       },
     ]);

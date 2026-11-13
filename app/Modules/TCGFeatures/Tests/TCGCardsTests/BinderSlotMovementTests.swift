@@ -10,14 +10,17 @@ struct BinderSlotMovementTests {
     private let luffy = CardsTestIDs.splitCard
     private let zoro = CardsTestIDs.overflowCard
 
-    @Test(arguments: [0, 1, 2])
-    func `Inserting before a page preserves its identity contents and surrounding pages`(index: Int) throws {
+    @Test(arguments: [0, 1, 2], [BinderLayout.PageInsertion.before, .after])
+    func `Inserting beside a page preserves its identity contents and surrounding pages`(
+        index: Int,
+        side: BinderLayout.PageInsertion
+    ) throws {
         let original = binder()
         let newID = CardsTestIDs.secondOverflowCard
         let updated = try #require(
-            BinderLayout.insertingEmptyPage(in: original, before: original.pages[index].id, pageID: newID)
+            BinderLayout.insertingEmptyPage(in: original, beside: original.pages[index].id, side: side, pageID: newID)
         )
-        #expect(updated.pages[index] == BinderPage(id: newID, slots: []))
+        #expect(updated.pages[side == .before ? index : index + 1] == BinderPage(id: newID, slots: []))
         #expect(updated.pages.filter { $0.id != newID } == original.pages)
         #expect(updated.allocatedCopies(of: luffy) == 3)
         #expect(updated.columns == original.columns)
@@ -27,8 +30,8 @@ struct BinderSlotMovementTests {
 
     @Test func `Insertion rejects missing target and duplicate page identity`() {
         let original = binder()
-        #expect(BinderLayout.insertingEmptyPage(in: original, before: UUID(), pageID: UUID()) == nil)
-        #expect(BinderLayout.insertingEmptyPage(in: original, before: first, pageID: second) == nil)
+        #expect(BinderLayout.insertingEmptyPage(in: original, beside: UUID(), side: .before, pageID: UUID()) == nil)
+        #expect(BinderLayout.insertingEmptyPage(in: original, beside: first, side: .before, pageID: second) == nil)
     }
 
     @Test(arguments: [CardsTestIDs.secondary, CardsTestIDs.third])

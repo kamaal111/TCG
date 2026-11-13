@@ -95,7 +95,7 @@ struct TCGCollectionsTests {
         #expect(await context.collections.save(binder, using: context.cards))
         let saved = try #require(context.collections.selected)
         let inserted = try #require(
-            BinderLayout.insertingEmptyPage(in: saved, before: second, pageID: CardsTestIDs.primary)
+            BinderLayout.insertingEmptyPage(in: saved, beside: second, side: .before, pageID: CardsTestIDs.primary)
         )
         #expect(await context.collections.save(inserted, using: context.cards))
         let withPage = try #require(context.collections.selected)

@@ -40,7 +40,7 @@ struct TCGBinderScreen: View {
                 BinderPageActions(
                     addPage: { Task { await addPage() } },
                     selectedPageNumber: currentPage == nil ? nil : pageIndex + 1,
-                    insertPage: { Task { await insertPage() } }
+                    insertPage: { side in Task { await insertPage(side) } }
                 )
                 .disabled(!canArrange)
             }
@@ -110,19 +110,20 @@ struct TCGBinderScreen: View {
 
     private func addPage() async {
         guard canArrange else { return }
-        guard var updated = latestCollection else { return }
+        guard var updated = latestCollection, updated.pages.isEmpty else { return }
         let pageID = UUID()
         updated.pages.append(BinderPage(id: pageID, slots: []))
         isSavingLayout = true
         await saveLayout(updated, selecting: pageID)
     }
 
-    private func insertPage() async {
+    private func insertPage(_ side: BinderLayout.PageInsertion) async {
         guard canArrange else { return }
         guard let latest = latestCollection else { return }
         guard let page = currentPage else { return }
         let newPageID = UUID()
-        guard let updated = BinderLayout.insertingEmptyPage(in: latest, before: page.id, pageID: newPageID) else {
+        guard let updated = BinderLayout.insertingEmptyPage(in: latest, beside: page.id, side: side, pageID: newPageID)
+        else {
             return
         }
         isSavingLayout = true

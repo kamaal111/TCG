@@ -21,7 +21,7 @@ const routeConfig = createRoute({
   tags: [CARDS_OPENAPI_TAG],
   summary: 'Add an owned card',
   description:
-    "Add an owned trading card entry to the authenticated user's collection and place its copies in the first empty binder slot, creating a page if needed. A full binder returns a collection_id validation issue without saving the card.",
+    "Add an owned trading card entry to the authenticated user's collection and place its copies after the last occupied binder slot, creating a page if needed. If placement would exceed the page limit, the request returns a collection_id validation issue without saving the card.",
   middleware: [requireSessionMiddleware] as const,
   security: [{ bearerAuth: [] }],
   request: { body: { content: { [MIME_TYPES.JSON]: { schema: UpsertCardSchema } } } },
