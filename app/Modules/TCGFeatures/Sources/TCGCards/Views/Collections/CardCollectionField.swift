@@ -8,13 +8,17 @@ struct CardCollectionField: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Picker(selection: $model.values.collectionID) {
+            Picker(selection: selection) {
+                if model.values.collectionID == nil && collections.unfiled == nil {
+                    Text("Unfiled", bundle: .module).tag(UUID?.none)
+                }
                 ForEach(collections.collections) { collection in
                     CollectionTitle(collection: collection).tag(Optional(collection.id))
                 }
             } label: {
                 Text("Collection", bundle: .module)
             }
+            .pickerStyle(.menu)
             if let error = model.fieldErrors[.collection] {
                 TCGInlineError(error).font(.caption)
             }
@@ -38,5 +42,12 @@ struct CardCollectionField: View {
                 }
             }
         }
+    }
+
+    private var selection: Binding<UUID?> {
+        Binding(
+            get: { model.values.collectionID ?? collections.unfiled?.id },
+            set: { model.values.collectionID = $0 }
+        )
     }
 }
