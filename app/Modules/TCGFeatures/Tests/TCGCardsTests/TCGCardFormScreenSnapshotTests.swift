@@ -89,6 +89,18 @@ struct TCGCardFormScreenSnapshotTests {
     }
 
     @Test
+    func `Renders an unfiled edit form before collections load`() async {
+        let model = TCGCardFormScreenModel(mode: .edit(PreviewTCGCardsClient.sampleCards[0]), initialValues: nil)
+        let collections = TCGCollections(client: .preview(), defaults: nil)
+        #expect(model.values.collectionID == nil)
+        await assertScreenSnapshot(testName: #function) {
+            makeScreen(model: model).environment(\.tcgCollections, collections)
+        }
+        #expect(model.values.collectionID == nil)
+        #expect(!model.hasUnsavedChanges)
+    }
+
+    @Test
     func `Renders validation errors`() async {
         let model = TCGCardFormScreenModel(mode: .add, initialValues: nil)
         _ = await model.submit(using: TCGCards(client: .preview(cardsOutcome: .empty)))
