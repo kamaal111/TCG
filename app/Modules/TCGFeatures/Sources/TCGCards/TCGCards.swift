@@ -277,8 +277,26 @@ public final class TCGCards {
     }
 
     func updateCard(id: UUID, values: CardFormValues) async -> Result<CardWithPrice, TCGCardsOperationError> {
+        await updateCard(id: id, payload: values.payload)
+    }
+
+    func moveCard(_ card: Card, to collectionID: UUID) async -> Result<CardWithPrice, TCGCardsOperationError> {
+        let payload = UpsertCardPayload(
+            game: card.game,
+            name: card.name,
+            setName: card.setName,
+            cardNumber: card.cardNumber,
+            notes: card.notes,
+            purchases: card.purchases,
+            collectionID: collectionID
+        )
+        return await updateCard(id: card.id, payload: payload)
+    }
+
+    private func updateCard(id: UUID, payload: UpsertCardPayload) async -> Result<CardWithPrice, TCGCardsOperationError>
+    {
         let identity = displayIdentity
-        let result = await client.cards.update(id: id, with: values.payload)
+        let result = await client.cards.update(id: id, with: payload)
             .map { card in
                 if displayIdentity == identity {
                     replaceCard(card, id: id)

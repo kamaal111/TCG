@@ -39,6 +39,8 @@ final class TCGCardsListScreenModel {
     var query = ""
     var presentedForm: CardFormRoute?
     var presentedImageURL: URL?
+    var cardToDelete: Card?
+    private(set) var isMutatingCard = false
 
     @ObservationIgnored private let preferences: UserDefaults?
     @ObservationIgnored private var isRestoringFilters = true
@@ -99,6 +101,26 @@ final class TCGCardsListScreenModel {
         presentedForm = .detail(card)
     }
 
+    func showEdit(for card: CardWithPrice) {
+        presentedForm = .edit(card)
+    }
+
+    func destinations(for card: Card, in collections: [CardCollectionSummary]) -> [CardCollectionSummary] {
+        collections.filter { !$0.isUnfiled && $0.id != card.collectionID }
+    }
+
+    func move(_ card: Card, to destination: CardCollectionSummary, using cards: TCGCards) async {
+        guard !cards.isReadOnly else { return }
+        guard !isMutatingCard else { return }
+        guard !destination.isUnfiled, destination.id != card.collectionID else { return }
+
+        isMutatingCard = true
+        defer { isMutatingCard = false }
+        if case .failure(let error) = await cards.moveCard(card, to: destination.id) {
+            show(error)
+        }
+    }
+
     func exploreImage(of card: CardWithPrice) {
         presentedImageURL = card.price.price?.imageURL
     }
@@ -127,12 +149,18 @@ final class TCGCardsListScreenModel {
     }
 
     func delete(at offsets: IndexSet, using cards: TCGCards) async {
+        guard !cards.isReadOnly, !isMutatingCard else { return }
+        isMutatingCard = true
+        defer { isMutatingCard = false }
         let selectedCards = offsets.map { cards.cards[$0].card }
         let errors = await cards.deleteCards(ids: selectedCards.map(\.id))
         for error in errors { show(error) }
     }
 
     func delete(_ card: Card, using cards: TCGCards) async {
+        guard !cards.isReadOnly, !isMutatingCard else { return }
+        isMutatingCard = true
+        defer { isMutatingCard = false }
         switch await cards.deleteCard(id: card.id) {
         case .success:
             break
@@ -148,8 +176,14 @@ final class TCGCardsListScreenModel {
     }
 
     func show(_ error: TCGCardsOperationError) {
+        let message: String
+        if case .validation(let issues) = error, let issue = issues.first(where: { $0.field == .collection }) {
+            message = issue.message
+        } else {
+            message = error.errorDescription ?? ""
+        }
         toastTask?.cancel()
-        toast = Toast(title: String(localized: "Collection error"), message: error.errorDescription ?? "")
+        toast = Toast(title: String(localized: "Collection error", bundle: .module), message: message)
         toastTask = Task {
             try? await Task.sleep(for: ModuleConfig.toastDismissalDelay)
             guard !Task.isCancelled else { return }
@@ -160,16 +194,19 @@ final class TCGCardsListScreenModel {
     enum CardFormRoute: Identifiable {
         case add
         case detail(CardWithPrice)
+        case edit(CardWithPrice)
 
         enum ID: Hashable {
             case add
             case detail(UUID)
+            case edit(UUID)
         }
 
         var id: ID {
             switch self {
             case .add: .add
             case .detail(let card): .detail(card.card.id)
+            case .edit(let card): .edit(card.card.id)
             }
         }
     }

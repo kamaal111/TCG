@@ -8,6 +8,70 @@ import Testing
 @MainActor
 struct TCGCardsListScreenModelTests {
     @Test
+    func `Edit opens the saved card directly in the form`() {
+        let model = TCGCardsListScreenModel(preferences: nil)
+        let card = PreviewTCGCardsClient.sampleCards[1]
+        let priced = CardWithPrice(card: card, price: PreviewTCGCardsClient.price(for: card))
+
+        model.showEdit(for: priced)
+
+        #expect(model.presentedForm?.id == .edit(card.id))
+        let editor = TCGCardFormScreenModel(editing: priced)
+        #expect(editor.values == CardFormValues(card: card))
+    }
+
+    @Test
+    func `Adding then moving Pikachu preserves its purchases and excludes the current collection`() async throws {
+        let context = await CollectionTestFixtures.loadedContext()
+        let model = TCGCardsListScreenModel(preferences: nil)
+        let pikachu = try #require(context.cards.cards.first { $0.card.name == "Pikachu" }).card
+        let favorites = try await context.collections.create(name: "Favorites").get()
+        let trades = try await context.collections.create(name: "Trades").get()
+        #expect(pikachu.collectionID == nil)
+        #expect(
+            model.destinations(for: pikachu, in: context.collections.collections).map(\.id).contains(favorites.id)
+        )
+
+        await model.move(pikachu, to: favorites.summary, using: context.cards)
+
+        let filed = try #require(context.cards.cards.first { $0.card.id == pikachu.id }).card
+        #expect(filed.collectionID == favorites.id)
+        let candidates = model.destinations(for: filed, in: context.collections.collections)
+        #expect(candidates.contains { $0.id == trades.id })
+        #expect(!candidates.contains { $0.isUnfiled || $0.id == favorites.id })
+        await context.collections.select(favorites.id, using: context.cards)
+
+        await model.move(filed, to: trades.summary, using: context.cards)
+
+        #expect(!context.cards.cards.contains { $0.card.id == pikachu.id })
+        await context.collections.select(trades.id, using: context.cards)
+        let moved = try #require(context.cards.cards.first { $0.card.id == pikachu.id }).card
+        #expect(moved.collectionID == trades.id)
+        #expect(moved.purchases == pikachu.purchases)
+        #expect(model.toast == nil)
+    }
+
+    @Test
+    func `A failed move surfaces an error without changing the displayed membership`() async throws {
+        let card = PreviewTCGCardsClient.sampleCards[1]
+        let client = TCGClient.preview(
+            cardsOutcome: .validationErrors([
+                .init(code: "binder_full", path: ["collection_id"], message: "The binder is full.")
+            ])
+        )
+        let cards = TCGCards(client: client)
+        let model = TCGCardsListScreenModel(preferences: nil)
+        let destination = CollectionTestFixtures.collection().summary
+        await model.load(using: cards)
+        let before = try #require(cards.cards.first { $0.card.id == card.id }).card
+
+        await model.move(before, to: destination, using: cards)
+
+        #expect(cards.cards.first { $0.card.id == card.id }?.card == before)
+        #expect(model.toast?.message.contains("binder is full") == true)
+    }
+
+    @Test
     func `Restores illustrator filters and clears them when switching game`() async throws {
         let suiteName = "TCGCardsTests.\(UUID().uuidString)"
         let preferences = try #require(UserDefaults(suiteName: suiteName))

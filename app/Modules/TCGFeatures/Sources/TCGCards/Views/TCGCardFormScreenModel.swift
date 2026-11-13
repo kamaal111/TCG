@@ -54,6 +54,11 @@ final class TCGCardFormScreenModel {
         self.initialValues = initial
     }
 
+    convenience init(editing card: CardWithPrice) {
+        self.init(mode: .edit(card.card), initialValues: nil)
+        if let price = card.price.price { applyMarketDefault(price) }
+    }
+
     var canChooseCollection: Bool {
         switch mode {
         case .draft: false
