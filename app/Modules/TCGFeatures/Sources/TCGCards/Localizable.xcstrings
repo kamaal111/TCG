@@ -117,6 +117,9 @@
     "Add more" : {
 
     },
+    "Add to collection" : {
+
+    },
     "Add your first card to start your collection." : {
 
     },
@@ -266,6 +269,12 @@
 
     },
     "Delete" : {
+
+    },
+    "Delete all saved copies of %@?" : {
+
+    },
+    "Delete card?" : {
 
     },
     "Delete collection" : {
@@ -465,6 +474,9 @@
 
     },
     "Monkey D. Luffy" : {
+
+    },
+    "Move to another collection" : {
 
     },
     "Name" : {
@@ -754,6 +766,9 @@
 
     },
     "Unnamed card" : {
+
+    },
+    "View" : {
 
     },
     "We couldn’t accept this import. Your edits are still here. Review your CSV, or contact support if this keeps happening." : {

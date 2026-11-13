@@ -11,7 +11,7 @@ import TCGDesignSystem
 import TCGModels
 
 public struct TCGCardsListScreen: View {
-    @Environment(\.isEditingCollection) private var isEditingCollection
+    @Environment(\.tcgCollections) private var collections
     @Environment(TCGCards.self) private var cardCollection
 
     @State private var model: TCGCardsListScreenModel
@@ -51,8 +51,26 @@ public struct TCGCardsListScreen: View {
                     switch route {
                     case .add: TCGCardFormScreen(model: .init(mode: .add, initialValues: nil))
                     case .detail(let card): TCGCardDetailScreen(model: .init(card: card))
+                    case .edit(let card): TCGCardFormScreen(model: .init(editing: card))
                     }
                 }
+            }
+            .alert(
+                Text("Delete card?", bundle: .module),
+                isPresented: isConfirmingDeletion,
+                presenting: model.cardToDelete
+            ) { card in
+                Button(role: .destructive) {
+                    Task { await model.delete(card, using: cardCollection) }
+                } label: {
+                    Text("Delete", bundle: .module)
+                }
+                Button(role: .cancel) {
+                } label: {
+                    Text("Cancel", bundle: .module)
+                }
+            } message: { card in
+                Text("Delete all saved copies of \(card.name)?", bundle: .module)
             }
             .cardImage(url: $model.presentedImageURL)
             .task(id: model.filters) {
@@ -64,18 +82,16 @@ public struct TCGCardsListScreen: View {
             }
     }
 
-    private var canDeleteCards: Bool {
-        #if os(iOS)
-            !cardCollection.isReadOnly
-        #else
-            isEditingCollection
-        #endif
+    private var isConfirmingDeletion: Binding<Bool> {
+        Binding(
+            get: { model.cardToDelete != nil },
+            set: { if !$0 { model.cardToDelete = nil } }
+        )
     }
 
     private var deleteCards: ((IndexSet) -> Void)? {
-        guard canDeleteCards else { return nil }
+        guard !cardCollection.isReadOnly, !model.isMutatingCard else { return nil }
         return { offsets in
-            guard canDeleteCards else { return }
             Task { await model.delete(at: offsets, using: cardCollection) }
         }
     }
@@ -200,14 +216,6 @@ public struct TCGCardsListScreen: View {
                     #if os(macOS)
                         .padding(12)
                         .background(.background.secondary, in: RoundedRectangle(cornerRadius: 12))
-                        .contextMenu {
-                            if isEditingCollection {
-                                Button("Delete", systemImage: "trash", role: .destructive) {
-                                    guard isEditingCollection else { return }
-                                    Task { await model.delete(cardWithPrice.card, using: cardCollection) }
-                                }
-                            }
-                        }
                     #endif
             }
         }
@@ -256,6 +264,68 @@ public struct TCGCardsListScreen: View {
                 Text("\(unplaced) unplaced", bundle: .module).font(.caption).foregroundStyle(.secondary)
             }
         }
+        .contentShape(Rectangle())
+        .contextMenu {
+            Button {
+                model.showDetails(of: cardWithPrice)
+            } label: {
+                Label {
+                    Text("View", bundle: .module)
+                } icon: {
+                    Image(systemName: "eye")
+                }
+            }
+            if !cardCollection.isReadOnly {
+                Button {
+                    model.showEdit(for: cardWithPrice)
+                } label: {
+                    Label {
+                        Text("Edit", bundle: .module)
+                    } icon: {
+                        Image(systemName: "pencil")
+                    }
+                }
+                .disabled(model.isMutatingCard)
+                collectionMenu(for: cardWithPrice.card)
+                Button(role: .destructive) {
+                    model.cardToDelete = cardWithPrice.card
+                } label: {
+                    Label {
+                        Text("Delete", bundle: .module)
+                    } icon: {
+                        Image(systemName: "trash")
+                    }
+                }
+                .disabled(model.isMutatingCard)
+            }
+        }
     }
 
+    private func collectionMenu(for card: Card) -> some View {
+        let destinations = model.destinations(for: card, in: collections?.collections ?? [])
+        return Menu {
+            ForEach(destinations) { destination in
+                Button {
+                    Task { await model.move(card, to: destination, using: cardCollection) }
+                } label: {
+                    CollectionTitle(collection: destination)
+                }
+            }
+        } label: {
+            if card.collectionID == nil {
+                Label {
+                    Text("Add to collection", bundle: .module)
+                } icon: {
+                    Image(systemName: "folder.badge.plus")
+                }
+            } else {
+                Label {
+                    Text("Move to another collection", bundle: .module)
+                } icon: {
+                    Image(systemName: "folder")
+                }
+            }
+        }
+        .disabled(destinations.isEmpty || model.isMutatingCard)
+    }
 }
