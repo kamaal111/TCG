@@ -12,6 +12,25 @@ struct SearchResultGroup: Identifiable {
 
     var id: String { card.id }
 
+    var collageURLs: [URL] {
+        var seen = Set<URL>()
+        var preview: [URL] = []
+        for variant in variants {
+            guard let url = variant.imageURL, seen.insert(url).inserted else { continue }
+            preview.append(url)
+            if preview.count == 4 { break }
+        }
+        return preview.count == 3 ? Array(preview.prefix(2)) : preview
+    }
+
+    var hasArtwork: Bool { variants.contains { $0.imageURL != nil } }
+
+    var directArtworkURL: URL? { variants.count == 1 ? variants.first?.imageURL : nil }
+
+    func artworkURL(for variantID: String) -> URL? {
+        variants.first { $0.id == variantID }?.imageURL
+    }
+
     static func group(_ cards: [PricedCard]) -> [SearchResultGroup] {
         let groups = Dictionary(grouping: cards, by: key)
         var seen = Set<Key>()

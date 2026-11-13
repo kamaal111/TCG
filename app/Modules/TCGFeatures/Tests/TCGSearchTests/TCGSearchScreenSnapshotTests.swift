@@ -22,6 +22,28 @@ import Testing
 @MainActor
 struct TCGSearchScreenSnapshotTests {
     @Test
+    func `Renders a grouped One Piece result with four artwork tiles`() async throws {
+        let group = try #require(SearchVariantFixtures.groups(count: 5).first)
+        await assertScreenSnapshot(testName: #function) {
+            VStack {
+                PricedCardRow(group: group, actions: .init(add: {}, showDetails: {}, exploreImage: {}))
+                Spacer()
+            }
+            .padding()
+            .cardImageLoader(PreviewCardImageLoader(outcome: .success))
+        }
+    }
+
+    @Test
+    func `Renders the artwork chooser before zoom`() async throws {
+        let group = try #require(SearchVariantFixtures.groups(count: 3).first)
+        await assertScreenSnapshot(testName: #function) {
+            SearchVariantPicker(variants: group.variants, purpose: .artwork, selectedID: group.card.id) { _ in }
+                .cardImageLoader(PreviewCardImageLoader(outcome: .success))
+        }
+    }
+
+    @Test
     func `Hides prices percentages and trends in search results`() async throws {
         let privacy = TCGPricePrivacy(defaults: nil)
         privacy.hidePrices = true

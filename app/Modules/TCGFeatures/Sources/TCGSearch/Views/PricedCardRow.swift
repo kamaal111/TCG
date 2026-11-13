@@ -11,8 +11,10 @@ import TCGDesignSystem
 struct PricedCardRow: View {
     @Environment(\.tcgCurrency) private var currencyState
     @Environment(\.tcgPricePrivacy) private var pricePrivacy
-    let card: PricedCard
+    let group: SearchResultGroup
     let actions: Actions
+
+    private var card: PricedCard { group.card }
 
     struct Actions {
         let add: () -> Void
@@ -23,10 +25,10 @@ struct PricedCardRow: View {
     var body: some View {
         HStack(alignment: .top, spacing: 16) {
             Button(action: actions.exploreImage) {
-                CardImageView(url: card.imageURL)
+                SearchArtworkCollage(urls: group.collageURLs)
             }
             .buttonStyle(.plain)
-            .disabled(card.imageURL == nil)
+            .disabled(!group.hasArtwork)
             .accessibilityLabel(Text("Explore image of \(card.name)", bundle: .module))
             .help(Text("Explore image of \(card.name)", bundle: .module))
             VStack(alignment: .trailing, spacing: 8) {
@@ -61,6 +63,11 @@ struct PricedCardRow: View {
                 Text(card.name).font(.headline)
                 Text("\(card.rarity ?? card.game.title) • \(card.cardNumber)", bundle: .module)
                     .foregroundStyle(.secondary)
+                if card.game == .onePiece {
+                    variantCount
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
                 if pricePrivacy?.hidePrices != true, pricesAreCurrent { marketDetails }
             }
             Spacer(minLength: 12)
@@ -90,6 +97,13 @@ struct PricedCardRow: View {
             }
         }
         .contentShape(Rectangle())
+    }
+
+    private var variantCount: Text {
+        if group.variants.count == 1 {
+            return Text("1 variant", bundle: .module)
+        }
+        return Text("\(group.variants.count) variants", bundle: .module)
     }
 
     private var pricesAreCurrent: Bool {

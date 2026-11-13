@@ -77,10 +77,10 @@ public struct TCGSearchScreen<AddForm: View>: View {
             .onChange(of: search.displayRefreshError) { _, error in
                 if let error { model.show(error) }
             }
-            .sheet(item: $model.presentedDetail) { card in
+            .sheet(item: $model.presentedDetail) { group in
                 TCGSearchDetailView(
-                    card: card,
-                    variants: model.resultGroups(using: search).first { $0.card.id == card.id }?.variants ?? [],
+                    card: group.card,
+                    variants: group.variants,
                     addForm: addForm
                 )
             }
@@ -89,7 +89,7 @@ public struct TCGSearchScreen<AddForm: View>: View {
                     addForm(card, {})
                 }
             }
-            .modifier(SearchImagePresentation(card: $model.presentedImage))
+            .modifier(SearchImagePresentation(group: $model.presentedImage))
     }
 
     private var keyboardScopedContent: some View {
@@ -253,9 +253,8 @@ public struct TCGSearchScreen<AddForm: View>: View {
             noMatchingSets
         } else {
             ForEach(visibleResults) { group in
-                let card = group.card
                 PricedCardRow(
-                    card: card,
+                    group: group,
                     actions: .init(
                         add: {
                             finishEditing()
@@ -263,11 +262,11 @@ public struct TCGSearchScreen<AddForm: View>: View {
                         },
                         showDetails: {
                             finishEditing()
-                            model.showDetails(of: card)
+                            model.showDetails(of: group)
                         },
                         exploreImage: {
                             finishEditing()
-                            model.exploreImage(of: card)
+                            model.exploreImage(of: group)
                         }
                     )
                 )
