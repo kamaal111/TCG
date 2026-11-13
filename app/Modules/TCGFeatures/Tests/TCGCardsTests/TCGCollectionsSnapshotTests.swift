@@ -237,6 +237,19 @@ struct TCGCollectionsSnapshotTests {
         }
     }
 
+    @Test func `Renders a selected collection in list mode`() async throws {
+        let context = try await CollectionTestFixtures.selectedContext()
+        let collection = try #require(context.collections.selected)
+        context.collections.setView(.list, for: collection.id)
+        try #require(!context.cards.cards.isEmpty)
+
+        await assertCollectionSnapshot(testName: #function) {
+            TCGCollectionsScreen()
+                .environment(context.cards)
+                .environment(\.tcgCollections, context.collections)
+        }
+    }
+
     @Test func `Renders explicit collection edit mode`() async throws {
         let context = try await CollectionTestFixtures.selectedContext()
         #expect(context.collections.selected != nil)

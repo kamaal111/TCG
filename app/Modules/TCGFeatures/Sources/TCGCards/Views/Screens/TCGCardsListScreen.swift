@@ -16,12 +16,15 @@ public struct TCGCardsListScreen: View {
 
     @State private var model: TCGCardsListScreenModel
 
+    private let hidesScrollBackground: Bool
+
     public init() {
-        _model = State(initialValue: TCGCardsListScreenModel())
+        self.init(model: TCGCardsListScreenModel())
     }
 
-    init(model: TCGCardsListScreenModel) {
+    init(model: TCGCardsListScreenModel, hidesScrollBackground: Bool = false) {
         _model = State(initialValue: model)
+        self.hidesScrollBackground = hidesScrollBackground
     }
 
     public var body: some View {
@@ -109,6 +112,7 @@ public struct TCGCardsListScreen: View {
                         .listRowSeparator(.hidden)
                 }
             }
+            .scrollContentBackground(hidesScrollBackground ? .hidden : .automatic)
         #endif
     }
 

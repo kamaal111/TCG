@@ -21,6 +21,13 @@ struct CollectionContentView: View {
             }
             collectionContent
         }
+        #if os(iOS)
+            .background {
+                if let selected = collections.selected, collections.view(for: selected.id) == .list {
+                    Color(uiColor: .systemBackground)
+                }
+            }
+        #endif
         .refreshable {
             await collections.refresh(using: cards)
         }
@@ -57,8 +64,11 @@ struct CollectionContentView: View {
         }
     }
 
-    private var cardList: TCGCardsListScreen {
-        TCGCardsListScreen(model: TCGCardsListScreenModel(preferences: cards.isReadOnly ? nil : .standard))
+    private func cardList(hidesScrollBackground: Bool = false) -> TCGCardsListScreen {
+        TCGCardsListScreen(
+            model: TCGCardsListScreenModel(preferences: cards.isReadOnly ? nil : .standard),
+            hidesScrollBackground: hidesScrollBackground
+        )
     }
 
     private var collectionContent: some View {
@@ -67,12 +77,12 @@ struct CollectionContentView: View {
                 if collections.view(for: selected.id) == .binder {
                     TCGBinderScreen(collection: selected).id(selected.id)
                 } else {
-                    cardList.id(selected.id)
+                    cardList(hidesScrollBackground: true).id(selected.id)
                 }
             } else if collections.selectedID != nil {
                 ProgressView()
             } else {
-                cardList
+                cardList()
             }
         }
     }
