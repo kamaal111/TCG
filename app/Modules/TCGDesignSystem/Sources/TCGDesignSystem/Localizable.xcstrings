@@ -10,13 +10,37 @@
     "All sets" : {
 
     },
+    "Cached card images" : {
+
+    },
     "Card image" : {
+
+    },
+    "Card images will download again when you view them." : {
 
     },
     "Close" : {
 
     },
+    "Couldn’t delete cached images" : {
+
+    },
+    "Couldn’t read cached card images" : {
+
+    },
+    "Delete all cached images" : {
+
+    },
+    "Delete all cached images?" : {
+
+    },
+    "Delete cached image" : {
+
+    },
     "Dismiss keyboard" : {
+
+    },
+    "Done" : {
 
     },
     "Error: %@" : {
@@ -37,7 +61,13 @@
     "Loading image…" : {
 
     },
+    "No cached card images" : {
+
+    },
     "No image available" : {
+
+    },
+    "OK" : {
 
     },
     "Reset" : {
@@ -47,6 +77,9 @@
 
     },
     "Set name" : {
+
+    },
+    "Unavailable" : {
 
     },
     "Zoom in" : {
