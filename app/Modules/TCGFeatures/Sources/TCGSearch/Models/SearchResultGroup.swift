@@ -31,6 +31,10 @@ struct SearchResultGroup: Identifiable {
         variants.first { $0.id == variantID }?.imageURL
     }
 
+    func destinationCard(selected: PricedCard?) -> PricedCard? {
+        variants.count < 2 ? card : selected
+    }
+
     static func group(_ cards: [PricedCard]) -> [SearchResultGroup] {
         let groups = Dictionary(grouping: cards, by: key)
         var seen = Set<Key>()

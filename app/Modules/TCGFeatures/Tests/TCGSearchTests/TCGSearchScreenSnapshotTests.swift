@@ -22,6 +22,17 @@ import Testing
 @MainActor
 struct TCGSearchScreenSnapshotTests {
     @Test
+    func `Renders the variant chooser before search details`() async throws {
+        let group = try #require(SearchVariantFixtures.groups(count: 3).first)
+        await assertScreenSnapshot(testName: #function) {
+            SearchVariantDestination(group: group, purpose: .details) { card in
+                Text(card.name)
+            }
+            .cardImageLoader(PreviewCardImageLoader(outcome: .success))
+        }
+    }
+
+    @Test
     func `Renders a grouped One Piece result with four artwork tiles`() async throws {
         let group = try #require(SearchVariantFixtures.groups(count: 5).first)
         await assertScreenSnapshot(testName: #function) {

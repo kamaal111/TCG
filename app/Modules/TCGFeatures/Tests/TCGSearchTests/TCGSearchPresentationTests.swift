@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 import Testing
 
 @testable import TCGClient
@@ -77,11 +78,13 @@ struct TCGSearchPresentationTests {
         let foil = SearchVariantFixtures.variant(0)
         let alternate = SearchVariantFixtures.variant(1)
         let refreshed = SearchVariantFixtures.variant(1, price: 250)
-        var selection = SearchDetailVariantSelection()
-        #expect(selection.selectedCard(defaultCard: foil, results: [foil, alternate]) == foil)
-        selection.select(alternate)
-        #expect(selection.selectedCard(defaultCard: foil, results: [foil]) == alternate)
-        let selected = selection.selectedCard(defaultCard: foil, results: [foil, refreshed])
+        let group = SearchResultGroup(card: foil, variants: [foil, alternate])
+        #expect(group.destinationCard(selected: nil) == nil)
+        #expect(SearchResultGroup(card: foil, variants: [foil]).destinationCard(selected: nil) == foil)
+        let choice = group.destinationCard(selected: alternate)
+        #expect(choice == alternate)
+        #expect(TCGSearchDetailView<EmptyView>.latestCard(for: alternate, in: [foil]) == alternate)
+        let selected = TCGSearchDetailView<EmptyView>.latestCard(for: alternate, in: [foil, refreshed])
         #expect(selected.id == alternate.id)
         #expect(selected.imageURL == alternate.imageURL)
         #expect(selected.headline?.amount == 250)
