@@ -11,10 +11,18 @@ struct BinderDimensionFields: View {
     var body: some View {
         TCGLabeledTextField(title: Text("Columns", bundle: .module), text: $columns)
         TCGLabeledTextField(title: Text("Rows", bundle: .module), text: $rows)
-        HStack {
-            ForEach(Self.squarePageShortcuts, id: \.self) { size in
-                Button("\(size) × \(size)") { selectPreset(size) }
+        #if os(iOS)
+            presetButtons
+        #else
+            HStack {
+                presetButtons
             }
+        #endif
+    }
+
+    private var presetButtons: some View {
+        ForEach(Self.squarePageShortcuts, id: \.self) { size in
+            Button("\(size) × \(size)") { selectPreset(size) }
         }
     }
 }
