@@ -78,14 +78,12 @@ public struct TCGSearchScreen<AddForm: View>: View {
                 if let error { model.show(error) }
             }
             .sheet(item: $model.presentedDetail) { group in
-                TCGSearchDetailView(
-                    card: group.card,
-                    variants: group.variants,
-                    addForm: addForm
-                )
+                SearchVariantDestination(group: group, purpose: .details) { card in
+                    TCGSearchDetailView(card: card, variants: group.variants, addForm: addForm)
+                }
             }
             .sheet(item: $groupToAdd) { group in
-                SearchResultAddView(card: group.card, variants: group.variants) { card in
+                SearchVariantDestination(group: group, purpose: .add) { card in
                     addForm(card, {})
                 }
             }
