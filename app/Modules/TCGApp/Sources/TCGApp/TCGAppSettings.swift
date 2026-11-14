@@ -1,5 +1,6 @@
 import SwiftUI
 import TCGCards
+import TCGDesignSystem
 import TCGSettings
 
 struct TCGAppSettings: View {
@@ -17,6 +18,9 @@ struct TCGAppSettings: View {
             OfflineCollectionSettings(download: offline)
         } onSignOut: {
             offline.remove()
+        }
+        .cardArtworkCacheSettings {
+            CardArtworkCacheSettings()
         }
         .sheet(item: $importFile) { file in
             TCGCardsImportReviewScreen(url: file.url).tcgCards(cards)

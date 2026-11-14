@@ -30,8 +30,18 @@ struct CardImageViewSnapshotTests {
         assertCardImageSnapshot(testName: #function) { CardImageView(url: nil) }
     }
 
+    @Test
+    func `Shows cached artwork size in Settings`() {
+        assertCardImageSnapshot(testName: #function, size: CGSize(width: 360, height: 56)) {
+            CardArtworkCacheRow(byteCount: 12_288, openGallery: {})
+                .padding(.horizontal, 16)
+                .environment(\.locale, Locale(identifier: "en_US"))
+        }
+    }
+
     private func assertCardImageSnapshot<CardImage: View>(
         testName: String,
+        size: CGSize = CGSize(width: 44, height: 61),
         @ViewBuilder cardImage: () -> CardImage
     ) {
         for scheme in [ColorScheme.light, .dark] {
@@ -39,7 +49,8 @@ struct CardImageViewSnapshotTests {
                 assertSnapshot(
                     of: makeMacOSCardImage(
                         cardImage: cardImage().environment(\.cardImageReduceMotionOverride, true),
-                        scheme: scheme
+                        scheme: scheme,
+                        size: size
                     ),
                     as: .image,
                     named: "\(scheme)",
@@ -49,7 +60,7 @@ struct CardImageViewSnapshotTests {
                 assertSnapshot(
                     of: cardImage().environment(\.cardImageReduceMotionOverride, true),
                     as: .image(
-                        layout: .fixed(width: 44, height: 61),
+                        layout: .fixed(width: size.width, height: size.height),
                         traits: UITraitCollection(userInterfaceStyle: scheme == .dark ? .dark : .light)
                     ),
                     named: "iPhone-\(scheme)",
@@ -82,11 +93,12 @@ struct CardImageViewSnapshotTests {
 
         private func makeMacOSCardImage<CardImage: View>(
             cardImage: CardImage,
-            scheme: ColorScheme
+            scheme: ColorScheme,
+            size: CGSize
         ) -> SnapshotHostingView<some View> {
             let hostingView = SnapshotHostingView(rootView: cardImage.preferredColorScheme(scheme))
             hostingView.appearance = NSAppearance(named: scheme == .dark ? .darkAqua : .aqua)
-            hostingView.frame = NSRect(x: 0, y: 0, width: 44, height: 61)
+            hostingView.frame = NSRect(x: 0, y: 0, width: size.width, height: size.height)
             hostingView.wantsLayer = true
             hostingView.layer?.backgroundColor = (scheme == .dark ? NSColor.black : NSColor.white).cgColor
 

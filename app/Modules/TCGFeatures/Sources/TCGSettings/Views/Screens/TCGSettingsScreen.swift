@@ -20,6 +20,7 @@ public struct TCGSettingsScreen: View {
         @Environment(\.dismiss) private var dismiss
     #endif
 
+    @Environment(\.cardArtworkCacheSettings) private var artworkCacheSettings
     @Environment(\.offlineCollectionSettings) private var offlineSettings
 
     @State private var isConfirmingSignOut = false
@@ -76,6 +77,9 @@ public struct TCGSettingsScreen: View {
                         bundle: .module
                     )
                 }
+            }
+            if let artworkCacheSettings {
+                Section { artworkCacheSettings }
             }
             offlineSettings?.content
             if let currencyState {
@@ -306,10 +310,15 @@ private struct OfflineCollectionSettingsContent {
 }
 
 extension EnvironmentValues {
+    @Entry fileprivate var cardArtworkCacheSettings: AnyView?
     @Entry fileprivate var offlineCollectionSettings: OfflineCollectionSettingsContent?
 }
 
 extension View {
+    public func cardArtworkCacheSettings<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        environment(\.cardArtworkCacheSettings, AnyView(content()))
+    }
+
     public func offlineCollectionSettings<Content: View>(
         @ViewBuilder content: () -> Content,
         onSignOut: @escaping @MainActor () -> Void

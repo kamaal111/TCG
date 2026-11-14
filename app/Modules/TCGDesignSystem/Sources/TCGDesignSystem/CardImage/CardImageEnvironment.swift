@@ -1,7 +1,7 @@
 import SwiftUI
 
 private struct CardImageLoaderKey: EnvironmentKey {
-    static let defaultValue: any CardImageLoader = URLSessionCardImageLoader()
+    static let defaultValue: any CardImageLoader = URLSessionCardImageLoader.shared
 }
 
 extension EnvironmentValues {
