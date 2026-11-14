@@ -51,6 +51,7 @@ public final class TCGCollections {
     }
 
     public func trackSession(_ auth: KamaalAuth, cards: TCGCards) async {
+        error = nil
         for await state in auth.sessionStates() {
             guard !Task.isCancelled else { return }
             switch state {
@@ -69,6 +70,14 @@ public final class TCGCollections {
         }
     }
 
+    public func stopLiveLoading(using cards: TCGCards) {
+        generation = UUID()
+        error = nil
+        isWorking = false
+        cards.onCollectionMutation = nil
+        cards.clearCollectionSelection()
+    }
+
     func clearSession() {
         generation = UUID()
         account = nil
@@ -81,7 +90,7 @@ public final class TCGCollections {
     }
 
     func reload(using cards: TCGCards) async {
-        guard downloadedCollections == nil else { return }
+        guard downloadedCollections == nil, !Task.isCancelled else { return }
         cards.onCollectionMutation = { [weak self, weak cards] in
             guard let self else { return }
             guard let cards else { return }
@@ -92,7 +101,7 @@ public final class TCGCollections {
         let revision = reloadRevision
         switch await client.list() {
         case .success(let result):
-            guard generation == token else { return }
+            guard generation == token, !Task.isCancelled else { return }
             guard reloadRevision == revision else { return }
             collections = result
             let currentIDs = Set(result.map(\.id))
@@ -101,7 +110,7 @@ public final class TCGCollections {
             let selection = result.first { $0.id == previous && !$0.isUnfiled }
             await select(selection?.id, using: cards)
         case .failure(let failure):
-            guard generation == token else { return }
+            guard generation == token, !Task.isCancelled else { return }
             guard reloadRevision == revision else { return }
             error = failure
         }
@@ -131,14 +140,14 @@ public final class TCGCollections {
         let token = generation
         switch await client.get(id: summary.id) {
         case .success(let collection):
-            guard generation == token else { return }
+            guard generation == token, !Task.isCancelled else { return }
             guard selectedID == summary.id else { return }
             guard let latest = collections.first(where: { $0.id == collection.id }) else { return }
             guard collection.revision >= latest.revision else { return }
             replace(collection)
             await cards.selectCollection(collection)
         case .failure(let failure):
-            guard generation == token else { return }
+            guard generation == token, !Task.isCancelled else { return }
             guard selectedID == summary.id else { return }
             error = failure
         }
@@ -237,7 +246,7 @@ public final class TCGCollections {
         let previous = cards.selectedCollection?.id
         let token = generation
         await reload(using: cards)
-        guard generation == token else { return }
+        guard generation == token, !Task.isCancelled else { return }
         guard cards.selectedCollection?.id == previous else { return }
         await cards.refresh()
     }

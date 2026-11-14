@@ -2,7 +2,18 @@ import Foundation
 import LocalAuthentication
 import Security
 
-struct OfflineCollectionGrant {
+@MainActor
+protocol OfflineCollectionAccess {
+    var isAvailable: Bool { get }
+
+    func create(owner: String) throws
+
+    func unlock(reason: String) async throws -> String
+
+    func remove() throws
+}
+
+struct OfflineCollectionGrant: OfflineCollectionAccess {
     enum Failure: Error {
         case keychain(OSStatus)
         case unavailable

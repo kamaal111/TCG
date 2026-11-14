@@ -78,6 +78,7 @@ struct OfflineCollectionOpenButton: View {
             } label: {
                 Text("Open offline collection", bundle: .module)
             }
+            .disabled(download.isUnlocking)
             if download.unlockFailed {
                 Text("Couldn’t unlock the offline collection.", bundle: .module).foregroundStyle(.red)
             }

@@ -39,11 +39,12 @@ struct TCGAppTabs: View {
         .kamaalAuth(auth)
         .task { await currencyState.trackSession(auth) }
         .task { await collections.trackSession(auth, cards: cards) }
+        .onDisappear { collections.stopLiveLoading(using: cards) }
         .task(id: DisplayRefreshIdentity(display: currencyState.displayIdentity, isLoggedIn: auth.isLoggedIn)) {
             await refreshDisplayPrices()
         }
-        .onChange(of: scenePhase) { _, phase in
-            if phase == .active, auth.isLoggedIn { Task { await currencyState.refresh() } }
+        .task(id: scenePhase) {
+            if scenePhase == .active, auth.isLoggedIn { await currencyState.refresh() }
         }
     }
 
