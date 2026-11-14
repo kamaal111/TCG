@@ -11,11 +11,14 @@ import TCGDesignSystem
 @MainActor
 @Observable
 final class TCGSearchScreenModel {
+    private static let gamePreferenceKey = "TCGSearch.game"
+
     var query = ""
     var mode: ClientCardSearchMode = .card
     var setNames: Set<String> = []
-    var game: ClientCardGame = .pokemon {
+    var game: ClientCardGame {
         didSet {
+            preferences?.set(game.rawValue, forKey: Self.gamePreferenceKey)
             languages = loadLanguages(for: game)
             if game != .pokemon { mode = .card }
         }
@@ -31,6 +34,7 @@ final class TCGSearchScreenModel {
     init(preferences: UserDefaults? = .standard, debounce: Duration = ModuleConfig.searchDebounce) {
         self.preferences = preferences
         self.debounce = debounce
+        game = preferences?.string(forKey: Self.gamePreferenceKey).flatMap(ClientCardGame.init(rawValue:)) ?? .pokemon
         languages = loadLanguages(for: game)
     }
 
