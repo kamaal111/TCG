@@ -1,8 +1,12 @@
-import { ShaSchema } from './contracts.ts';
+import url from 'node:url';
+
+import { CommitAreaSchema, ShaSchema } from './contracts.ts';
 import { gitCommitCount, gitCommitExists, gitFirstCommit, gitIsAncestor, gitLog, gitRevision } from '../git.ts';
 import { InfraFailure } from '../infra/errors.ts';
 
 type Command = (program: string, args: string[]) => Promise<string>;
+
+const commitAreaScript = url.fileURLToPath(new URL('../../.github/scripts/commit-affected-areas.sh', import.meta.url));
 
 export async function selectRelease(command: Command, revision: string, main: string): Promise<string> {
   try {
@@ -47,16 +51,30 @@ export async function pendingCommits(command: Command, deployed: string | null, 
 
     const output = await gitLog(command, { range, format: 'commits', limit: 50, skip: page * 50 });
 
-    const commits = output.trim()
+    const pageCommits = output.trim()
       ? output
           .trim()
           .split('\n')
           .map(line => {
-            const [sha, subject, author, date] = line.split('\0');
+            const [sha, parents, subject, author, date] = line.split('\0');
 
-            return { sha, subject, author, date };
+            return { sha, parent: parents?.split(' ')[0] ?? '', subject, author, date };
           })
       : [];
+
+    const commitPairs = pageCommits.map(({ sha, parent }) => {
+      return `${ShaSchema.parse(sha)}:${parent ? ShaSchema.parse(parent) : ''}`;
+    });
+
+    const areas = commitPairs.length ? (await command('bash', [commitAreaScript, ...commitPairs])).split('\n') : [];
+
+    const commits = pageCommits.map(({ sha, subject, author, date }, index) => ({
+      sha,
+      subject,
+      author,
+      date,
+      area: CommitAreaSchema.parse(areas[index]),
+    }));
 
     return {
       main: selected,

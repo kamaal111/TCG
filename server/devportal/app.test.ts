@@ -30,7 +30,7 @@ const server: ServerStatus = {
     fingerprint,
   },
   pending: 1,
-  commits: [{ sha, subject: 'Release change', author: 'Developer', date: '2026-11-10T12:00:00Z' }],
+  commits: [{ sha, subject: 'Release change', author: 'Developer', date: '2026-11-10T12:00:00Z', area: 'server' }],
   nextPage: null,
   blocker: null,
   activeRelease: null,

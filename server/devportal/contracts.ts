@@ -1,6 +1,6 @@
 import z from 'zod';
 
-import { HostSchema, ShaSchema } from '../../scripts/release/contracts.ts';
+import { CommitAreaSchema, HostSchema, ShaSchema } from '../../scripts/release/contracts.ts';
 
 const StageSchema = z
   .enum(['build', 'migrations', 'deploy', 'verify', 'checks', 'archive', 'upload'])
@@ -69,7 +69,9 @@ export const ServerSchema = z
     main: ShaSchema,
     host: HostSchema.nullable(),
     pending: z.number().int().nonnegative(),
-    commits: z.array(z.object({ sha: ShaSchema, subject: z.string(), author: z.string(), date: z.string() })),
+    commits: z.array(
+      z.object({ sha: ShaSchema, subject: z.string(), author: z.string(), date: z.string(), area: CommitAreaSchema }),
+    ),
     nextPage: z.number().int().nullable(),
     blocker: z.string().nullable(),
     activeRelease: z.uuid().nullable(),

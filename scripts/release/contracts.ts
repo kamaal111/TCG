@@ -5,6 +5,7 @@ import { InfraFailure } from '../infra/errors.ts';
 import { ReleaseRepositorySchema } from '../release-metadata.ts';
 
 export const ShaSchema = z.string().regex(/^[a-f0-9]{40}$/);
+export const CommitAreaSchema = z.enum(['server', 'app', 'both', 'other']);
 
 const digest = z.string().regex(/^ghcr\.io\/[a-z0-9_.-]+\/[a-z0-9_.-]+@sha256:[a-f0-9]{64}$/);
 
