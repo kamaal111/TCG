@@ -368,22 +368,57 @@ struct TCGSearchScreenModelTests {
     }
 
     @Test
-    func `Restores separate raw language selections across launches and game changes`() throws {
+    func `Restores the last selected game and its language filters without submitting a search`() throws {
         let suiteName = "TCGSearchTests.\(UUID().uuidString)"
         let preferences = try #require(UserDefaults(suiteName: suiteName))
         defer { preferences.removePersistentDomain(forName: suiteName) }
+        let feature = TCGSearch(client: .preview(pricingOutcome: .success), history: TCGSearchHistoryStore())
         let model = TCGSearchScreenModel(preferences: preferences)
+        #expect(model.game == .pokemon)
         model.languages = [.english, .japanese]
-        model.game = .onePiece
+        model.updateGame(.onePiece, using: feature)
         #expect(model.languages.isEmpty)
         model.languages = [.english]
-        model.game = .pokemon
-        #expect(model.languages == [.english, .japanese])
 
         let restored = TCGSearchScreenModel(preferences: preferences)
-        #expect(restored.languages == [.english, .japanese])
-        restored.game = .onePiece
+        #expect(restored.game == .onePiece)
         #expect(restored.languages == [.english])
+        #expect(!feature.hasSearched)
+
+        restored.updateGame(.pokemon, using: feature)
+        let switchedBack = TCGSearchScreenModel(preferences: preferences)
+        #expect(switchedBack.game == .pokemon)
+        #expect(switchedBack.languages == [.english, .japanese])
+    }
+
+    @Test
+    func `An unknown stored game restores Pokémon and its languages`() throws {
+        let suiteName = "TCGSearchTests.\(UUID().uuidString)"
+        let preferences = try #require(UserDefaults(suiteName: suiteName))
+        defer { preferences.removePersistentDomain(forName: suiteName) }
+        preferences.set("unknown", forKey: "TCGSearch.game")
+        preferences.set(["ja"], forKey: "TCGSearch.languages.pokemon")
+
+        let model = TCGSearchScreenModel(preferences: preferences)
+
+        #expect(model.game == .pokemon)
+        #expect(model.languages == [.japanese])
+    }
+
+    @Test
+    func `Reusing a search from another game remembers that game`() async throws {
+        let suiteName = "TCGSearchTests.\(UUID().uuidString)"
+        let preferences = try #require(UserDefaults(suiteName: suiteName))
+        defer { preferences.removePersistentDomain(forName: suiteName) }
+        let history = TCGSearchHistoryStore()
+        history.record(query: "Luffy", game: .onePiece, mode: .card)
+        let entry = try #require(history.entries.first)
+        let feature = TCGSearch(client: .preview(pricingOutcome: .success), history: history)
+        let model = TCGSearchScreenModel(preferences: preferences)
+
+        await model.selectHistory(entry, using: feature)
+
+        #expect(TCGSearchScreenModel(preferences: preferences).game == .onePiece)
     }
 
     @Test(arguments: [["invalid"], ["ja", "invalid"]])
