@@ -16,10 +16,12 @@ final class OfflineCollection {
     private let store: OfflineCollectionStore
     private let grant: any OfflineCollectionAccess
     private let client: TCGOfflineCollectionClient?
+    private let hasFreshAuthToken: () -> Bool
     private let namespace: String
     private let session: URLSession
     private let defaults: UserDefaults
     private var owner: String?
+    private var signedInOwner: String?
     private var generation = UUID()
     private var operation: Task<Void, Never>?
     private var unlockAttempt: UUID?
@@ -46,9 +48,11 @@ final class OfflineCollection {
         store: OfflineCollectionStore = .init(
             root: URL.applicationSupportDirectory.appending(path: "OfflineCollection")
         ),
-        grant: any OfflineCollectionAccess = OfflineCollectionGrant(namespace: "local")
+        grant: any OfflineCollectionAccess = OfflineCollectionGrant(namespace: "local"),
+        hasFreshAuthToken: (() -> Bool)? = nil
     ) {
         self.client = client.offlineCollection
+        self.hasFreshAuthToken = hasFreshAuthToken ?? { client.hasFreshAuthToken }
         self.defaults = defaults
         self.store = store
         self.grant = grant
@@ -62,10 +66,15 @@ final class OfflineCollection {
         restore()
     }
 
-    func setAccount(_ account: String) {
+    func setAccount(_ account: String?) {
+        guard let account else {
+            signedInOwner = nil
+            return
+        }
         let identity = "\(namespace)|\(account)"
         if let existing = owner, existing != identity { remove() }
         owner = identity
+        signedInOwner = identity
     }
 
     func automaticSync(wifi: Bool) {
@@ -107,7 +116,16 @@ final class OfflineCollection {
         }
     }
 
+    func openWithFreshToken() {
+        guard hasDownload, let signedInOwner, signedInOwner == owner, hasFreshAuthToken(),
+            let snapshot = try? store.read(.downloaded), snapshot.owner == signedInOwner
+        else { return }
+        opened = snapshot
+    }
+
     func open(reason: String) async {
+        openWithFreshToken()
+        guard opened == nil else { return }
         guard hasDownload, unlockAttempt == nil else { return }
         let attempt = UUID()
         unlockAttempt = attempt
@@ -143,8 +161,10 @@ final class OfflineCollection {
 
     func removeDownload() {
         let activeOwner = owner
+        let activeSignIn = signedInOwner
         remove()
         owner = activeOwner
+        signedInOwner = activeSignIn
     }
 
     func remove() {
@@ -155,6 +175,7 @@ final class OfflineCollection {
         close()
         requiresDeviceSecurity = false
         owner = nil
+        signedInOwner = nil
         hasDownload = false
         hasPendingDownload = false
         lastSync = nil

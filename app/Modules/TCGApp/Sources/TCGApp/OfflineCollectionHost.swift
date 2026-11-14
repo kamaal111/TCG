@@ -71,7 +71,11 @@ struct OfflineCollectionHost<Content: View>: View {
                 }
             case .downloaded:
                 if let snapshot = offline.opened {
-                    OfflineCollectionBrowser(download: offline, snapshot: snapshot)
+                    OfflineCollectionBrowser(
+                        download: offline,
+                        snapshot: snapshot,
+                        canClose: connection?.isConnected == true
+                    )
                 }
             }
         }
@@ -81,13 +85,15 @@ struct OfflineCollectionHost<Content: View>: View {
             offline.remove()
         }
         .onChange(of: auth.session?.email, initial: true) { _, account in
-            if let account {
-                offline.setAccount(account)
-                refreshOfflineDownload()
-            }
+            offline.setAccount(account)
+            if connection?.isConnected == false { offline.openWithFreshToken() }
+            refreshOfflineDownload()
         }
         .onChange(of: scenePhase) { _, phase in
-            if phase == .active { refreshOfflineDownload() }
+            if phase == .active {
+                if connection?.isConnected == false { offline.openWithFreshToken() }
+                refreshOfflineDownload()
+            }
             if phase == .background { offline.close() }
         }
     }
@@ -101,6 +107,7 @@ struct OfflineCollectionHost<Content: View>: View {
         for await update in OfflineConnection.updates() {
             if connection?.isConnected == false, update.isConnected { offline.close() }
             connection = update
+            if !update.isConnected, scenePhase == .active { offline.openWithFreshToken() }
             refreshOfflineDownload()
         }
     }

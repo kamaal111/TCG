@@ -50,6 +50,12 @@ public struct TCGClient: Sendable {
         auth.hasValidCredentials
     }
 
+    public var hasFreshAuthToken: Bool {
+        guard let credentials = try? credentialsStore.credentials(forKey: credentialsKeychainKey) else { return false }
+        return !credentials.sessionHasExpired && !credentials.shouldUpdateSession
+            && !credentials.authTokenWillExpireSoon()
+    }
+
     public static func `default`() -> TCGClient {
         `default`(transport: URLSessionTransport())
     }
