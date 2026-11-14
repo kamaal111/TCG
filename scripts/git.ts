@@ -13,7 +13,7 @@ interface LogOptions {
   skip?: number;
 }
 
-const LOG_FORMATS = { summary: '%h %s', commits: '%H%x00%s%x00%an%x00%aI' } as const;
+const LOG_FORMATS = { summary: '%h %s', commits: '%H%x00%P%x00%s%x00%an%x00%aI' } as const;
 
 export function gitFetch<Output>(command: Command<Output>, options: FetchOptions = {}): Output {
   return command('git', [

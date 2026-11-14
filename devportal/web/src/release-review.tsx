@@ -1,6 +1,13 @@
 import type { Review } from './api.ts';
 import { Detail, Revision } from './release-details.tsx';
 
+const commitAreaLabels: Record<Review['commits'][number]['area'], string> = {
+  server: 'Server',
+  app: 'App',
+  both: 'Server + App',
+  other: 'Other',
+};
+
 export function ReleaseReview({
   review,
   busy,
@@ -47,8 +54,11 @@ export function ReleaseReview({
           {status.commits.map(commit => {
             return (
               <li key={commit.sha}>
-                <strong>{commit.subject}</strong>
-                <span>
+                <div className="commit-heading">
+                  <strong>{commit.subject}</strong>
+                  <span className="commit-area">{commitAreaLabels[commit.area]}</span>
+                </div>
+                <span className="commit-details">
                   <Revision sha={commit.sha} /> · {commit.author} · {commit.date}
                 </span>
               </li>

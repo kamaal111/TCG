@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 
 import { Portal } from './portal.tsx';
 import type { AppStatus, Release, ServerStatus } from '../../../server/devportal/contracts.ts';
@@ -23,7 +23,7 @@ const server: ServerStatus = {
     fingerprint,
   },
   pending: 1,
-  commits: [{ sha, subject: 'Review this commit', author: 'Developer', date: '2026-11-10' }],
+  commits: [{ sha, subject: 'Review this commit', author: 'Developer', date: '2026-11-10', area: 'server' }],
   nextPage: null,
   blocker: null,
   activeRelease: null,
@@ -56,6 +56,35 @@ function mockFetch() {
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
+});
+
+test('shows the affected area beside each pending commit subject', async () => {
+  const cases = [
+    { area: 'server', label: 'Server', subject: 'Update prices' },
+    { area: 'app', label: 'App', subject: 'Update search' },
+    { area: 'both', label: 'Server + App', subject: 'Update dependencies' },
+    { area: 'other', label: 'Other', subject: 'Update docs' },
+  ] as const;
+
+  const commits = cases.map(({ area, subject }, index) => ({
+    sha: String(index + 1).repeat(40),
+    subject,
+    area,
+    author: 'Developer',
+    date: '2026-11-10',
+  }));
+
+  mockFetch().mockResolvedValueOnce(Response.json({ ...server, pending: commits.length, commits }));
+
+  render(<Portal />);
+  const review = await screen.findByRole('region', { name: 'Review release' });
+  const rows = within(review).getAllByRole('listitem');
+  expect(rows).toHaveLength(cases.length);
+
+  for (const [index, row] of rows.entries()) {
+    expect(row.textContent).toContain(cases[index]?.subject);
+    expect(row.querySelector('.commit-area')?.textContent).toBe(cases[index]?.label);
+  }
 });
 
 test('reviews server, iOS, and macOS from their respective API routes', async () => {

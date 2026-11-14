@@ -23,15 +23,22 @@ async function fixture() {
   await git(['config', 'user.name', 'Release Test']);
   await git(['config', 'user.email', 'release@example.com']);
 
-  const commit = async (subject: string) => {
+  const commit = async (subject: string, files: readonly string[] = []) => {
+    for (const file of files) {
+      const target = path.join(root, file);
+      await fs.mkdir(path.dirname(target), { recursive: true });
+      await fs.writeFile(target, subject);
+      await git(['add', '--', file]);
+    }
+
     await git(['-c', 'core.hooksPath=/dev/null', 'commit', '--allow-empty', '-m', subject]);
 
     return git(['rev-parse', 'HEAD']);
   };
 
-  const base = await commit('Initial release');
-  const app = await commit('feat(app): add collection search');
-  const server = await commit('fix(server): correct card prices');
+  const base = await commit('Initial release', ['app/Initial.swift']);
+  const app = await commit('Add collection search', ['app/README.md', 'app/Search.swift']);
+  const server = await commit('Correct card prices', ['server/prices.ts']);
 
   return { command, git, commit, base, app, server };
 }
@@ -39,7 +46,7 @@ async function fixture() {
 test('lists all absent commits newest first without including the deployed commit', async () => {
   const f = await fixture();
   expect(await commitSummary(f.command, f.base, f.server)).toBe(
-    `Commits to release (2):\n${f.server.slice(0, 7)} fix(server): correct card prices\n${f.app.slice(0, 7)} feat(app): add collection search`,
+    `Commits to release (2):\n${f.server.slice(0, 7)} Correct card prices\n${f.app.slice(0, 7)} Add collection search`,
   );
 });
 
@@ -47,7 +54,7 @@ test('an older selected release excludes newer main commits', async () => {
   const f = await fixture();
   expect(await selectRelease(f.command, f.app, f.server)).toBe(f.app);
   expect(await commitSummary(f.command, f.base, f.app)).toBe(
-    `Commits to release (1):\n${f.app.slice(0, 7)} feat(app): add collection search`,
+    `Commits to release (1):\n${f.app.slice(0, 7)} Add collection search`,
   );
 });
 
@@ -94,11 +101,16 @@ test('divergent targets list only commits absent from deployed history', async (
 test('merge commits and their merged branch commits appear in the comparison', async () => {
   const f = await fixture();
   await f.git(['checkout', '-b', 'feature', f.base]);
-  const feature = await f.commit('Feature change');
+  const feature = await f.commit('Feature change', ['app/Feature.swift']);
   await f.git(['checkout', 'main']);
   await f.git(['-c', 'core.hooksPath=/dev/null', 'merge', '--no-ff', 'feature', '-m', 'Merge feature']);
   const merged = await f.git(['rev-parse', 'HEAD']);
   const summary = await commitSummary(f.command, f.server, merged);
+  const preview = await pendingCommits(f.command, f.server, merged, 0);
+  expect(preview.commits.map(({ sha, area }) => [sha, area])).toEqual([
+    [merged, 'app'],
+    [feature, 'app'],
+  ]);
   expect(summary).toBe(
     `Commits to release (2):\n${merged.slice(0, 7)} Merge feature\n${feature.slice(0, 7)} Feature change`,
   );
@@ -108,18 +120,43 @@ test('structured preview includes all commits and flags divergence using the sam
   const f = await fixture();
   const pending = await pendingCommits(f.command, f.base, f.server, 0);
   expect(pending.pending).toBe(2);
-  expect(pending.commits.map(commit => commit.sha)).toEqual([f.server, f.app]);
+  expect(pending.commits.map(({ sha, area }) => [sha, area])).toEqual([
+    [f.server, 'server'],
+    [f.app, 'app'],
+  ]);
   expect(pending.blocker).toBeNull();
   expect((await pendingCommits(f.command, f.server, f.server, 0)).commits).toEqual([]);
-  expect((await pendingCommits(f.command, null, f.server, 0)).pending).toBe(3);
+  const firstRelease = await pendingCommits(f.command, null, f.server, 0);
+  expect(firstRelease.pending).toBe(3);
+  expect(firstRelease.commits.at(-1)).toMatchObject({ sha: f.base, area: 'app' });
   expect((await pendingCommits(f.command, f.server, f.app, 0)).blocker).toContain('diverges');
   await expect(pendingCommits(f.command, 'a'.repeat(40), f.server, 0)).rejects.toThrow('comparison unavailable');
+});
+
+test('structured preview uses CI path rules and counts both sides of a rename', async () => {
+  const f = await fixture();
+  const docs = await f.commit('Update docs', ['app/README.md']);
+  const shared = await f.commit('Refresh dependencies', ['pnpm-lock.yaml']);
+  const mixed = await f.commit('Change app and server', ['app/Client.swift', 'server/api.ts']);
+  await f.git(['mv', 'app/Client.swift', 'server/Client.swift']);
+  const moved = await f.commit('Move file');
+
+  const preview = await pendingCommits(f.command, f.server, moved, 0);
+  expect(preview.commits.map(({ sha, area }) => [sha, area])).toEqual([
+    [moved, 'both'],
+    [mixed, 'both'],
+    [shared, 'both'],
+    [docs, 'other'],
+  ]);
 });
 
 test('structured preview pages without skipping or repeating commits', async () => {
   const f = await fixture();
 
-  for (let index = 0; index < 51; index += 1) {
+  await f.commit('Change 0', ['server/Before.swift']);
+  await f.commit('Change 1', ['app/After.swift']);
+
+  for (let index = 2; index < 51; index += 1) {
     await f.commit(`Change ${index}`);
   }
 
@@ -131,5 +168,8 @@ test('structured preview pages without skipping or repeating commits', async () 
   expect(first.nextPage).toBe(1);
   expect(second.commits).toHaveLength(3);
   expect(second.nextPage).toBeNull();
+  expect(first.commits.at(-1)).toMatchObject({ subject: 'Change 1', area: 'app' });
+  expect(first.commits.at(-2)).toMatchObject({ subject: 'Change 2', area: 'other' });
+  expect(second.commits[0]).toMatchObject({ subject: 'Change 0', area: 'server' });
   expect(new Set([...first.commits, ...second.commits].map(commit => commit.sha)).size).toBe(53);
 });

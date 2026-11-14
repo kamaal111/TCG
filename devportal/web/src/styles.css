@@ -106,7 +106,7 @@ dl {
   margin-block: 1.2rem;
 }
 dt,
-.commits span,
+.commit-details,
 .stages span,
 time {
   color: var(--muted);
@@ -130,7 +130,23 @@ code {
   border-top: 1px solid var(--line);
   padding: 0.65rem 0;
 }
-.commits span {
+.commit-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25rem 0.5rem;
+}
+.commit-heading strong {
+  overflow-wrap: anywhere;
+}
+.commit-area {
+  border: 1px solid var(--line);
+  border-radius: 0.35rem;
+  padding-inline: 0.35rem;
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+.commit-details {
   display: block;
   margin-top: 0.2rem;
 }
