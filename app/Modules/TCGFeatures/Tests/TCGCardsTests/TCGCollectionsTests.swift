@@ -5,6 +5,51 @@ import Testing
 
 @MainActor
 struct TCGCollectionsTests {
+    @Test func `Downloaded collections include empty binders and Unfiled and load binder pages locally`() async throws {
+        let client = TCGClient.preview(cardsOutcome: .serverUnavailable)
+        let cards = TCGCards(client: client)
+        let collections = TCGCollections(client: client, defaults: nil)
+        let savedCards = PreviewTCGCardsClient.sampleCards.map { card in
+            CardWithPrice(card: card, price: .init(cardId: card.id, status: .unavailable))
+        }
+        let first = try #require(savedCards.first)
+        let page = BinderPage(
+            id: CardsTestIDs.secondary,
+            slots: [.init(row: 0, column: 0, cardID: first.card.id, quantity: 1)]
+        )
+        let favorites = CollectionTestFixtures.collection(pages: [page])
+        let empty = CardBinderCollection(
+            id: CardsTestIDs.third,
+            name: "Empty binder",
+            isUnfiled: false,
+            columns: 3,
+            rows: 3,
+            revision: 0,
+            pages: [CollectionTestFixtures.emptyPage]
+        )
+        let unfiled = CardBinderCollection(
+            id: CardsTestIDs.secondary,
+            name: "Unfiled",
+            isUnfiled: true,
+            columns: 3,
+            rows: 3,
+            revision: 0,
+            pages: []
+        )
+        cards.useDownloadedCards(savedCards)
+        collections.useDownload(cards: savedCards, collections: [favorites, empty, unfiled])
+
+        #expect(collections.namedCollections.map(\.id) == [favorites.id, empty.id, unfiled.id])
+        await collections.select(favorites.id, using: cards)
+        #expect(try await collections.page(page.id).get().cards == [first])
+        await collections.select(empty.id, using: cards)
+        #expect(try await collections.page(CollectionTestFixtures.emptyPage.id).get().cards.isEmpty)
+        await collections.select(unfiled.id, using: cards)
+        #expect(cards.cards == savedCards.filter { $0.card.collectionID == nil })
+        await collections.select(nil, using: cards)
+        #expect(cards.cards == savedCards)
+    }
+
     @Test func `Creating a collection from a card draft preserves the draft and the browsed collection`() async throws {
         let context = try await CollectionTestFixtures.selectedContext()
         let previous = try #require(context.collections.selectedID)

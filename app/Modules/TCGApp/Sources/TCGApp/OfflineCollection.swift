@@ -14,7 +14,7 @@ final class OfflineCollection {
     }
 
     private let store: OfflineCollectionStore
-    private let grant: OfflineCollectionGrant
+    private let grant: any OfflineCollectionAccess
     private let client: TCGOfflineCollectionClient?
     private let namespace: String
     private let session: URLSession
@@ -22,6 +22,7 @@ final class OfflineCollection {
     private var owner: String?
     private var generation = UUID()
     private var operation: Task<Void, Never>?
+    private var unlockAttempt: UUID?
     private var lastAutomaticAttempt: Date?
 
     private(set) var hasDownload = false
@@ -32,18 +33,26 @@ final class OfflineCollection {
     private(set) var failed = false
     private(set) var unlockFailed = false
     private(set) var requiresDeviceSecurity = false
+    var isUnlocking: Bool { unlockAttempt != nil }
     private(set) var opened: OfflineCollectionSnapshot?
 
     var policy: Policy {
         didSet { defaults.set(policy.rawValue, forKey: "offlineCollectionPolicy") }
     }
 
-    init(client: TCGClient, defaults: UserDefaults) {
+    init(
+        client: TCGClient,
+        defaults: UserDefaults,
+        store: OfflineCollectionStore = .init(
+            root: URL.applicationSupportDirectory.appending(path: "OfflineCollection")
+        ),
+        grant: any OfflineCollectionAccess = OfflineCollectionGrant(namespace: "local")
+    ) {
         self.client = client.offlineCollection
         self.defaults = defaults
+        self.store = store
+        self.grant = grant
         namespace = TCGClient.authenticationStorageNamespace
-        grant = OfflineCollectionGrant(namespace: "local")
-        store = OfflineCollectionStore(root: URL.applicationSupportDirectory.appending(path: "OfflineCollection"))
         let configuration = URLSessionConfiguration.ephemeral
         configuration.urlCache = nil
         configuration.requestCachePolicy = .reloadIgnoringLocalCacheData
@@ -99,26 +108,38 @@ final class OfflineCollection {
     }
 
     func open(reason: String) async {
-        let token = generation
+        guard hasDownload, unlockAttempt == nil else { return }
+        let attempt = UUID()
+        unlockAttempt = attempt
         unlockFailed = false
+        defer {
+            if unlockAttempt == attempt { unlockAttempt = nil }
+        }
+
         do {
-            opened = try await unlockDownload(reason: reason, token: token)
+            let download = try await unlockDownload(reason: reason, attempt: attempt)
+            guard unlockAttempt == attempt, !Task.isCancelled else { return }
+            opened = download
         } catch {
-            if token == generation { unlockFailed = true }
+            if unlockAttempt == attempt, !Task.isCancelled { unlockFailed = true }
         }
     }
 
-    private func unlockDownload(reason: String, token: UUID) async throws -> OfflineCollectionSnapshot {
+    private func unlockDownload(reason: String, attempt: UUID) async throws -> OfflineCollectionSnapshot {
         let verifiedOwner = try await grant.unlock(reason: reason)
-        try check(token)
+        guard unlockAttempt == attempt, !Task.isCancelled else { throw CancellationError() }
         guard let download = try store.read(.downloaded),
             download.grantIdentity == verifiedOwner,
-            download.owner.hasPrefix("\(namespace)|")
+            download.owner == owner
         else { throw Failure.incomplete }
         return download
     }
 
-    func close() { opened = nil }
+    func close() {
+        unlockAttempt = nil
+        unlockFailed = false
+        opened = nil
+    }
 
     func removeDownload() {
         let activeOwner = owner
@@ -131,8 +152,7 @@ final class OfflineCollection {
         operation?.cancel()
         operation = nil
         progress = nil
-        opened = nil
-        unlockFailed = false
+        close()
         requiresDeviceSecurity = false
         owner = nil
         hasDownload = false
@@ -180,7 +200,7 @@ final class OfflineCollection {
         }
         owner = knownOwner
         if let download { updateStatus(download) }
-        if let download, pending?.etag == download.etag {
+        if let download, pending?.etag == download.etag, pending?.grantIdentity == download.grantIdentity {
             try store.clearPending()
             try store.removeUnusedImages(keeping: download.imageKeys)
         } else {
@@ -201,19 +221,12 @@ final class OfflineCollection {
     private func synchronize(client: TCGOfflineCollectionClient, owner: String, token: UUID) async throws {
         let downloaded = try store.read(.downloaded)
         let pending = try store.read(.pending)
-        let etag = downloaded?.etag
-        var manifest = try await client.manifest(etag: pending == nil ? etag : nil)
+        let shouldPrepare = downloaded?.cards.contains { $0.price.status == .unavailable } == true
+        let etag = pending == nil && !shouldPrepare ? downloaded?.etag : nil
+        let manifest = try await client.manifest(etag: etag)
         try check(token)
-        if manifest == nil, var downloaded {
-            let missing = store.imagesToDownload(downloaded.imageURLs, excluding: downloaded.unavailableImages)
-            if !missing.isEmpty {
-                downloaded.unavailableImages.formUnion(try await downloadImages(missing, token: token))
-                try check(token)
-                try store.save(downloaded, in: .downloaded)
-                updateStatus(downloaded)
-            }
-            lastSync = .now
-            defaults.set(lastSync, forKey: "offlineCollectionLastCheck")
+        if manifest == nil, let downloaded {
+            try await refreshImages(for: downloaded, token: token)
             return
         }
         guard var current = manifest else { throw Failure.incomplete }
@@ -221,25 +234,25 @@ final class OfflineCollection {
             removeDownload()
             return
         }
-        let priorEntries = Set(downloaded?.entries ?? [])
-        let unresolved = Set(current.needsPreparation)
-        let newUnresolved = current.entries.compactMap { entry in
-            entry.kind == .card && unresolved.contains(entry.id) && !priorEntries.contains(entry) ? entry.id : nil
-        }
-        if !newUnresolved.isEmpty {
-            var retry: Set<UUID> = []
-            for offset in stride(from: 0, to: newUnresolved.count, by: 100) {
-                let batch = Array(newUnresolved[offset..<min(offset + 100, newUnresolved.count)])
-                retry.formUnion(try await client.prepare(batch))
+        if !current.needsPreparation.isEmpty {
+            for offset in stride(from: 0, to: current.needsPreparation.count, by: 100) {
+                let batch = Array(current.needsPreparation[offset..<min(offset + 100, current.needsPreparation.count)])
+                do {
+                    _ = try await client.prepare(batch)
+                } catch OfflineCollectionError.unauthorized {
+                    throw OfflineCollectionError.unauthorized
+                } catch {
+                    try check(token)
+                    break
+                }
                 try check(token)
             }
-            guard retry.isEmpty else { throw Failure.incomplete }
-            manifest = try await client.manifest(etag: nil)
+            let refreshed = try await client.manifest(etag: nil)
             try check(token)
-            guard let manifest, manifest.accountID == current.accountID else {
+            guard let refreshed, refreshed.accountID == current.accountID else {
                 throw OfflineCollectionError.changed
             }
-            current = manifest
+            current = refreshed
         }
 
         let startingPoint = pending?.etag == current.etag ? pending : downloaded
@@ -247,22 +260,31 @@ final class OfflineCollection {
         try check(token)
         try store.save(next, in: .pending)
         hasPendingDownload = true
-        try store.removeUnusedImages(keeping: (downloaded?.imageKeys ?? []).union(next.imageKeys))
-        next.unavailableImages = try await downloadImages(
-            store.imagesToDownload(next.imageURLs, excluding: []),
-            token: token
-        )
         if try await client.manifest(etag: current.etag) != nil { throw OfflineCollectionError.changed }
         try check(token)
         try grant.create(owner: next.grantIdentity)
         next.checkedAt = .now
         try store.save(next, in: .downloaded)
+        unlockAttempt = nil
         updateStatus(next)
+        if opened != nil { opened = next }
         try store.clearPending()
         hasPendingDownload = false
         try store.removeUnusedImages(keeping: next.imageKeys)
+        try await refreshImages(for: next, token: token)
+    }
+
+    private func refreshImages(for download: OfflineCollectionSnapshot, token: UUID) async throws {
+        var updated = download
+        let missing = store.imagesToDownload(download.imageURLs, excluding: download.unavailableImages)
+        if !missing.isEmpty {
+            updated.unavailableImages.formUnion(try await downloadImages(missing, token: token))
+            try check(token)
+            try store.save(updated, in: .downloaded)
+            updateStatus(updated)
+        }
+        lastSync = .now
         defaults.set(lastSync, forKey: "offlineCollectionLastCheck")
-        if opened != nil { opened = next }
     }
 
     private func downloadRecords(
@@ -282,9 +304,17 @@ final class OfflineCollection {
             try Task.checkCancellation()
             let batch = Array(changes[offset..<min(offset + 100, changes.count)])
             let records = try await client.records(batch)
+            let expectedCards = Set(batch.filter { $0.kind == .card }.map(\.id))
+            let expectedCollections = Set(batch.filter { $0.kind == .collection }.map(\.id))
+            guard records.cards.count == expectedCards.count,
+                Set(records.cards.map(\.card.id)) == expectedCards,
+                records.collections.count == expectedCollections.count,
+                Set(records.collections.map(\.id)) == expectedCollections
+            else { throw Failure.incomplete }
             cards.append(contentsOf: records.cards)
             collections.append(contentsOf: records.collections)
         }
+        guard cards.count + collections.count == manifest.entries.count else { throw Failure.incomplete }
         return OfflineCollectionSnapshot(
             owner: owner,
             accountID: manifest.accountID,
@@ -299,20 +329,38 @@ final class OfflineCollection {
         )
     }
 
+    private enum ArtworkDownload: Sendable {
+        case downloaded(Data)
+        case unavailable
+        case retry
+    }
+
     private func downloadImages(_ downloads: [String: URL], token: UUID) async throws -> Set<String> {
         let missing = Array(downloads)
         var unavailable: Set<String> = []
         for offset in stride(from: 0, to: missing.count, by: 2) {
             try check(token)
-            try await withThrowingTaskGroup(of: (String, Data?).self) { group in
+            try await withThrowingTaskGroup(of: (String, ArtworkDownload).self) { group in
                 for (key, url) in missing[offset..<min(offset + 2, missing.count)] {
                     group.addTask { [session] in
-                        (key, try await OfflineCollectionStore.fetchImage(url, session: session))
+                        do {
+                            if let data = try await OfflineCollectionStore.fetchImage(url, session: session) {
+                                return (key, .downloaded(data))
+                            }
+                            return (key, .unavailable)
+                        } catch {
+                            try Task.checkCancellation()
+                            return (key, .retry)
+                        }
                     }
                 }
-                for try await (key, data) in group {
+                for try await (key, result) in group {
                     try check(token)
-                    if let data { try store.saveImage(data, key: key) } else { unavailable.insert(key) }
+                    switch result {
+                    case .downloaded(let data): try? store.saveImage(data, key: key)
+                    case .unavailable: unavailable.insert(key)
+                    case .retry: break
+                    }
                 }
             }
             progress = Double(min(offset + 2, missing.count)) / Double(missing.count)
@@ -330,6 +378,6 @@ final class OfflineCollection {
         lastSync = [download.checkedAt, defaults.object(forKey: "offlineCollectionLastCheck") as? Date]
             .compactMap { $0 }
             .max()
-        missingImages = download.missingImageCount
+        missingImages = store.missingImageCount(for: download)
     }
 }

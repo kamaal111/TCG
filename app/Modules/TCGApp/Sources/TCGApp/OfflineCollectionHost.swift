@@ -4,6 +4,22 @@ import Network
 import SwiftUI
 import TCGClient
 
+enum OfflineCollectionRoute: Equatable {
+    case checkingConnection, live, unlock, noDownload, downloaded
+
+    init(isConnected: Bool?, hasDownload: Bool, isOpen: Bool) {
+        if isOpen {
+            self = .downloaded
+        } else {
+            switch isConnected {
+            case nil: self = .checkingConnection
+            case true?: self = .live
+            case false?: self = hasDownload ? .unlock : .noDownload
+            }
+        }
+    }
+}
+
 struct OfflineCollectionHost<Content: View>: View {
     private let auth: KamaalAuth
     private let offline: OfflineCollection
@@ -19,16 +35,44 @@ struct OfflineCollectionHost<Content: View>: View {
 
     var body: some View {
         Group {
-            if let snapshot = offline.opened {
-                OfflineCollectionBrowser(download: offline, snapshot: snapshot)
-            } else {
+            switch OfflineCollectionRoute(
+                isConnected: connection?.isConnected,
+                hasDownload: offline.hasDownload,
+                isOpen: offline.opened != nil
+            ) {
+            case .checkingConnection:
+                ProgressView()
+            case .live:
                 content
                     .safeAreaInset(edge: .bottom) {
-                        if offline.hasDownload, !auth.isLoggedIn || connection?.isConnected == false {
+                        if offline.hasDownload, !auth.isLoggedIn {
                             OfflineCollectionOpenButton(download: offline)
                                 .padding()
                         }
                     }
+            case .unlock:
+                VStack(spacing: 12) {
+                    Text("Offline collection", bundle: .module).font(.headline)
+                    OfflineCollectionOpenButton(download: offline)
+                }
+                .padding()
+            case .noDownload:
+                ContentUnavailableView {
+                    Label {
+                        Text("Offline collection", bundle: .module)
+                    } icon: {
+                        Image(systemName: "wifi.slash")
+                    }
+                } description: {
+                    Text(
+                        "When you’re back online, use Download now in Settings to save your collections.",
+                        bundle: .module
+                    )
+                }
+            case .downloaded:
+                if let snapshot = offline.opened {
+                    OfflineCollectionBrowser(download: offline, snapshot: snapshot)
+                }
             }
         }
         .task { await trackOfflineNetwork() }
@@ -55,6 +99,7 @@ struct OfflineCollectionHost<Content: View>: View {
 
     private func trackOfflineNetwork() async {
         for await update in OfflineConnection.updates() {
+            if connection?.isConnected == false, update.isConnected { offline.close() }
             connection = update
             refreshOfflineDownload()
         }

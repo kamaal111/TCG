@@ -18,15 +18,6 @@ struct OfflineCollectionSnapshot: Codable, Sendable {
     var imageURLs: [URL] { cards.compactMap { $0.price.price?.imageURL } }
 
     var imageKeys: Set<String> { Set(imageURLs.compactMap(OfflineCollectionStore.imageKey)) }
-
-    var missingImageCount: Int {
-        cards.count { card in
-            guard let url = card.price.price?.imageURL, let key = OfflineCollectionStore.imageKey(url) else {
-                return true
-            }
-            return unavailableImages.contains(key)
-        }
-    }
 }
 
 struct OfflineCollectionStore {
@@ -103,6 +94,13 @@ struct OfflineCollectionStore {
 
     func hasImage(_ key: String) -> Bool {
         FileManager.default.fileExists(atPath: imageFile(for: key).path)
+    }
+
+    func missingImageCount(for snapshot: OfflineCollectionSnapshot) -> Int {
+        snapshot.cards.count { card in
+            guard let url = card.price.price?.imageURL, let key = Self.imageKey(url) else { return true }
+            return !hasImage(key)
+        }
     }
 
     func imagesToDownload(_ urls: [URL], excluding unavailable: Set<String>) -> [String: URL] {
