@@ -89,15 +89,15 @@ struct OfflineCollectionOpenButton: View {
 struct OfflineCollectionBrowser: View {
     let download: OfflineCollection
     let snapshot: OfflineCollectionSnapshot
+    let canClose: Bool
 
     var body: some View {
         VStack(spacing: 0) {
             HStack {
                 Text("Offline collection", bundle: .module).font(.headline)
                 Spacer()
-                Button(action: download.close) { Text("Done", bundle: .module) }
-                Button(role: .destructive, action: download.removeDownload) {
-                    Text("Remove download", bundle: .module)
+                if canClose {
+                    Button(action: download.close) { Text("Done", bundle: .module) }
                 }
             }
             .padding()

@@ -6,6 +6,37 @@ import Testing
 
 @MainActor
 struct OfflineCollectionTests {
+    @Test func `A fresh token opens the matching signed-in account without device authentication`() throws {
+        let fixture = try makeFixture(hasFreshAuthToken: true)
+        defer { try? fixture.store.remove() }
+        fixture.download.setAccount("owner@example.com")
+
+        fixture.download.openWithFreshToken()
+
+        #expect(fixture.download.opened?.accountID == "owner-id")
+        #expect(!fixture.download.isUnlocking)
+    }
+
+    @Test func `A fresh token without a matching signed-in account cannot bypass device authentication`() throws {
+        let fixture = try makeFixture(hasFreshAuthToken: true)
+        defer { try? fixture.store.remove() }
+
+        fixture.download.openWithFreshToken()
+
+        #expect(fixture.download.opened == nil)
+    }
+
+    @Test func `A token due for refresh leaves the collection locked until device authentication`() throws {
+        let fixture = try makeFixture()
+        defer { try? fixture.store.remove() }
+        fixture.download.setAccount("owner@example.com")
+
+        fixture.download.openWithFreshToken()
+
+        #expect(fixture.download.opened == nil)
+        #expect(!fixture.download.isUnlocking)
+    }
+
     @Test func `A restored download opens after device authentication`() async throws {
         let fixture = try makeFixture()
         defer { try? fixture.store.remove() }
@@ -63,7 +94,7 @@ struct OfflineCollectionTests {
         #expect(fixture.grant.removed)
     }
 
-    private func makeFixture() throws -> (
+    private func makeFixture(hasFreshAuthToken: Bool = false) throws -> (
         download: OfflineCollection, store: OfflineCollectionStore, grant: ControlledOfflineAccess, identity: String
     ) {
         let identifier = UUID().uuidString
@@ -81,7 +112,13 @@ struct OfflineCollectionTests {
         )
         try store.save(snapshot, in: .downloaded)
         let grant = ControlledOfflineAccess()
-        let download = OfflineCollection(client: .default(), defaults: defaults, store: store, grant: grant)
+        let download = OfflineCollection(
+            client: .default(),
+            defaults: defaults,
+            store: store,
+            grant: grant,
+            hasFreshAuthToken: { hasFreshAuthToken }
+        )
         return (download, store, grant, snapshot.grantIdentity)
     }
 }
