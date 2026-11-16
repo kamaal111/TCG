@@ -1,4 +1,5 @@
 import Foundation
+import Synchronization
 import Testing
 
 @testable import TCGDesignSystem
@@ -18,7 +19,7 @@ struct URLSessionCardImageLoaderTests {
         let url = try #require(URL(string: "https://images.example.com/binder-card.png"))
 
         #expect(await makeLoader().image(for: url) != nil)
-        #expect(await makeLoader().image(for: url) != nil)
+        #expect(await makeLoader().image(for: url, policy: .search) != nil)
         #expect(requests.value == 1)
     }
 
@@ -35,9 +36,9 @@ struct URLSessionCardImageLoaderTests {
         try corrupt.write(to: file)
         let loader = makeLoader()
 
-        #expect(await loader.image(for: url) == nil)
+        #expect(await loader.image(for: url, policy: .search) == nil)
         #expect(try Data(contentsOf: file) == corrupt)
-        #expect(await loader.image(for: url) != nil)
+        #expect(await loader.image(for: url, policy: .search) != nil)
         #expect(try Data(contentsOf: file) == Self.png)
         #expect(requests.value == 2)
     }
@@ -56,7 +57,7 @@ struct URLSessionCardImageLoaderTests {
         let loader = makeLoader()
 
         #expect(try await loader.inventory().isEmpty)
-        #expect(await loader.image(for: first) != nil)
+        #expect(await loader.image(for: first, policy: .search) != nil)
         #expect(await loader.image(for: second) != nil)
         let artwork = try await loader.inventory()
         #expect(artwork.map(\.byteCount).sorted() == [4096, 8192])
@@ -64,14 +65,14 @@ struct URLSessionCardImageLoaderTests {
         #expect(await loader.thumbnail(for: smaller) != nil)
 
         try await loader.delete(smaller)
-        #expect(loader.cachedImage(for: first) == nil)
+        #expect(loader.cachedImage(for: first, policy: .search) == nil)
         #expect(try await loader.inventory().map(\.byteCount) == [8192])
-        #expect(await loader.image(for: first) != nil)
+        #expect(await loader.image(for: first, policy: .search) != nil)
         #expect(requests.value == 3)
 
         try await loader.delete()
         #expect(try await loader.inventory().isEmpty)
-        #expect(loader.cachedImage(for: first) == nil)
+        #expect(loader.cachedImage(for: first, policy: .search) == nil)
         #expect(loader.cachedImage(for: second) == nil)
     }
 
@@ -86,11 +87,11 @@ struct URLSessionCardImageLoaderTests {
             return .http(status: status, headers: [:], body: Self.png)
         }
         let url = try #require(URL(string: "https://images.example.com/in-flight.png"))
-        let loader = makeLoader { _, _ in
+        let loader = makeLoader(retryDelay: { _, _ in
             started.yield(())
             var iterator = retryResumed.makeAsyncIterator()
             _ = await iterator.next()
-        }
+        })
 
         let load = Task { await loader.image(for: url) }
         var iterator = retryStarted.makeAsyncIterator()
@@ -257,15 +258,77 @@ struct URLSessionCardImageLoaderTests {
         let loader = makeLoader()
         let url = try #require(URL(string: "https://images.example.com/shared.png"))
 
-        async let first = loader.image(for: url)
-        async let second = loader.image(for: url)
+        async let first = loader.image(for: url, policy: .search)
+        async let second = loader.image(for: url, policy: .collection)
         let images = await [first, second]
 
         #expect(images.allSatisfy { $0 != nil })
+        #expect(loader.cachedImage(for: url, policy: .collection) != nil)
+        #expect(requests.value == 1)
+    }
+
+    @Test
+    func `Search artwork survives relaunch until the original 24 hour deadline`() async throws {
+        let requests = RequestCounter()
+        StubURLProtocol.handler = { _ in
+            _ = requests.increment()
+            return .http(status: 200, headers: [:], body: Self.png)
+        }
+        let clock = ArtworkTestClock()
+        let now: @Sendable () -> Date = { clock.now }
+        let url = try #require(URL(string: "https://images.example.com/search.png"))
+        let file = root.appending(path: URLSessionCardImageLoader.key(for: url))
+        let loader = makeLoader(now: now)
+
+        #expect(await loader.image(for: url, policy: .search) != nil)
+        let timestamp = try #require(
+            file.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate
+        )
+        let reopened = makeLoader(now: now)
+        clock.set(timestamp.addingTimeInterval(86_399))
+
+        #expect(await reopened.image(for: url, policy: .search) != nil)
+        #expect(requests.value == 1)
+        clock.set(timestamp.addingTimeInterval(86_400))
+
+        #expect(reopened.cachedImage(for: url, policy: .search) == nil)
+        #expect(await makeLoader(now: now).image(for: url, policy: .search) != nil)
+        #expect(requests.value == 2)
+    }
+
+    @Test
+    func `Maintenance removes old flat files and keeps promoted artwork`() async throws {
+        let requests = RequestCounter()
+        StubURLProtocol.handler = { _ in
+            _ = requests.increment()
+            return .http(status: 200, headers: [:], body: Self.png)
+        }
+        let clock = ArtworkTestClock()
+        let now: @Sendable () -> Date = { clock.now }
+        let url = try #require(URL(string: "https://images.example.com/promoted.png"))
+        let legacy = try #require(URL(string: "https://images.example.com/legacy.png"))
+        let key = URLSessionCardImageLoader.key(for: url)
+        let file = root.appending(path: key)
+        let legacyFile = root.appending(path: URLSessionCardImageLoader.key(for: legacy))
+        let loader = makeLoader(now: now)
+
+        #expect(await loader.image(for: url, policy: .search) != nil)
+        try Self.png.write(to: legacyFile)
+        #expect(await loader.image(for: url, policy: .collection) != nil)
+        #expect(!FileManager.default.fileExists(atPath: file.path))
+        #expect(FileManager.default.fileExists(atPath: legacyFile.path))
+
+        clock.set(Date.now.addingTimeInterval(86_401))
+        await loader.removeExpiredArtwork()
+
+        #expect(!FileManager.default.fileExists(atPath: legacyFile.path))
+        #expect(try await loader.inventory().map(\.id) == [key])
+        #expect(await makeLoader(now: now).image(for: url, policy: .search) != nil)
         #expect(requests.value == 1)
     }
 
     private func makeLoader(
+        now: @escaping @Sendable () -> Date = Date.init,
         retryDelay: @escaping @Sendable (Int, HTTPURLResponse?) async -> Void = { _, _ in }
     ) -> URLSessionCardImageLoader {
 
@@ -276,6 +339,7 @@ struct URLSessionCardImageLoaderTests {
             root: root,
             maximumConcurrentLoads: 2,
             maximumDecodedImageCount: 128,
+            now: now,
             retryDelay: retryDelay
         )
     }
@@ -291,6 +355,16 @@ private final class TemporaryArtworkDirectory: Sendable {
 
     deinit {
         try? FileManager.default.removeItem(at: url)
+    }
+}
+
+private final class ArtworkTestClock: Sendable {
+    private let date = Mutex(Date.now)
+
+    var now: Date { date.withLock { $0 } }
+
+    func set(_ value: Date) {
+        date.withLock { $0 = value }
     }
 }
 

@@ -17,12 +17,13 @@ private let logger = KamaalLogger(from: URLSessionCardImageLoader.self)
 final class URLSessionCardImageLoader: CardImageLoader {
     static let shared = URLSessionCardImageLoader()
 
-    private let memory: Mutex<[String: Image]> = Mutex([:])
+    private let memory: Mutex<[String: DecodedArtwork]> = Mutex([:])
     private let storage: CardArtworkStorage
     private let limiter: ImageLoadLimiter
     private let maximumDecodedImageCount: Int
     private let retryDelay: @Sendable (Int, HTTPURLResponse?) async -> Void
     private let session: URLSession
+    private let now: @Sendable () -> Date
 
     private convenience init() {
         let configuration = URLSessionConfiguration.default
@@ -46,23 +47,36 @@ final class URLSessionCardImageLoader: CardImageLoader {
         root: URL,
         maximumConcurrentLoads: Int,
         maximumDecodedImageCount: Int,
+        now: @escaping @Sendable () -> Date = Date.init,
         retryDelay: @escaping @Sendable (Int, HTTPURLResponse?) async -> Void
     ) {
         precondition(maximumConcurrentLoads > 0, "maximumConcurrentLoads must be positive")
         self.session = session
-        self.storage = CardArtworkStorage(root: root)
+        self.now = now
+        self.storage = CardArtworkStorage(root: root, now: now)
         self.limiter = ImageLoadLimiter(maximumConcurrentLoads: maximumConcurrentLoads)
         self.maximumDecodedImageCount = maximumDecodedImageCount
         self.retryDelay = retryDelay
     }
 
     func cachedImage(for url: URL) -> Image? {
-        cachedImage(forKey: Self.key(for: url))
+        cachedImage(for: url, policy: .collection)
+    }
+
+    func cachedImage(for url: URL, policy: CardArtworkCachePolicy) -> Image? {
+        cachedImage(forKey: Self.key(for: url), policy: policy)
     }
 
     func image(for url: URL) async -> Image? {
-        let key = Self.key(for: url)
-        return await storage.image(for: key, loader: self, url: url)
+        await image(for: url, policy: .collection)
+    }
+
+    func image(for url: URL, policy: CardArtworkCachePolicy) async -> Image? {
+        await storage.image(for: Self.key(for: url), loader: self, url: url, policy: policy)
+    }
+
+    func removeExpiredArtwork() async {
+        await storage.removeExpiredArtwork()
     }
 
     func inventory() async throws -> [CachedCardArtwork] {
@@ -81,17 +95,27 @@ final class URLSessionCardImageLoader: CardImageLoader {
         try await storage.delete(artwork, loader: self)
     }
 
-    fileprivate func cachedImage(forKey key: String) -> Image? {
-        memory.withLock { $0[key] }
+    fileprivate func cachedImage(forKey key: String, policy: CardArtworkCachePolicy) -> Image? {
+        memory.withLock { images in
+            guard let entry = images[key] else { return nil }
+            guard let expiresAt = entry.expiresAt else { return entry.image }
+            guard now() < expiresAt else {
+                images.removeValue(forKey: key)
+                return nil
+            }
+            return policy == .search ? entry.image : nil
+        }
     }
 
-    fileprivate func cache(_ image: Image, for key: String) {
+    fileprivate func cache(_ image: Image, for key: String, expiresAt: Date? = nil) {
         guard maximumDecodedImageCount > 0 else { return }
         memory.withLock { images in
-            if images.count >= maximumDecodedImageCount, let firstKey = images.keys.first {
+            if images[key] == nil, images.count >= maximumDecodedImageCount,
+                let firstKey = images.keys.first
+            {
                 images.removeValue(forKey: firstKey)
             }
-            images[key] = image
+            images[key] = DecodedArtwork(image: image, expiresAt: expiresAt)
         }
     }
 
@@ -195,63 +219,176 @@ private struct DownloadedCardArtwork: Sendable {
     let data: Data
 }
 
+private struct DecodedArtwork: Sendable {
+    let image: Image
+    let expiresAt: Date?
+}
+
 private actor CardArtworkStorage {
+    private static let searchLifetime: TimeInterval = 86_400
+    private static let fileKeys: Set<URLResourceKey> = [.fileSizeKey, .isRegularFileKey, .contentModificationDateKey]
+
     private let root: URL
+    private let now: @Sendable () -> Date
     private var inFlight: [String: Load] = [:]
     private var observers: [UUID: AsyncStream<Void>.Continuation] = [:]
 
-    init(root: URL) {
+    init(root: URL, now: @escaping @Sendable () -> Date) {
         self.root = root
+        self.now = now
     }
 
-    func image(for key: String, loader: URLSessionCardImageLoader, url: URL) async -> Image? {
-        if let image = loader.cachedImage(forKey: key) { return image }
-        if let load = inFlight[key] { return await load.task.value }
-        if let data = try? Data(contentsOf: file(for: key)),
-            let image = PlatformImageDecoder.decode(data)
-        {
-            loader.cache(image, for: key)
-            return image
+    func image(
+        for key: String,
+        loader: URLSessionCardImageLoader,
+        url: URL,
+        policy: CardArtworkCachePolicy
+    ) async -> Image? {
+        if let image = loader.cachedImage(forKey: key, policy: policy) { return image }
+        if let load = inFlight[key] {
+            if policy == .collection { inFlight[key]?.policy = .collection }
+            return await load.task.value
         }
+        if let image = readImage(for: key, loader: loader, policy: policy) { return image }
 
         let id = UUID()
         let task = Task<Image?, Never> {
             let artwork = await loader.download(url)
-            guard inFlight[key]?.id == id else { return artwork?.image }
+            guard let load = inFlight[key], load.id == id else { return artwork?.image }
             defer { inFlight.removeValue(forKey: key) }
             guard let artwork else { return nil }
 
             do {
-                try save(artwork.data, for: key)
-                loader.cache(artwork.image, for: key)
+                let expiry = try save(artwork.data, for: key, policy: load.policy)
+                if load.policy == .collection || expiry != nil {
+                    loader.cache(artwork.image, for: key, expiresAt: expiry)
+                }
                 notifyObservers()
             } catch {
                 logger.warning("Could not save downloaded card artwork: \(error.localizedDescription)")
             }
             return artwork.image
         }
-        inFlight[key] = Load(id: id, task: task)
+        inFlight[key] = Load(id: id, task: task, policy: policy)
         return await task.value
     }
 
+    private func readImage(for key: String, loader: URLSessionCardImageLoader, policy: CardArtworkCachePolicy)
+        -> Image?
+    {
+        let collectionFile = file(for: key, policy: .collection)
+        if let image = decodeFile(collectionFile) {
+            loader.cache(image, for: key)
+            return image
+        }
+
+        let searchFile = file(for: key, policy: .search)
+        guard let expiry = expiration(of: searchFile), now() < expiry,
+            let image = decodeFile(searchFile)
+        else { return nil }
+
+        if policy == .collection {
+            do {
+                try promote(searchFile, to: collectionFile)
+                loader.cache(image, for: key)
+                notifyObservers()
+                return image
+            } catch {
+                logger.warning("Could not retain collection card artwork: \(error.localizedDescription)")
+            }
+        }
+        loader.cache(image, for: key, expiresAt: expiry)
+        return image
+    }
+
+    private func promote(_ source: URL, to destination: URL) throws {
+        try prepareDirectory(for: .collection)
+        if FileManager.default.fileExists(atPath: destination.path) {
+            _ = try FileManager.default.replaceItemAt(destination, withItemAt: source)
+        } else {
+            try FileManager.default.moveItem(at: source, to: destination)
+        }
+    }
+
+    private func save(_ data: Data, for key: String, policy: CardArtworkCachePolicy) throws -> Date? {
+        let destination = file(for: key, policy: policy)
+        try prepareDirectory(for: policy)
+        try data.write(to: destination, options: .atomic)
+        guard policy == .search else { return nil }
+
+        try FileManager.default.setAttributes([.modificationDate: now()], ofItemAtPath: destination.path)
+        return expiration(of: destination)
+    }
+
+    private func decodeFile(_ url: URL) -> Image? {
+        guard let data = try? Data(contentsOf: url) else { return nil }
+        return PlatformImageDecoder.decode(data)
+    }
+
+    func removeExpiredArtwork() {
+        _ = try? freshSearchFiles()
+    }
+
+    private func freshSearchFiles() throws -> [URL] {
+        var fresh: [URL] = []
+        var removed = false
+        let time = now()
+        for file in try artworkFiles(for: .search) {
+            if isFresh(file, at: time) {
+                fresh.append(file)
+                continue
+            }
+            do {
+                try FileManager.default.removeItem(at: file)
+                removed = true
+            } catch {
+                logger.warning("Could not remove expired card artwork: \(error.localizedDescription)")
+            }
+        }
+        if removed { notifyObservers() }
+        return fresh
+    }
+
     func inventory() throws -> [CachedCardArtwork] {
-        let keys: Set<URLResourceKey> = [.fileSizeKey, .isRegularFileKey]
+        var artwork: [String: CachedCardArtwork] = [:]
+        for url in try freshSearchFiles() {
+            let cached = try inventoryEntry(for: url)
+            artwork[cached.id] = cached
+        }
+        for url in try artworkFiles(for: .collection) {
+            let cached = try inventoryEntry(for: url)
+            artwork[cached.id] = cached
+        }
+        return artwork.values.sorted { $0.id < $1.id }
+    }
+
+    private func inventoryEntry(for url: URL) throws -> CachedCardArtwork {
+        let values = try url.resourceValues(forKeys: Self.fileKeys)
+        return CachedCardArtwork(id: url.lastPathComponent, byteCount: Int64(values.fileSize ?? 0))
+    }
+
+    private func artworkFiles(for policy: CardArtworkCachePolicy) throws -> [URL] {
         let files: [URL]
         do {
             files = try FileManager.default.contentsOfDirectory(
-                at: root,
-                includingPropertiesForKeys: Array(keys),
+                at: directory(for: policy),
+                includingPropertiesForKeys: Array(Self.fileKeys),
                 options: .skipsHiddenFiles
             )
         } catch let error as CocoaError where error.code == .fileReadNoSuchFile {
             return []
         }
-        let artwork: [CachedCardArtwork] = try files.compactMap { url in
-            let values = try url.resourceValues(forKeys: keys)
-            guard values.isRegularFile == true, let bytes = values.fileSize else { return nil }
-            return CachedCardArtwork(id: url.lastPathComponent, byteCount: Int64(bytes))
-        }
-        return artwork.sorted { $0.id < $1.id }
+        return try files.filter { try $0.resourceValues(forKeys: Self.fileKeys).isRegularFile == true }
+    }
+
+    private func expiration(of url: URL) -> Date? {
+        let values = try? url.resourceValues(forKeys: Self.fileKeys)
+        return values?.contentModificationDate?.addingTimeInterval(Self.searchLifetime)
+    }
+
+    private func isFresh(_ url: URL, at time: Date) -> Bool {
+        guard let expiry = expiration(of: url) else { return false }
+        return time < expiry
     }
 
     func changes() -> AsyncStream<Void> {
@@ -266,7 +403,13 @@ private actor CardArtworkStorage {
     }
 
     func thumbnail(for artwork: CachedCardArtwork) -> Image? {
-        guard let source = CGImageSourceCreateWithURL(file(for: artwork.id) as CFURL, nil) else {
+        let collectionFile = file(for: artwork.id, policy: .collection)
+        let searchFile = file(for: artwork.id, policy: .search)
+        let searchSource = { () -> CGImageSource? in
+            guard self.isFresh(searchFile, at: self.now()) else { return nil }
+            return CGImageSourceCreateWithURL(searchFile as CFURL, nil)
+        }
+        guard let source = CGImageSourceCreateWithURL(collectionFile as CFURL, nil) ?? searchSource() else {
             return nil
         }
         let options: [CFString: Any] = [
@@ -290,8 +433,24 @@ private actor CardArtworkStorage {
         }
 
         defer { notifyObservers() }
+        if let key {
+            var deletionError: (any Error)?
+            for policy: CardArtworkCachePolicy in [.collection, .search] {
+                do {
+                    try removeItemIfPresent(at: file(for: key, policy: policy))
+                } catch {
+                    deletionError = error
+                }
+            }
+            if let deletionError { throw deletionError }
+        } else {
+            try removeItemIfPresent(at: root)
+        }
+    }
+
+    private func removeItemIfPresent(at url: URL) throws {
         do {
-            try FileManager.default.removeItem(at: key.map(file(for:)) ?? root)
+            try FileManager.default.removeItem(at: url)
         } catch let error as CocoaError
             where error.code == .fileNoSuchFile || error.code == .fileReadNoSuchFile
         {
@@ -299,19 +458,25 @@ private actor CardArtworkStorage {
         }
     }
 
-    private func save(_ data: Data, for key: String) throws {
-        var directory = root
+    private func prepareDirectory(for policy: CardArtworkCachePolicy) throws {
+        var directory = directory(for: policy)
         if !FileManager.default.fileExists(atPath: directory.path) {
             try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         }
         var resources = URLResourceValues()
         resources.isExcludedFromBackup = true
         try directory.setResourceValues(resources)
-        try data.write(to: file(for: key), options: .atomic)
     }
 
-    private func file(for key: String) -> URL {
-        root.appending(path: key, directoryHint: .notDirectory)
+    private func directory(for policy: CardArtworkCachePolicy) -> URL {
+        switch policy {
+        case .collection: root.appending(path: "collection", directoryHint: .isDirectory)
+        case .search: root
+        }
+    }
+
+    private func file(for key: String, policy: CardArtworkCachePolicy) -> URL {
+        directory(for: policy).appending(path: key, directoryHint: .notDirectory)
     }
 
     private func notifyObservers() {
@@ -327,6 +492,7 @@ private actor CardArtworkStorage {
     private struct Load {
         let id: UUID
         let task: Task<Image?, Never>
+        var policy: CardArtworkCachePolicy
     }
 }
 
