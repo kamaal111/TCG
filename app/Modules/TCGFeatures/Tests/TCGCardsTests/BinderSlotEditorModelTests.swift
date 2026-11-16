@@ -106,7 +106,7 @@ struct BinderSlotEditorModelTests {
         let client = TCGClient.preview(cardsOutcome: .success(cards: entries))
         let cards = TCGCards(client: client)
         let collections = TCGCollections(client: client, defaults: nil)
-        await collections.reload(using: cards)
+        await collections.reload(using: cards, force: true, loadsList: true)
         #expect(await collections.create(name: "Favorites", using: cards))
         let collection = try #require(collections.selected)
         var values = CardFormValues(card: entries[0])

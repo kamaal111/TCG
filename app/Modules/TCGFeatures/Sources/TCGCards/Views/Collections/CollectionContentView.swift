@@ -29,7 +29,7 @@ struct CollectionContentView: View {
             }
         #endif
         .refreshable {
-            await collections.refresh(using: cards)
+            await collections.refresh(using: cards, force: true)
         }
         .toolbar {
             #if os(iOS)

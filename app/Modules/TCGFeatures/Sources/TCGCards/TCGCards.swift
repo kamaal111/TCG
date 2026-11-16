@@ -25,13 +25,20 @@ public final class TCGCards {
     private(set) var displayRefreshError: TCGCardsOperationError?
 
     let snapshot: CollectionSnapshotCache
+    let now: () -> Date
+    private let pricing: CollectionPricing
+    private let listReads = SharedCollectionReads<ListCardsQuery, Result<CardCollectionPage, ListCardsErrors>>()
+    private let detailReads = SharedCollectionReads<UUID, Result<CardWithPrice, OwnedCardReadError>>()
     private(set) var deletedCardIDs: Set<UUID> = []
     private(set) var isLoadingPrices = false
-    private var priceTask: Task<Void, Never>?
+    private var priceTasks: [UUID: Task<Void, Never>] = [:]
+    private var loadingPriceTasks: Set<UUID> = []
+    private var accountGeneration = UUID()
     private var account: String?
     private var offlineSeed: [CardWithPrice] = []
     var onCollectionNotFound: (@MainActor (UUID) async -> Void)?
 
+    var isShowingBinder = false
     var allocationAdjustments = 0
     var onCollectionMutation: (@MainActor () async -> Void)?
     private(set) var selectedCollection: CardBinderCollection?
@@ -46,9 +53,15 @@ public final class TCGCards {
 
     var hasLoadedCurrentCollection: Bool { collectionState.status == .loaded }
 
-    init(client: TCGClient, snapshot: CollectionSnapshotCache = CollectionSnapshotCache()) {
+    convenience init(client: TCGClient) {
+        self.init(client: client, snapshot: CollectionSnapshotCache(), now: { .now })
+    }
+
+    init(client: TCGClient, snapshot: CollectionSnapshotCache, now: @escaping () -> Date) {
         self.client = client
         self.snapshot = snapshot
+        self.now = now
+        pricing = CollectionPricing(client: client.cards, snapshot: snapshot, now: now)
     }
 
     public static func `default`() -> TCGCards { TCGCards(client: .default()) }
@@ -57,6 +70,10 @@ public final class TCGCards {
         guard self.account != account else { return }
 
         self.account = account
+        accountGeneration = UUID()
+        pricing.clear()
+        listReads.clear()
+        detailReads.clear()
         offlineSeed = []
         deletedCardIDs = []
         clearCollectionSelection()
@@ -71,7 +88,10 @@ public final class TCGCards {
     }
 
     func cachedBinderRows(for scope: CollectionSnapshotCache.Scope, cardIDs: Set<UUID>) -> [CardWithPrice] {
-        (snapshot.rows(for: scope) ?? offlineSeed.filter { cardIDs.contains($0.card.id) }).map(compatibleDisplay)
+        var previous = scope
+        previous.revision = nil
+        let cached = snapshot.rows(for: scope) ?? snapshot.rows(for: previous) ?? offlineSeed
+        return cached.filter { cardIDs.contains($0.card.id) }.map(compatibleDisplay)
     }
 
     private var scope: CollectionSnapshotCache.Scope {
@@ -98,15 +118,22 @@ public final class TCGCards {
     func validateCard(_ entry: CardWithPrice) async -> Result<CardWithPrice, OwnedCardReadError> {
         guard !isReadOnly else { return .success(entry) }
 
-        let owner = account
+        let id = entry.card.id
+        if deletedCardIDs.contains(id) { return .failure(.notFound) }
+        if let verified = snapshot.verifiedCard(id, at: now()), verified.card.updatedAt >= entry.card.updatedAt {
+            return .success(keepingPrice(for: compatibleDisplay(verified), cached: compatibleDisplay(entry)))
+        }
+
+        let owner = accountGeneration
         let collectionID = selectedCollection?.id
-        let result = await client.cards.details(id: entry.card.id)
-        guard account == owner, selectedCollection?.id == collectionID, !Task.isCancelled else {
+        let result = await detailReads.read(id) { [client] in await client.cards.details(id: id) }
+        guard accountGeneration == owner, selectedCollection?.id == collectionID, !Task.isCancelled else {
             return .failure(.unavailable)
         }
 
         switch result {
         case .success(let details):
+            snapshot.verify([details], at: now())
             return .success(keepingPrice(for: details, cached: compatibleDisplay(entry)))
         case .failure(.notFound):
             deletedCardIDs.insert(entry.card.id)
@@ -118,34 +145,20 @@ public final class TCGCards {
         }
     }
 
-    func refreshedPrices(for rows: [CardWithPrice]) async -> [CardWithPrice] {
-        let owner = account
-        let currency = displayIdentity
-        let ids = Array(Set(rows.map(\.card.id)))
-        var prices: [UUID: OwnedCardPriceUpdate] = [:]
-        for start in stride(from: 0, to: ids.count, by: 100) {
-            guard !Task.isCancelled else { return rows }
+    func needsPriceRefresh(for rows: [CardWithPrice], currency: Currency?, retry: Bool) -> Bool {
+        !isReadOnly && pricing.needsRefresh(rows, currency: currency ?? displayIdentity?.currency, retry: retry)
+    }
 
-            let end = min(start + 100, ids.count)
-            if case .success(let response) = await client.cards.prices(ids: Array(ids[start..<end])) {
-                for entry in response { prices[entry.cardID] = entry }
-            }
-        }
+    func refreshedPrices(
+        for rows: [CardWithPrice],
+        currency: Currency?,
+        retry: Bool
+    ) async -> [CardWithPrice] {
+        guard !isReadOnly else { return rows }
 
-        guard owner == account, currency == displayIdentity, !Task.isCancelled else { return rows }
-
-        return rows.map { row in
-            guard let price = prices[row.card.id], price.updatedAt == row.card.updatedAt,
-                price.price.status != .unavailable,
-                currency == nil || price.displayCurrency == currency?.currency
-            else { return row }
-
-            return .init(
-                card: row.card.applyingPriceUpdate(price),
-                price: price.price,
-                imageURL: row.imageURL
-            )
-        }
+        let identity = displayIdentity
+        let refreshed = await pricing.refresh(rows, currency: currency ?? identity?.currency, retry: retry)
+        return currency != nil || identity == displayIdentity ? refreshed : rows
     }
 
     func keepingPrice(for details: CardWithPrice, cached: CardWithPrice?) -> CardWithPrice {
@@ -160,30 +173,48 @@ public final class TCGCards {
         )
     }
 
-    private func refreshVisiblePrices() {
-        priceTask?.cancel()
-        let generation = collectionState.generation
-        let rows = cards
-        isLoadingPrices = !rows.isEmpty
-        guard isLoadingPrices else { return }
+    private func clearVisiblePricing() {
+        for task in priceTasks.values { task.cancel() }
+        priceTasks.removeAll()
+        loadingPriceTasks.removeAll()
+        isLoadingPrices = false
+    }
 
-        priceTask = Task { [weak self] in
+    private func refreshVisiblePrices(ids: Set<UUID>?, retry: Bool) {
+        let generation = collectionState.generation
+        let rows = ids.map { selected in cards.filter { selected.contains($0.card.id) } } ?? cards
+        guard !rows.isEmpty else { return }
+
+        let request = UUID()
+        if needsPriceRefresh(for: rows, currency: nil, retry: retry) {
+            loadingPriceTasks.insert(request)
+            isLoadingPrices = true
+        }
+        priceTasks[request] = Task { [weak self] in
             guard let self else { return }
 
-            let refreshed = await refreshedPrices(for: rows)
-            guard generation == collectionState.generation, !Task.isCancelled else { return }
+            defer {
+                priceTasks.removeValue(forKey: request)
+                loadingPriceTasks.remove(request)
+                isLoadingPrices = !loadingPriceTasks.isEmpty
+            }
+            let identity = displayIdentity
+            let refreshed = await refreshedPrices(for: rows, currency: nil, retry: retry)
+            guard generation == collectionState.generation, identity == displayIdentity, !Task.isCancelled else {
+                return
+            }
 
             let byID = Dictionary(refreshed.map { ($0.card.id, $0) }, uniquingKeysWith: { first, _ in first })
+            let previous = cards
             setCards(
-                cards.map { row in
+                previous.map { row in
                     guard let updated = byID[row.card.id], updated.card.updatedAt == row.card.updatedAt else {
                         return row
                     }
                     return updated
                 }
             )
-            snapshot.save(cards, for: scope)
-            isLoadingPrices = false
+            if previous != cards { snapshot.save(cards, for: scope) }
         }
     }
 
@@ -198,17 +229,18 @@ public final class TCGCards {
         setCards((snapshot.rows(for: scope) ?? offlineSeed).map(compatibleDisplay))
     }
 
-    func selectCollection(_ collection: CardBinderCollection?) async {
+    func selectCollection(_ collection: CardBinderCollection?, loadsList: Bool) async {
         let changed = selectedCollection?.id != collection?.id
         selectedCollection = collection
-        if changed || !hasLoadedCurrentCollection {
+        if changed || (loadsList && !hasLoadedCurrentCollection && !isLoading) {
             invalidateDisplayPrices()
-            _ = await load(game: nil, setNames: [], query: nil, illustrators: [])
+            if loadsList { _ = await load(game: nil, setNames: [], query: nil, illustrators: []) }
         }
     }
 
     func clearCollectionSelection() {
         selectedCollection = nil
+        isShowingBinder = false
         allocationAdjustments = 0
         invalidateDisplayPrices()
     }
@@ -216,7 +248,7 @@ public final class TCGCards {
     func cardPage(_ query: ListCardsQuery) async -> Result<CardCollectionPage, TCGCardsOperationError> {
         let identity = selectedCollection?.id
         let generation = collectionState.generation
-        let result = await client.cards.listPage(query).mapError { _ in TCGCardsOperationError.serverUnavailable }
+        let result = await readListPage(query).mapError { _ in TCGCardsOperationError.serverUnavailable }
         guard selectedCollection?.id == identity else { return .failure(.serverUnavailable) }
         guard collectionState.generation == generation else { return .failure(.serverUnavailable) }
         return result
@@ -230,23 +262,17 @@ public final class TCGCards {
         availableIllustrators = []
     }
 
-    public func refreshDisplayPrices(for identity: TCGCurrency.DisplayIdentity) async {
+    public func refreshDisplayPrices(for identity: TCGCurrency.DisplayIdentity, refreshVisible: Bool) async {
         guard displayIdentity != identity else { return }
-        guard displayIdentity != nil else {
-            displayIdentity = identity
-            return
-        }
-        let needsRefresh = collectionState.pageCount > 0 || isLoading || !cards.isEmpty
+        let previous = displayIdentity
         displayIdentity = identity
-        priceTask?.cancel()
-        isLoadingPrices = false
-        setCards(cards.map(compatibleDisplay))
-        if needsRefresh { await refresh() }
+        clearVisiblePricing()
+        if previous != nil { setCards(cards.map(compatibleDisplay)) }
+        if refreshVisible, !isShowingBinder { refreshVisiblePrices(ids: nil, retry: false) }
     }
 
     private func invalidateDisplayPrices() {
-        priceTask?.cancel()
-        isLoadingPrices = false
+        clearVisiblePricing()
         collectionState.generation += 1
         collectionState.status = .idle
         collectionState.nextCursor = nil
@@ -268,7 +294,8 @@ public final class TCGCards {
             ? max(1, collectionState.pageCount) : 1
 
         return await loadCollection(
-            .init(game: game, setNames: setNames, query: query, pageCount: pageCount, illustrators: illustrators)
+            .init(game: game, setNames: setNames, query: query, pageCount: pageCount, illustrators: illustrators),
+            force: false
         )
     }
 
@@ -289,6 +316,7 @@ public final class TCGCards {
                 pageCount: collectionState.pageCount
             )
         )
+        let existingIDs = Set(cards.map(\.card.id))
         let result = await loadPage(into: &pages, generation: generation)
 
         guard generation == collectionState.generation else { return .success(()) }
@@ -302,15 +330,18 @@ public final class TCGCards {
         case .success(let didLoadPage):
             guard didLoadPage else { return .success(()) }
 
-            publish(pages)
+            let newIDs = Set(pages.cards.map(\.card.id)).subtracting(existingIDs)
+            publish(pages, isFinal: true, checkedAt: nil, priceIDs: newIDs, retry: false)
             return .success(())
         }
     }
 
-    private func loadCollection(_ request: CollectionRequest) async -> Result<Void, TCGCardsOperationError> {
+    private func loadCollection(
+        _ request: CollectionRequest,
+        force: Bool
+    ) async -> Result<Void, TCGCardsOperationError> {
         let previousScope = scope
-        priceTask?.cancel()
-        isLoadingPrices = false
+        clearVisiblePricing()
         if request.game != collectionState.game {
             availableSetNames = []
             availableIllustrators = []
@@ -349,6 +380,18 @@ public final class TCGCards {
             return .success(())
         }
 
+        if !force, let fresh = snapshot.freshPage(for: scope, at: now()), let list = fresh.list {
+            setCards(fresh.cards.map(compatibleDisplay))
+            availableSetNames = list.sets
+            availableIllustrators = list.illustrators
+            collectionState.nextCursor = list.nextCursor
+            collectionState.visitedCursors = list.visitedCursors
+            collectionState.pageCount = list.pageCount
+            collectionState.status = .loaded
+            if list.requiresPricing != false { refreshVisiblePrices(ids: nil, retry: false) }
+            return .success(())
+        }
+
         var pages = CardCollectionPages()
 
         repeat {
@@ -367,7 +410,13 @@ public final class TCGCards {
                 }
             }
             let hasMoreRequestedPages = pages.nextCursor != nil && pages.pageCount < request.pageCount
-            publish(pages, isFinal: !hasMoreRequestedPages)
+            publish(
+                pages,
+                isFinal: !hasMoreRequestedPages,
+                checkedAt: pages.pageCount == 1 ? now() : nil,
+                priceIDs: nil,
+                retry: force
+            )
         } while pages.nextCursor != nil && pages.pageCount < request.pageCount
 
         return .success(())
@@ -379,7 +428,7 @@ public final class TCGCards {
         guard generation == collectionState.generation else { return .success(false) }
         guard !Task.isCancelled else { return .success(false) }
 
-        let result = await client.cards.listPage(
+        let result = await readListPage(
             .init(
                 game: collectionState.game,
                 setNames: collectionState.setNames,
@@ -406,19 +455,47 @@ public final class TCGCards {
                 return .failure(.serverUnavailable)
             }
 
+            snapshot.verify(page.cards, at: now())
             return .success(true)
         }
     }
 
-    private func publish(_ pages: CardCollectionPages, isFinal: Bool = true) {
+    private func readListPage(_ query: ListCardsQuery) async -> Result<CardCollectionPage, ListCardsErrors> {
+        await listReads.read(query) { [client] in await client.cards.listPage(query) }
+    }
+
+    private func publish(
+        _ pages: CardCollectionPages,
+        isFinal: Bool,
+        checkedAt: Date?,
+        priceIDs: Set<UUID>?,
+        retry: Bool
+    ) {
         let cached = Dictionary(cards.map { ($0.card.id, $0) }, uniquingKeysWith: { first, _ in first })
         setCards(
             pages.cards.map { details in
                 keepingPrice(for: details, cached: cached[details.card.id])
             }
         )
-        snapshot.save(cards, for: scope)
-        if pages.cards.contains(where: { $0.price.status == .pending }) { refreshVisiblePrices() }
+        let requiresPricing =
+            pages.cards.contains { $0.price.status == .pending }
+            || priceIDs != nil && snapshot.freshPage(for: scope, at: now())?.list?.requiresPricing == true
+        snapshot.saveRead(
+            cards,
+            for: scope,
+            checkedAt: checkedAt,
+            list: .init(
+                nextCursor: pages.nextCursor,
+                visitedCursors: pages.visitedCursors,
+                pageCount: pages.pageCount,
+                sets: pages.availableSetNames,
+                illustrators: pages.availableIllustrators,
+                requiresPricing: requiresPricing
+            )
+        )
+        if requiresPricing {
+            refreshVisiblePrices(ids: priceIDs, retry: retry)
+        }
         availableSetNames = pages.availableSetNames
         availableIllustrators = pages.availableIllustrators
         collectionState.nextCursor = pages.nextCursor
@@ -441,7 +518,8 @@ public final class TCGCards {
             .map { card in if displayIdentity == identity { insertCard(card) } }
             .mapError(mapCreateError)
         if case .success = result {
-            await refresh()
+            invalidateCollectionReads()
+            await refresh(force: true)
             await onCollectionMutation?()
         }
         return result
@@ -477,7 +555,8 @@ public final class TCGCards {
             }
             .mapError(mapUpdateError)
         if case .success = result {
-            await refresh()
+            invalidateCollectionReads()
+            await refresh(force: true)
             await onCollectionMutation?()
         }
         return result
@@ -503,12 +582,13 @@ public final class TCGCards {
         case .success(let result):
             let deletedIDs = Set(result.deletedIDs)
             if !deletedIDs.isEmpty {
+                invalidateCollectionReads()
                 deletedCardIDs.formUnion(deletedIDs)
                 for id in deletedIDs { snapshot.removeCard(id) }
                 offlineSeed.removeAll { deletedIDs.contains($0.card.id) }
                 setCards(cards.filter { !deletedIDs.contains($0.card.id) })
                 if collectionState.status == .loaded { collectionState.status = .idle }
-                await refresh()
+                await refresh(force: true)
                 await onCollectionMutation?()
             }
             return .success(result)
@@ -536,26 +616,39 @@ public final class TCGCards {
         case .failure(let error): return .failure(error)
         case .success(let result):
             allocationAdjustments = result.allocationAdjustments ?? 0
+            invalidateCollectionReads()
             await onCollectionMutation?()
-            let refresh = await refreshCollection()
+            let refresh = await refreshCollection(force: true)
             return .success(.init(result: result, needsRefresh: (try? refresh.get()) == nil))
         }
     }
 
     func retryImportRefresh() async -> Bool {
-        let result = await refreshCollection()
+        let result = await refreshCollection(force: true)
         return (try? result.get()) != nil
     }
 
-    func refresh() async {
+    func invalidateCollectionReads() {
+        snapshot.invalidateReads()
+        accountGeneration = UUID()
+        collectionState.generation += 1
+        collectionState.status = .idle
+        clearVisiblePricing()
+        listReads.clear()
+        detailReads.clear()
+    }
+
+    func refresh(force: Bool) async {
+        guard !isShowingBinder else { return }
+
         let identity = displayIdentity
         displayRefreshError = nil
-        let result = await refreshCollection()
+        let result = await refreshCollection(force: force)
         guard identity == displayIdentity, !Task.isCancelled else { return }
         if case .failure(let error) = result { displayRefreshError = error }
     }
 
-    private func refreshCollection() async -> Result<Void, TCGCardsOperationError> {
+    private func refreshCollection(force: Bool) async -> Result<Void, TCGCardsOperationError> {
         await loadCollection(
             .init(
                 game: collectionState.game,
@@ -563,7 +656,8 @@ public final class TCGCards {
                 query: collectionState.query,
                 pageCount: max(1, collectionState.pageCount),
                 illustrators: collectionState.illustrators
-            )
+            ),
+            force: force
         )
     }
 

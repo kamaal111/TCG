@@ -1,6 +1,6 @@
 import Foundation
 
-public struct ListCardsQuery: Sendable {
+public struct ListCardsQuery: Hashable, Sendable {
     public let game: ClientCardGame?
     public let illustrators: Set<String>
     public let setNames: Set<String>

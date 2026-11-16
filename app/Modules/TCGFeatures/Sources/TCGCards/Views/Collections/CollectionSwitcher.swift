@@ -9,13 +9,13 @@ struct CollectionSwitcher: View {
     var body: some View {
         Menu {
             Button {
-                Task { await collections.select(nil, using: cards) }
+                Task { await collections.select(nil, using: cards, loadsList: true) }
             } label: {
                 Text("All cards", bundle: .module)
             }
             ForEach(collections.namedCollections) { collection in
                 Button {
-                    Task { await collections.select(collection.id, using: cards) }
+                    Task { await collections.select(collection.id, using: cards, loadsList: true) }
                 } label: {
                     CollectionTitle(collection: collection)
                 }

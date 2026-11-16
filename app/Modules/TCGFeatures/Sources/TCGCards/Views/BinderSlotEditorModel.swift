@@ -73,7 +73,7 @@ final class BinderSlotEditorModel {
 
         if screen == .contents {
             if selectedCard == nil, let existing {
-                let result = await collections.page(position.pageID)
+                let result = await collections.page(position.pageID, using: cards, force: false)
                 guard revision == requestRevision else { return }
                 switch result {
                 case .success(let page): selectedCard = page.cards.first { $0.card.id == existing.cardID }
@@ -179,7 +179,7 @@ final class BinderSlotEditorModel {
     }
 
     func reload(using cards: TCGCards, collections: TCGCollections) async {
-        await collections.refresh(using: cards)
+        await collections.refresh(using: cards, force: true)
         guard let latest = collections.selected, latest.id == collection.id else {
             error = CollectionsError.notFound.localizedDescription
             return

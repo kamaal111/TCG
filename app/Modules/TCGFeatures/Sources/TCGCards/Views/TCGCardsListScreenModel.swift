@@ -89,7 +89,10 @@ final class TCGCardsListScreenModel {
     }
 
     func resumeLoadIfNeeded(using cards: TCGCards) async {
-        guard loadedFilters != filters || !cards.hasLoadedCurrentCollection else { return }
+        if loadedFilters == filters, cards.hasLoadedCurrentCollection {
+            await cards.refresh(force: false)
+            return
+        }
         if filters.searchQuery != nil {
             try? await Task.sleep(for: ModuleConfig.searchDebounce)
             guard !Task.isCancelled else { return }
