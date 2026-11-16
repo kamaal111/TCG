@@ -10,6 +10,7 @@ import SwiftUI
 import TCGCards
 import TCGClient
 import TCGCurrency
+import TCGDesignSystem
 import TCGSearch
 
 public struct TCGScene: Scene {
@@ -41,6 +42,7 @@ public struct TCGScene: Scene {
                     offline: offline
                 )
             }
+            .maintainCardArtworkCache()
             .environment(\.tcgPricePrivacy, pricePrivacy)
         }
         #if os(macOS)

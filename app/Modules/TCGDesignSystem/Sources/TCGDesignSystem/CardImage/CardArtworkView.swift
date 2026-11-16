@@ -3,6 +3,7 @@ import SwiftUI
 /// Displays uncropped card artwork using the shared image cache and loader.
 public struct CardArtworkView: View {
     @Environment(\.cardImageLoader) private var loader
+    @Environment(\.cardArtworkCachePolicy) private var cachePolicy
     @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
     @Environment(\.cardImageReduceMotionOverride) private var reduceMotionOverride
     @State private var phase: LoadPhase
@@ -33,7 +34,7 @@ public struct CardArtworkView: View {
 
     public var body: some View {
         content
-            .task(id: LoadRequest(url: url, attempt: attempt)) {
+            .task(id: LoadRequest(url: url, policy: cachePolicy, attempt: attempt)) {
                 await loadImage()
             }
     }
@@ -44,13 +45,13 @@ public struct CardArtworkView: View {
             phase = .missingURL
             return
         }
-        if let image = loader.cachedImage(for: url) {
+        if let image = loader.cachedImage(for: url, policy: cachePolicy) {
             phase = .loaded(image)
             onLoad(true)
             return
         }
         phase = .loading
-        let image = await loader.image(for: url)
+        let image = await loader.image(for: url, policy: cachePolicy)
         guard !Task.isCancelled else { return }
         phase = image.map(LoadPhase.loaded) ?? .failed
         onLoad(image != nil)
@@ -140,6 +141,7 @@ public struct CardArtworkView: View {
 
     private struct LoadRequest: Equatable {
         let url: URL?
+        let policy: CardArtworkCachePolicy
         let attempt: Int
     }
 }

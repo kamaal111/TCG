@@ -1,5 +1,10 @@
 import SwiftUI
 
+public enum CardArtworkCachePolicy: Sendable {
+    case collection
+    case search
+}
+
 /// Loads and caches decoded card artwork for ``CardImageView``.
 ///
 /// - Example:
@@ -22,4 +27,18 @@ public protocol CardImageLoader: Sendable {
     ///   let image = await loader.image(for: url)
     ///   ```
     func image(for url: URL) async -> Image?
+
+    func cachedImage(for url: URL, policy: CardArtworkCachePolicy) -> Image?
+
+    func image(for url: URL, policy: CardArtworkCachePolicy) async -> Image?
+}
+
+extension CardImageLoader {
+    public func cachedImage(for url: URL, policy: CardArtworkCachePolicy) -> Image? {
+        cachedImage(for: url)
+    }
+
+    public func image(for url: URL, policy: CardArtworkCachePolicy) async -> Image? {
+        await image(for: url)
+    }
 }

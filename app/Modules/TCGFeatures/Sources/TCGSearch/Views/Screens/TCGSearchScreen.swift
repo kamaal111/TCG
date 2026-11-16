@@ -88,6 +88,7 @@ public struct TCGSearchScreen<AddForm: View>: View {
                 }
             }
             .modifier(SearchImagePresentation(group: $model.presentedImage))
+            .cardArtworkCachePolicy(.search)
     }
 
     private var keyboardScopedContent: some View {
