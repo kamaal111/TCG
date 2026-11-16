@@ -50,22 +50,44 @@ public final class TCGCollections {
         if let account { preferences.saveView(view, account: account, collectionID: collectionID) }
     }
 
-    public func trackSession(_ auth: KamaalAuth, cards: TCGCards) async {
+    public func trackSession(
+        _ auth: KamaalAuth,
+        cards: TCGCards,
+        offlineSeed: (String) -> (cards: [CardWithPrice], collections: [CardBinderCollection]) = { _ in ([], []) }
+    ) async {
         error = nil
+        var reloadTask: Task<Void, Never>?
+        defer { reloadTask?.cancel() }
+
         for await state in auth.sessionStates() {
             guard !Task.isCancelled else { return }
             switch state {
             case .validatingCredentials: break
             case .unauthenticated:
+                reloadTask?.cancel()
                 clearSession()
+                cards.useAccount(nil)
                 cards.clearCollectionSelection()
             case .authenticated:
                 guard let id = auth.session?.email else { continue }
                 if account != id {
                     clearSession()
                     account = id
+                    cards.useAccount(id)
+                    let seed = offlineSeed(id)
+                    cards.seedOnlineCollection(seed.cards)
+                    collections = cards.snapshot.summaries
+                    if collections.isEmpty { collections = seed.collections.map(\.summary) }
+                    let saved = preferences.restore(account: id)
+                    let cached = cards.snapshot.selected ?? seed.collections.first { $0.id == saved }
+                    if let cached, cached.id == saved {
+                        selectedID = cached.id
+                        selected = cached
+                    }
+                    cards.restoreCollection(selected)
                 }
-                await reload(using: cards)
+                reloadTask?.cancel()
+                reloadTask = Task { await reload(using: cards) }
             }
         }
     }
@@ -74,6 +96,7 @@ public final class TCGCollections {
         generation = UUID()
         error = nil
         isWorking = false
+        cards.onCollectionNotFound = nil
         cards.onCollectionMutation = nil
         cards.clearCollectionSelection()
     }
@@ -91,6 +114,11 @@ public final class TCGCollections {
 
     func reload(using cards: TCGCards) async {
         guard downloadedCollections == nil, !Task.isCancelled else { return }
+        cards.onCollectionNotFound = { [weak self, weak cards] id in
+            guard let self, let cards else { return }
+
+            await collectionDisappeared(id, using: cards)
+        }
         cards.onCollectionMutation = { [weak self, weak cards] in
             guard let self else { return }
             guard let cards else { return }
@@ -108,6 +136,9 @@ public final class TCGCollections {
             views = views.filter { currentIDs.contains($0.key) }
             let previous = selectedID ?? account.flatMap { preferences.restore(account: $0) }
             let selection = result.first { $0.id == previous && !$0.isUnfiled }
+            if let previous, selection == nil {
+                cards.snapshot.removeCollection(previous)
+            }
             await select(selection?.id, using: cards)
         case .failure(let failure):
             guard generation == token, !Task.isCancelled else { return }
@@ -121,6 +152,7 @@ public final class TCGCollections {
             selectedID = nil
             selected = nil
             if let account { preferences.save(nil, account: account) }
+            cards.snapshot.saveCollections(collections, selected: nil)
             await cards.selectCollection(nil)
             return
         }
@@ -133,10 +165,11 @@ public final class TCGCollections {
         }
         if let account { preferences.save(summary.id, account: account) }
         if let selected, selected.id == summary.id, selected.revision == summary.revision {
+            cards.snapshot.saveCollections(collections, selected: selected)
             await cards.selectCollection(selected)
             return
         }
-        selected = nil
+        if selected?.id != summary.id { selected = nil }
         let token = generation
         switch await client.get(id: summary.id) {
         case .success(let collection):
@@ -145,12 +178,32 @@ public final class TCGCollections {
             guard let latest = collections.first(where: { $0.id == collection.id }) else { return }
             guard collection.revision >= latest.revision else { return }
             replace(collection)
+            cards.snapshot.saveCollections(collections, selected: collection)
             await cards.selectCollection(collection)
         case .failure(let failure):
             guard generation == token, !Task.isCancelled else { return }
             guard selectedID == summary.id else { return }
-            error = failure
+            if failure == .collectionNotFound {
+                await collectionDisappeared(summary.id, using: cards)
+            } else {
+                error = failure
+            }
         }
+    }
+
+    func collectionDisappeared(_ id: UUID, using cards: TCGCards) async {
+        guard selectedID == id else { return }
+
+        collections.removeAll { $0.id == id }
+        views.removeValue(forKey: id)
+        cards.snapshot.removeCollection(id)
+        await select(nil, using: cards)
+    }
+
+    public func refreshOnForeground(using cards: TCGCards) async {
+        guard account != nil else { return }
+
+        await refresh(using: cards)
     }
 
     func create(name: String, using cards: TCGCards) async -> Bool {

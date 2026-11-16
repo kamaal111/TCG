@@ -7,7 +7,7 @@ struct BinderCardLabel: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            CardImageView(url: card.price.price?.imageURL)
+            CardImageView(url: card.imageURL)
             VStack(alignment: .leading, spacing: 4) {
                 Text(verbatim: card.card.name).font(.headline)
                 Text(verbatim: "\(card.card.setName) • \(card.card.cardNumber)")

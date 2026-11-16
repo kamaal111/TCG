@@ -4,8 +4,8 @@ import { eq } from 'drizzle-orm';
 
 import { createTestScrydexClient } from './utils.ts';
 import { LIST_CARDS_ROUTE_PATH } from '../../cards/routes/list-cards.ts';
-import { CardsListResponseSchema } from '../../cards/schemas/responses.ts';
-import { createCardRequest, createTestCard } from '../../cards/tests/utils.ts';
+import { OwnedCardPricesSchema } from '../../cards/schemas/responses.ts';
+import { createCardRequest, createTestCard, requestOwnedPrices } from '../../cards/tests/utils.ts';
 import { card } from '../../db/schema/cards.ts';
 import { integrationTest } from '../../tests/fixtures.ts';
 import { StaticScrydexClient } from '../scrydex/static-client.ts';
@@ -41,19 +41,19 @@ describe('Scrydex owned-card pricing', () => {
       });
 
       const realApp = createApp({ pricingClient });
-      const first = await realApp.request(LIST_CARDS_ROUTE_PATH, { headers: authenticatedHeaders });
+      const first = await requestOwnedPrices(realApp, authenticatedHeaders, [created.id]);
       expect(first.status).toBe(200);
-      const body = CardsListResponseSchema.parse(await first.json());
-      expect(body.cards[0]?.price).toMatchObject({
+      const body = OwnedCardPricesSchema.parse(await first.json());
+      expect(body.prices[0]?.price).toMatchObject({
         status: 'priced',
         priced_card: { headline: { amount: 800, currency: 'JPY' } },
       });
       expect(await db.query.cardPrice.findFirst({ where: { pricingSource: 'scrydex_real' } })).toMatchObject({
         raw: providerCard,
       });
-      const second = await realApp.request(LIST_CARDS_ROUTE_PATH, { headers: authenticatedHeaders });
+      const second = await requestOwnedPrices(realApp, authenticatedHeaders, [created.id]);
       expect(second.status).toBe(200);
-      expect(CardsListResponseSchema.parse(await second.json())).toEqual(body);
+      expect(OwnedCardPricesSchema.parse(await second.json())).toEqual(body);
       expect(calls).toBe(1);
     },
   );
@@ -69,7 +69,7 @@ describe('Scrydex owned-card pricing', () => {
 
       const realApp = createApp({ pricingClient: new UnexpectedPricingClient() });
       const { headers, requestId } = withRequestId(authenticatedHeaders);
-      const response = await realApp.request(LIST_CARDS_ROUTE_PATH, { headers });
+      const response = await requestOwnedPrices(realApp, headers, [created.id]);
       expect(response.status).toBe(500);
       expect(getLogsForRequestId(requestId)).toEqual(
         expect.arrayContaining([
@@ -146,12 +146,15 @@ describe('Scrydex owned-card pricing', () => {
 
         const realApp = createApp({ pricingClient });
         const { headers, requestId } = withRequestId(authenticatedHeaders);
-        const response = await realApp.request(LIST_CARDS_ROUTE_PATH, { headers });
+        const response = await requestOwnedPrices(realApp, headers, [failed.id, successful.id]);
         expect(response.status).toBe(200);
-        const body = CardsListResponseSchema.parse(await response.json());
-        expect(body.cards.map(value => value.id)).toEqual([successful.id, failed.id]);
-        expect(body.cards[0]?.price.status).toBe('priced');
-        expect(body.cards[1]?.price).toEqual({ card_id: failed.id, status: 'unavailable' });
+        const body = OwnedCardPricesSchema.parse(await response.json());
+        expect(new Set(body.prices.map(value => value.id))).toEqual(new Set([successful.id, failed.id]));
+        expect(body.prices.find(value => value.id === successful.id)?.price.status).toBe('priced');
+        expect(body.prices.find(value => value.id === failed.id)?.price).toEqual({
+          card_id: failed.id,
+          status: 'unavailable',
+        });
         expect(await db.query.cardPrice.findMany({ where: { pricingSource: 'scrydex_real' } })).toHaveLength(1);
         const logs = getLogsForRequestId(requestId);
         expect(logs).toEqual(

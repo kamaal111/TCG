@@ -2,10 +2,10 @@ import assert from 'node:assert/strict';
 
 import { eq } from 'drizzle-orm';
 
-import { createCardRequest, validCardPayload, createTestCard } from './utils.ts';
+import { createCardRequest, validCardPayload, createTestCard, requestOwnedPrices } from './utils.ts';
 import { cardConditionQuantity, cardPurchaseBatch } from '../../db/schema/cards.ts';
 import { integrationTest } from '../../tests/fixtures.ts';
-import { CardWithPriceSchema, CardsListResponseSchema } from '../schemas/responses.ts';
+import { CardWithPriceSchema, OwnedCardPricesSchema } from '../schemas/responses.ts';
 
 const payload = {
   ...validCardPayload,
@@ -90,9 +90,9 @@ describe('Purchase batches integration', () => {
         .update(cardPurchaseBatch)
         .set({ purchasePrice: null, currency: null })
         .where(eq(cardPurchaseBatch.id, batch.id));
-      const firstResponse = await app.request('/app-api/cards', { headers: authenticatedHeaders });
+      const firstResponse = await requestOwnedPrices(app, authenticatedHeaders, [created.id]);
       expect(firstResponse.status).toBe(200);
-      const first = CardsListResponseSchema.parse(await firstResponse.json()).cards[0];
+      const first = OwnedCardPricesSchema.parse(await firstResponse.json()).prices[0];
       assert(first != null);
       const market = first.price.priced_card?.market;
       assert(market?.market != null);
@@ -107,9 +107,9 @@ describe('Purchase batches integration', () => {
         ]),
       );
       const persisted = await db.select().from(cardPurchaseBatch).where(eq(cardPurchaseBatch.cardId, created.id));
-      const secondResponse = await app.request('/app-api/cards', { headers: authenticatedHeaders });
+      const secondResponse = await requestOwnedPrices(app, authenticatedHeaders, [created.id]);
       expect(secondResponse.status).toBe(200);
-      expect(CardsListResponseSchema.parse(await secondResponse.json()).cards[0]).toEqual(first);
+      expect(OwnedCardPricesSchema.parse(await secondResponse.json()).prices[0]).toEqual(first);
       expect(await db.select().from(cardPurchaseBatch).where(eq(cardPurchaseBatch.cardId, created.id))).toEqual(
         persisted,
       );

@@ -50,6 +50,43 @@ struct PreviewTCGCardsClient: TCGCardsClient {
         }
     }
 
+    func details(id: UUID) async -> Result<CardWithPrice, OwnedCardReadError> {
+        if case .serverUnavailable = outcome { return .failure(.unavailable) }
+
+        return state.cards.withLock { cards in
+            guard let card = cards.first(where: { $0.id == id }) else { return .failure(.notFound) }
+
+            return .success(pricedEntry(for: card))
+        }
+    }
+
+    func prices(ids: [UUID]) async -> Result<[OwnedCardPriceUpdate], OwnedCardReadError> {
+        if case .serverUnavailable = outcome { return .failure(.unavailable) }
+
+        let requested = Set(ids)
+        let cards = state.cards.withLock { $0.filter { requested.contains($0.id) } }
+        return .success(
+            cards.map { card in
+                .init(
+                    updatedAt: card.updatedAt,
+                    price: pricedEntry(for: card).price,
+                    displayCurrency: card.displayCurrency,
+                    illustrator: card.illustrator,
+                    purchasePriceChangePercent: card.purchasePriceChangePercent,
+                    purchases: card.purchases
+                )
+            }
+        )
+    }
+
+    private func pricedEntry(for card: Card) -> CardWithPrice {
+        if case .successWithPrices(let entries) = outcome, let existing = entries.find(by: \.card, is: card) {
+            return existing
+        }
+
+        return CardWithPrice(card: card, price: Self.price(for: card))
+    }
+
     func exportCards() async -> Result<[Card], CardBackupErrors> {
         if case .serverUnavailable = outcome { return .failure(.unknown(status: 503)) }
         return .success(state.cards.withLock { $0 })
@@ -127,13 +164,7 @@ struct PreviewTCGCardsClient: TCGCardsClient {
                 let selected = query.collectionID == PreviewTCGCollectionsClient.unfiledID ? nil : query.collectionID
                 guard query.collectionID == nil || card.collectionID == selected else { return nil }
 
-                if case .successWithPrices(let pricedCards) = outcome,
-                    let existing = pricedCards.find(by: \.card, is: card)
-                {
-                    return existing
-                }
-
-                return CardWithPrice(card: card, price: Self.price(for: card))
+                return pricedEntry(for: card)
             }
         }
         let matchingCards = cards.filter { entry in

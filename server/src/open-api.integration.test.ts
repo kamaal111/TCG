@@ -107,6 +107,7 @@ describe('OpenAPI specification integration', () => {
       '/app-api/cards/offline/manifest',
       '/app-api/cards/offline/records',
       '/app-api/cards/offline/prepare',
+      '/app-api/cards/prices',
       '/app-api/collections/import-preview',
       '/app-api/collections',
       '/app-api/collections/export',

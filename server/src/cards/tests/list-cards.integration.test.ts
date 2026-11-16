@@ -112,7 +112,6 @@ describe('List cards integration', () => {
           currency: null,
         })),
       ).toEqual([{ condition: 'mint', quantity: 1, purchase_price: null, currency: null }]);
-      expect(body.cards.map(card => card.price.card_id)).toEqual([second.id, first.id]);
       expect(getLogsForRequestId(requestId)).toEqual(
         expect.arrayContaining([expect.objectContaining({ event: 'cards.list', result_count: 2 })]),
       );
@@ -136,7 +135,6 @@ describe('List cards integration', () => {
     expect(response.status).toBe(CONTENTFUL_STATUS_CODES.OK);
     const body = CardsListResponseSchema.parse(await response.json());
     expect(body.cards.map(card => card.id)).toEqual([onePiece.id]);
-    expect(body.cards[0]?.price.card_id).toBe(onePiece.id);
   });
 
   integrationTest(
@@ -163,7 +161,6 @@ describe('List cards integration', () => {
       expect(response.status).toBe(CONTENTFUL_STATUS_CODES.OK);
       const body = CardsListResponseSchema.parse(await response.json());
       expect(body.cards.map(card => card.id)).toEqual([second.id, first.id]);
-      expect(body.cards.map(card => card.price.card_id)).toEqual([second.id, first.id]);
       expect(
         body.cards.map(card => {
           return card.purchases.map(({ condition, quantity }) => ({
@@ -271,7 +268,7 @@ describe('List cards integration', () => {
   }
 
   integrationTest(
-    'returns cards with unavailable pricing when a pricing lock times out',
+    'returns card details while the pricing lock is held',
     async ({ app, connectionString, db, user, authenticatedHeaders }) => {
       const created = await createTestCard(app, user.sessionToken);
       const pricingCardId = 'one-piece-pricing-lock-test';
@@ -290,9 +287,7 @@ describe('List cards integration', () => {
         const body = CardsListResponseSchema.parse(await response.json());
 
         expect(response.status).toBe(CONTENTFUL_STATUS_CODES.OK);
-        expect(body.cards).toEqual([
-          expect.objectContaining({ id: created.id, price: { card_id: created.id, status: 'unavailable' } }),
-        ]);
+        expect(body.cards).toEqual([expect.objectContaining({ id: created.id })]);
       } finally {
         await lockHolder.query('rollback');
         await lockHolder.end();

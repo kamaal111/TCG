@@ -20,10 +20,10 @@ struct CardRow: View {
     var body: some View {
         HStack(alignment: .top) {
             Button(action: exploreImage) {
-                CardImageView(url: cardWithPrice.price.price?.imageURL)
+                CardImageView(url: cardWithPrice.imageURL)
             }
             .buttonStyle(.plain)
-            .disabled(cardWithPrice.price.price?.imageURL == nil)
+            .disabled(cardWithPrice.imageURL == nil)
             .accessibilityLabel(Text("Explore image of \(cardWithPrice.card.name)", bundle: .module))
             Button(action: showDetails) {
                 details

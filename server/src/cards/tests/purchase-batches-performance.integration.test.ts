@@ -1,6 +1,6 @@
 import { drizzle } from 'drizzle-orm/node-postgres';
 
-import { createCardRequest } from './utils.ts';
+import { createCardRequest, requestOwnedPrices } from './utils.ts';
 import { StaticScrydexClient } from '../../card-pricing/scrydex/static-client.ts';
 import { cardPurchaseBatch } from '../../db/schema/cards.ts';
 import { appRelations } from '../../db/schema/index.ts';
@@ -37,7 +37,11 @@ integrationTest(
     expect(lookup).not.toHaveBeenCalled();
     await db.update(cardPurchaseBatch).set({ purchasePrice: null, currency: null, automaticPriceDate: null });
     queries.length = 0;
-    const refreshed = await observed.request('/app-api/cards', { headers: authenticatedHeaders });
+
+    const refreshed = await requestOwnedPrices(observed, authenticatedHeaders, [
+      ...new Set(recorded.map(batch => batch.cardId)),
+    ]);
+
     expect(refreshed.status).toBe(200);
     expect(queries.filter(query => query.includes('card_purchase_batch'))).toHaveLength(2);
     expect(queries.filter(query => query.includes('update "card_purchase_batch"'))).toHaveLength(1);

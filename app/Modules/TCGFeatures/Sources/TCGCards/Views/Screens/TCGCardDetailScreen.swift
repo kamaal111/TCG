@@ -7,6 +7,8 @@ import TCGDesignSystem
 struct TCGCardDetailScreen: View {
     @Environment(\.isEditingCollection) private var isEditingCollection
     @Environment(TCGCards.self) private var cards
+    @Environment(\.tcgCollections) private var collections
+    @Environment(\.scenePhase) private var scenePhase
     @Environment(\.dismiss) private var dismiss
     @Environment(\.tcgCurrency) private var currencyState
     @Environment(\.tcgPricePrivacy) private var pricePrivacy
@@ -41,28 +43,21 @@ struct TCGCardDetailScreen: View {
             Divider()
             if canEditCard, let editor = model.editor {
                 editorContent(editor)
-            } else if let displayedCard {
+            } else {
                 CardDetailContent(metadata: .init(ownedCard: displayedCard), price: displayedCard.price.price) {
                     collectionDetails(displayedCard)
                 }
-            } else if cards.isLoading {
-                ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else {
-                VStack(spacing: 12) {
-                    Text("Couldn’t load price", bundle: .module)
-                    Button {
-                        Task { await cards.refresh() }
-                    } label: {
-                        Text("Try again", bundle: .module)
-                    }
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
         .background(.background)
+        .task(id: DetailRefreshIdentity(active: scenePhase == .active, currency: currencyState?.displayIdentity)) {
+            if scenePhase == .active, !cards.isReadOnly { await refreshDetails() }
+        }
         .onChange(of: cards.cards) { _, updated in
-            if let card = updated.first(where: { $0.card.id == model.card.card.id }) {
-                model.replaceDisplay(with: card)
+            if let card = updated.first(where: { $0.card.id == model.card.card.id }),
+                card.card.updatedAt >= model.card.card.updatedAt
+            {
+                model.replaceDisplay(with: cards.keepingPrice(for: card, cached: displayedCard))
             }
         }
         .disabled(model.editor?.isSubmitting == true)
@@ -105,11 +100,40 @@ struct TCGCardDetailScreen: View {
         }
     }
 
-    private var displayedCard: CardWithPrice? {
-        guard pricePrivacy?.hidePrices != true else { return model.card }
-        guard let currencyState else { return model.card }
-        return cards.cards.first {
-            $0.card.id == model.card.card.id && $0.card.displayCurrency == currencyState.preferredCurrency
+    private struct DetailRefreshIdentity: Equatable {
+        let active: Bool
+        let currency: TCGCurrency.DisplayIdentity?
+    }
+
+    private var displayedCard: CardWithPrice {
+        cards.compatibleDisplay(model.card)
+    }
+
+    private func refreshDetails() async {
+        let original = model.card
+        switch await cards.validateCard(original) {
+        case .success(let current):
+            guard !Task.isCancelled, model.card.card.updatedAt <= current.card.updatedAt else { return }
+
+            model.replaceDisplay(with: cards.keepingPrice(for: current, cached: displayedCard))
+            let refreshed = await cards.refreshedPrices(for: [model.card])
+            guard !Task.isCancelled, let priced = refreshed.first,
+                model.card.card.updatedAt == priced.card.updatedAt
+            else { return }
+
+            model.replaceDisplay(with: priced)
+        case .failure(.notFound):
+            guard !Task.isCancelled else { return }
+
+            dismiss()
+            Task {
+                if let collections {
+                    await collections.refresh(using: cards)
+                } else {
+                    await cards.refresh()
+                }
+            }
+        case .failure: break
         }
     }
 

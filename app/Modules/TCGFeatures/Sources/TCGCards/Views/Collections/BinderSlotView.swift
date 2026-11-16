@@ -72,10 +72,10 @@ struct BinderSlotView: View {
                 if let slot = content.slot {
                     if let card = content.card {
                         CardImageView(
-                            url: card.price.price?.imageURL,
+                            url: card.imageURL,
                             size: CGSize(width: content.width, height: height)
                         )
-                        if card.price.price?.imageURL == nil {
+                        if card.imageURL == nil {
                             Text(verbatim: card.card.name).font(.caption).padding(Metrics.badgePadding)
                         }
                     } else {

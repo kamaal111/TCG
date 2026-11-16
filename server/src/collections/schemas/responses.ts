@@ -8,7 +8,7 @@ import {
 } from './examples.ts';
 import { LayoutSchema, RevisionSchema } from './fields.ts';
 import { ImportCardSchema } from '../../cards/schemas/payloads.ts';
-import { CardWithPriceSchema } from '../../cards/schemas/responses.ts';
+import { OwnedCardDetailsSchema } from '../../cards/schemas/responses.ts';
 import { ApiCountSchema, UuidSchema } from '../../schemas/common.ts';
 import { COLLECTION_BACKUP_VERSION, MAX_COLLECTION_NAME_LENGTH } from '../constants.ts';
 
@@ -160,10 +160,10 @@ export const DeleteCollectionResponseSchema = z.object({ deleted: z.boolean() })
   example: { deleted: true },
 });
 
-export const BinderPageCardsSchema = z.object({ cards: z.array(CardWithPriceSchema) }).meta({
+export const BinderPageCardsSchema = z.object({ cards: z.array(OwnedCardDetailsSchema) }).meta({
   $id: 'BinderPageCards',
   title: 'Binder Page Cards',
   description:
-    'Distinct owned cards placed on the requested page, with current pricing; empty pages return an empty array',
+    'Distinct owned cards placed on the requested page, with stored card details; empty pages return an empty array',
   example: { cards: [] },
 });

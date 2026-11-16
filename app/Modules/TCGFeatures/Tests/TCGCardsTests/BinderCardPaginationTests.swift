@@ -124,7 +124,7 @@ struct BinderCardPaginationTests {
             allocationAdjustments: nil,
             illustrator: source.illustrator
         )
-        return CardWithPrice(card: card, price: OwnedCardPrice(cardId: card.id, status: .unavailable))
+        return CardWithPrice(card: card, price: OwnedCardPrice(cardId: card.id, status: .pending))
     }
 
     private func makeContext() async throws -> Context {

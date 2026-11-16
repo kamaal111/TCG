@@ -38,14 +38,22 @@ struct TCGAppTabs: View {
         .tcgSearch(search)
         .kamaalAuth(auth)
         .task { await currencyState.trackSession(auth) }
-        .task { await collections.trackSession(auth, cards: cards) }
+        .task { await collections.trackSession(auth, cards: cards, offlineSeed: offline.cachedCollection) }
         .onDisappear { collections.stopLiveLoading(using: cards) }
         .task(id: DisplayRefreshIdentity(display: currencyState.displayIdentity, isLoggedIn: auth.isLoggedIn)) {
             await refreshDisplayPrices()
         }
         .task(id: scenePhase) {
-            if scenePhase == .active, auth.isLoggedIn { await currencyState.refresh() }
+            await refreshOnForeground()
         }
+    }
+
+    private func refreshOnForeground() async {
+        guard scenePhase == .active, auth.isLoggedIn else { return }
+
+        async let currency: Void = currencyState.refresh()
+        async let collection: Void = collections.refreshOnForeground(using: cards)
+        _ = await (currency, collection)
     }
 
     private func refreshDisplayPrices() async {

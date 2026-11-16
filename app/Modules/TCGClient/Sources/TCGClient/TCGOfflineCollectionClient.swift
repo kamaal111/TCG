@@ -47,10 +47,7 @@ public struct TCGOfflineCollectionClient: Sendable {
         switch try await client.getOfflineCollectionRecords(body: .json(.init(entries: requested))) {
         case .ok(let response):
             let records = try response.body.json
-            return try OfflineCollectionRecords(
-                cards: records.cards.map { try TCGCardsClientImpl.makeCardWithPrice($0).get() },
-                collections: records.collections.map { try CollectionMapper.makeCollection($0).get() }
-            )
+            return try CollectionMapper.makeOfflineRecords(records)
         case .unauthorized:
             throw OfflineCollectionError.unauthorized
         case .conflict:

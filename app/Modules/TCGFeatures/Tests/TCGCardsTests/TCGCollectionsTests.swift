@@ -91,6 +91,21 @@ struct TCGCollectionsTests {
         #expect(cards.selectedCollection == nil)
     }
 
+    @Test func `A confirmed missing binder switches to All cards and evicts its saved page`() async throws {
+        let context = try await CollectionTestFixtures.selectedContext()
+        let binder = try #require(context.collections.selected)
+        let scope = CollectionSnapshotCache.Scope(collectionID: binder.id, pageID: CardsTestIDs.secondary)
+        context.cards.snapshot.save(context.cards.cards, for: scope)
+
+        await context.collections.collectionDisappeared(binder.id, using: context.cards)
+
+        #expect(context.collections.selectedID == nil)
+        #expect(context.cards.selectedCollection == nil)
+        #expect(context.cards.snapshot.rows(for: scope) == nil)
+        #expect(context.cards.snapshot.selected == nil)
+        #expect(!context.cards.cards.isEmpty)
+    }
+
     @Test func `Switching between Binder and List preserves pages slots quantities and gaps`() async throws {
         let context = try await CollectionTestFixtures.selectedContext()
         let cards = context.cards

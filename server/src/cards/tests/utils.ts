@@ -39,3 +39,11 @@ export async function createTestCard(
 
   return CardWithPriceSchema.parse(await response.json());
 }
+
+export function requestOwnedPrices(app: Hono<HonoEnvironment>, headers: HeadersInit, ids: readonly string[]) {
+  return app.request('/app-api/cards/prices', {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ card_ids: ids }),
+  });
+}

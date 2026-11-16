@@ -19,6 +19,66 @@ import Testing
 @MainActor
 struct TCGCardsFeatureTests {
     @Test
+    func `Restores owned cards before details and applies price updates independently`() async throws {
+        let directory = URL.temporaryDirectory.appending(path: UUID().uuidString, directoryHint: .isDirectory)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let store = CollectionSnapshotCache(root: directory)
+        let account = "cache@example.test"
+        store.useAccount(account)
+        let cached = try #require(PreviewTCGCardsClient.sampleCards.first)
+        store.save([CardWithPrice(card: cached, price: .init(cardId: cached.id, status: .noPrice))], for: .allCards)
+
+        let transport = PendingCollectionTransport(holdPrices: true)
+        let feature = makePendingFeature(transport, snapshot: CollectionSnapshotCache(root: directory))
+        feature.useAccount(account)
+        let load = Task { await feature.load(game: nil, setNames: [], query: nil, illustrators: []) }
+        await transport.waitForRequest("/app-api/cards")
+        #expect(feature.cards.map(\.card.id) == [cached.id])
+
+        await transport.completePage("/app-api/cards", id: CardsTestIDs.cachedPokemon, cursor: nil)
+        try await load.value.get()
+        await transport.waitForRequest("/app-api/cards/prices")
+        #expect(feature.cards.map(\.card.id) == [CardsTestIDs.cachedPokemon])
+        #expect(feature.isLoadingPrices)
+        await transport.completePrice(id: CardsTestIDs.cachedPokemon)
+        let deadline = ContinuousClock.now.advanced(by: .seconds(5))
+        while feature.isLoadingPrices, ContinuousClock.now < deadline { await Task.yield() }
+        #expect(!feature.isLoadingPrices)
+        #expect(feature.cards.first?.price.status == .noPrice)
+        #expect(feature.cards.first?.card.name == "Pikachu")
+
+        feature.useAccount("other@example.test")
+        #expect(feature.cards.isEmpty)
+        #expect(feature.snapshot.rows(for: .allCards) == nil)
+        feature.useAccount(account)
+        #expect(feature.snapshot.rows(for: .allCards)?.first?.price.status == .noPrice)
+    }
+
+    @Test
+    func `Only a confirmed deletion evicts a cached detail`() async throws {
+        let transport = PendingCollectionTransport()
+        let feature = makePendingFeature(transport)
+        let sample = try #require(PreviewTCGCardsClient.sampleCards.first)
+        let cached = CardWithPrice(card: sample, price: .init(cardId: sample.id, status: .noPrice))
+        let path = "/app-api/cards/\(sample.id.uuidString.lowercased())"
+        feature.snapshot.save([cached], for: .allCards)
+        feature.restoreCollection(nil)
+
+        let unavailable = Task { await feature.validateCard(cached) }
+        await transport.waitForRequest(path)
+        await transport.complete(path, status: .serviceUnavailable)
+        #expect(await unavailable.value == .failure(.unavailable))
+        #expect(feature.cards == [cached])
+
+        let deleted = Task { await feature.validateCard(cached) }
+        await transport.waitForRequest(path)
+        await transport.completeCardNotFound(path)
+        #expect(await deleted.value == .failure(.notFound))
+        #expect(feature.cards.isEmpty)
+        #expect(feature.snapshot.rows(for: .allCards)?.isEmpty == true)
+    }
+
+    @Test
     func `Changing currency discards a delayed collection response`() async throws {
         let transport = PendingCollectionTransport()
         let feature = makePendingFeature(transport)
@@ -65,10 +125,12 @@ struct TCGCardsFeatureTests {
         #expect(await currency.save(.eur))
         let refresh = Task { await feature.refreshDisplayPrices(for: currency.displayIdentity) }
         await transport.waitForRequest("/app-api/cards")
-        #expect(feature.cards.isEmpty)
+        #expect(feature.cards.map(\.card.id) == [CardsTestIDs.oldCurrencyCard])
+        #expect(feature.cards.allSatisfy { $0.price.price == nil })
         await transport.complete("/app-api/cards", status: .serviceUnavailable)
         await refresh.value
-        #expect(feature.cards.isEmpty)
+        #expect(feature.cards.map(\.card.id) == [CardsTestIDs.oldCurrencyCard])
+        #expect(feature.cards.allSatisfy { $0.price.price == nil })
         #expect(feature.displayRefreshError == .serverUnavailable)
     }
 
@@ -581,7 +643,7 @@ struct TCGCardsFeatureTests {
     }
 
     @Test
-    func `Refresh preserves loaded depth and publishes the replacement pages together`() async throws {
+    func `Refresh preserves loaded depth and publishes the first replacement page immediately`() async throws {
         let transport = PendingCollectionTransport()
         let feature = try await loadCards(transport, response: .paginated).get()
         let next = Task { await feature.loadNextPage() }
@@ -603,8 +665,7 @@ struct TCGCardsFeatureTests {
         await transport.waitForRequest("/app-api/cards?cursor=new-page-two")
         #expect(
             feature.cards.map(\.card.id) == [
-                CardsTestIDs.firstPageCard,
-                CardsTestIDs.secondPageCard,
+                CardsTestIDs.staleCard
             ]
         )
         await transport.completePage(
@@ -655,7 +716,7 @@ struct TCGCardsFeatureTests {
             cursor: "new-page-two"
         )
         await transport.waitForRequest("/app-api/cards?cursor=new-page-two")
-        #expect(feature.cards.map(\.card.id) == [CardsTestIDs.loadedCard])
+        #expect(feature.cards.map(\.card.id) == [CardsTestIDs.updatedCard])
         await transport.completePage(
             "/app-api/cards?cursor=new-page-two",
             id: CardsTestIDs.updatedCard,
@@ -711,7 +772,10 @@ struct TCGCardsFeatureTests {
         return await initial.value.map { feature }
     }
 
-    private func makePendingFeature(_ transport: PendingCollectionTransport) -> TCGCards {
+    private func makePendingFeature(
+        _ transport: PendingCollectionTransport,
+        snapshot: CollectionSnapshotCache = CollectionSnapshotCache()
+    ) -> TCGCards {
         let credentials = Credentials(
             authToken: "auth-token",
             authTokenExpiryDate: .distantFuture,
@@ -724,17 +788,23 @@ struct TCGCardsFeatureTests {
                 transport: transport,
                 credentialsKeychainKey: "collection-load-tests",
                 credentialsStore: InMemoryCredentialsStore(seed: try? JSONEncoder().encode(credentials))
-            )
+            ),
+            snapshot: snapshot
         )
     }
 }
 
 private actor PendingCollectionTransport: ClientTransport {
+    private let holdPrices: Bool
     private(set) var requestCount = 0
     private(set) var deletionIDs: [[UUID]] = []
     private var pending: [String: [CheckedContinuation<(HTTPResponse, HTTPBody?), Never>]] = [:]
     private var pendingCountWaiters: [String: (Int, CheckedContinuation<Void, Never>)] = [:]
     private var waiters: [String: CheckedContinuation<Void, Never>] = [:]
+
+    init(holdPrices: Bool = false) {
+        self.holdPrices = holdPrices
+    }
 
     func send(
         _ request: HTTPRequest,
@@ -743,6 +813,9 @@ private actor PendingCollectionTransport: ClientTransport {
         operationID _: String
     ) async throws -> (HTTPResponse, HTTPBody?) {
         guard let path = request.path else { preconditionFailure("Collection requests require a path.") }
+        if path == "/app-api/cards/prices", !holdPrices {
+            return (HTTPResponse(status: .ok), HTTPBody("{\"prices\":[]}"))
+        }
         requestCount += 1
         if request.method == .delete {
             guard let body else { preconditionFailure("Deletion requests require a body.") }
@@ -789,6 +862,24 @@ private actor PendingCollectionTransport: ClientTransport {
     func complete(_ path: String, status: HTTPResponse.Status) {
         let continuation = takeRequest(path)
         continuation.resume(returning: (HTTPResponse(status: status), HTTPBody("{}")))
+    }
+
+    func completeCardNotFound(_ path: String) {
+        let body = """
+            {"message":"Card not found","code":"CARD_NOT_FOUND"}
+            """
+        takeRequest(path).resume(returning: (HTTPResponse(status: .notFound), HTTPBody(body)))
+    }
+
+    func completePrice(id: UUID) {
+        let body = """
+            {"prices":[{
+              "id":"\(id)","updated_at":"2026-07-20T10:30:00.000Z",
+              "purchases":[],"purchase_price_change_percent":null,
+              "price":{"card_id":"\(id)","status":"no_price"}
+            }]}
+            """
+        takeRequest("/app-api/cards/prices").resume(returning: (HTTPResponse(status: .ok), HTTPBody(body)))
     }
 
     func completePage(_ path: String, id: UUID, cursor: String?) {
