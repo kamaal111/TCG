@@ -6,6 +6,66 @@ import Testing
 @Suite("Card Image Zoom Tests")
 struct CardImageZoomTests {
     private let viewport = CGSize(width: 300, height: 500)
+    private let offCenterAnchor = UnitPoint(x: 0.25, y: 0.25)
+
+    @Test
+    func `Pinch keeps the artwork under its starting anchor`() {
+        let startingZoom = CardImageZoom()
+        let zoom = startingZoom.applying(
+            .init(magnification: 2, anchor: offCenterAnchor),
+            viewport: viewport,
+            artwork: viewport
+        )
+        #expect(zoom.scale == 2)
+        #expect(zoom.offset == CGSize(width: 75, height: 125))
+    }
+
+    @Test
+    func `Pinch accounts for the existing zoom and pan`() {
+        var zoom = CardImageZoom()
+        zoom.setScale(2, viewport: viewport, artwork: viewport)
+        zoom.pan(to: CGSize(width: 20, height: 30), viewport: viewport, artwork: viewport)
+
+        let result = zoom.applying(
+            .init(magnification: 1.5, anchor: offCenterAnchor),
+            viewport: viewport,
+            artwork: viewport
+        )
+        #expect(result.scale == 3)
+        #expect(result.offset == CGSize(width: 67.5, height: 107.5))
+    }
+
+    @Test
+    func `Pinch uses the clamped scale to preserve its anchor`() {
+        let startingZoom = CardImageZoom()
+        let zoomed = startingZoom.applying(
+            .init(magnification: 20, anchor: offCenterAnchor),
+            viewport: viewport,
+            artwork: viewport
+        )
+        #expect(zoomed.scale == 6)
+        #expect(zoomed.offset == CGSize(width: 375, height: 625))
+
+        let fitted = zoomed.applying(
+            .init(magnification: 0.1, anchor: offCenterAnchor),
+            viewport: viewport,
+            artwork: viewport
+        )
+        #expect(fitted.scale == 1)
+        #expect(fitted.offset == .zero)
+    }
+
+    @Test
+    func `Pinch and drag keep artwork centered on an axis that still fits`() {
+        let startingZoom = CardImageZoom()
+        let zoom = startingZoom.applying(
+            .init(magnification: 2, anchor: offCenterAnchor, translation: CGSize(width: 10, height: -30)),
+            viewport: CGSize(width: 900, height: 500),
+            artwork: CGSize(width: 350, height: 500)
+        )
+        #expect(zoom.scale == 2)
+        #expect(zoom.offset == CGSize(width: 0, height: 95))
+    }
 
     @Test
     func `Zoom stays between fit and six times magnification`() {

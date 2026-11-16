@@ -7,8 +7,9 @@ public struct CardImageExplorer: View {
     @State private var isLoaded = false
     @State private var viewport: CGSize = .zero
     @State private var artworkSize: CGSize = .zero
-    @GestureState private var magnification: CGFloat = 1
-    @GestureState private var translation: CGSize = .zero
+    @GestureState private var interaction: CardImageZoom.Interaction?
+
+    private typealias ArtworkGesture = SimultaneousGesture<MagnifyGesture, DragGesture>
 
     private let url: URL?
 
@@ -63,7 +64,10 @@ public struct CardImageExplorer: View {
     }
 
     private func artwork(in geometry: GeometryProxy) -> some View {
-        let current = effectiveZoom(viewport: geometry.size, artwork: artworkSize)
+        let current =
+            interaction.map {
+                zoom.applying($0, viewport: geometry.size, artwork: artworkSize)
+            } ?? zoom
         return CardArtworkView(
             url: url,
             onLoad: { isLoaded = $0 },
@@ -78,9 +82,8 @@ public struct CardImageExplorer: View {
         .frame(width: geometry.size.width, height: geometry.size.height)
         .contentShape(Rectangle())
         .clipped()
-        .gesture(magnify(viewport: geometry.size, artwork: artworkSize), including: isLoaded ? .all : .none)
-        .simultaneousGesture(
-            drag(viewport: geometry.size, artwork: artworkSize),
+        .gesture(
+            exploreArtwork(viewport: geometry.size, artwork: artworkSize),
             including: isLoaded ? .all : .none
         )
         .onTapGesture(count: 2) {
@@ -98,37 +101,22 @@ public struct CardImageExplorer: View {
         .accessibilityLabel(Text("Card image", bundle: .module))
     }
 
-    private func effectiveZoom(viewport: CGSize, artwork: CGSize) -> CardImageZoom {
-        var current = zoom
-        current.setScale(zoom.scale * magnification, viewport: viewport, artwork: artwork)
-        current.pan(
-            to: CGSize(width: zoom.offset.width + translation.width, height: zoom.offset.height + translation.height),
-            viewport: viewport,
-            artwork: artwork
-        )
-        return current
-    }
-
-    private func magnify(viewport: CGSize, artwork: CGSize) -> some Gesture {
+    private func exploreArtwork(viewport: CGSize, artwork: CGSize) -> some Gesture {
         MagnifyGesture()
-            .updating($magnification) { value, state, _ in state = value.magnification }
+            .simultaneously(with: DragGesture())
+            .updating($interaction) { value, state, _ in
+                state = Self.interaction(for: value)
+            }
             .onEnded { value in
-                zoom.setScale(zoom.scale * value.magnification, viewport: viewport, artwork: artwork)
+                zoom = zoom.applying(Self.interaction(for: value), viewport: viewport, artwork: artwork)
             }
     }
 
-    private func drag(viewport: CGSize, artwork: CGSize) -> some Gesture {
-        DragGesture()
-            .updating($translation) { value, state, _ in state = value.translation }
-            .onEnded { value in
-                zoom.pan(
-                    to: CGSize(
-                        width: zoom.offset.width + value.translation.width,
-                        height: zoom.offset.height + value.translation.height
-                    ),
-                    viewport: viewport,
-                    artwork: artwork
-                )
-            }
+    private static func interaction(for value: ArtworkGesture.Value) -> CardImageZoom.Interaction {
+        CardImageZoom.Interaction(
+            magnification: value.first?.magnification ?? 1,
+            anchor: value.first?.startAnchor ?? .center,
+            translation: value.second?.translation ?? .zero
+        )
     }
 }
