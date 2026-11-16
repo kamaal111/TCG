@@ -254,7 +254,7 @@ Use the iOS recipes rather than invoking simulator tests directly; the wrapper
 serializes shared simulator access. Automation agents must run them outside a
 filesystem sandbox. Inspect destinations with `just app-destinations` and set
 `TCG_APP_IOS_TEST_DESTINATION` when the local default is unavailable. CI uses
-`iPhone 17` on iOS 27.0 and the `xcode-27` runner.
+`iPhone 17` on iOS 27.0 and Xcode 27.2 on the `xcode-27` runner.
 
 GitHub Actions skips the local simulator lock. Its iOS snapshot step uses
 `scripts/run-ios-snapshots-ci.ts` to supervise the recipe in a separate process

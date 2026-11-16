@@ -11,12 +11,12 @@ let package = Package(
         .library(name: "TCGClient", targets: ["TCGClient"])
     ],
     dependencies: [
-        .package(url: "https://github.com/apple/swift-openapi-generator", .upToNextMajor(from: "1.14.0")),
+        .package(url: "https://github.com/apple/swift-openapi-generator", .upToNextMajor(from: "1.14.4")),
         .package(url: "https://github.com/apple/swift-http-types", .upToNextMajor(from: "1.8.0")),
-        .package(url: "https://github.com/apple/swift-openapi-runtime", .upToNextMajor(from: "1.13.0")),
-        .package(url: "https://github.com/apple/swift-openapi-urlsession", .upToNextMajor(from: "1.3.2")),
+        .package(url: "https://github.com/apple/swift-openapi-runtime", .upToNextMajor(from: "1.13.4")),
+        .package(url: "https://github.com/apple/swift-openapi-urlsession", .upToNextMajor(from: "1.4.0")),
         .package(url: "https://github.com/Kamaalio/KamaalSwift", .upToNextMajor(from: "3.5.0")),
-        .package(url: "https://github.com/Kamaalio/kamaal-auth", .upToNextMinor(from: "0.1.1")),
+        .package(url: "https://github.com/Kamaalio/kamaal-auth", .upToNextMinor(from: "0.1.2")),
         .package(path: "../TCGUtils"),
     ],
     targets: [

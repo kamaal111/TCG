@@ -24,8 +24,8 @@ configuration rather than repeating tool versions in workflow inputs.
 
 Use the latest stable, supported versions for new infrastructure tooling.
 The controller uses Python **3.14**, resolved to a patch by mise and recorded in
-`mise.lock`. Ansible 2.21 supports controller Python 3.12–3.14, so Python 3.15
-awaits a stable Ansible release that supports it. This isolated environment
+`mise.lock`. Ansible 2.22 supports Python 3.15, but the locked PyYAML
+release lacks compatible wheels. This isolated environment
 does not replace the Droplet's Debian-managed Python or the Node server runtime.
 Ansible dependency resolution enforces a 24-hour minimum release age. Refresh
 with `mise lock --bump python uv terraform pypi:ansible-core`, review the generated
