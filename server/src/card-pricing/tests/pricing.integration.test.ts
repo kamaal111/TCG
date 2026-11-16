@@ -7,7 +7,7 @@ import { Client } from 'pg';
 
 import { imageKeyForOriginURL } from '../../card-images/keys.ts';
 import { LIST_CARDS_ROUTE_PATH } from '../../cards/routes/list-cards.ts';
-import { createCardRequest } from '../../cards/tests/utils.ts';
+import { createTestCard, requestOwnedPrices, createCardRequest } from '../../cards/tests/utils.ts';
 import { cardImage } from '../../db/schema/card-images.ts';
 import { cardPrice } from '../../db/schema/card-pricing.ts';
 import { createNodeApplication } from '../../runtime/node/app.ts';
@@ -25,7 +25,7 @@ describe('Card pricing integration', () => {
   integrationTest(
     'keeps owned cards visible when the lock pool is unavailable and returns a retryable search failure',
     async ({ app, db, user, authenticatedHeaders, storageClient, getLogsForRequestId, withRequestId }) => {
-      const created = await createCardRequest(app, user.sessionToken, {
+      const created = await createTestCard(app, user.sessionToken, {
         game: 'pokemon',
         name: 'Giratina VSTAR',
         set_name: 'Crown Zenith',
@@ -33,7 +33,6 @@ describe('Card pricing integration', () => {
         purchases: [{ condition: 'near_mint', quantity: 1, purchase_price: null, currency: null }],
       });
 
-      expect(created.status).toBe(201);
       await db.delete(cardPrice);
       const composed = createNodeApplication({ db, storageClient, pricingClient: new StaticScrydexClient() });
       await composed.dependencies.persistence.close();
@@ -44,8 +43,11 @@ describe('Card pricing integration', () => {
 
         expect(listed.status).toBe(200);
         expect(await listed.json()).toMatchObject({
-          cards: [{ name: 'Giratina VSTAR', price: { status: 'unavailable' } }],
+          cards: [{ name: 'Giratina VSTAR' }],
         });
+        const priced = await requestOwnedPrices(composed.app, headers, [created.id]);
+        expect(priced.status).toBe(200);
+        expect(await priced.json()).toMatchObject({ prices: [{ id: created.id, price: { status: 'unavailable' } }] });
         expect(getLogsForRequestId(requestId)).toContainEqual(
           expect.objectContaining({
             event: 'pricing.lock.completed',
@@ -280,7 +282,7 @@ describe('Card pricing integration', () => {
 
       const realModeClient = new CountingPricingClient('scrydex_real');
       const realModeApp = createApp({ pricingClient: realModeClient });
-      const listed = await realModeApp.request(LIST_CARDS_ROUTE_PATH, { headers: authenticatedHeaders });
+      const listed = await requestOwnedPrices(realModeApp, authenticatedHeaders, [ownedCard.id]);
 
       expect(listed.status).toBe(CONTENTFUL_STATUS_CODES.OK);
       await expect(db.query.card.findFirst({ where: { id: ownedCard.id } })).resolves.toMatchObject({

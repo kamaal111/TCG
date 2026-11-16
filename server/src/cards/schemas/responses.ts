@@ -86,6 +86,29 @@ export const CardWithPriceSchema = z.intersection(CardSchema, z.object({ price: 
   },
 });
 
+export const OwnedCardDetailsSchema = z
+  .intersection(CardSchema, z.object({ artwork_url: z.url().optional() }))
+  .meta({ $id: 'OwnedCardDetails' });
+
+const OwnedCardPriceUpdateSchema = CardSchema.pick({
+  id: true,
+  updated_at: true,
+  illustrator: true,
+  display_currency: true,
+  purchase_price_change_percent: true,
+  purchases: true,
+})
+  .extend({ price: OwnedCardPriceSchema })
+  .meta({ $id: 'OwnedCardPriceUpdate' });
+
+export const OwnedCardPricesSchema = z
+  .object({
+    prices: z.array(OwnedCardPriceUpdateSchema),
+  })
+  .meta({ $id: 'OwnedCardPrices' });
+
+export type OwnedCardPriceUpdate = z.infer<typeof OwnedCardPriceUpdateSchema>;
+
 const NextCardsCursorSchema = z.string().nullable().meta({
   description: 'Opaque cursor for the next page; null when this is the final page',
   example: null,
@@ -93,7 +116,7 @@ const NextCardsCursorSchema = z.string().nullable().meta({
 
 export const CardsListResponseSchema = z
   .object({
-    cards: z.array(CardWithPriceSchema).meta({ description: 'Owned card entries with daily pricing, newest first' }),
+    cards: z.array(OwnedCardDetailsSchema).meta({ description: 'Owned card entries, newest first' }),
     next_cursor: NextCardsCursorSchema,
     available_illustrators: z.array(z.string()).meta({
       description: 'Known illustrators in the owned game/collection scope, independent of other filters and pagination',

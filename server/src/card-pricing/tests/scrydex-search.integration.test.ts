@@ -6,8 +6,8 @@ import { eq } from 'drizzle-orm';
 import { createTestScrydexClient } from './utils.ts';
 import { proxyURLForOriginURL } from '../../card-images/keys.ts';
 import { LIST_CARDS_ROUTE_PATH } from '../../cards/routes/list-cards.ts';
-import { CardsListResponseSchema, CardWithPriceSchema } from '../../cards/schemas/responses.ts';
-import { createCardRequest, createTestCard } from '../../cards/tests/utils.ts';
+import { CardsListResponseSchema, CardWithPriceSchema, OwnedCardPricesSchema } from '../../cards/schemas/responses.ts';
+import { createCardRequest, createTestCard, requestOwnedPrices } from '../../cards/tests/utils.ts';
 import { cardPrice, cardPriceSearch } from '../../db/schema/card-pricing.ts';
 import { card } from '../../db/schema/cards.ts';
 import type App from '../../runtime/node/app.ts';
@@ -199,9 +199,9 @@ describe('Scrydex search through the authenticated pricing API', () => {
       // Age the cached rows to exercise the next day's lookup while keeping the selected UUID valid.
       await db.update(cardPrice).set({ pricedOn: '2025-01-01' }).where(eq(cardPrice.pricedOn, todayUTC()));
       variants = [foil, { ...alternate, prices: [{ condition: 'NM', type: 'raw', currency: 'USD', market: 230 }] }];
-      const refreshed = await app.request(LIST_CARDS_ROUTE_PATH, { headers: authenticatedHeaders });
+      const refreshed = await requestOwnedPrices(app, authenticatedHeaders, [saved.id, defaultCard.id]);
       expect(refreshed.status).toBe(200);
-      const entries = CardsListResponseSchema.parse(await refreshed.json()).cards;
+      const entries = OwnedCardPricesSchema.parse(await refreshed.json()).prices;
       expect(entries.find(entry => entry.id === saved.id)?.price.priced_card).toMatchObject({
         variant_name: 'altArt',
         image_url: alt.image_url,
@@ -211,10 +211,10 @@ describe('Scrydex search through the authenticated pricing API', () => {
 
       variants = [foil];
       await db.delete(cardPrice).where(eq(cardPrice.pricedOn, todayUTC()));
-      const missing = await app.request(LIST_CARDS_ROUTE_PATH, { headers: authenticatedHeaders });
+      const missing = await requestOwnedPrices(app, authenticatedHeaders, [saved.id, defaultCard.id]);
       expect(missing.status).toBe(200);
       expect(
-        CardsListResponseSchema.parse(await missing.json()).cards.find(entry => entry.id === saved.id)?.price,
+        OwnedCardPricesSchema.parse(await missing.json()).prices.find(entry => entry.id === saved.id)?.price,
       ).toMatchObject({ status: 'no_match' });
     },
   );
@@ -313,7 +313,7 @@ describe('Scrydex search through the authenticated pricing API', () => {
       const headers = sessionHeaders(user.sessionToken);
       const list = await search.app.request(LIST_CARDS_ROUTE_PATH, { headers });
       expect(CardsListResponseSchema.parse(await list.json()).cards).toMatchObject([
-        { id: saved.id, price: saved.price },
+        { id: saved.id, artwork_url: saved.price.priced_card?.image_url },
       ]);
       expect(search.transport.queries).toEqual(['!printed_number:"259/193"']);
 
@@ -358,8 +358,8 @@ describe('Scrydex search through the authenticated pricing API', () => {
 
     const results = PricingSearchResponseSchema.parse(await (await search.request('259/193')).json());
     expect(results.matches).toHaveLength(1);
-    const list = await search.app.request(LIST_CARDS_ROUTE_PATH, { headers: sessionHeaders(user.sessionToken) });
-    expect(CardsListResponseSchema.parse(await list.json()).cards).toMatchObject([
+    const list = await requestOwnedPrices(search.app, sessionHeaders(user.sessionToken), [saved.id]);
+    expect(OwnedCardPricesSchema.parse(await list.json()).prices).toMatchObject([
       { id: saved.id, price: { status: 'no_price', priced_card: { image_url: results.matches[0]?.image_url } } },
     ]);
     expect(await db.query.card.findFirst({ where: { id: saved.id } })).toMatchObject({ pricingCardId: CHI_YU.id });
@@ -418,7 +418,7 @@ describe('Scrydex search through the authenticated pricing API', () => {
         expect(listed.status).toBe(200);
         const collection = CardsListResponseSchema.parse(await listed.json());
         expect(collection.cards).toHaveLength(1);
-        expect(collection.cards[0]).toMatchObject({ id: saved.id, price: saved.price });
+        expect(collection.cards[0]).toMatchObject({ id: saved.id, artwork_url: saved.price.priced_card?.image_url });
 
         const repeated = await search.app.request(LIST_CARDS_ROUTE_PATH, {
           headers: sessionHeaders(search.user.sessionToken),
@@ -435,13 +435,19 @@ describe('Scrydex search through the authenticated pricing API', () => {
       async ({ createApp, user, db }) => {
         const expectedQuery = `name:"${providerCard.name}" AND !printed_number:"${providerCard.printed_number}"`;
         const search = createSearchApp({ createApp, user, expectedQuery, cards: [providerCard] });
-        await db.insert(card).values({
-          userId: search.user.userId,
-          game: 'pokemon',
-          name: providerCard.name,
-          setName: providerCard.expansion.name,
-          cardNumber: providerCard.printed_number,
-        });
+
+        const [owned] = await db
+          .insert(card)
+          .values({
+            userId: search.user.userId,
+            game: 'pokemon',
+            name: providerCard.name,
+            setName: providerCard.expansion.name,
+            cardNumber: providerCard.printed_number,
+          })
+          .returning({ id: card.id });
+
+        assert(owned != null);
         await db.insert(cardPriceSearch).values({
           game: 'pokemon',
           pricingSource: 'scrydex_real',
@@ -450,14 +456,12 @@ describe('Scrydex search through the authenticated pricing API', () => {
           pricingCardIds: [],
         });
 
-        const response = await search.app.request(LIST_CARDS_ROUTE_PATH, {
-          headers: sessionHeaders(search.user.sessionToken),
-        });
+        const response = await requestOwnedPrices(search.app, sessionHeaders(search.user.sessionToken), [owned.id]);
 
         expect(response.status).toBe(200);
-        expect(CardsListResponseSchema.parse(await response.json()).cards).toMatchObject([
+        expect(OwnedCardPricesSchema.parse(await response.json()).prices).toMatchObject([
           {
-            card_number: providerCard.printed_number,
+            id: owned.id,
             price: {
               status,
               priced_card: {

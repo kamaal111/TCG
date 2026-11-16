@@ -6,11 +6,13 @@ import { allowedModes } from '../modes.ts';
 import createCardRoute from './routes/create-card.ts';
 import deleteCardRoute from './routes/delete-card.ts';
 import exportCardsRoute from './routes/export-cards.ts';
+import getCardRoute from './routes/get-card.ts';
 import getOfflineManifestRoute from './routes/get-offline-manifest.ts';
 import getOfflineRecordsRoute from './routes/get-offline-records.ts';
 import importCardsRoute from './routes/import-cards.ts';
 import listCardsRoute from './routes/list-cards.ts';
 import prepareOfflineCardsRoute from './routes/prepare-offline-cards.ts';
+import priceCardsRoute from './routes/price-cards.ts';
 import updateCardRoute from './routes/update-card.ts';
 
 const cardsRoute = openAPIRouterFactory<HonoEnvironment>();
@@ -27,6 +29,8 @@ cardsRoute.openapiRoutes([
   getOfflineManifestRoute,
   getOfflineRecordsRoute,
   prepareOfflineCardsRoute,
+  priceCardsRoute,
+  getCardRoute,
 ]);
 
 export default cardsRoute;

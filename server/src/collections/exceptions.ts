@@ -22,6 +22,12 @@ export class BinderFull extends InvalidValidation {
   }
 }
 
+export class BinderPageNotFound extends NotFound {
+  constructor() {
+    super(undefined, { code: 'BINDER_PAGE_NOT_FOUND', message: 'Binder page not found' });
+  }
+}
+
 export class CollectionNotFound extends NotFound {
   constructor() {
     super(undefined, { code: 'COLLECTION_NOT_FOUND', message: 'Collection not found' });

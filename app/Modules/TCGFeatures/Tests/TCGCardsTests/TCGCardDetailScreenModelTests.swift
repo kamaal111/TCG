@@ -148,12 +148,27 @@ struct TCGCardDetailScreenModelTests {
     }
 
     @Test
+    func `Owned artwork takes precedence and legacy downloads recover their image URL`() throws {
+        let original = makeModel().card
+        let previousURL = try #require(original.imageURL)
+        let currentURL = try #require(URL(string: "https://example.com/current-card.png"))
+        let current = CardWithPrice(card: original.card, price: original.price, imageURL: currentURL)
+        let data = try JSONEncoder().encode(current)
+        var legacy = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        legacy.removeValue(forKey: "artworkURL")
+        let legacyData = try JSONSerialization.data(withJSONObject: legacy)
+
+        #expect(try JSONDecoder().decode(CardWithPrice.self, from: data).imageURL == currentURL)
+        #expect(try JSONDecoder().decode(CardWithPrice.self, from: legacyData).imageURL == previousURL)
+    }
+
+    @Test
     func `Image exploration preserves collection details`() throws {
         let model = TCGCardsListScreenModel(preferences: nil)
         let card = makeModel().card
         model.showDetails(of: card)
         model.exploreImage(of: card)
-        #expect(model.presentedImageURL == card.price.price?.imageURL)
+        #expect(model.presentedImageURL == card.imageURL)
         model.presentedImageURL = nil
         let route = try #require(model.presentedForm)
         #expect(route.id == .detail(card.card.id))

@@ -17,7 +17,7 @@ import {
 } from './collection-transactions.ts';
 import { importMatches } from '../../cards/policies.ts';
 import type { BackupWriter } from '../../collections/backup-stream.ts';
-import { CollectionNotFound, LayoutConflict } from '../../collections/exceptions.ts';
+import { BinderPageNotFound, CollectionNotFound, LayoutConflict } from '../../collections/exceptions.ts';
 import type { CollectionRepository } from '../../collections/repository.ts';
 import type { SaveLayout, UpdateCollectionSchema } from '../../collections/schemas/payloads.ts';
 import type { Collection, CollectionBackup } from '../../collections/schemas/responses.ts';
@@ -314,7 +314,16 @@ export class PostgresCollectionRepository implements CollectionRepository {
         );
 
       if (page == null) {
-        throw new CollectionNotFound();
+        const collection = await tx.query.cardCollection.findFirst({
+          where: { id, userId: this.identity.requireUserId() },
+          columns: { id: true },
+        });
+
+        if (collection == null) {
+          throw new CollectionNotFound();
+        }
+
+        throw new BinderPageNotFound();
       }
 
       const slots = await tx
@@ -327,7 +336,7 @@ export class PostgresCollectionRepository implements CollectionRepository {
           ? []
           : await tx.query.card.findMany({
               where: { userId: this.identity.requireUserId(), id: { in: slots.map(slot => slot.cardId) } },
-              with: { purchaseBatches: true },
+              with: { purchaseBatches: true, metadata: { columns: { illustrator: true } } },
             });
 
       return { cards };

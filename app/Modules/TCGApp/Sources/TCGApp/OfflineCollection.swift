@@ -116,6 +116,15 @@ final class OfflineCollection {
         }
     }
 
+    func cachedCollection(for account: String) -> (cards: [CardWithPrice], collections: [CardBinderCollection]) {
+        let identity = "\(namespace)|\(account)"
+        guard hasFreshAuthToken(), let snapshot = try? store.read(.downloaded), snapshot.owner == identity else {
+            return ([], [])
+        }
+
+        return (snapshot.cards, snapshot.collections)
+    }
+
     func openWithFreshToken() {
         guard hasDownload, let signedInOwner, signedInOwner == owner, hasFreshAuthToken(),
             let snapshot = try? store.read(.downloaded), snapshot.owner == signedInOwner

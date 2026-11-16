@@ -7,10 +7,12 @@
 
 import SwiftUI
 import TCGClient
+import TCGCurrency
 import TCGDesignSystem
 import TCGModels
 
 public struct TCGCardsListScreen: View {
+    @Environment(\.tcgPricePrivacy) private var pricePrivacy
     @Environment(\.tcgCollections) private var collections
     @Environment(TCGCards.self) private var cardCollection
 
@@ -82,7 +84,6 @@ public struct TCGCardsListScreen: View {
     private var keyboardScopedContent: some View {
         TCGSearchKeyboardScope(query: $model.query, prompt: Text("Search cards", bundle: .module)) {
             content
-                .overlay { if cardCollection.isLoading { ProgressView() } }
                 .navigationTitle(collectionTitle)
         }
     }
@@ -113,6 +114,7 @@ public struct TCGCardsListScreen: View {
         #if os(macOS)
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 16) {
+                    if cardCollection.isLoadingPrices, pricePrivacy?.hidePrices != true { CollectionPriceStatus() }
                     gameFilterMenu
                     collectionRows
                     paginationFooter
@@ -121,10 +123,14 @@ public struct TCGCardsListScreen: View {
             }
         #else
             List {
+                if cardCollection.isLoadingPrices, pricePrivacy?.hidePrices != true {
+                    CollectionPriceStatus()
+                        .listRowSeparator(.hidden)
+                }
                 gameFilterMenu
                     .listRowSeparator(.hidden)
 
-                if cardCollection.cards.isEmpty, !cardCollection.isLoading {
+                if cardCollection.cards.isEmpty, cardCollection.hasLoadedCurrentCollection {
                     emptyCollection
                 } else {
                     cardRows
@@ -211,7 +217,7 @@ public struct TCGCardsListScreen: View {
 
     @ViewBuilder
     private var collectionRows: some View {
-        if cardCollection.cards.isEmpty, !cardCollection.isLoading {
+        if cardCollection.cards.isEmpty, cardCollection.hasLoadedCurrentCollection {
             emptyCollection
                 .frame(maxWidth: .infinity, minHeight: 480)
         } else {

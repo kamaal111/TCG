@@ -303,7 +303,7 @@ struct TCGCardsClientTests {
         #expect(request.method == .get)
         #expect(request.path == "/app-api/cards?game=pokemon")
         #expect(request.operationID == "get/app-api/cards")
-        #expect(cards == [CardWithPrice(card: expectedCard, price: expectedPrice)])
+        #expect(cards == [CardWithPrice(card: expectedCard, price: .init(cardId: expectedCard.id, status: .pending))])
     }
 
     @Test
@@ -341,7 +341,11 @@ struct TCGCardsClientTests {
 
         #expect(query.filter { $0.name == "game" }.map(\.value) == ["pokemon"])
         #expect(query.filter { $0.name == "set_name" }.map(\.value) == ["Base Set", "Special, Set & + 日本語"])
-        #expect(collection.cards == [CardWithPrice(card: expectedCard, price: expectedPrice)])
+        #expect(
+            collection.cards == [
+                CardWithPrice(card: expectedCard, price: .init(cardId: expectedCard.id, status: .pending))
+            ]
+        )
         #expect(collection.availableSetNames == ["Base Set", "Crown Zenith"])
     }
 
@@ -369,14 +373,64 @@ struct TCGCardsClientTests {
     }
 
     @Test
-    func `Maps unavailable list pricing`() async {
-        let transport = CardsRequestTransport(status: .serviceUnavailable, body: errorJSON(code: "UNAVAILABLE"))
-        await #expect(throws: ListCardsErrors.unavailable) {
+    func `Distinguishes a deleted collection from other list failures`() async {
+        let transport = CardsRequestTransport(status: .notFound, body: errorJSON(code: "COLLECTION_NOT_FOUND"))
+        await #expect(throws: ListCardsErrors.collectionNotFound) {
             try await makeClient(transport: transport).cards.listPage(
-                .init(game: nil, setNames: ["Base Set"], cursor: nil, collectionID: nil, query: nil, illustrators: [])
+                .init(
+                    game: nil,
+                    setNames: [],
+                    cursor: nil,
+                    collectionID: ClientTestIDs.responseCard,
+                    query: nil,
+                    illustrators: []
+                )
             )
             .get()
         }
+    }
+
+    @Test
+    func `Reads owned details without a market price`() async throws {
+        let transport = CardsRequestTransport(status: .ok, body: cardDetailsJSON)
+        let card = try await makeClient(transport: transport).cards.details(id: expectedCard.id).get()
+        let request = try #require(await transport.request)
+        #expect(request.method == .get)
+        #expect(request.path == "/app-api/cards/00000000-0000-4000-8000-000000000010")
+        #expect(request.operationID == "getOwnedCard")
+        #expect(card.card == expectedCard)
+        #expect(card.price.status == .pending)
+    }
+
+    @Test
+    func `Maps a confirmed missing owned card`() async {
+        let transport = CardsRequestTransport(status: .notFound, body: errorJSON(code: "CARD_NOT_FOUND"))
+        await #expect(throws: OwnedCardReadError.notFound) {
+            try await makeClient(transport: transport).cards.details(id: expectedCard.id).get()
+        }
+    }
+
+    @Test
+    func `Posts owned IDs to the generated pricing operation`() async throws {
+        let body = Data(
+            """
+            {"prices":[{
+              "id":"00000000-0000-4000-8000-000000000010","updated_at":"2026-07-20T10:30:00.000Z",
+              "purchases":[],"purchase_price_change_percent":null,
+              "price":{"card_id":"00000000-0000-4000-8000-000000000010","status":"no_price"}
+            }]}
+            """.utf8
+        )
+        let transport = CardsRequestTransport(status: .ok, body: body)
+        let prices = try await makeClient(transport: transport).cards.prices(ids: [expectedCard.id]).get()
+        let request = try #require(await transport.request)
+        let data = try #require(request.body)
+        let sent = try JSONDecoder().decode(Components.Schemas.OwnedCardPricesRequest.self, from: data)
+        #expect(request.method == .post)
+        #expect(request.path == "/app-api/cards/prices")
+        #expect(request.operationID == "getOwnedCardPrices")
+        #expect(sent.cardIds == [expectedCard.id.uuidString.lowercased()])
+        #expect(prices.map(\.price) == [expectedPrice])
     }
 
     @Test
@@ -959,10 +1013,17 @@ private let cardJSON = Data(
     }
     """.utf8
 )
+private let cardDetailsJSON = Data(
+    String(decoding: cardJSON, as: UTF8.self)
+        .replacingOccurrences(
+            of: ",\n  \"price\": {\"card_id\": \"00000000-0000-4000-8000-000000000010\", \"status\": \"no_price\"}",
+            with: ""
+        ).utf8
+)
 private let cardsListJSON = Data(
     """
     {
-      "cards": [\(String(decoding: cardJSON, as: UTF8.self))],
+      "cards": [\(String(decoding: cardDetailsJSON, as: UTF8.self))],
       "available_illustrators": [], "available_set_names": ["Base Set", "Crown Zenith"],
       "next_cursor": null
     }

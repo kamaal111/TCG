@@ -9,13 +9,14 @@ import OpenAPIRuntime
 
 public enum ListCardsErrors: Error, Equatable {
     case unauthorized
+    case collectionNotFound
     case unavailable
     case unknown(status: Int, payload: OpenAPIRuntime.UndocumentedPayload?, cause: Error?)
 
     public static func == (lhs: Self, rhs: Self) -> Bool {
         switch (lhs, rhs) {
         case (.unauthorized, .unauthorized): true
-        case (.unavailable, .unavailable): true
+        case (.collectionNotFound, .collectionNotFound), (.unavailable, .unavailable): true
         case (.unknown(let lhsStatus, _, _), .unknown(let rhsStatus, _, _)): lhsStatus == rhsStatus
         default: false
         }
@@ -78,4 +79,11 @@ public enum CardBackupErrors: Error, Equatable {
     case unauthorized
     case badRequest(validations: [TCGClientValidationIssue])
     case unknown(status: Int)
+}
+
+public enum OwnedCardReadError: Error, Equatable, Sendable {
+    case notFound
+    case unauthorized
+    case badRequest([TCGClientValidationIssue])
+    case unavailable
 }

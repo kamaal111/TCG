@@ -35,6 +35,19 @@ enum CollectionMapper {
             }
     }
 
+    static func makeBinderPage(_ page: Components.Schemas.BinderPageCards) -> Result<BinderPageCards, UUIDCodingError> {
+        CardMapper.makeOwnedDetails(page.cards).map { BinderPageCards(cards: $0) }
+    }
+
+    static func makeOfflineRecords(_ records: Components.Schemas.OfflineCollectionRecords) throws
+        -> OfflineCollectionRecords
+    {
+        try OfflineCollectionRecords(
+            cards: records.cards.map { try CardMapper.makeCardWithPrice($0).get() },
+            collections: records.collections.map { try makeCollection($0).get() }
+        )
+    }
+
     static func makeLayout(_ payload: SaveBinderLayoutPayload) -> Components.Schemas.SaveBinderLayout {
         .init(
             value1: makeGeneratedLayout(payload.collection),
@@ -66,7 +79,7 @@ enum CollectionMapper {
             guard let collectionID = card.collectionID else { return .failure(.unavailable) }
             return .success(
                 .init(
-                    value1: TCGCardsClientImpl.makeGeneratedImportCard(card),
+                    value1: CardMapper.makeGeneratedImportCard(card),
                     value2: .init(collectionId: UUIDCoding.encode(collectionID))
                 )
             )

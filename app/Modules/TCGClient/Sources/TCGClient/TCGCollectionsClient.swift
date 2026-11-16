@@ -4,6 +4,7 @@ import OpenAPIRuntime
 public enum CollectionsError: LocalizedError, Equatable, Sendable {
     case unauthorized
     case notFound
+    case collectionNotFound
     case conflict
     case validation([TCGClientValidationIssue])
     case requestTooLarge
@@ -14,7 +15,8 @@ public enum CollectionsError: LocalizedError, Equatable, Sendable {
     public var errorDescription: String? {
         switch self {
         case .unauthorized: String(localized: "Sign in again to manage your collections.", bundle: .module)
-        case .notFound: String(localized: "This collection or card is no longer available.", bundle: .module)
+        case .notFound, .collectionNotFound:
+            String(localized: "This collection or card is no longer available.", bundle: .module)
         case .conflict:
             String(
                 localized: "Your collection changed or there are not enough unplaced copies. Refresh and try again.",
@@ -156,7 +158,9 @@ struct TCGCollectionsClientImpl: TCGCollectionsClient {
         case .badRequest(let response):
             return .failure(.validation(TCGClientValidationErrorParser.parseIssues(from: try? response.body.json)))
         case .unauthorized: return .failure(.unauthorized)
-        case .notFound: return .failure(.notFound)
+        case .notFound(let response):
+            let code = (try? response.body.json)?.code
+            return .failure(code == "COLLECTION_NOT_FOUND" ? .collectionNotFound : .notFound)
         case .conflict: return .failure(.conflict)
         case .contentTooLarge: return .failure(.requestTooLarge)
         case .requestTimeout: return .failure(.timedOut)
@@ -313,8 +317,7 @@ struct TCGCollectionsClientImpl: TCGCollectionsClient {
         case .ok(let response):
             do {
                 let value = try response.body.json
-                return ResultMapping.map(value.cards, transform: TCGCardsClientImpl.makeCardWithPrice)
-                    .map { BinderPageCards(cards: $0) }
+                return CollectionMapper.makeBinderPage(value)
                     .mapError { _ in
                         RequestDiagnosticsMiddleware.mappingFailure(operation: "collections.page")
                         return .unavailable
@@ -326,7 +329,9 @@ struct TCGCollectionsClientImpl: TCGCollectionsClient {
         case .badRequest(let response):
             return .failure(.validation(TCGClientValidationErrorParser.parseIssues(from: try? response.body.json)))
         case .unauthorized: return .failure(.unauthorized)
-        case .notFound: return .failure(.notFound)
+        case .notFound(let response):
+            let code = (try? response.body.json)?.code
+            return .failure(code == "COLLECTION_NOT_FOUND" ? .collectionNotFound : .notFound)
         case .conflict: return .failure(.conflict)
         case .contentTooLarge: return .failure(.requestTooLarge)
         case .requestTimeout: return .failure(.timedOut)

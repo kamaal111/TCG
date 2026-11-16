@@ -734,16 +734,14 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Unexpected server failure
+        '404':
+          description: Collection not found
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-        '503':
-          description: >-
-            Pricing is temporarily unavailable because the upstream provider
-            failed
+        '500':
+          description: Unexpected server failure
           content:
             application/json:
               schema:
@@ -843,6 +841,48 @@ paths:
       security:
         - bearerAuth: []
       summary: Replace an owned card
+      tags:
+        - Cards
+    get:
+      operationId: getOwnedCard
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+            description: Unique card entry identifier
+            example: 550e8400-e29b-41d4-a716-446655440000
+          required: true
+          description: Unique card entry identifier
+          name: cardId
+          in: path
+      responses:
+        '200':
+          description: Owned card details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OwnedCardDetails'
+        '400':
+          description: Invalid offline collection request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '401':
+          description: Authenticated session not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Owned card not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearerAuth: []
+      summary: Get an owned card
       tags:
         - Cards
   /app-api/cards/offline/manifest:
@@ -1045,6 +1085,39 @@ paths:
       security:
         - bearerAuth: []
       summary: Resolve missing offline card details
+      tags:
+        - Cards
+  /app-api/cards/prices:
+    post:
+      operationId: getOwnedCardPrices
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OwnedCardPricesRequest'
+      responses:
+        '200':
+          description: Price results for accessible cards
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OwnedCardPrices'
+        '400':
+          description: Invalid offline collection request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '401':
+          description: Authenticated session not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearerAuth: []
+      summary: Refresh prices for owned cards
       tags:
         - Cards
   /app-api/collections/import-preview:
@@ -3045,8 +3118,8 @@ components:
         cards:
           type: array
           items:
-            $ref: '#/components/schemas/CardWithPrice'
-          description: Owned card entries with daily pricing, newest first
+            $ref: '#/components/schemas/OwnedCardDetails'
+          description: Owned card entries, newest first
         next_cursor:
           type:
             - string
@@ -3085,6 +3158,14 @@ components:
         available_set_names: []
         available_illustrators: []
         next_cursor: null
+    OwnedCardDetails:
+      allOf:
+        - $ref: '#/components/schemas/Card'
+        - type: object
+          properties:
+            artwork_url:
+              type: string
+              format: uri
     CardNotFoundErrorResponse:
       type: object
       properties:
@@ -3428,6 +3509,62 @@ components:
                 column: 1
                 card_id: 550e8400-e29b-41d4-a716-446655440000
                 quantity: 2
+    OwnedCardPrices:
+      type: object
+      properties:
+        prices:
+          type: array
+          items:
+            $ref: '#/components/schemas/OwnedCardPriceUpdate'
+      required:
+        - prices
+    OwnedCardPriceUpdate:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique card entry identifier
+          example: 550e8400-e29b-41d4-a716-446655440000
+        updated_at:
+          type: string
+          format: date-time
+          description: Last update timestamp
+          example: '2026-07-20T10:30:00.000Z'
+        illustrator:
+          type: string
+        display_currency:
+          $ref: '#/components/schemas/Currency'
+        purchase_price_change_percent:
+          type:
+            - number
+            - 'null'
+        purchases:
+          type: array
+          items:
+            $ref: '#/components/schemas/CardPurchase'
+        price:
+          $ref: '#/components/schemas/OwnedCardPrice'
+      required:
+        - id
+        - updated_at
+        - purchase_price_change_percent
+        - purchases
+        - price
+    OwnedCardPricesRequest:
+      type: object
+      properties:
+        card_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+            description: UUID identifier, normalized to lowercase
+            example: 550e8400-e29b-41d4-a716-446655440000
+          minItems: 1
+          maxItems: 100
+      required:
+        - card_ids
     CollectionBackupPreview:
       type: object
       properties:
@@ -3786,13 +3923,13 @@ components:
         cards:
           type: array
           items:
-            $ref: '#/components/schemas/CardWithPrice'
+            $ref: '#/components/schemas/OwnedCardDetails'
       required:
         - cards
       title: Binder Page Cards
       description: >-
-        Distinct owned cards placed on the requested page, with current pricing;
-        empty pages return an empty array
+        Distinct owned cards placed on the requested page, with stored card
+        details; empty pages return an empty array
       example:
         cards: []
     PricingSearchResponse:

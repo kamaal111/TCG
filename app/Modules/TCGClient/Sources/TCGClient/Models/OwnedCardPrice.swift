@@ -6,6 +6,7 @@
 import Foundation
 
 public enum OwnedCardPriceStatus: String, Codable, Hashable, Sendable {
+    case pending
     case priced
     case noMatch = "no_match"
     case noPrice = "no_price"
@@ -28,4 +29,15 @@ public struct OwnedCardPrice: Codable, Hashable, Sendable {
         case price
         case cardId = "card_id"
     }
+}
+
+public struct OwnedCardPriceUpdate: Equatable, Sendable {
+    public let updatedAt: Date
+    public let price: OwnedCardPrice
+    public let displayCurrency: Currency?
+    public let illustrator: String?
+    public let purchasePriceChangePercent: Double?
+    public let purchases: [CardPurchase]
+
+    public var cardID: UUID { price.cardId }
 }

@@ -26,7 +26,7 @@ public struct CardDetailMetadata {
         cardNumber = ownedCard.card.cardNumber
         illustrator = ownedCard.card.illustrator
         rarity = ownedCard.price.price?.rarity
-        imageURL = ownedCard.price.price?.imageURL
+        imageURL = ownedCard.imageURL
     }
 }
 

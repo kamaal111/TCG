@@ -3,7 +3,7 @@ import { type DomainLogFields, type DomainLogger, getDomainLogger, getProcessLog
 import type { HonoContext } from '../context.ts';
 import type { ForexDisplayContext } from './display.ts';
 import type { PricedCardResponse } from '../card-pricing/schemas/responses.ts';
-import type { CardWithPriceResponse } from '../cards/schemas/responses.ts';
+import type { OwnedCardPriceUpdate } from '../cards/schemas/responses.ts';
 
 export const FOREX_EVENTS = [
   'forex.collect.completed',
@@ -28,7 +28,7 @@ export const forexLogger = (c: HonoContext): DomainLogger<ForexLogFields> => get
 export function logDisplayPrices(
   c: HonoContext,
   context: ForexDisplayContext,
-  cards: readonly (PricedCardResponse | CardWithPriceResponse)[],
+  cards: readonly (PricedCardResponse | OwnedCardPriceUpdate)[],
 ) {
   let fallbackCount = 0;
 

@@ -122,7 +122,7 @@ final class TCGCardsListScreenModel {
     }
 
     func exploreImage(of card: CardWithPrice) {
-        presentedImageURL = card.price.price?.imageURL
+        presentedImageURL = card.imageURL
     }
 
     func load(using cards: TCGCards) async {

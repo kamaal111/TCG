@@ -214,16 +214,31 @@ export class PostgresCardRepository implements CardRepository {
    * @returns The card with its purchases, or undefined when absent.
    */
   async get(cardId: string): Promise<CardWithPurchases | undefined> {
-    const found = await this.db.query.card.findFirst({
-      where: { id: cardId, userId: this.userId },
-      with: { purchaseBatches: true, metadata: { columns: { illustrator: true } } },
+    const [found] = await this.getMany([cardId]);
+
+    return found;
+  }
+
+  async getMany(cardIds: string[]): Promise<CardWithPurchases[]> {
+    const cards = await this.db.query.card.findMany({
+      where: { id: { in: cardIds }, userId: this.userId },
+      with: {
+        purchaseBatches: { orderBy: { createdAt: 'asc', id: 'asc' } },
+        metadata: { columns: { illustrator: true } },
+      },
     });
 
-    if (found == null) {
-      return undefined;
-    }
+    return cards.map(({ metadata, ...owned }) => ({ ...owned, illustrator: metadata?.illustrator }));
+  }
 
-    return { ...omit(found, 'metadata'), illustrator: found.metadata?.illustrator };
+  async getArtworkOrigins(cardIds: string[]) {
+    const cards = await this.db.query.card.findMany({
+      where: { id: { in: cardIds }, userId: this.userId },
+      columns: { id: true },
+      with: { cachedPrices: { columns: { prices: true }, orderBy: { pricedOn: 'desc' }, limit: 1 } },
+    });
+
+    return cards.map(({ id, cachedPrices: [cached] }) => ({ id, origin: cached?.prices.image ?? undefined }));
   }
 
   /**

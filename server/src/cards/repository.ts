@@ -18,6 +18,8 @@ export interface CardRepository {
     },
   ): Promise<CardCollection>;
   get(cardId: string): Promise<CardWithPurchases | undefined>;
+  getMany(cardIds: string[]): Promise<CardWithPurchases[]>;
+  getArtworkOrigins(cardIds: string[]): Promise<{ id: string; origin?: string }[]>;
   create(values: UpsertCard, pricingLink?: CardPricingLink): Promise<CardWithPurchases>;
   update(cardId: string, values: UpsertCard, pricingLink?: CardPricingLink): Promise<CardWithPurchases | undefined>;
   importCards(inputs: ImportCard[]): Promise<ImportCardsResponse>;

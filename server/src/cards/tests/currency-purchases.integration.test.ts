@@ -44,7 +44,7 @@ integrationTest(
   },
 );
 
-for (const method of ['GET', 'POST', 'PUT'] as const) {
+for (const method of ['POST', 'PUT'] as const) {
   integrationTest(
     `stops ${method} card requests before pricing when stored rates are invalid`,
     async ({ app, db, pricingClient, user, authenticatedHeaders }) => {
@@ -68,7 +68,7 @@ for (const method of ['GET', 'POST', 'PUT'] as const) {
       const response = await app.request(path, {
         method,
         headers: authenticatedHeaders,
-        body: method === 'GET' ? null : JSON.stringify(validCardPayload),
+        body: JSON.stringify(validCardPayload),
       });
 
       expect(response.status).toBe(500);

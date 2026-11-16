@@ -139,3 +139,64 @@ public struct Card: Codable, Hashable, Identifiable, Sendable {
         case updatedAt = "updated_at"
     }
 }
+
+extension Card {
+    /// Applies display values and purchase backfills without replacing owned-card details.
+    public func replacingDisplay(with source: Card?) -> Card {
+        replacingDisplay(
+            purchases: source?.purchases ?? [],
+            currency: source?.displayCurrency,
+            illustrator: source?.illustrator,
+            purchasePriceChangePercent: source?.purchasePriceChangePercent
+        )
+    }
+
+    public func applyingPriceUpdate(_ update: OwnedCardPriceUpdate) -> Card {
+        replacingDisplay(
+            purchases: update.purchases,
+            currency: update.displayCurrency,
+            illustrator: update.illustrator,
+            purchasePriceChangePercent: update.purchasePriceChangePercent
+        )
+    }
+
+    private func replacingDisplay(
+        purchases displayPurchases: [CardPurchase],
+        currency: Currency?,
+        illustrator: String?,
+        purchasePriceChangePercent: Double?
+    ) -> Card {
+        let batches = Dictionary(
+            displayPurchases.compactMap { batch in batch.id.map { ($0, batch) } },
+            uniquingKeysWith: { first, _ in first }
+        )
+        return Card(
+            id: id,
+            game: game,
+            name: name,
+            setName: setName,
+            cardNumber: cardNumber,
+            notes: notes,
+            createdAt: createdAt,
+            updatedAt: updatedAt,
+            purchases: purchases.map { purchase in
+                let updated = purchase.id.flatMap { batches[$0] }
+                let backfill = purchase.purchasePrice == nil ? updated : nil
+                return CardPurchase(
+                    id: purchase.id,
+                    condition: purchase.condition,
+                    quantity: purchase.quantity,
+                    purchasePrice: purchase.purchasePrice ?? backfill?.purchasePrice,
+                    currency: purchase.currency ?? backfill?.currency,
+                    automaticPriceDate: purchase.automaticPriceDate ?? backfill?.automaticPriceDate,
+                    displayPrice: updated?.displayPrice
+                )
+            },
+            purchasePriceChangePercent: purchasePriceChangePercent,
+            displayCurrency: currency,
+            collectionID: collectionID,
+            allocationAdjustments: allocationAdjustments,
+            illustrator: illustrator ?? self.illustrator
+        )
+    }
+}

@@ -15,7 +15,7 @@ struct OfflineCollectionSnapshot: Codable, Sendable {
 
     var grantIdentity: String { "\(owner)|\(accountID)" }
 
-    var imageURLs: [URL] { cards.compactMap { $0.price.price?.imageURL } }
+    var imageURLs: [URL] { cards.compactMap { $0.imageURL } }
 
     var imageKeys: Set<String> { Set(imageURLs.compactMap(OfflineCollectionStore.imageKey)) }
 }
@@ -98,7 +98,7 @@ struct OfflineCollectionStore {
 
     func missingImageCount(for snapshot: OfflineCollectionSnapshot) -> Int {
         snapshot.cards.count { card in
-            guard let url = card.price.price?.imageURL, let key = Self.imageKey(url) else { return true }
+            guard let url = card.imageURL, let key = Self.imageKey(url) else { return true }
             return !hasImage(key)
         }
     }

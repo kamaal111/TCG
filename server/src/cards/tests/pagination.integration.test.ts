@@ -4,13 +4,18 @@ import crypto from 'node:crypto';
 import { CONTENTFUL_STATUS_CODES } from '@tcg/http/status';
 import { eq, sql } from 'drizzle-orm';
 
-import { createCardRequest, validCardPayload } from './utils.ts';
+import { createCardRequest, validCardPayload, requestOwnedPrices } from './utils.ts';
 import { card, cardPurchaseBatch } from '../../db/schema/cards.ts';
 import { integrationTest } from '../../tests/fixtures.ts';
 import { EXPORT_CARDS_ROUTE_PATH } from '../routes/export-cards.ts';
 import { IMPORT_CARDS_ROUTE_PATH } from '../routes/import-cards.ts';
 import { LIST_CARDS_ROUTE_PATH } from '../routes/list-cards.ts';
-import { CardSchema, CardsListResponseSchema, ExportCardsResponseSchema } from '../schemas/responses.ts';
+import {
+  CardSchema,
+  CardsListResponseSchema,
+  ExportCardsResponseSchema,
+  OwnedCardPricesSchema,
+} from '../schemas/responses.ts';
 
 for (const path of [LIST_CARDS_ROUTE_PATH, EXPORT_CARDS_ROUTE_PATH]) {
   const schema = path === LIST_CARDS_ROUTE_PATH ? CardsListResponseSchema : ExportCardsResponseSchema;
@@ -144,7 +149,7 @@ integrationTest(
 );
 
 integrationTest(
-  'defaults to 50 cards, caps requests at 100, and prices only the requested page',
+  'defaults to 50 cards, caps requests at 100, and prices only the explicitly requested cards',
   async ({ app, db, authenticatedHeaders }) => {
     const cards = Array.from({ length: 103 }, (_, index) => ({
       id: crypto.randomUUID(),
@@ -201,11 +206,21 @@ integrationTest(
     expect((await db.select().from(cardPurchaseBatch)).every(batch => batch.purchasePrice == null)).toBe(true);
 
     const listed = CardsListResponseSchema.parse(
-      await (await app.request(`${LIST_CARDS_ROUTE_PATH}?limit=2`, { headers: authenticatedHeaders })).json(),
+      await (await app.request(`${LIST_CARDS_ROUTE_PATH}?limit=50`, { headers: authenticatedHeaders })).json(),
     );
 
-    expect(listed.cards).toHaveLength(2);
+    expect(listed.cards).toHaveLength(50);
+    expect((await db.select().from(cardPurchaseBatch)).every(batch => batch.purchasePrice == null)).toBe(true);
+
+    const refresh = await requestOwnedPrices(
+      app,
+      authenticatedHeaders,
+      listed.cards.map(card => card.id),
+    );
+
+    expect(refresh.status).toBe(200);
+    expect(OwnedCardPricesSchema.parse(await refresh.json()).prices).toHaveLength(50);
     const pricedBatches = await db.select().from(cardPurchaseBatch);
-    expect(pricedBatches.filter(batch => batch.purchasePrice != null)).toHaveLength(2);
+    expect(pricedBatches.filter(batch => batch.purchasePrice != null)).toHaveLength(50);
   },
 );

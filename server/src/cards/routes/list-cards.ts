@@ -1,5 +1,4 @@
 import { createRoute, defineOpenAPIRoute } from '@kamaalio/hono-standard-openapi';
-import { zip } from '@kamaalio/kamaal/arrays';
 import { ErrorResponseSchema, ValidationErrorResponseSchema } from '@tcg/http/error-schemas';
 import { MIME_TYPES } from '@tcg/http/mime';
 import { CONTENTFUL_STATUS_CODES } from '@tcg/http/status';
@@ -7,13 +6,11 @@ import { CONTENTFUL_STATUS_CODES } from '@tcg/http/status';
 import { requireSessionMiddleware } from '../../auth/module.ts';
 import { APP_API_ROUTE_NAME } from '../../constants/common.ts';
 import type { HonoEnvironment } from '../../context.ts';
-import { logDisplayPrices } from '../../forex/logging.ts';
-import { isNonEmpty } from '../../utils/type-utils.ts';
 import { CARDS_OPENAPI_TAG, CARDS_ROUTE_NAME } from '../constants.ts';
 import { cardsLogger } from '../logging.ts';
 import { CardsListQuerySchema } from '../schemas/params.ts';
 import { CardsListResponseSchema } from '../schemas/responses.ts';
-import { serializeCardWithPrice } from '../utils/cards.ts';
+import { serializeOwnedCardDetails } from '../utils/cards.ts';
 
 const LIST_CARDS_PATH = '/';
 
@@ -44,8 +41,8 @@ const routeConfig = createRoute({
       description: 'Unexpected server failure',
       content: { [MIME_TYPES.JSON]: { schema: ErrorResponseSchema } },
     },
-    [CONTENTFUL_STATUS_CODES.SERVICE_UNAVAILABLE]: {
-      description: 'Pricing is temporarily unavailable because the upstream provider failed',
+    [CONTENTFUL_STATUS_CODES.NOT_FOUND]: {
+      description: 'Collection not found',
       content: { [MIME_TYPES.JSON]: { schema: ErrorResponseSchema } },
     },
   },
@@ -60,45 +57,20 @@ const listCardsRoute = defineOpenAPIRoute<HonoEnvironment, typeof routeConfig>({
 
     const repository = c.get('cardRepository');
 
-    const [{ cards, availableSetNames, availableIllustrators, nextCursor }, display] = await Promise.all([
-      repository.listCollection({
-        ...pagination,
-        game,
-        setNames: set_name ?? [],
-        illustrators: illustrator ?? [],
-      }),
-      c.get('forexService').displayContext(),
-    ]);
-
-    if (display.isErr()) {
-      throw display.error;
-    }
-
-    const prices = isNonEmpty(cards)
-      ? await c.get('cardPricingService').priceOwnedCards(cards, { allowUnavailable: true })
-      : [];
-
-    await repository.backfillPurchasePrices(cards, prices);
-
-    const cardsWithPrices = zip([...cards], [...prices], true);
+    const { cards, availableSetNames, availableIllustrators, nextCursor } = await repository.listCollection({
+      ...pagination,
+      game,
+      setNames: set_name ?? [],
+      illustrators: illustrator ?? [],
+    });
 
     const response = {
-      cards: cardsWithPrices.flatMap(([card, price]) => [serializeCardWithPrice(card, price, display.value)]),
+      cards: await serializeOwnedCardDetails(c, cards),
       available_set_names: availableSetNames,
-      available_illustrators: [
-        ...new Set([
-          ...availableIllustrators,
-          ...prices.flatMap(price => {
-            return price.priced_card?.game === 'pokemon' && price.priced_card.illustrator != null
-              ? [price.priced_card.illustrator]
-              : [];
-          }),
-        ]),
-      ].sort(),
+      available_illustrators: availableIllustrators,
       next_cursor: nextCursor,
     };
 
-    logDisplayPrices(c, display.value, response.cards);
     cardsLogger(c).info(
       { event: 'cards.list', outcome: 'success', result_count: response.cards.length, game },
       'Retrieved the owned card collection.',
