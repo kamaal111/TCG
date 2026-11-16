@@ -12,6 +12,7 @@ struct TCGCardDetailScreen: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.tcgCurrency) private var currencyState
     @Environment(\.tcgPricePrivacy) private var pricePrivacy
+    @State private var lastRefresh: DetailRefreshIdentity?
     @State private var model: TCGCardDetailScreenModel
 
     init(model: TCGCardDetailScreenModel) {
@@ -50,8 +51,8 @@ struct TCGCardDetailScreen: View {
             }
         }
         .background(.background)
-        .task(id: DetailRefreshIdentity(active: scenePhase == .active, currency: currencyState?.displayIdentity)) {
-            if scenePhase == .active, !cards.isReadOnly { await refreshDetails() }
+        .task(id: refreshIdentity) {
+            await refresh(for: refreshIdentity)
         }
         .onChange(of: cards.cards) { _, updated in
             if let card = updated.first(where: { $0.card.id == model.card.card.id }),
@@ -105,6 +106,35 @@ struct TCGCardDetailScreen: View {
         let currency: TCGCurrency.DisplayIdentity?
     }
 
+    private var refreshIdentity: DetailRefreshIdentity {
+        .init(active: scenePhase == .active, currency: currencyState?.displayIdentity)
+    }
+
+    private func refresh(for identity: DetailRefreshIdentity) async {
+        let previous = lastRefresh
+        lastRefresh = identity
+        guard identity.active, !cards.isReadOnly else { return }
+
+        if previous?.active == true, previous?.currency != identity.currency {
+            await refreshPrices()
+        } else {
+            await refreshDetails()
+        }
+    }
+
+    private func refreshPrices() async {
+        let refreshed = await cards.refreshedPrices(
+            for: [displayedCard],
+            currency: currencyState?.displayIdentity.currency,
+            retry: false
+        )
+        guard !Task.isCancelled, let priced = refreshed.first,
+            model.card.card.updatedAt == priced.card.updatedAt
+        else { return }
+
+        model.replaceDisplay(with: priced)
+    }
+
     private var displayedCard: CardWithPrice {
         cards.compatibleDisplay(model.card)
     }
@@ -116,21 +146,16 @@ struct TCGCardDetailScreen: View {
             guard !Task.isCancelled, model.card.card.updatedAt <= current.card.updatedAt else { return }
 
             model.replaceDisplay(with: cards.keepingPrice(for: current, cached: displayedCard))
-            let refreshed = await cards.refreshedPrices(for: [model.card])
-            guard !Task.isCancelled, let priced = refreshed.first,
-                model.card.card.updatedAt == priced.card.updatedAt
-            else { return }
-
-            model.replaceDisplay(with: priced)
+            await refreshPrices()
         case .failure(.notFound):
             guard !Task.isCancelled else { return }
 
             dismiss()
             Task {
                 if let collections {
-                    await collections.refresh(using: cards)
+                    await collections.refresh(using: cards, force: true)
                 } else {
-                    await cards.refresh()
+                    await cards.refresh(force: true)
                 }
             }
         case .failure: break

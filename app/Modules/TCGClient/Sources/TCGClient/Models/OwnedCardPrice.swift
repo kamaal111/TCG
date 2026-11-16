@@ -31,7 +31,7 @@ public struct OwnedCardPrice: Codable, Hashable, Sendable {
     }
 }
 
-public struct OwnedCardPriceUpdate: Equatable, Sendable {
+public struct OwnedCardPriceUpdate: Codable, Equatable, Sendable {
     public let updatedAt: Date
     public let price: OwnedCardPrice
     public let displayCurrency: Currency?

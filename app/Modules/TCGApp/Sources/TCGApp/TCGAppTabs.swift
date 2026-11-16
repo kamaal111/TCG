@@ -12,10 +12,18 @@ struct TCGAppTabs: View {
     let search: TCGSearch
     let offline: OfflineCollection
     @Environment(\.scenePhase) private var scenePhase
+    @State private var selectedTab: AppTab = .collections
+
+    private enum AppTab {
+        case collections
+        case search
+        case settings
+    }
 
     var body: some View {
-        TabView {
+        TabView(selection: $selectedTab) {
             TCGCollectionsScreen()
+                .tag(AppTab.collections)
                 .tabItem {
                     Label {
                         Text("Collections", bundle: .module)
@@ -25,10 +33,12 @@ struct TCGAppTabs: View {
                 }
 
             TCGSearchTab()
+                .tag(AppTab.search)
                 .tabItem { Label("Search", systemImage: "magnifyingglass") }
 
             #if !os(macOS)
                 NavigationStack { TCGAppSettings(cards: cards, offline: offline) }
+                    .tag(AppTab.settings)
                     .tabItem { Label("Settings", systemImage: "gearshape") }
             #endif
         }
@@ -44,16 +54,15 @@ struct TCGAppTabs: View {
             await refreshDisplayPrices()
         }
         .task(id: scenePhase) {
-            await refreshOnForeground()
+            if scenePhase == .active, auth.isLoggedIn { await currencyState.refresh() }
+        }
+        .task(id: isCollectionVisible) {
+            if isCollectionVisible { await collections.refreshOnForeground(using: cards) }
         }
     }
 
-    private func refreshOnForeground() async {
-        guard scenePhase == .active, auth.isLoggedIn else { return }
-
-        async let currency: Void = currencyState.refresh()
-        async let collection: Void = collections.refreshOnForeground(using: cards)
-        _ = await (currency, collection)
+    private var isCollectionVisible: Bool {
+        selectedTab == .collections && scenePhase == .active && auth.isLoggedIn
     }
 
     private func refreshDisplayPrices() async {
@@ -62,7 +71,10 @@ struct TCGAppTabs: View {
             search.resetDisplayPrices()
             return
         }
-        async let collection: Void = cards.refreshDisplayPrices(for: currencyState.displayIdentity)
+        async let collection: Void = cards.refreshDisplayPrices(
+            for: currencyState.displayIdentity,
+            refreshVisible: isCollectionVisible
+        )
         async let results: Void = search.refreshDisplayPrices(for: currencyState.displayIdentity)
         _ = await (collection, results)
     }

@@ -97,7 +97,7 @@ public struct TCGCollectionsScreen: View {
             isPresented: Binding(get: { collections?.error != nil }, set: { if !$0 { collections?.error = nil } })
         ) {
             Button {
-                Task { await collections?.reload(using: cards) }
+                Task { await collections?.reload(using: cards, force: true, loadsList: true) }
             } label: {
                 Text("Refresh", bundle: .module)
             }

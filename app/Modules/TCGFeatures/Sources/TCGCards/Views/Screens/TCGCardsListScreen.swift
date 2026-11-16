@@ -109,12 +109,20 @@ public struct TCGCardsListScreen: View {
         return collection.isUnfiled ? String(localized: "Unfiled", bundle: .module) : collection.name
     }
 
-    @ViewBuilder
     private var content: some View {
+        collectionList
+            .collectionPriceStatus(
+                isVisible: cardCollection.isLoadingPrices && cardCollection.nextPageError == nil
+                    && cardCollection.displayRefreshError == nil && pricePrivacy?.hidePrices != true,
+                bottomInset: 8
+            )
+    }
+
+    @ViewBuilder
+    private var collectionList: some View {
         #if os(macOS)
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 16) {
-                    if cardCollection.isLoadingPrices, pricePrivacy?.hidePrices != true { CollectionPriceStatus() }
                     gameFilterMenu
                     collectionRows
                     paginationFooter
@@ -123,10 +131,6 @@ public struct TCGCardsListScreen: View {
             }
         #else
             List {
-                if cardCollection.isLoadingPrices, pricePrivacy?.hidePrices != true {
-                    CollectionPriceStatus()
-                        .listRowSeparator(.hidden)
-                }
                 gameFilterMenu
                     .listRowSeparator(.hidden)
 

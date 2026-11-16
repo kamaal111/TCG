@@ -31,7 +31,7 @@ enum CollectionTestFixtures {
         let client = TCGClient.preview()
         let cards = TCGCards(client: client)
         let collections = TCGCollections(client: client, defaults: nil)
-        await collections.reload(using: cards)
+        await collections.reload(using: cards, force: true, loadsList: true)
         return Context(cards: cards, collections: collections)
     }
 

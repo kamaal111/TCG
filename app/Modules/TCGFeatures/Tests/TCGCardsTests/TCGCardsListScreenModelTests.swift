@@ -39,12 +39,12 @@ struct TCGCardsListScreenModelTests {
         let candidates = model.destinations(for: filed, in: context.collections.collections)
         #expect(candidates.contains { $0.id == trades.id })
         #expect(!candidates.contains { $0.isUnfiled || $0.id == favorites.id })
-        await context.collections.select(favorites.id, using: context.cards)
+        await context.collections.select(favorites.id, using: context.cards, loadsList: true)
 
         await model.move(filed, to: trades.summary, using: context.cards)
 
         #expect(!context.cards.cards.contains { $0.card.id == pikachu.id })
-        await context.collections.select(trades.id, using: context.cards)
+        await context.collections.select(trades.id, using: context.cards, loadsList: true)
         let moved = try #require(context.cards.cards.first { $0.card.id == pikachu.id }).card
         #expect(moved.collectionID == trades.id)
         #expect(moved.purchases == pikachu.purchases)

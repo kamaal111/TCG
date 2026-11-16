@@ -15,7 +15,6 @@ struct BinderSpreadView: View {
     }
 
     @Environment(TCGCards.self) private var cards
-    @Environment(\.scenePhase) private var scenePhase
     @Environment(\.tcgPricePrivacy) private var pricePrivacy
     @Environment(\.tcgCollections) private var collections
     @Environment(\.tcgCurrency) private var currency
@@ -25,6 +24,9 @@ struct BinderSpreadView: View {
     @State private var isPricing = false
     @State private var loadError: String?
     @State private var loadGeneration = UUID()
+    @State private var handledRefreshID: UUID?
+    @State private var previousIdentity: PageIdentity?
+    @State private var verifiedPageIDs: Set<UUID> = []
     let content: Content
     @Binding var pageIndex: Int
     let actions: Actions
@@ -45,9 +47,12 @@ struct BinderSpreadView: View {
 
     var body: some View {
         VStack(spacing: 12) {
-            if isPricing, pricePrivacy?.hidePrices != true { CollectionPriceStatus() }
             Color.clear
                 .overlay(alignment: .top) { pageRow }
+                .collectionPriceStatus(
+                    isVisible: isPricing && loadError == nil && pricePrivacy?.hidePrices != true,
+                    bottomInset: 4
+                )
                 .onGeometryChange(for: CGSize.self) {
                     $0.size
                 } action: {
@@ -65,21 +70,24 @@ struct BinderSpreadView: View {
         }
         .overlay(alignment: .bottom) {
             if let loadError {
-                BinderPageLoadError(message: loadError, retry: { Task { await loadPages() } })
+                BinderPageLoadError(message: loadError, retry: { Task { await loadPages(force: true) } })
             }
         }
         .onChange(of: content.collection.id) { interactionSession.end() }
         .onDisappear { interactionSession.end() }
-        .task(
-            id: PageIdentity(
-                pages: visiblePages.map(\.id),
-                revision: content.collection.revision,
-                isActive: scenePhase == .active,
-                currency: currency?.displayIdentity
-            )
-        ) {
-            if scenePhase == .active { await loadPages() }
+        .task(id: pageIdentity) {
+            await updatePages(for: pageIdentity)
         }
+    }
+
+    private var pageIdentity: PageIdentity {
+        PageIdentity(
+            pages: visiblePages.map(\.id),
+            revision: content.collection.revision,
+            foreground: collections?.binderForegroundID,
+            refresh: collections?.binderRefreshID,
+            currency: currency?.displayIdentity
+        )
     }
 
     private var pageRow: some View {
@@ -122,11 +130,33 @@ struct BinderSpreadView: View {
     private struct PageIdentity: Hashable {
         let pages: [UUID]
         let revision: Int
-        let isActive: Bool
+        let foreground: UUID?
+        let refresh: UUID?
         let currency: TCGCurrency.DisplayIdentity?
     }
 
-    private func loadPages() async {
+    private func updatePages(for identity: PageIdentity) async {
+        guard !identity.pages.isEmpty else { return }
+
+        let previous = previousIdentity
+        previousIdentity = identity
+        let force = handledRefreshID != nil && handledRefreshID != identity.refresh
+        handledRefreshID = identity.refresh
+
+        if !force, let previous, previous.pages == identity.pages, previous.revision == identity.revision,
+            previous.foreground == identity.foreground, previous.currency != identity.currency,
+            Set(identity.pages).isSubset(of: verifiedPageIDs)
+        {
+            let generation = UUID()
+            loadGeneration = generation
+            pageCards = pageCards.mapValues { $0.map(cards.compatibleDisplay) }
+            await refreshPrices(ids: identity.pages, generation: generation, retry: false)
+        } else {
+            await loadPages(force: force)
+        }
+    }
+
+    private func loadPages(force: Bool) async {
         let pages = visiblePages
         let ids = pages.map(\.id)
         let generation = UUID()
@@ -135,20 +165,21 @@ struct BinderSpreadView: View {
         pageCards = Dictionary(uniqueKeysWithValues: ids.map { ($0, cachedRows($0)) })
         isPricing = false
         guard let collections else { return }
+        verifiedPageIDs = Set(pages.filter { $0.slots.isEmpty }.map(\.id))
         for page in pages where !page.slots.isEmpty {
             guard !Task.isCancelled else { return }
-            let result = await collections.page(page.id)
+            let result = await collections.page(page.id, using: cards, force: force)
             guard !Task.isCancelled else { return }
             guard generation == loadGeneration else { return }
             guard visiblePages.map(\.id) == ids else { return }
             switch result {
             case .success(let result):
-                let cached = Dictionary(grouping: cachedRows(page.id), by: \.card.id)
+                verifiedPageIDs.insert(page.id)
+                let cached = Dictionary(grouping: pageCards[page.id] ?? [], by: \.card.id)
                 let rows = result.cards.map { details in
                     cards.keepingPrice(for: details, cached: cached[details.card.id]?.first)
                 }
                 pageCards[page.id] = rows
-                if !cards.isReadOnly { cards.snapshot.save(rows, for: scope(page.id)) }
             case .failure(let error):
                 if error == .collectionNotFound {
                     await collections.collectionDisappeared(content.collection.id, using: cards)
@@ -159,13 +190,18 @@ struct BinderSpreadView: View {
             }
         }
 
+        await refreshPrices(ids: ids, generation: generation, retry: force)
+    }
+
+    private func refreshPrices(ids: [UUID], generation: UUID, retry: Bool) async {
         guard !cards.isReadOnly else { return }
 
         let rows = ids.flatMap { pageCards[$0] ?? [] }
-        isPricing = !rows.isEmpty
-        let refreshed = await cards.refreshedPrices(for: rows)
+        let preferred = currency?.displayIdentity.currency
+        isPricing = cards.needsPriceRefresh(for: rows, currency: preferred, retry: retry)
+        let refreshed = await cards.refreshedPrices(for: rows, currency: preferred, retry: retry)
         guard !Task.isCancelled, generation == loadGeneration, visiblePages.map(\.id) == ids,
-            collections.selectedID == content.collection.id
+            collections?.selectedID == content.collection.id
         else { return }
 
         let byID = Dictionary(grouping: refreshed, by: \.card.id)
@@ -175,14 +211,16 @@ struct BinderSpreadView: View {
 
                 return byID[row.card.id]?.first ?? row
             }
-            pageCards[id] = rows
-            cards.snapshot.save(rows, for: scope(id))
+            if pageCards[id] != rows {
+                pageCards[id] = rows
+                cards.snapshot.save(rows, for: scope(id))
+            }
         }
         isPricing = false
     }
 
     private func scope(_ id: UUID) -> CollectionSnapshotCache.Scope {
-        .init(collectionID: content.collection.id, pageID: id)
+        .init(collectionID: content.collection.id, pageID: id, revision: content.collection.revision)
     }
 
     private func cachedRows(_ id: UUID) -> [CardWithPrice] {

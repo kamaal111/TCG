@@ -40,13 +40,16 @@ struct TCGCollectionsTests {
         collections.useDownload(cards: savedCards, collections: [favorites, empty, unfiled])
 
         #expect(collections.namedCollections.map(\.id) == [favorites.id, empty.id, unfiled.id])
-        await collections.select(favorites.id, using: cards)
-        #expect(try await collections.page(page.id).get().cards == [first])
-        await collections.select(empty.id, using: cards)
-        #expect(try await collections.page(CollectionTestFixtures.emptyPage.id).get().cards.isEmpty)
-        await collections.select(unfiled.id, using: cards)
+        await collections.select(favorites.id, using: cards, loadsList: true)
+        #expect(try await collections.page(page.id, using: cards, force: false).get().cards == [first])
+        await collections.select(empty.id, using: cards, loadsList: true)
+        #expect(
+            try await collections.page(CollectionTestFixtures.emptyPage.id, using: cards, force: false).get().cards
+                .isEmpty
+        )
+        await collections.select(unfiled.id, using: cards, loadsList: true)
         #expect(cards.cards == savedCards.filter { $0.card.collectionID == nil })
-        await collections.select(nil, using: cards)
+        await collections.select(nil, using: cards, loadsList: true)
         #expect(cards.cards == savedCards)
     }
 
@@ -70,7 +73,7 @@ struct TCGCollectionsTests {
         #expect(context.collections.selectedID == previous)
         #expect(context.cards.selectedCollection?.id == previous)
         #expect(!context.collections.isWorking)
-        await context.collections.reload(using: context.cards)
+        await context.collections.reload(using: context.cards, force: true, loadsList: true)
         #expect(context.collections.collections.contains(where: { $0.id == destination }))
         #expect(model.values == expected)
     }
@@ -79,12 +82,12 @@ struct TCGCollectionsTests {
         let context = try await CollectionTestFixtures.selectedContext()
         let cards = context.cards
         let collections = context.collections
-        await collections.select(nil, using: cards)
+        await collections.select(nil, using: cards, loadsList: true)
         #expect(collections.selected == nil)
         #expect(await collections.create(name: "Favorites", using: cards))
         let favorites = try #require(collections.selected)
         #expect(favorites.name == "Favorites")
-        await collections.reload(using: cards)
+        await collections.reload(using: cards, force: true, loadsList: true)
         #expect(collections.selectedID == favorites.id)
         #expect(await collections.delete(favorites, using: cards))
         #expect(collections.selectedID == nil)
@@ -129,7 +132,7 @@ struct TCGCollectionsTests {
         collections.setView(.list, for: saved.id)
         #expect(collections.view(for: saved.id) == .list)
         collections.setView(.binder, for: saved.id)
-        await collections.reload(using: cards)
+        await collections.reload(using: cards, force: true, loadsList: true)
         let reopened = try #require(collections.selected)
         #expect(collections.view(for: reopened.id) == .binder)
         #expect(reopened.revision == saved.revision)
@@ -167,8 +170,8 @@ struct TCGCollectionsTests {
             )
         )
         #expect(await context.collections.save(swapped, using: context.cards))
-        await context.collections.select(nil, using: context.cards)
-        await context.collections.select(binder.id, using: context.cards)
+        await context.collections.select(nil, using: context.cards, loadsList: true)
+        await context.collections.select(binder.id, using: context.cards, loadsList: true)
         let reopened = try #require(context.collections.selected)
         #expect(reopened.pages == swapped.pages)
         #expect(reopened.pages.map(\.id) == [first, CardsTestIDs.primary, second])
@@ -189,10 +192,10 @@ struct TCGCollectionsTests {
         values.collectionID = collection.id
         _ = try await context.cards.updateCard(id: card.card.id, values: values).get()
         #expect(context.cards.cards.map(\.card.id) == [card.card.id])
-        await context.collections.select(nil, using: context.cards)
+        await context.collections.select(nil, using: context.cards, loadsList: true)
         #expect(Set(context.cards.cards.map(\.card.id)) == allIDs)
         #expect(context.collections.selected == nil)
-        await context.collections.reload(using: context.cards)
+        await context.collections.reload(using: context.cards, force: true, loadsList: true)
         #expect(context.collections.selectedID == nil)
         #expect(Set(context.cards.cards.map(\.card.id)) == allIDs)
         #expect(context.collections.namedCollections.map(\.id) == [collection.id])
@@ -201,9 +204,9 @@ struct TCGCollectionsTests {
     @Test func `Searching All cards finds a card outside the last opened collection`() async throws {
         let context = try await CollectionTestFixtures.selectedContext()
         let selected = try #require(context.collections.selected)
-        await context.collections.select(context.collections.unfiled?.id, using: context.cards)
+        await context.collections.select(context.collections.unfiled?.id, using: context.cards, loadsList: true)
         #expect(context.cards.cards.isEmpty)
-        await context.collections.select(nil, using: context.cards)
+        await context.collections.select(nil, using: context.cards, loadsList: true)
         let model = TCGCardsListScreenModel(preferences: nil)
         model.query = "lUfFy"
         await model.load(using: context.cards)

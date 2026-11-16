@@ -25,7 +25,7 @@ struct CollectionSidebar: View {
         List(
             selection: Binding<Selection?>(
                 get: { Selection(collectionID: collections.selectedID) },
-                set: { id in Task { await collections.select(id?.collectionID, using: cards) } }
+                set: { id in Task { await collections.select(id?.collectionID, using: cards, loadsList: true) } }
             )
         ) {
             Label {
