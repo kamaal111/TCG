@@ -36,7 +36,7 @@ jobs:
           oauth-client-id: ${{ secrets.TAILSCALE_OAUTH_CLIENT_ID }}
           oauth-secret: ${{ secrets.TAILSCALE_OAUTH_SECRET }}
           tags: tag:tcg-ci
-          version: 1.104.4
+          version: 1.104.7
           log-mode: quiet
       - name: Run the explicit operation through verified private SSH
         shell: bash

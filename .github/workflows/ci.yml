@@ -126,6 +126,7 @@ jobs:
     runs-on: xcode-27
     timeout-minutes: 90
     env:
+      DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer
       TCG_APP_CODE_SIGNING_ALLOWED: 'NO'
     steps:
       - name: Check out code
@@ -218,6 +219,7 @@ jobs:
     timeout-minutes: 90
     env:
       TCG_APP_IOS_TEST_DESTINATION: platform=iOS Simulator,OS=27.0,name=iPhone 17
+      DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer
       TCG_APP_CODE_SIGNING_ALLOWED: 'NO'
     steps:
       - name: Check out code
