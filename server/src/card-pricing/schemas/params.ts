@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { CARD_GAMES } from '../../cards/types.ts';
+import { paginationCursor } from '../../utils/pagination.ts';
 import { CardLanguageSchema, parseCardLanguages, SUPPORTED_CARD_LANGUAGES } from '../languages.ts';
 import { decodeSearchCursor, searchCursorIdentity } from '../utils/pagination.ts';
 import { queryKey } from '../utils/query.ts';
@@ -17,24 +18,10 @@ export const PricingSearchQuerySchema = z
         'Comma-separated language codes: en, ja for Pokémon; en for One Piece. Empty or all supported languages means unrestricted.',
       example: 'ja',
     }),
-    cursor: z
-      .string()
-      .transform((value, ctx) => {
-        const cursor = decodeSearchCursor(value);
-
-        if (cursor == null) {
-          ctx.addIssue({ code: 'custom', message: 'Invalid pagination cursor' });
-
-          return z.NEVER;
-        }
-
-        return cursor;
-      })
-      .optional()
-      .meta({
-        type: 'string',
-        description: 'Opaque next_cursor from the preceding page for the same search. Omit for the first page.',
-      }),
+    cursor: paginationCursor(z.string(), decodeSearchCursor).optional().meta({
+      type: 'string',
+      description: 'Opaque next_cursor from the preceding page for the same search. Omit for the first page.',
+    }),
     game: z.enum(CARD_GAMES).meta({ description: 'Trading card game to search', example: 'pokemon' }),
     query: z.string().trim().min(2).max(200).meta({
       description: 'Card name/number, or illustrator name when search_by=illustrator',

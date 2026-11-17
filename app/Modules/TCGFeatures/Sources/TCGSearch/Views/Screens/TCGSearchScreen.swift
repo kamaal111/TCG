@@ -10,6 +10,7 @@ import TCGModels
 
 public struct TCGSearchScreen<AddForm: View>: View {
     @Environment(TCGSearch.self) private var search
+    @Environment(\.tcgWishlist) private var wishlist
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.scenePhase) private var scenePhase
@@ -79,16 +80,37 @@ public struct TCGSearchScreen<AddForm: View>: View {
             }
             .sheet(item: $model.presentedDetail) { group in
                 SearchVariantDestination(group: group, purpose: .details) { card in
-                    TCGSearchDetailView(card: card, variants: group.variants, addForm: addForm)
+                    TCGSearchDetailView(
+                        card: card,
+                        variants: group.variants,
+                        isWishlistEntry: false,
+                        onWishlistRemoval: { model.wishlistFeedback = WishlistFeedback(saved: false) },
+                        addForm: addForm
+                    )
                 }
             }
-            .sheet(item: $groupToAdd) { group in
+            .sheet(item: $groupToAdd, onDismiss: model.checkAcquiredPrinting) { group in
                 SearchVariantDestination(group: group, purpose: .add) { card in
-                    addForm(card, {})
+                    addForm(card) { recordAcquiredPrinting(card) }
                 }
             }
+            .modifier(
+                WishlistAcquisitionPrompt(printingKey: $model.acquiredPrintingKey) { removedKey in
+                    if let removedKey {
+                        search.setWishlistMembership(false, for: removedKey)
+                        model.wishlistFeedback = WishlistFeedback(saved: false)
+                    }
+                }
+            )
+            .wishlistFeedback($model.wishlistFeedback)
             .modifier(SearchImagePresentation(group: $model.presentedImage))
             .cardArtworkCachePolicy(.search)
+    }
+
+    private func recordAcquiredPrinting(_ card: PricedCard) {
+        let selected = TCGSearchDetailView<AddForm>.latestCard(for: card, in: search.results)
+        guard wishlist != nil, selected.isWishlisted == true else { return }
+        model.pendingAddedPrintingKey = selected.printingKey
     }
 
     private var keyboardScopedContent: some View {

@@ -14,6 +14,8 @@ export * from './card-pricing.ts';
 
 export * from './card-images.ts';
 
+export * from './wishlist.ts';
+
 export const appRelations = {
   ...forexRelations,
   ...authRelations,

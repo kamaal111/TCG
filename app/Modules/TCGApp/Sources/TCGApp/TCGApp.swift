@@ -25,6 +25,7 @@ public struct TCGScene: Scene {
     @State private var pricePrivacy = TCGPricePrivacy()
     @State private var cards = TCGCards.default()
     @State private var collections = TCGCollections(client: .default(), defaults: .standard)
+    @State private var wishlist = TCGClient.default().wishlist.map { TCGWishlist(client: $0) }
     @State private var search = TCGSearch.default()
     @State private var offline = OfflineCollection(client: .default(), defaults: .standard)
 
@@ -39,6 +40,7 @@ public struct TCGScene: Scene {
                     collections: collections,
                     currencyState: currencyState,
                     search: search,
+                    wishlist: wishlist,
                     offline: offline
                 )
             }

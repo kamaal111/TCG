@@ -54,6 +54,15 @@ final class TCGSearchScreenModel {
     var presentedDetail: SearchResultGroup?
     var presentedImage: SearchResultGroup?
 
+    var pendingAddedPrintingKey: String?
+    var acquiredPrintingKey: String?
+    var wishlistFeedback: WishlistFeedback?
+
+    func checkAcquiredPrinting() {
+        acquiredPrintingKey = pendingAddedPrintingKey
+        pendingAddedPrintingKey = nil
+    }
+
     private(set) var toast: Toast?
 
     func showDetails(of group: SearchResultGroup) {

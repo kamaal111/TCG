@@ -79,12 +79,16 @@ export const PricedCardDisplaySchema = z
   })
   .meta({ $id: 'PricedCardDisplay', title: 'Priced Card Display' });
 
+export const PrintingKeySchema = z.string().regex(/^[0-9a-f]{64}$/);
+
 export const PricedCardSchema = z
   .object({
     id: UuidSchema.meta({
       description: 'Stable identifier for this priced-card record',
       example: '550e8400-e29b-41d4-a716-446655440000',
     }),
+    printing_key: PrintingKeySchema.optional(),
+    is_wishlisted: z.boolean().optional().meta({ description: 'Whether the search result is saved by this account' }),
     game: z.enum(CARD_GAMES).meta({ description: 'Trading card game', example: 'pokemon' }),
     name: z.string().meta({ description: 'Card name', example: 'Giratina VSTAR' }),
     set_name: z.string().optional().meta({ description: 'Set name when provided', example: 'Crown Zenith' }),

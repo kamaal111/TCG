@@ -17,5 +17,6 @@ export const CONTENTFUL_STATUS_CODES = {
 } as const;
 
 export const CONTENTLESS_STATUS_CODES = {
+  NO_CONTENT: 204,
   NOT_MODIFIED: 304,
 } as const;

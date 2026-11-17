@@ -1,0 +1,59 @@
+import OpenAPIRuntime
+
+public protocol TCGWishlistClient: Sendable {
+    func list(cursor: String?) async -> Result<WishlistPage, WishlistError>
+
+    func save(_ payload: SaveWishlistPrinting) async -> Result<Void, WishlistError>
+
+    func remove(printingKey: String) async -> Result<Void, WishlistError>
+}
+
+struct TCGWishlistClientImpl: TCGWishlistClient {
+    let client: Client
+
+    func list(cursor: String?) async -> Result<WishlistPage, WishlistError> {
+        do {
+            switch try await client.getAppApiWishlist(query: .init(cursor: cursor)) {
+            case .ok(let response):
+                guard let page = try? response.body.json, page.entries.allSatisfy({ $0.printingKey != nil }) else {
+                    return .failure(.unavailable)
+                }
+                return .success(
+                    WishlistPage(
+                        entries: page.entries.map(PricedCardMapper.makePricedCard),
+                        nextCursor: page.nextCursor
+                    )
+                )
+            case .badRequest(let response):
+                return .failure(.validation(TCGClientValidationErrorParser.parseIssues(from: try? response.body.json)))
+            case .unauthorized: return .failure(.unauthorized)
+            case .undocumented: return .failure(.unavailable)
+            }
+        } catch { return .failure(.unavailable) }
+    }
+
+    func save(_ payload: SaveWishlistPrinting) async -> Result<Void, WishlistError> {
+        do {
+            switch try await client.postAppApiWishlist(body: .json(.init(pricedCardId: payload.pricedCardID))) {
+            case .noContent: return .success(())
+            case .badRequest(let response):
+                return .failure(.validation(TCGClientValidationErrorParser.parseIssues(from: try? response.body.json)))
+            case .unauthorized: return .failure(.unauthorized)
+            case .notFound: return .failure(.notFound)
+            case .undocumented: return .failure(.unavailable)
+            }
+        } catch { return .failure(.unavailable) }
+    }
+
+    func remove(printingKey: String) async -> Result<Void, WishlistError> {
+        do {
+            switch try await client.deleteAppApiWishlistPrintingKey(path: .init(printingKey: printingKey)) {
+            case .noContent: return .success(())
+            case .badRequest(let response):
+                return .failure(.validation(TCGClientValidationErrorParser.parseIssues(from: try? response.body.json)))
+            case .unauthorized: return .failure(.unauthorized)
+            case .undocumented: return .failure(.unavailable)
+            }
+        } catch { return .failure(.unavailable) }
+    }
+}

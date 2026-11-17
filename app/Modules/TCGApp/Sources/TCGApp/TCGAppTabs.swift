@@ -1,6 +1,7 @@
 import KamaalAuth
 import SwiftUI
 import TCGCards
+import TCGClient
 import TCGCurrency
 import TCGSearch
 
@@ -10,6 +11,7 @@ struct TCGAppTabs: View {
     let collections: TCGCollections
     let currencyState: TCGCurrency
     let search: TCGSearch
+    let wishlist: TCGWishlist?
     let offline: OfflineCollection
     @Environment(\.scenePhase) private var scenePhase
     @State private var selectedTab: AppTab = .collections
@@ -22,7 +24,8 @@ struct TCGAppTabs: View {
 
     var body: some View {
         TabView(selection: $selectedTab) {
-            TCGCollectionsScreen()
+            collectionsTab
+                .id(auth.session?.email)
                 .tag(AppTab.collections)
                 .tabItem {
                     Label {
@@ -33,6 +36,7 @@ struct TCGAppTabs: View {
                 }
 
             TCGSearchTab()
+                .id(auth.session?.email)
                 .tag(AppTab.search)
                 .tabItem { Label("Search", systemImage: "magnifyingglass") }
 
@@ -46,6 +50,7 @@ struct TCGAppTabs: View {
         .tcgCards(cards)
         .environment(\.tcgCollections, collections)
         .tcgSearch(search)
+        .environment(\.tcgWishlist, auth.isLoggedIn ? wishlist : nil)
         .kamaalAuth(auth)
         .task { await currencyState.trackSession(auth) }
         .task { await collections.trackSession(auth, cards: cards, offlineSeed: offline.cachedCollection) }
@@ -58,6 +63,19 @@ struct TCGAppTabs: View {
         }
         .task(id: isCollectionVisible) {
             if isCollectionVisible { await collections.refreshOnForeground(using: cards) }
+        }
+    }
+
+    @ViewBuilder
+    private var collectionsTab: some View {
+        if auth.isLoggedIn, wishlist != nil {
+            TCGCollectionsScreen {
+                TCGWishlistScreen(isVisible: selectedTab == .collections) { card, onAdded in
+                    TCGCardFormScreen(pricedCard: card, onAdded: onAdded)
+                }
+            }
+        } else {
+            TCGCollectionsScreen()
         }
     }
 

@@ -46,6 +46,7 @@ interface RepositoryVariables {
   cardPricingRepository: CardPricingRepository;
   cardRepository: CardRepository;
   collectionRepository: CollectionRepository;
+  wishlistRepository: ReturnType<Persistence['forRequest']>['wishlistRepository'];
   cardImageRepository: CardImageRepository;
 }
 
@@ -112,6 +113,7 @@ export function injectRequestContext({
     c.set('offlineCollectionRepository', repositories.offlineCollectionRepository);
     c.set('cardRepository', repositories.cardRepository);
     c.set('collectionRepository', repositories.collectionRepository);
+    c.set('wishlistRepository', repositories.wishlistRepository);
     c.set('forexRepository', persistence.forexRepository);
     c.set('cardImageRepository', persistence.cardImageRepository);
     c.set('forexService', new ForexService(c));

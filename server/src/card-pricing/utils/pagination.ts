@@ -1,8 +1,8 @@
-import buffer from 'node:buffer';
-
 import { sha256Hex } from '@tcg/crypto/sha256';
 import { SCRYDEX_SEARCH_PAGE_SIZE } from '@tcg/scrydex';
 import { z } from 'zod';
+
+import { base64UrlCursorPattern, decodeCursor, encodeCursor } from '../../utils/pagination.ts';
 
 const SEARCH_PAGINATION_VERSION = 1;
 
@@ -29,17 +29,13 @@ export function encodeNextSearchCursor(key: string, offset: number): string {
     identity: searchCursorIdentity(key),
   };
 
-  return buffer.Buffer.from(JSON.stringify(cursor)).toString('base64url');
+  return encodeCursor(cursor);
 }
 
 export function decodeSearchCursor(value: string): SearchCursor | undefined {
-  if (value.length > 256 || !/^[A-Za-z0-9_-]+$/.test(value)) {
+  if (value.length > 256 || !base64UrlCursorPattern.test(value)) {
     return undefined;
   }
 
-  try {
-    return SearchCursorSchema.parse(JSON.parse(buffer.Buffer.from(value, 'base64url').toString('utf8')));
-  } catch {
-    return undefined;
-  }
+  return decodeCursor(value, SearchCursorSchema);
 }

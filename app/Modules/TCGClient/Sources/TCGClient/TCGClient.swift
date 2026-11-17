@@ -19,6 +19,7 @@ public struct TCGClient: Sendable {
     public let collections: TCGCollectionsClient
     public let cards: TCGCardsClient
     public let pricing: TCGPricingClient
+    public let wishlist: TCGWishlistClient?
     public let offlineCollection: TCGOfflineCollectionClient?
 
     private let credentialsKeychainKey: String
@@ -30,6 +31,7 @@ public struct TCGClient: Sendable {
         cards: TCGCardsClient,
         collections: TCGCollectionsClient,
         pricing: TCGPricingClient,
+        wishlist: TCGWishlistClient?,
         credentialsKeychainKey: String,
         credentialsStore: CredentialsStore,
         offlineCollection: TCGOfflineCollectionClient?
@@ -39,6 +41,7 @@ public struct TCGClient: Sendable {
         self.cards = cards
         self.collections = collections
         self.pricing = pricing
+        self.wishlist = wishlist
         self.offlineCollection = offlineCollection
         self.credentialsKeychainKey = credentialsKeychainKey
         self.credentialsStore = credentialsStore
@@ -133,6 +136,7 @@ public struct TCGClient: Sendable {
             cards: cards,
             collections: PreviewTCGCollectionsClient(cards: cards),
             pricing: pricing,
+            wishlist: nil,
             credentialsKeychainKey: credentialsKeychainKey,
             credentialsStore: credentialsStore,
             offlineCollection: nil
@@ -221,6 +225,7 @@ public struct TCGClient: Sendable {
             cards: cards,
             collections: TCGCollectionsClientImpl(client: client),
             pricing: pricing,
+            wishlist: TCGWishlistClientImpl(client: client),
             credentialsKeychainKey: credentialsKeychainKey,
             credentialsStore: credentialsStore,
             offlineCollection: TCGOfflineCollectionClient(client: client)

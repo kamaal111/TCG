@@ -18,7 +18,7 @@ struct TCGPricingClientTests {
         let body = Data(
             """
             {"matches":[{"id":"zoro-alt","game":"one_piece","name":"Roronoa Zoro","card_number":"OP01-025",
-              "variant_name":"altArt","image_url":"https://images.example.com/zoro-alt.png",
+              "variant_name":"altArt","image_url":"https://images.example.com/zoro-alt.png","is_wishlisted":true,
               "priced_on":"2026-10-16T00:00:00.000Z","fetched_at":"2026-10-16T10:00:00.000Z"}]}
             """.utf8
         )
@@ -30,6 +30,7 @@ struct TCGPricingClientTests {
         let match = try #require(result.matches.first)
         #expect(match.id == "zoro-alt")
         #expect(match.variantName == "altArt")
+        #expect(match.isWishlisted == true)
         #expect(match.imageURL?.absoluteString == "https://images.example.com/zoro-alt.png")
     }
 

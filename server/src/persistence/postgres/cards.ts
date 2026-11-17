@@ -33,6 +33,7 @@ import { purchaseQuantities } from '../../cards/utils/quantities.ts';
 import { DEFAULT_COLLECTION_POLICY, DEFAULT_IMPORT_POLICY, type ApplicationConfig } from '../../config.ts';
 import type { Database } from '../../db/index.ts';
 import { card, cardMetadata, cardConditionQuantity, cardPurchaseBatch } from '../../db/schema/cards.ts';
+import { cursorPage } from '../../utils/pagination.ts';
 import type { AuthenticatedIdentity, RepositoryDiagnostics } from '../contracts.ts';
 
 type Transaction = Parameters<Parameters<Database['transaction']>[0]>[0];
@@ -152,7 +153,9 @@ export class PostgresCardRepository implements CardRepository {
           .orderBy(sql`${card.createdAt} desc nulls last`, sql`${card.id} desc nulls last`)
           .limit(limit + 1);
 
-        const page = rows.slice(0, limit);
+        const { page, nextCursor } = cursorPage(rows, limit, row => {
+          return encodeCardCursor({ createdAt: row.cursorCreatedAt, id: row.id });
+        });
 
         const cards: CardWithPurchases[] = page.map(card => {
           const ownedCard = omit(card, 'cursorCreatedAt');
@@ -191,16 +194,11 @@ export class PostgresCardRepository implements CardRepository {
           }
         }
 
-        const last = page.at(-1);
-
         return {
           cards,
           availableSetNames: sets.map(set => set.name),
           availableIllustrators: illustratorRows.flatMap(row => (row.name == null ? [] : [row.name])),
-          nextCursor:
-            rows.length > limit && last != null
-              ? encodeCardCursor({ createdAt: last.cursorCreatedAt, id: last.id })
-              : null,
+          nextCursor,
         };
       },
       { isolationLevel: 'repeatable read', accessMode: 'read only' },

@@ -1,9 +1,11 @@
 import SwiftUI
 import TCGClient
 
-public struct TCGCollectionsScreen: View {
+public struct TCGCollectionsScreen<Wishlist: View>: View {
     @Environment(\.tcgCollections) private var collections
     @Environment(TCGCards.self) private var cards
+    @State private var showsWishlist = false
+    private let wishlist: Wishlist?
     @State private var name = ""
     @State private var isNaming = false
     @State private var isRenaming = false
@@ -11,28 +13,28 @@ public struct TCGCollectionsScreen: View {
     @State private var isEditingLayout = false
     @State private var isEditingCollection = false
 
-    public init() {}
+    public init() where Wishlist == EmptyView { wishlist = nil }
+
+    public init(@ViewBuilder wishlist: () -> Wishlist) {
+        self.wishlist = wishlist()
+    }
 
     public var body: some View {
         Group {
             if let collections {
                 #if os(macOS)
                     NavigationSplitView {
-                        CollectionSidebar(collections: collections)
-                    } detail: {
-                        CollectionContentView(
+                        CollectionSidebar(
                             collections: collections,
-                            actions: navigationActions,
-                            isEditing: $isEditingCollection
+                            hasWishlist: wishlist != nil,
+                            showsWishlist: $showsWishlist
                         )
+                    } detail: {
+                        destination(collections)
                     }
                 #else
                     NavigationStack {
-                        CollectionContentView(
-                            collections: collections,
-                            actions: navigationActions,
-                            isEditing: $isEditingCollection
-                        )
+                        destination(collections)
                     }
                 #endif
             } else {
@@ -40,7 +42,7 @@ public struct TCGCollectionsScreen: View {
             }
         }
         .environment(\.isEditingCollection, isEditingCollection)
-        .onChange(of: collections?.selectedID) {
+        .onChange(of: Destination(wishlist: showsWishlist, collectionID: collections?.selectedID)) {
             isEditingCollection = false
             isEditingLayout = false
             isNaming = false
@@ -108,6 +110,36 @@ public struct TCGCollectionsScreen: View {
             }
         } message: {
             Text(collections?.error?.localizedDescription ?? "")
+        }
+    }
+
+    private struct Destination: Equatable {
+        let wishlist: Bool
+        let collectionID: UUID?
+    }
+
+    @ViewBuilder
+    private func destination(_ collections: TCGCollections) -> some View {
+        if showsWishlist, let wishlist {
+            wishlist
+                #if os(iOS)
+                    .toolbar {
+                        ToolbarItem(placement: .topBarLeading) {
+                            CollectionSwitcher(
+                                collections: collections,
+                                actions: navigationActions,
+                                wishlistSelection: $showsWishlist
+                            )
+                        }
+                    }
+                #endif
+        } else {
+            CollectionContentView(
+                collections: collections,
+                actions: navigationActions,
+                isEditing: $isEditingCollection,
+                wishlistSelection: wishlist == nil ? nil : $showsWishlist
+            )
         }
     }
 
