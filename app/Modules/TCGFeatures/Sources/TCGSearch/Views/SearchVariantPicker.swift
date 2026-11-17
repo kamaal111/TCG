@@ -10,7 +10,6 @@ struct SearchVariantPicker: View {
         case artwork
     }
 
-    @Environment(\.dismiss) private var dismiss
     @Environment(\.tcgCurrency) private var currencyState
     @Environment(\.tcgPricePrivacy) private var pricePrivacy
 
@@ -21,20 +20,6 @@ struct SearchVariantPicker: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            HStack {
-                Text("Choose a variant", bundle: .module)
-                    .font(.headline)
-                    .accessibilityAddTraits(.isHeader)
-                Spacer()
-                Button {
-                    dismiss()
-                } label: {
-                    Text("Cancel", bundle: .module)
-                }
-                .keyboardShortcut(.cancelAction)
-            }
-            .padding()
-            Divider()
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 12) {
                     ForEach(variants) { variant in
@@ -51,6 +36,10 @@ struct SearchVariantPicker: View {
                 .padding()
             }
         }
+        .tcgSheet(
+            Text("Choose a variant", bundle: .module),
+            closeLabel: Text("Cancel", bundle: .module)
+        )
         #if os(macOS)
             .frame(minWidth: 420, minHeight: 340)
         #endif

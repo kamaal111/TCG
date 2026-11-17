@@ -58,14 +58,10 @@ struct BinderLayoutEditor: View {
             if let saveError { TCGInlineError(saveError.localizedDescription) }
         }
         .formStyle(.grouped)
-        .navigationTitle(Text("Page dimensions", bundle: .module))
-        .toolbar {
-            Button {
-                dismiss()
-            } label: {
-                Text("Cancel", bundle: .module)
-            }
-        }
+        .tcgSheet(
+            Text("Page dimensions", bundle: .module),
+            closeLabel: Text("Cancel", bundle: .module)
+        )
         .confirmationDialog(
             Text("Change page dimensions?", bundle: .module),
             isPresented: $isConfirmingResize,

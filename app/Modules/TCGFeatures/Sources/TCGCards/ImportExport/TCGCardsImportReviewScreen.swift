@@ -1,4 +1,5 @@
 import SwiftUI
+import TCGDesignSystem
 import TCGUtils
 import UniformTypeIdentifiers
 
@@ -24,40 +25,33 @@ public struct TCGCardsImportReviewScreen: View {
     }
 
     public var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    Text(model.filename).font(.subheadline).foregroundStyle(.secondary).textSelection(.enabled)
-                    if let completion = model.completion {
-                        CSVImportCompletionView(completion: completion, model: model) { dismiss() }
-                    } else {
-                        CSVImportReviewContent(
-                            model: model,
-                            actions: .init(
-                                editCard: { cardEditor = $0 },
-                                editRow: { row, cardID in rowEditor = .init(cardID: cardID, row: row) },
-                                downloadTemplate: downloadTemplate,
-                                chooseAnotherFile: chooseAnotherFile
-                            )
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                Text(model.filename).font(.subheadline).foregroundStyle(.secondary).textSelection(.enabled)
+                if let completion = model.completion {
+                    CSVImportCompletionView(completion: completion, model: model) { dismiss() }
+                } else {
+                    CSVImportReviewContent(
+                        model: model,
+                        actions: .init(
+                            editCard: { cardEditor = $0 },
+                            editRow: { row, cardID in rowEditor = .init(cardID: cardID, row: row) },
+                            downloadTemplate: downloadTemplate,
+                            chooseAnotherFile: chooseAnotherFile
                         )
-                    }
-                }
-                .padding(24)
-                .frame(maxWidth: 720)
-                .frame(maxWidth: .infinity)
-            }
-            .navigationTitle(Text("Review Import", bundle: .module))
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button {
-                        if model.hasEdits && model.completion == nil { isConfirmingDiscard = true } else { dismiss() }
-                    } label: {
-                        Text("Close", bundle: .module)
-                    }
-                    .disabled(model.isSubmitting)
+                    )
                 }
             }
+            .padding(24)
+            .frame(maxWidth: 720)
+            .frame(maxWidth: .infinity)
         }
+        .tcgSheet(
+            Text("Review Import", bundle: .module),
+            closeLabel: Text("Close", bundle: .module),
+            closeDisabled: model.isSubmitting,
+            onClose: requestClose
+        )
         .frame(minWidth: 0)
         #if os(macOS)
             .frame(width: 650, height: 650)
@@ -124,5 +118,13 @@ public struct TCGCardsImportReviewScreen: View {
         let cardID: UUID
         let row: CSVImportRow
         var id: Int { row.id }
+    }
+
+    private func requestClose() {
+        if model.hasEdits && model.completion == nil {
+            isConfirmingDiscard = true
+        } else {
+            dismiss()
+        }
     }
 }

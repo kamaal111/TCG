@@ -12,7 +12,6 @@ struct BinderCardPicker: View {
     struct Content {
         let cards: [CardWithPrice]
         let selection: UUID?
-        var isUnfiled = false
         var isLoading = false
         var error: String?
         var isLoadingNextPage = false
@@ -107,10 +106,6 @@ struct BinderCardPicker: View {
                 }
             }
         }
-        .navigationTitle(
-            content.isUnfiled
-                ? Text("Unfiled cards", bundle: .module) : Text("Choose a card", bundle: .module)
-        )
         .frame(minWidth: Metrics.minimumWidth, minHeight: Metrics.minimumHeight)
     }
 

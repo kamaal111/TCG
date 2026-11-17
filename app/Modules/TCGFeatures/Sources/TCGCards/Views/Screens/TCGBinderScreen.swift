@@ -65,19 +65,17 @@ struct TCGBinderScreen: View {
         .onChange(of: collection.pages.count) { pageIndex = min(pageIndex, max(0, collection.pages.count - 1)) }
         .sheet(item: $selection) { selection in
             if let collections, !cards.isReadOnly, isEditingCollection || selection.card == nil {
-                NavigationStack {
-                    BinderSlotEditor(
-                        content: .init(collection: collection, position: selection.position, card: selection.card),
-                        collections: collections
-                    )
-                }
+                BinderSlotEditor(
+                    content: .init(collection: collection, position: selection.position, card: selection.card),
+                    collections: collections
+                )
                 .environment(cards)
             } else if let card = selection.card {
-                NavigationStack { TCGCardDetailScreen(model: .init(card: card)) }
+                TCGCardDetailScreen(model: .init(card: card))
             }
         }
         .sheet(isPresented: $isAddingCard) {
-            NavigationStack { TCGCardFormScreen(model: .init(mode: .add, initialValues: nil)) }
+            TCGCardFormScreen(model: .init(mode: .add, initialValues: nil))
         }
         .confirmationDialog(
             Text("Delete this page? Its cards will become unplaced.", bundle: .module),

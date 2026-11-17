@@ -36,10 +36,8 @@ struct CardCollectionField: View {
             .disabled(collections.isWorking)
         }
         .sheet(isPresented: $isCreating) {
-            NavigationStack {
-                NewCollectionScreen { name in
-                    await model.createCollection(name: name, using: collections)
-                }
+            NewCollectionScreen { name in
+                await model.createCollection(name: name, using: collections)
             }
         }
     }

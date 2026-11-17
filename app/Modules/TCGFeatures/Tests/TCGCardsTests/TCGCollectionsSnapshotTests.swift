@@ -85,10 +85,8 @@ struct TCGCollectionsSnapshotTests {
         await model.load(using: context.cards, collections: context.collections)
         #expect(model.screen == .collectionCards)
         await assertCollectionSnapshot(testName: #function) {
-            NavigationStack {
-                BinderSlotEditor(model: model, collections: context.collections)
-            }
-            .environment(context.cards)
+            BinderSlotEditor(model: model, collections: context.collections)
+                .environment(context.cards)
         }
     }
 
@@ -102,10 +100,8 @@ struct TCGCollectionsSnapshotTests {
         await model.showCards(unfiled: true, using: context.cards, collections: context.collections)
         #expect(model.availableCards.count == 2)
         await assertCollectionSnapshot(testName: #function) {
-            NavigationStack {
-                BinderSlotEditor(model: model, collections: context.collections)
-            }
-            .environment(context.cards)
+            BinderSlotEditor(model: model, collections: context.collections)
+                .environment(context.cards)
         }
     }
 
@@ -121,10 +117,8 @@ struct TCGCollectionsSnapshotTests {
         model.choose(card)
         #expect(model.canSave)
         await assertCollectionSnapshot(testName: #function) {
-            NavigationStack {
-                BinderSlotEditor(model: model, collections: context.collections)
-            }
-            .environment(context.cards)
+            BinderSlotEditor(model: model, collections: context.collections)
+                .environment(context.cards)
         }
     }
 
@@ -140,7 +134,7 @@ struct TCGCollectionsSnapshotTests {
         await model.load(using: cards, collections: collections)
         #expect(model.error != nil)
         await assertCollectionSnapshot(testName: #function) {
-            NavigationStack { BinderSlotEditor(model: model, collections: collections) }.environment(cards)
+            BinderSlotEditor(model: model, collections: collections).environment(cards)
         }
     }
 
@@ -152,7 +146,7 @@ struct TCGCollectionsSnapshotTests {
         )
         #expect(model.canChooseCollection)
         await assertCollectionSnapshot(testName: #function) {
-            NavigationStack { TCGCardFormScreen(model: model) }
+            TCGCardFormScreen(model: model)
                 .environment(context.cards)
                 .environment(\.tcgCollections, context.collections)
         }
@@ -163,10 +157,8 @@ struct TCGCollectionsSnapshotTests {
         let model = TCGCardFormScreenModel(mode: .add, initialValues: nil)
         #expect(context.collections.collections.count == 1)
         await assertCollectionSnapshot(testName: #function) {
-            NavigationStack {
-                NewCollectionScreen { name in
-                    await model.createCollection(name: name, using: context.collections)
-                }
+            NewCollectionScreen { name in
+                await model.createCollection(name: name, using: context.collections)
             }
         }
     }
@@ -272,10 +264,8 @@ struct TCGCollectionsSnapshotTests {
         let collection = CollectionTestFixtures.collection(columns: 1, rows: 4, pages: [])
         #expect(collection.rows == 4)
         await assertCollectionSnapshot(testName: #function) {
-            NavigationStack {
-                BinderLayoutEditor(collection: collection, collections: TCGCollections(client: client, defaults: nil))
-            }
-            .environment(TCGCards(client: client))
+            BinderLayoutEditor(collection: collection, collections: TCGCollections(client: client, defaults: nil))
+                .environment(TCGCards(client: client))
         }
     }
 
@@ -285,7 +275,7 @@ struct TCGCollectionsSnapshotTests {
         let collections = context.collections
         #expect(await collections.create(name: "Favorites", using: cards))
         await assertCollectionSnapshot(testName: #function) {
-            NavigationStack { CollectionExportScreen(collections: collections) }
+            CollectionExportScreen(collections: collections)
         }
     }
 
@@ -301,17 +291,15 @@ struct TCGCollectionsSnapshotTests {
         collection.pages = [page]
         #expect(collection.allocatedCopies(of: PreviewTCGCardsClient.sampleCards[0].id) == 2)
         await assertCollectionSnapshot(testName: #function) {
-            NavigationStack {
-                BinderSlotEditor(
-                    content: .init(
-                        collection: collection,
-                        position: .init(pageID: page.id, row: 1, column: 1),
-                        card: context.cards.cards.first
-                    ),
-                    collections: collections
-                )
-                .environment(\.isEditingCollection, true)
-            }
+            BinderSlotEditor(
+                content: .init(
+                    collection: collection,
+                    position: .init(pageID: page.id, row: 1, column: 1),
+                    card: context.cards.cards.first
+                ),
+                collections: collections
+            )
+            .environment(\.isEditingCollection, true)
             .environment(cards)
         }
     }
@@ -331,10 +319,8 @@ struct TCGCollectionsSnapshotTests {
         let backup = CollectionBackup(version: 1, collections: [collection], cards: [])
         #expect(backup.collections.count == 1)
         await assertCollectionSnapshot(testName: #function) {
-            NavigationStack {
-                CollectionImportScreen(backup: backup, collections: TCGCollections(client: client, defaults: nil))
-            }
-            .environment(TCGCards(client: client))
+            CollectionImportScreen(backup: backup, collections: TCGCollections(client: client, defaults: nil))
+                .environment(TCGCards(client: client))
         }
     }
 

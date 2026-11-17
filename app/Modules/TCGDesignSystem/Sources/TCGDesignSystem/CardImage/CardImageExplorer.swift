@@ -2,14 +2,13 @@ import SwiftUI
 
 /// Presents card artwork with bounded zoom, panning, and explicit exploration controls.
 public struct CardImageExplorer: View {
-    @Environment(\.dismiss) private var dismiss
     @State private var zoom = CardImageZoom()
     @State private var isLoaded = false
     @State private var viewport: CGSize = .zero
     @State private var artworkSize: CGSize = .zero
     @GestureState private var interaction: CardImageZoom.Interaction?
 
-    private typealias ArtworkGesture = SimultaneousGesture<MagnifyGesture, DragGesture>
+    private typealias ArtworkGesture = SimultaneousGesture<MagnifyGesture, DragGesture?>
 
     private let url: URL?
 
@@ -19,18 +18,6 @@ public struct CardImageExplorer: View {
 
     public var body: some View {
         VStack(spacing: 0) {
-            HStack {
-                Text("Explore image", bundle: .module).font(.headline)
-                Spacer()
-                Button {
-                    dismiss()
-                } label: {
-                    Text("Close", bundle: .module)
-                }
-                .keyboardShortcut(.cancelAction)
-            }
-            .padding()
-
             GeometryReader { geometry in
                 artwork(in: geometry)
             }
@@ -56,6 +43,10 @@ public struct CardImageExplorer: View {
                 )
             )
         }
+        .tcgSheet(
+            Text("Explore image", bundle: .module),
+            closeLabel: Text("Close", bundle: .module)
+        )
         .background(.background)
         .onChange(of: url) { _, _ in zoom.reset() }
         #if os(macOS)
@@ -84,7 +75,7 @@ public struct CardImageExplorer: View {
         .clipped()
         .gesture(
             exploreArtwork(viewport: geometry.size, artwork: artworkSize),
-            including: isLoaded ? .all : .none
+            isEnabled: isLoaded
         )
         .onTapGesture(count: 2) {
             guard isLoaded else { return }
@@ -102,8 +93,10 @@ public struct CardImageExplorer: View {
     }
 
     private func exploreArtwork(viewport: CGSize, artwork: CGSize) -> some Gesture {
-        MagnifyGesture()
-            .simultaneously(with: DragGesture())
+        // A drag at fit scale belongs to the sheet.
+        let pan = zoom.scale > CardImageZoom.minimumScale ? DragGesture() : nil
+        return MagnifyGesture()
+            .simultaneously(with: pan)
             .updating($interaction) { value, state, _ in
                 state = Self.interaction(for: value)
             }

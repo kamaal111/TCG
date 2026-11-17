@@ -89,9 +89,7 @@ private struct TCGSearchTab: View {
     var body: some View {
         NavigationStack {
             TCGSearchScreen { card, onAdded in
-                NavigationStack {
-                    TCGCardFormScreen(pricedCard: card, onAdded: onAdded)
-                }
+                TCGCardFormScreen(pricedCard: card, onAdded: onAdded)
             }
         }
     }

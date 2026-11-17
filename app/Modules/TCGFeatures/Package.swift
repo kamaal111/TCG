@@ -87,6 +87,7 @@ let package = Package(
                 "TCGCurrency",
                 .product(name: "KamaalAuth", package: "kamaal-auth"),
                 "TCGCards",
+                "TCGDesignSystem",
                 "TCGUtils",
             ],
             swiftSettings: [

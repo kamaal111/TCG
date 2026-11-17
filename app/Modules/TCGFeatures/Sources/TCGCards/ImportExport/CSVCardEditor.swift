@@ -1,5 +1,6 @@
 import SwiftUI
 import TCGClient
+import TCGDesignSystem
 
 struct CSVCardEditor: View {
     @Environment(\.dismiss) private var dismiss
@@ -14,26 +15,18 @@ struct CSVCardEditor: View {
     }
 
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                TCGCardFormFields(model: model) {
-                    if let values = model.saveDraft() {
-                        onSave(values)
-                        dismiss()
-                    }
-                }
-            }
-            .navigationTitle(Text("Edit Import Card", bundle: .module))
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button {
-                        dismiss()
-                    } label: {
-                        Text("Cancel", bundle: .module)
-                    }
+        ScrollView {
+            TCGCardFormFields(model: model) {
+                if let values = model.saveDraft() {
+                    onSave(values)
+                    dismiss()
                 }
             }
         }
+        .tcgSheet(
+            Text("Edit Import Card", bundle: .module),
+            closeLabel: Text("Cancel", bundle: .module)
+        )
         #if os(macOS)
             .frame(width: 600, height: 650)
         #endif

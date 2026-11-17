@@ -66,7 +66,7 @@ struct TCGCardFormScreenSnapshotTests {
         let card = PreviewTCGPricingClient.samplePricedCards[1]
         #expect(card.game == .pokemon)
         await assertScreenSnapshot(testName: #function) {
-            NavigationStack { TCGCardFormScreen(pricedCard: card) }
+            TCGCardFormScreen(pricedCard: card)
                 .environment(TCGCards(client: .preview(cardsOutcome: .empty)))
         }
     }
@@ -76,7 +76,7 @@ struct TCGCardFormScreenSnapshotTests {
         let card = PreviewTCGPricingClient.samplePricedCards[0]
         #expect(card.game == .onePiece)
         await assertScreenSnapshot(testName: #function) {
-            NavigationStack { TCGCardFormScreen(pricedCard: card) }
+            TCGCardFormScreen(pricedCard: card)
                 .environment(TCGCards(client: .preview(cardsOutcome: .empty)))
         }
     }
@@ -108,7 +108,7 @@ struct TCGCardFormScreenSnapshotTests {
     }
 
     private func makeScreen(model: TCGCardFormScreenModel) -> some View {
-        NavigationStack { TCGCardFormScreen(model: model) }
+        TCGCardFormScreen(model: model)
             .environment(TCGCards(client: .preview(cardsOutcome: .empty)))
     }
 }

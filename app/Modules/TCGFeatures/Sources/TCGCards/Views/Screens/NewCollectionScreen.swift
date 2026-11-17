@@ -21,31 +21,23 @@ struct NewCollectionScreen: View {
             if let error { TCGInlineError(error.localizedDescription) }
         }
         .formStyle(.grouped)
-        .navigationTitle(Text("New collection", bundle: .module))
-        .toolbar {
-            ToolbarItem(placement: .cancellationAction) {
-                Button {
-                    dismiss()
-                } label: {
-                    Text("Cancel", bundle: .module)
+        .tcgSheet(
+            Text("New collection", bundle: .module),
+            closeLabel: Text("Cancel", bundle: .module),
+            closeDisabled: isCreating
+        ) {
+            Button {
+                Task { await createCollection() }
+            } label: {
+                if isCreating {
+                    ProgressView().controlSize(.small)
+                } else {
+                    Text("Create collection", bundle: .module)
                 }
-                .disabled(isCreating)
-                .help(Text("Cancel", bundle: .module))
             }
-            ToolbarItem(placement: .confirmationAction) {
-                Button {
-                    Task { await createCollection() }
-                } label: {
-                    if isCreating {
-                        ProgressView().controlSize(.small)
-                    } else {
-                        Text("Create collection", bundle: .module)
-                    }
-                }
-                .disabled(isCreating || name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                .help(Text("Create collection", bundle: .module))
-                .keyboardShortcut(.defaultAction)
-            }
+            .disabled(isCreating || name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            .help(Text("Create collection", bundle: .module))
+            .keyboardShortcut(.defaultAction)
         }
         .interactiveDismissDisabled(isCreating)
         .frame(minWidth: Metrics.minimumWidth, minHeight: Metrics.minimumHeight)
