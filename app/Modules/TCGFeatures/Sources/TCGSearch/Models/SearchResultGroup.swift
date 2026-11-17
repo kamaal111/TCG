@@ -25,6 +25,10 @@ struct SearchResultGroup: Identifiable {
 
     var hasArtwork: Bool { variants.contains { $0.imageURL != nil } }
 
+    var canExploreAlternativeArtwork: Bool {
+        card.imageURL == nil && variants.count > 1 && hasArtwork
+    }
+
     var directArtworkURL: URL? { variants.count == 1 ? variants.first?.imageURL : nil }
 
     func artworkURL(for variantID: String) -> URL? {
