@@ -24,72 +24,67 @@ public struct CardArtworkCacheSettings: View {
     }
 
     private var gallery: some View {
-        NavigationStack {
-            Group {
-                if let artworks {
-                    if artworks.isEmpty {
-                        ContentUnavailableView {
-                            Label {
-                                Text("No cached card images", bundle: .module)
-                            } icon: {
-                                Image(systemName: "photo.on.rectangle")
-                            }
-                        }
-                    } else {
-                        artworkGrid(artworks)
-                    }
-                } else {
+        Group {
+            if let artworks {
+                if artworks.isEmpty {
                     ContentUnavailableView {
                         Label {
-                            Text("Couldn’t read cached card images", bundle: .module)
+                            Text("No cached card images", bundle: .module)
                         } icon: {
-                            Image(systemName: "exclamationmark.triangle")
-                        }
-                    } actions: {
-                        Button {
-                            Task { await refresh() }
-                        } label: {
-                            Text("Retry", bundle: .module)
+                            Image(systemName: "photo.on.rectangle")
                         }
                     }
+                } else {
+                    artworkGrid(artworks)
                 }
-            }
-            .navigationTitle(Text("Cached card images", bundle: .module))
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
+            } else {
+                ContentUnavailableView {
+                    Label {
+                        Text("Couldn’t read cached card images", bundle: .module)
+                    } icon: {
+                        Image(systemName: "exclamationmark.triangle")
+                    }
+                } actions: {
                     Button {
-                        isShowingGallery = false
+                        Task { await refresh() }
                     } label: {
-                        Text("Done", bundle: .module)
+                        Text("Retry", bundle: .module)
                     }
-                }
-                ToolbarItem(placement: .primaryAction) {
-                    Button(role: .destructive) {
-                        isConfirmingDeleteAll = true
-                    } label: {
-                        Text("Delete all cached images", bundle: .module)
-                    }
-                    .disabled(isDeleting || artworks?.isEmpty == true)
                 }
             }
-            .confirmationDialog(
-                Text("Delete all cached images?", bundle: .module),
-                isPresented: $isConfirmingDeleteAll,
-                titleVisibility: .visible
-            ) {
+        }
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
                 Button(role: .destructive) {
-                    delete(nil)
+                    isConfirmingDeleteAll = true
                 } label: {
                     Text("Delete all cached images", bundle: .module)
                 }
-            } message: {
-                Text("Card images will download again when you view them.", bundle: .module)
+                .disabled(isDeleting || artworks?.isEmpty == true)
             }
-            .alert(Text("Couldn’t delete cached images", bundle: .module), isPresented: $deletionFailed) {
-                Button(role: .cancel) {
-                } label: {
-                    Text("OK", bundle: .module)
-                }
+        }
+        .tcgSheet(
+            Text("Cached card images", bundle: .module),
+            closeLabel: Text("Done", bundle: .module),
+            onClose: { isShowingGallery = false }
+        )
+        .confirmationDialog(
+            Text("Delete all cached images?", bundle: .module),
+            isPresented: $isConfirmingDeleteAll,
+            titleVisibility: .visible
+        ) {
+            Button(role: .destructive) {
+                delete(nil)
+            } label: {
+                Text("Delete all cached images", bundle: .module)
+            }
+        } message: {
+            Text("Card images will download again when you view them.", bundle: .module)
+        }
+        .alert(Text("Couldn’t delete cached images", bundle: .module), isPresented: $deletionFailed) {
+            Button(role: .cancel) {
+            } label: {
+                Text("OK", bundle: .module)
             }
         }
         .frame(minWidth: 320, minHeight: 360)

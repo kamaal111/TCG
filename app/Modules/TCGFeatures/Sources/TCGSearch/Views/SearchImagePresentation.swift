@@ -6,11 +6,9 @@ struct SearchImagePresentation: ViewModifier {
     @Binding var group: SearchResultGroup?
 
     func body(content: Content) -> some View {
-        #if os(macOS)
-            content.sheet(item: $group) { group in SearchImageFlow(group: group) }
-        #else
-            content.fullScreenCover(item: $group) { group in SearchImageFlow(group: group) }
-        #endif
+        content.sheet(item: $group) { group in
+            SearchImageFlow(group: group)
+        }
     }
 }
 

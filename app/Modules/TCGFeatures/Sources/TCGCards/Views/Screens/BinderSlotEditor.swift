@@ -61,14 +61,6 @@ struct BinderSlotEditor: View {
             }
         }
         .toolbar {
-            ToolbarItem(placement: .cancellationAction) {
-                Button {
-                    dismiss()
-                } label: {
-                    Text("Cancel", bundle: .module)
-                }
-                .disabled(model.isSaving)
-            }
             if model.screen != .collectionCards {
                 ToolbarItem(placement: backPlacement) {
                     Button {
@@ -79,15 +71,19 @@ struct BinderSlotEditor: View {
                     .disabled(model.isSaving || model.isLoading || model.needsReload)
                 }
             }
+        }
+        .tcgSheet(
+            title,
+            closeLabel: Text("Cancel", bundle: .module),
+            closeDisabled: model.isSaving
+        ) {
             if model.screen == .contents {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button {
-                        Task { await save() }
-                    } label: {
-                        Text("Save", bundle: .module)
-                    }
-                    .disabled(!model.canSave || collections.isWorking)
+                Button {
+                    Task { await save() }
+                } label: {
+                    Text("Save", bundle: .module)
                 }
+                .disabled(!model.canSave || collections.isWorking)
             }
         }
         .task {
@@ -95,11 +91,19 @@ struct BinderSlotEditor: View {
         }
         .sheet(isPresented: $isShowingDetails) {
             if let selectedCard = model.selectedCard {
-                NavigationStack { TCGCardDetailScreen(model: .init(card: selectedCard)) }
+                TCGCardDetailScreen(model: .init(card: selectedCard))
             }
         }
         .interactiveDismissDisabled(model.isSaving)
         .frame(minWidth: 300, minHeight: 400)
+    }
+
+    private var title: Text {
+        switch model.screen {
+        case .collectionCards: Text("Choose a card", bundle: .module)
+        case .unfiledCards: Text("Unfiled cards", bundle: .module)
+        case .contents: Text("Slot contents", bundle: .module)
+        }
     }
 
     private var backPlacement: ToolbarItemPlacement {
@@ -115,7 +119,6 @@ struct BinderSlotEditor: View {
             content: .init(
                 cards: model.availableCards,
                 selection: model.selectedCard?.card.id,
-                isUnfiled: model.screen == .unfiledCards,
                 isLoading: model.isLoading,
                 error: model.error,
                 isLoadingNextPage: model.isLoadingNextPage,
@@ -182,7 +185,6 @@ struct BinderSlotEditor: View {
             }
         }
         .formStyle(.grouped)
-        .navigationTitle(Text("Slot contents", bundle: .module))
     }
 
     private func save(clear: Bool = false) async {

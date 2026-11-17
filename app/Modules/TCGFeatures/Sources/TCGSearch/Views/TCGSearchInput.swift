@@ -101,7 +101,6 @@ struct TCGSearchInput: View {
             #else
                 .sheet(isPresented: $isShowingSearchHelp) {
                     TCGSearchHelpView(game: game)
-                    .presentationDetents([.medium, .large])
                 }
             #endif
         }

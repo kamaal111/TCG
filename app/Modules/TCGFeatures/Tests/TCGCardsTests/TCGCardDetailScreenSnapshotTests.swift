@@ -185,7 +185,7 @@ struct TCGCardDetailScreenSnapshotTests {
         isEditingCollection: Bool = false,
         cards: TCGCards = TCGCards(client: .preview(cardsOutcome: .empty))
     ) -> some View {
-        NavigationStack { TCGCardDetailScreen(model: model) }
+        TCGCardDetailScreen(model: model)
             .environment(\.isEditingCollection, isEditingCollection)
             .environment(\.timeZone, TimeZone(secondsFromGMT: 0)!)
             .environment(cards)

@@ -1,4 +1,5 @@
 import SwiftUI
+import TCGDesignSystem
 
 struct CSVRowEditor: View {
     @Environment(\.dismiss) private var dismiss
@@ -15,49 +16,40 @@ struct CSVRowEditor: View {
     }
 
     var body: some View {
-        NavigationStack {
-            Form {
-                Section {
-                    Text(
-                        "Correct the values below. Card fields must match across purchases with the same card ID.",
-                        bundle: .module
-                    )
-                }
-                ForEach(CardsCSV.columns, id: \.self) { column in
-                    VStack(alignment: .leading, spacing: 5) {
-                        TextField(column.rawValue, text: Binding(get: { row[column] }, set: { row[column] = $0 }))
-                        if column == .id {
-                            Button {
-                                row[.id] = UUID().uuidString.lowercased()
-                            } label: {
-                                Text("Generate Card ID", bundle: .module)
-                            }
-                        }
-                        ForEach(CardsCSV.issues(for: row).filter { $0.column == column }) { issue in
-                            Text(issue.explanation).font(.caption).foregroundStyle(.red)
-                        }
-                    }
-                }
-                Toggle(isOn: $row.isIncluded) { Text("Include this purchase", bundle: .module) }
+        Form {
+            Section {
+                Text(
+                    "Correct the values below. Card fields must match across purchases with the same card ID.",
+                    bundle: .module
+                )
             }
-            .formStyle(.grouped)
-            .navigationTitle(Text("Correct CSV Row", bundle: .module))
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button {
-                        dismiss()
-                    } label: {
-                        Text("Cancel", bundle: .module)
+            ForEach(CardsCSV.columns, id: \.self) { column in
+                VStack(alignment: .leading, spacing: 5) {
+                    TextField(column.rawValue, text: Binding(get: { row[column] }, set: { row[column] = $0 }))
+                    if column == .id {
+                        Button {
+                            row[.id] = UUID().uuidString.lowercased()
+                        } label: {
+                            Text("Generate Card ID", bundle: .module)
+                        }
+                    }
+                    ForEach(CardsCSV.issues(for: row).filter { $0.column == column }) { issue in
+                        Text(issue.explanation).font(.caption).foregroundStyle(.red)
                     }
                 }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button {
-                        onSave(row)
-                        dismiss()
-                    } label: {
-                        Text("Save Changes", bundle: .module)
-                    }
-                }
+            }
+            Toggle(isOn: $row.isIncluded) { Text("Include this purchase", bundle: .module) }
+        }
+        .formStyle(.grouped)
+        .tcgSheet(
+            Text("Correct CSV Row", bundle: .module),
+            closeLabel: Text("Cancel", bundle: .module)
+        ) {
+            Button {
+                onSave(row)
+                dismiss()
+            } label: {
+                Text("Save Changes", bundle: .module)
             }
         }
         #if os(macOS)

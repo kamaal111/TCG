@@ -3,7 +3,6 @@ import TCGClient
 import TCGDesignSystem
 
 struct CollectionImportScreen: View {
-    @Environment(\.dismiss) private var dismiss
     @Environment(TCGCards.self) private var cards
     let backup: CollectionBackup
     let collections: TCGCollections
@@ -41,21 +40,17 @@ struct CollectionImportScreen: View {
             }
         }
         .formStyle(.grouped)
-        .navigationTitle(Text("Review backup", bundle: .module))
         .task {
             switch await collections.preview(backup) {
             case .success(let result): preview = result
             case .failure(let failure): error = failure.localizedDescription
             }
         }
-        .toolbar {
-            Button {
-                dismiss()
-            } label: {
-                Text("Done", bundle: .module)
-            }
-            .disabled(isWorking)
-        }
+        .tcgSheet(
+            Text("Review backup", bundle: .module),
+            closeLabel: Text("Done", bundle: .module),
+            closeDisabled: isWorking
+        )
         .interactiveDismissDisabled(isWorking)
         .frame(minWidth: 300, minHeight: 350)
     }

@@ -88,7 +88,7 @@ public struct TCGCollectionsScreen: View {
         }
         .sheet(isPresented: $isEditingLayout) {
             if let collections, let selected = collections.selected {
-                NavigationStack { BinderLayoutEditor(collection: selected, collections: collections) }
+                BinderLayoutEditor(collection: selected, collections: collections)
                     .environment(cards)
             }
         }

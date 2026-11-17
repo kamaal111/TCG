@@ -21,32 +21,26 @@ struct TCGCardDetailScreen: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            HStack {
-                Button(action: requestDismissal) {
-                    CardModalCloseIcon()
-                }
-                .accessibilityLabel(Text("Close", bundle: .module))
-                .keyboardShortcut(.cancelAction)
-                Spacer()
-                Text("Card details", bundle: .module).font(.headline)
-                Spacer()
-                if canEditCard {
-                    Button(action: editOrSave) {
-                        if model.editor != nil {
-                            Text("Save", bundle: .module)
-                        } else {
-                            Text("Edit", bundle: .module)
-                        }
-                    }
-                }
-            }
-            .padding()
-            Divider()
             if canEditCard, let editor = model.editor {
                 editorContent(editor)
             } else {
                 CardDetailContent(metadata: .init(ownedCard: displayedCard), price: displayedCard.price.price) {
                     collectionDetails(displayedCard)
+                }
+            }
+        }
+        .tcgSheet(
+            Text("Card details", bundle: .module),
+            closeLabel: Text("Close", bundle: .module),
+            onClose: requestDismissal
+        ) {
+            if canEditCard {
+                Button(action: editOrSave) {
+                    if model.editor != nil {
+                        Text("Save", bundle: .module)
+                    } else {
+                        Text("Edit", bundle: .module)
+                    }
                 }
             }
         }

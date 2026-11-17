@@ -28,7 +28,7 @@ public struct CollectionTransferControls: View {
             .help(Text("Import collections", bundle: .module))
         }
         .sheet(isPresented: $isExporting) {
-            if let collections { NavigationStack { CollectionExportScreen(collections: collections) } }
+            if let collections { CollectionExportScreen(collections: collections) }
         }
         .fileImporter(isPresented: $isImporting, allowedContentTypes: [.json]) { result in
             switch result {
@@ -38,7 +38,7 @@ public struct CollectionTransferControls: View {
         }
         .sheet(isPresented: Binding(get: { backup != nil }, set: { if !$0 { backup = nil } })) {
             if let collections, let backup {
-                NavigationStack { CollectionImportScreen(backup: backup, collections: collections) }.environment(cards)
+                CollectionImportScreen(backup: backup, collections: collections).environment(cards)
             }
         }
         .alert(

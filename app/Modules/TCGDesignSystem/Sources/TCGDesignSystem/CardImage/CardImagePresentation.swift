@@ -18,11 +18,9 @@ private struct CardImagePresentation: ViewModifier {
             get: { url.map(ImageRoute.init(url:)) },
             set: { url = $0?.url }
         )
-        #if os(macOS)
-            content.sheet(item: image) { image in CardImageExplorer(url: image.url) }
-        #else
-            content.fullScreenCover(item: image) { image in CardImageExplorer(url: image.url) }
-        #endif
+        content.sheet(item: image) { image in
+            CardImageExplorer(url: image.url)
+        }
     }
 
     private struct ImageRoute: Identifiable {

@@ -1,10 +1,9 @@
 import SwiftUI
 import TCGClient
+import TCGDesignSystem
 import Textual
 
 struct TCGSearchHelpView: View {
-    @Environment(\.dismiss) private var dismiss
-
     private let document: Result<String, TCGSearchHelpDocument.LoadError>
 
     init(game: ClientCardGame) {
@@ -17,23 +16,11 @@ struct TCGSearchHelpView: View {
             content
                 .frame(height: 520)
         #else
-            VStack(spacing: 0) {
-                HStack {
-                    Text("How to search", bundle: .module)
-                        .font(.title2.bold())
-                        .accessibilityAddTraits(.isHeader)
-                    Spacer()
-                    Button {
-                        dismiss()
-                    } label: {
-                        Text("Done", bundle: .module)
-                    }
-                    .buttonStyle(.plain)
-                    .foregroundStyle(.blue)
-                }
-                .padding([.top, .horizontal], 24)
-                content
-            }
+            content
+                .tcgSheet(
+                    Text("How to search", bundle: .module),
+                    closeLabel: Text("Done", bundle: .module)
+                )
         #endif
     }
 

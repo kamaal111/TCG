@@ -31,9 +31,6 @@ public struct TCGCardFormScreen: View {
 
     public var body: some View {
         formContent
-            #if os(iOS)
-                .toolbar(.hidden, for: .navigationBar)
-            #endif
             .confirmationDialog(
                 Text("Discard changes?", bundle: .module),
                 isPresented: $model.isShowingDiscardConfirmation,
@@ -70,28 +67,15 @@ public struct TCGCardFormScreen: View {
     }
 
     private var formContent: some View {
-        VStack(spacing: 0) {
-            HStack {
-                dismissButton
-                Spacer()
+        formScrollView
+            .tcgSheet(
+                Text(model.mode.title),
+                closeLabel: Text("Close", bundle: .module),
+                closeDisabled: model.isSubmitting,
+                onClose: requestDismissal
+            ) {
                 submitButton
             }
-            .overlay {
-                Text(model.mode.title)
-                    .font(.headline)
-                    .allowsHitTesting(false)
-            }
-            .padding(.horizontal, 24)
-            .padding(.vertical, 12)
-            #if os(macOS)
-                .background(Color(nsColor: .windowBackgroundColor))
-            #else
-                .background(.background)
-            #endif
-
-            Divider()
-            formScrollView
-        }
     }
 
     private var formScrollView: some View {
@@ -108,9 +92,6 @@ public struct TCGCardFormScreen: View {
                 submitTitle
             }
         }
-        #if os(iOS)
-            .buttonStyle(.borderedProminent)
-        #endif
         .keyboardShortcut(.defaultAction)
         .disabled(model.isSubmitting)
         .accessibilityLabel(submitTitle)
@@ -123,22 +104,6 @@ public struct TCGCardFormScreen: View {
         case .edit: Text("Save", bundle: .module)
         case .draft: Text("Save Changes", bundle: .module)
         }
-    }
-
-    private var dismissButton: some View {
-        Button(action: requestDismissal) {
-            CardModalCloseIcon()
-                #if os(macOS)
-                    .foregroundStyle(.primary)
-                #endif
-        }
-        .accessibilityLabel(Text("Close", bundle: .module))
-        .help(Text("Close", bundle: .module))
-        #if os(macOS)
-            .tint(.primary)
-        #endif
-        .keyboardShortcut(.cancelAction)
-        .disabled(model.isSubmitting)
     }
 
     private func requestDismissal() {

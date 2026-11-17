@@ -46,12 +46,10 @@ public struct TCGCardsListScreen: View {
                 }
             }
             .sheet(item: $model.presentedForm) { route in
-                NavigationStack {
-                    switch route {
-                    case .add: TCGCardFormScreen(model: .init(mode: .add, initialValues: nil))
-                    case .detail(let card): TCGCardDetailScreen(model: .init(card: card))
-                    case .edit(let card): TCGCardFormScreen(model: .init(editing: card))
-                    }
+                switch route {
+                case .add: TCGCardFormScreen(model: .init(mode: .add, initialValues: nil))
+                case .detail(let card): TCGCardDetailScreen(model: .init(card: card))
+                case .edit(let card): TCGCardFormScreen(model: .init(editing: card))
                 }
             }
             .alert(

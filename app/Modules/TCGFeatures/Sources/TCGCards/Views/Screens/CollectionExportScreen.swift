@@ -27,23 +27,16 @@ struct CollectionExportScreen: View {
             if let error { TCGInlineError(error) }
         }
         .formStyle(.grouped)
-        .navigationTitle(Text("Export collections", bundle: .module))
-        .toolbar {
-            ToolbarItem(placement: .cancellationAction) {
-                Button {
-                    dismiss()
-                } label: {
-                    Text("Cancel", bundle: .module)
-                }
+        .tcgSheet(
+            Text("Export collections", bundle: .module),
+            closeLabel: Text("Cancel", bundle: .module)
+        ) {
+            Button {
+                Task { await export() }
+            } label: {
+                Text("Export", bundle: .module)
             }
-            ToolbarItem(placement: .confirmationAction) {
-                Button {
-                    Task { await export() }
-                } label: {
-                    Text("Export", bundle: .module)
-                }
-                .disabled(selection.isEmpty || isWorking)
-            }
+            .disabled(selection.isEmpty || isWorking)
         }
         .onAppear { selection = Set(collections.collections.map(\.id)) }
         .fileExporter(
