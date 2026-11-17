@@ -35,17 +35,14 @@ public struct CardDetailContent<Supplemental: View>: View {
     @State private var presentedImageURL: URL?
     private let metadata: CardDetailMetadata
     private let card: PricedCard?
-    private let onExplore: (() -> Void)?
     private let supplemental: Supplemental
 
     public init(
         metadata: CardDetailMetadata,
         price: PricedCard?,
-        onExplore: (() -> Void)? = nil,
         @ViewBuilder supplemental: () -> Supplemental
     ) {
         self.metadata = metadata
-        self.onExplore = onExplore
         card = price
         self.supplemental = supplemental()
     }
@@ -55,7 +52,7 @@ public struct CardDetailContent<Supplemental: View>: View {
             VStack(alignment: .leading, spacing: 24) {
                 CardArtworkView(
                     url: metadata.imageURL,
-                    onExplore: onExplore ?? { presentedImageURL = metadata.imageURL }
+                    onExplore: { presentedImageURL = metadata.imageURL }
                 )
                 .frame(maxWidth: .infinity)
                 .frame(height: 280)

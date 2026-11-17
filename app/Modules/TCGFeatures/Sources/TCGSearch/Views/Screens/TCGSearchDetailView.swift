@@ -40,7 +40,7 @@ struct TCGSearchDetailView<AddForm: View>: View {
             }
             .padding()
             Divider()
-            if selectedCard.imageURL == nil, let exploreVariants {
+            if let exploreVariants {
                 Button(action: exploreVariants) {
                     Text("Explore variant artwork", bundle: .module)
                 }
@@ -48,8 +48,7 @@ struct TCGSearchDetailView<AddForm: View>: View {
             }
             CardDetailContent(
                 metadata: .init(card: displayedCard ?? selectedCard),
-                price: displayedCard,
-                onExplore: exploreVariants
+                price: displayedCard
             ) {
                 if displayedCard == nil {
                     if search.isSearching {
@@ -116,7 +115,7 @@ struct TCGSearchDetailView<AddForm: View>: View {
 
     private var exploreVariants: (() -> Void)? {
         let group = SearchResultGroup(card: selectedCard, variants: currentVariants)
-        guard variants.count > 1, group.hasArtwork else { return nil }
+        guard group.canExploreAlternativeArtwork else { return nil }
         return { imageGroup = group }
     }
 

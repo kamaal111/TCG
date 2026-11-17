@@ -74,6 +74,26 @@ struct TCGSearchPresentationTests {
     }
 
     @Test
+    func `Details hide the alternative artwork picker when the selected variant has an image`() {
+        let foil = SearchVariantFixtures.variant(0)
+        let alternate = SearchVariantFixtures.variant(1)
+        let group = SearchResultGroup(card: alternate, variants: [foil, alternate])
+
+        #expect(!group.canExploreAlternativeArtwork)
+    }
+
+    @Test
+    func `Details offer the artwork picker only when another variant has artwork`() {
+        let foil = SearchVariantFixtures.variant(0)
+        let alternate = SearchVariantFixtures.variant(1, hasArtwork: false)
+        let other = SearchVariantFixtures.variant(2, hasArtwork: false)
+
+        #expect(SearchResultGroup(card: alternate, variants: [foil, alternate]).canExploreAlternativeArtwork)
+        #expect(!SearchResultGroup(card: alternate, variants: [alternate, other]).canExploreAlternativeArtwork)
+        #expect(!SearchResultGroup(card: alternate, variants: [alternate]).canExploreAlternativeArtwork)
+    }
+
+    @Test
     func `Details keep the chosen variant and use its latest result for Add`() {
         let foil = SearchVariantFixtures.variant(0)
         let alternate = SearchVariantFixtures.variant(1)
