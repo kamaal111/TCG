@@ -1,4 +1,5 @@
 import { cachedIllustrator } from './illustrator.ts';
+import { printingKey } from './printing-key.ts';
 import { proxyURLForOriginURL } from '../../card-images/keys.ts';
 import { toISO8601String } from '../../utils/strings.ts';
 import type { CardPriceRow } from '../repository.ts';
@@ -42,18 +43,26 @@ export function serializePricedCard(game: CardGame, row: CardPriceRow, baseURL: 
   const imageUrl = row.prices.image != null ? proxyURLForOriginURL(row.prices.image, baseURL) : undefined;
 
   return PricedCardSchema.parse({
-    id: row.id,
+    ...pricedCardMetadata(row),
     game,
+    image_url: imageUrl,
+    headline,
+    market,
+  });
+}
+
+export function pricedCardMetadata(row: CardPriceRow) {
+  return {
+    id: row.id,
+    printing_key: printingKey(row),
+    game: row.game,
     name: row.name,
     set_name: row.prices.setName,
     card_number: row.cardNumber,
     rarity: row.prices.rarity,
     variant_name: row.prices.variantName,
     illustrator: cachedIllustrator(row),
-    image_url: imageUrl,
-    headline,
-    market,
     priced_on: `${row.pricedOn}T00:00:00.000Z`,
     fetched_at: toISO8601String(row.fetchedAt),
-  });
+  };
 }

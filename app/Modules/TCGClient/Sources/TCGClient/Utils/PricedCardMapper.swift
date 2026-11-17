@@ -21,6 +21,8 @@ enum PricedCardMapper {
     static func makePricedCard(_ card: Components.Schemas.PricedCard) -> PricedCard {
         PricedCard(
             id: card.id,
+            printingKey: card.printingKey,
+            isWishlisted: card.isWishlisted,
             game: makeGame(card.game),
             name: card.name,
             cardNumber: card.cardNumber,

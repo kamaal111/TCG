@@ -37,10 +37,19 @@
     "Price is stable" : {
 
     },
+    "Search again to get the latest card details." : {
+
+    },
     "Sign in again to manage your collections." : {
 
     },
+    "Sign in again to use your wishlist." : {
+
+    },
     "The collection operation took too long. Please try again." : {
+
+    },
+    "The wishlist couldn’t be updated. Please try again." : {
 
     },
     "This collection or card is no longer available." : {

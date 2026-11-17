@@ -69,18 +69,66 @@ struct TCGSearchScreenSnapshotTests {
         }
     }
 
+    #if os(iOS)
+        @Test
+        func `Shows a filled Wishlist heart to the left of Add`() async {
+            await assertWishlistToolbar(saved: true, testName: #function)
+        }
+
+        @Test
+        func `Shows an outlined Wishlist heart to the left of Add`() async {
+            await assertWishlistToolbar(saved: false, testName: #function)
+        }
+
+        private func assertWishlistToolbar(saved: Bool, testName: String) async {
+            let privacy = TCGPricePrivacy(defaults: nil)
+            privacy.hidePrices = true
+            let card = PricedCard(
+                id: "550e8400-e29b-41d4-a716-446655440000",
+                printingKey: String(repeating: "a", count: 64),
+                isWishlisted: saved,
+                game: .onePiece,
+                name: "Monkey.D.Luffy",
+                cardNumber: "OP05-119",
+                setName: "Awakening of the New Era",
+                illustrator: nil,
+                variantName: "Alternate Art",
+                pricedOn: Date(timeIntervalSince1970: 0),
+                fetchedAt: Date(timeIntervalSince1970: 0)
+            )
+            await assertScreenSnapshot(testName: testName, line: #line) {
+                TCGSearchDetailView(
+                    card: card,
+                    isWishlistEntry: false,
+                    onWishlistRemoval: nil,
+                    addForm: { _, _ in EmptyView() }
+                )
+                .tcgSearch(TCGSearch(client: .preview(), history: TCGSearchHistoryStore()))
+                .environment(\.tcgWishlist, TCGWishlist(client: WishlistSnapshotClient()))
+                .environment(\.tcgPricePrivacy, privacy)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(.background)
+            }
+        }
+    #endif
+
     @Test
     func `Hides financial sections in search details`() async {
         let privacy = TCGPricePrivacy(defaults: nil)
         privacy.hidePrices = true
         #expect(detailCard.headline?.amount == 420)
         await assertScreenSnapshot(testName: #function) {
-            TCGSearchDetailView(card: detailCard, addForm: { _, _ in EmptyView() })
-                .tcgSearch(TCGSearch(client: .preview(), history: TCGSearchHistoryStore()))
-                .environment(\.tcgPricePrivacy, privacy)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(.background)
-                .cardImageLoader(PreviewCardImageLoader(outcome: .success))
+            TCGSearchDetailView(
+                card: detailCard,
+                isWishlistEntry: false,
+                onWishlistRemoval: nil,
+                addForm: { _, _ in EmptyView() }
+            )
+            .tcgSearch(TCGSearch(client: .preview(), history: TCGSearchHistoryStore()))
+            .environment(\.tcgPricePrivacy, privacy)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(.background)
+            .cardImageLoader(PreviewCardImageLoader(outcome: .success))
         }
     }
 
@@ -104,12 +152,17 @@ struct TCGSearchScreenSnapshotTests {
         )
         #expect(card.conversionUnavailable)
         await assertScreenSnapshot(testName: #function) {
-            TCGSearchDetailView(card: card, addForm: { _, _ in EmptyView() })
-                .tcgSearch(TCGSearch(client: .preview(), history: TCGSearchHistoryStore()))
-                .environment(\.tcgPricePrivacy, privacy)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(.background)
-                .cardImageLoader(PreviewCardImageLoader(outcome: .success))
+            TCGSearchDetailView(
+                card: card,
+                isWishlistEntry: false,
+                onWishlistRemoval: nil,
+                addForm: { _, _ in EmptyView() }
+            )
+            .tcgSearch(TCGSearch(client: .preview(), history: TCGSearchHistoryStore()))
+            .environment(\.tcgPricePrivacy, privacy)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(.background)
+            .cardImageLoader(PreviewCardImageLoader(outcome: .success))
         }
     }
 
@@ -312,12 +365,17 @@ struct TCGSearchScreenSnapshotTests {
     @Test
     func `Renders complete card details`() async {
         await assertScreenSnapshot(testName: #function) {
-            TCGSearchDetailView(card: detailCard, addForm: { _, _ in EmptyView() })
-                .tcgSearch(TCGSearch(client: .preview(), history: TCGSearchHistoryStore()))
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(.background)
-                .environment(\.timeZone, TimeZone(secondsFromGMT: 0)!)
-                .cardImageLoader(PreviewCardImageLoader(outcome: .success))
+            TCGSearchDetailView(
+                card: detailCard,
+                isWishlistEntry: false,
+                onWishlistRemoval: nil,
+                addForm: { _, _ in EmptyView() }
+            )
+            .tcgSearch(TCGSearch(client: .preview(), history: TCGSearchHistoryStore()))
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(.background)
+            .environment(\.timeZone, TimeZone(secondsFromGMT: 0)!)
+            .cardImageLoader(PreviewCardImageLoader(outcome: .success))
         }
     }
 
@@ -333,11 +391,16 @@ struct TCGSearchScreenSnapshotTests {
             fetchedAt: Date(timeIntervalSince1970: 1_750_000_000)
         )
         await assertScreenSnapshot(testName: #function) {
-            TCGSearchDetailView(card: card, addForm: { _, _ in EmptyView() })
-                .tcgSearch(TCGSearch(client: .preview(), history: TCGSearchHistoryStore()))
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(.background)
-                .environment(\.timeZone, TimeZone(secondsFromGMT: 0)!)
+            TCGSearchDetailView(
+                card: card,
+                isWishlistEntry: false,
+                onWishlistRemoval: nil,
+                addForm: { _, _ in EmptyView() }
+            )
+            .tcgSearch(TCGSearch(client: .preview(), history: TCGSearchHistoryStore()))
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(.background)
+            .environment(\.timeZone, TimeZone(secondsFromGMT: 0)!)
         }
     }
 
@@ -484,3 +547,13 @@ private struct SuspendedImageLoader: CardImageLoader {
         return nil
     }
 }
+
+#if os(iOS)
+    private struct WishlistSnapshotClient: TCGWishlistClient {
+        func list(cursor: String?) async -> Result<WishlistPage, WishlistError> { .failure(.unavailable) }
+
+        func save(_ payload: SaveWishlistPrinting) async -> Result<Void, WishlistError> { .success(()) }
+
+        func remove(printingKey: String) async -> Result<Void, WishlistError> { .success(()) }
+    }
+#endif

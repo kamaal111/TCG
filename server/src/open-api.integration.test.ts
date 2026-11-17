@@ -116,6 +116,8 @@ describe('OpenAPI specification integration', () => {
       '/app-api/collections/{collectionId}/layout',
       '/app-api/collections/{collectionId}/pages/{pageId}',
       '/app-api/pricing/search',
+      '/app-api/wishlist',
+      '/app-api/wishlist/{printingKey}',
     ]);
     expect(document.paths['/app-api/collections/{collectionId}']?.get).toMatchObject({
       responses: {

@@ -1976,6 +1976,122 @@ paths:
       summary: Search card prices
       tags:
         - Pricing
+  /app-api/wishlist:
+    get:
+      parameters:
+        - schema:
+            type: string
+            pattern: ^[A-Za-z0-9_-]+$
+            maxLength: 220
+          required: false
+          name: cursor
+          in: query
+      responses:
+        '200':
+          description: Page of saved printings
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  entries:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PricedCard'
+                  next_cursor:
+                    type:
+                      - string
+                      - 'null'
+                required:
+                  - entries
+                  - next_cursor
+        '400':
+          description: Invalid wishlist input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearerAuth: []
+      summary: List saved wishlist printings
+      tags:
+        - Wishlist
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                priced_card_id:
+                  type: string
+                  format: uuid
+                  description: UUID identifier, normalized to lowercase
+                  example: 550e8400-e29b-41d4-a716-446655440000
+              required:
+                - priced_card_id
+      responses:
+        '204':
+          description: Printing saved or already present
+        '400':
+          description: Invalid wishlist input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Pricing record not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearerAuth: []
+      summary: Save a printing to the wishlist
+      tags:
+        - Wishlist
+  /app-api/wishlist/{printingKey}:
+    delete:
+      parameters:
+        - schema:
+            type: string
+            pattern: ^[0-9a-f]{64}$
+          required: true
+          name: printingKey
+          in: path
+      responses:
+        '204':
+          description: Printing removed or already absent
+        '400':
+          description: Invalid wishlist input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearerAuth: []
+      summary: Remove a printing from the wishlist
+      tags:
+        - Wishlist
 components:
   schemas:
     AuthResponse:
@@ -2884,6 +3000,12 @@ components:
           format: uuid
           description: Stable identifier for this priced-card record
           example: 550e8400-e29b-41d4-a716-446655440000
+        printing_key:
+          type: string
+          pattern: ^[0-9a-f]{64}$
+        is_wishlisted:
+          type: boolean
+          description: Whether the search result is saved by this account
         game:
           type: string
           enum:

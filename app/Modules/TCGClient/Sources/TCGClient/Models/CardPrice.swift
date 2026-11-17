@@ -275,6 +275,8 @@ public struct PricedCardDisplay: Codable, Hashable, Sendable {
 ///   ```
 public struct PricedCard: Codable, Hashable, Identifiable, Sendable {
     public let id: String
+    public let printingKey: String?
+    public var isWishlisted: Bool?
     public let game: ClientCardGame
     public let name: String
     public let setName: String?
@@ -301,6 +303,8 @@ public struct PricedCard: Codable, Hashable, Identifiable, Sendable {
     ///   ```
     public init(
         id: String,
+        printingKey: String? = nil,
+        isWishlisted: Bool? = nil,
         game: ClientCardGame,
         name: String,
         cardNumber: String,
@@ -316,6 +320,8 @@ public struct PricedCard: Codable, Hashable, Identifiable, Sendable {
         fetchedAt: Date
     ) {
         self.id = id
+        self.printingKey = printingKey
+        self.isWishlisted = isWishlisted
         self.game = game
         self.name = name
         self.illustrator = illustrator
@@ -338,6 +344,8 @@ public struct PricedCard: Codable, Hashable, Identifiable, Sendable {
         case headline
         case market, display
         case id
+        case printingKey = "printing_key"
+        case isWishlisted = "is_wishlisted"
         case setName = "set_name"
         case illustrator
         case variantName = "variant_name"

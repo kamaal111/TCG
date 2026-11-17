@@ -110,6 +110,48 @@ struct TCGSearchPresentationTests {
         #expect(selected.headline?.amount == 250)
     }
 
+    @Test
+    func `Details reuse the exact printing from a new day of search results`() {
+        let key = String(repeating: "a", count: 64)
+        let yesterday = pricedCard(id: "yesterday", key: key, isWishlisted: nil)
+        let today = pricedCard(id: "today", key: key, isWishlisted: nil)
+        let otherArtwork = pricedCard(id: "regular", key: String(repeating: "b", count: 64), isWishlisted: nil)
+        #expect(TCGSearchDetailView<EmptyView>.latestCard(for: yesterday, in: [otherArtwork]) == yesterday)
+        #expect(TCGSearchDetailView<EmptyView>.latestCard(for: yesterday, in: [otherArtwork, today]) == today)
+    }
+
+    @Test(arguments: [true, false])
+    func `Acquisition uses the membership returned with the search card`(saved: Bool) {
+        let key = String(repeating: "a", count: 64)
+        let card = pricedCard(id: "selected", key: key, isWishlisted: saved)
+        let model = WishlistDetailModel(isWishlistEntry: false)
+        #expect(model.prepareAcquisition(for: card) == saved)
+        #expect((model.acquiredPrintingKey == key) == saved)
+    }
+
+    @Test
+    func `Acquisition from Wishlist already knows the card is saved`() {
+        let key = String(repeating: "a", count: 64)
+        let card = pricedCard(id: "selected", key: key, isWishlisted: nil)
+        let model = WishlistDetailModel(isWishlistEntry: true)
+        #expect(model.prepareAcquisition(for: card))
+        #expect(model.acquiredPrintingKey == key)
+    }
+
+    private func pricedCard(id: String, key: String, isWishlisted: Bool?) -> PricedCard {
+        PricedCard(
+            id: id,
+            printingKey: key,
+            isWishlisted: isWishlisted,
+            game: .onePiece,
+            name: "Monkey.D.Luffy",
+            cardNumber: "OP05-119",
+            illustrator: nil,
+            pricedOn: .distantPast,
+            fetchedAt: .distantPast
+        )
+    }
+
     private var card: PricedCard {
         PricedCard(
             id: "artwork",

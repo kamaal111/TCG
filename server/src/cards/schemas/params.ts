@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 import { CardCoreFieldsSchema } from './fields.ts';
 import { UuidSchema } from '../../schemas/common.ts';
+import { base64UrlCursorPattern, paginationCursor } from '../../utils/pagination.ts';
 import { CARD_GAMES } from '../types.ts';
 import { decodeCardCursor } from '../utils/pagination.ts';
 
@@ -17,22 +18,7 @@ export const CardsPaginationQuerySchema = z.object({
     description: 'Maximum cards per page; defaults to 50 and cannot exceed 100',
     example: 50,
   }),
-  cursor: z
-    .string()
-    .nonempty()
-    .max(256)
-    .regex(/^[A-Za-z0-9_-]+$/)
-    .transform((value, context) => {
-      const cursor = decodeCardCursor(value);
-
-      if (cursor == null) {
-        context.addIssue({ code: 'custom', message: 'Invalid pagination cursor' });
-
-        return z.NEVER;
-      }
-
-      return cursor;
-    })
+  cursor: paginationCursor(z.string().nonempty().max(256).regex(base64UrlCursorPattern), decodeCardCursor)
     .optional()
     .meta({
       type: 'string',

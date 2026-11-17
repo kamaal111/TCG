@@ -4,6 +4,7 @@ import TCGClient
 struct CollectionSidebar: View {
     private enum Selection: Hashable {
         case allCards
+        case wishlist
         case collection(UUID)
 
         init(collectionID: UUID?) {
@@ -12,7 +13,7 @@ struct CollectionSidebar: View {
 
         var collectionID: UUID? {
             switch self {
-            case .allCards: nil
+            case .allCards, .wishlist: nil
             case .collection(let id): id
             }
         }
@@ -20,12 +21,19 @@ struct CollectionSidebar: View {
 
     @Environment(TCGCards.self) private var cards
     let collections: TCGCollections
+    let hasWishlist: Bool
+    @Binding var showsWishlist: Bool
 
     var body: some View {
         List(
             selection: Binding<Selection?>(
-                get: { Selection(collectionID: collections.selectedID) },
-                set: { id in Task { await collections.select(id?.collectionID, using: cards, loadsList: true) } }
+                get: { showsWishlist ? .wishlist : Selection(collectionID: collections.selectedID) },
+                set: { selection in
+                    showsWishlist = selection == .wishlist
+                    if !showsWishlist {
+                        Task { await collections.select(selection?.collectionID, using: cards, loadsList: true) }
+                    }
+                }
             )
         ) {
             Label {
@@ -34,6 +42,14 @@ struct CollectionSidebar: View {
                 Image(systemName: "rectangle.stack")
             }
             .tag(Selection.allCards)
+            if hasWishlist {
+                Label {
+                    Text("Wishlist", bundle: .module)
+                } icon: {
+                    Image(systemName: "heart")
+                }
+                .tag(Selection.wishlist)
+            }
             ForEach(collections.namedCollections) { collection in
                 Label {
                     CollectionTitle(collection: collection)

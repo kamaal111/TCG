@@ -6,6 +6,7 @@ struct CollectionContentView: View {
     let collections: TCGCollections
     let actions: CollectionNavigationActions
     @Binding var isEditing: Bool
+    let wishlistSelection: Binding<Bool>?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -34,7 +35,11 @@ struct CollectionContentView: View {
         .toolbar {
             #if os(iOS)
                 ToolbarItem(placement: .topBarLeading) {
-                    CollectionSwitcher(collections: collections, actions: actions)
+                    CollectionSwitcher(
+                        collections: collections,
+                        actions: actions,
+                        wishlistSelection: wishlistSelection
+                    )
                 }
             #endif
             ToolbarItemGroup(placement: .primaryAction) {

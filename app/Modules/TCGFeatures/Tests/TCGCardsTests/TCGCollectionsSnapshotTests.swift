@@ -250,7 +250,8 @@ struct TCGCollectionsSnapshotTests {
                 CollectionContentView(
                     collections: context.collections,
                     actions: .init(create: {}, rename: { _ in }, delete: {}, editLayout: {}),
-                    isEditing: .constant(true)
+                    isEditing: .constant(true),
+                    wishlistSelection: nil
                 )
             }
             .environment(context.cards)

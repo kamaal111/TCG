@@ -64,8 +64,15 @@ const searchPricingRoute = defineOpenAPIRoute<HonoEnvironment, typeof routeConfi
       throw display.error;
     }
 
+    const savedKeys = await c
+      .get('wishlistRepository')
+      .savedPrintingKeys(result.matches.flatMap(card => (card.printing_key != null ? [card.printing_key] : [])));
+
     const response: PricingSearchResponse = {
-      matches: result.matches.map(card => displayPricedCard(card, display.value)),
+      matches: result.matches.map(card => ({
+        ...displayPricedCard(card, display.value),
+        is_wishlisted: card.printing_key != null && savedKeys.has(card.printing_key),
+      })),
       next_cursor: result.hasMore ? encodeNextSearchCursor(queryKey(game, query, options), offset) : null,
     };
 

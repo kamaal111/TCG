@@ -39,6 +39,12 @@
     "Add %@ to collection" : {
 
     },
+    "Add to Wishlist" : {
+
+    },
+    "Added to Wishlist" : {
+
+    },
     "All languages" : {
 
     },
@@ -117,6 +123,12 @@
     "Japanese" : {
 
     },
+    "Keep on Wishlist" : {
+
+    },
+    "Keep this card on your wishlist?" : {
+
+    },
     "Languages" : {
 
     },
@@ -144,7 +156,13 @@
     "Remove" : {
 
     },
+    "Remove from Wishlist" : {
+
+    },
     "Remove from history" : {
+
+    },
+    "Removed from Wishlist" : {
 
     },
     "Retry" : {
@@ -180,6 +198,9 @@
     "Standard" : {
 
     },
+    "Tap the heart in a search result’s details to save the card." : {
+
+    },
     "The server is unavailable. Please try again." : {
 
     },
@@ -193,6 +214,15 @@
 
     },
     "Try an illustrator name, like Mitsuhiro Arita." : {
+
+    },
+    "Wishlist" : {
+
+    },
+    "Wishlist unavailable" : {
+
+    },
+    "Your wishlist is empty" : {
 
     }
   },

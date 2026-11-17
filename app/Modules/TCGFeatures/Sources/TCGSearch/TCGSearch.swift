@@ -200,6 +200,12 @@ public final class TCGSearch {
         }
     }
 
+    func setWishlistMembership(_ saved: Bool, for printingKey: String) {
+        for index in results.indices where results[index].printingKey == printingKey {
+            results[index].isWishlisted = saved
+        }
+    }
+
     func cancel() {
         activePageID = nil
         activeSearchID = nil

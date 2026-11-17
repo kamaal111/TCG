@@ -16,6 +16,8 @@ import type { HonoEnvironment } from '../context.ts';
 import { FOREX_ROUTE_NAME } from '../forex/constants.ts';
 import forexRoute from '../forex/route.ts';
 import { allowedModes } from '../modes.ts';
+import { WISHLIST_ROUTE_NAME } from '../wishlist/constants.ts';
+import wishlistRoute from '../wishlist/route.ts';
 
 export function createAppApiRoute(authModule: ApplicationAuthModule, config: ApplicationConfig) {
   const appApiRoute = openAPIRouterFactory<HonoEnvironment>();
@@ -27,7 +29,8 @@ export function createAppApiRoute(authModule: ApplicationAuthModule, config: App
     .route(IMAGES_ROUTE_NAME, imagesRoute)
     .route(CARDS_ROUTE_NAME, cardsRoute)
     .route(COLLECTIONS_ROUTE_NAME, createCollectionsRoute(config))
-    .route(PRICING_ROUTE_NAME, pricingRoute);
+    .route(PRICING_ROUTE_NAME, pricingRoute)
+    .route(WISHLIST_ROUTE_NAME, wishlistRoute);
 
   return appApiRoute;
 }

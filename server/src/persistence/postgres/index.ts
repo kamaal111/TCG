@@ -6,6 +6,7 @@ import { PostgresCollectionRepository } from './collections.ts';
 import { PostgresPricingCoordinator } from './coordinator.ts';
 import { PostgresForexRepository } from './forex.ts';
 import { PostgresOfflineCollectionRepository } from './offline-collection.ts';
+import { PostgresWishlistRepository } from './wishlist.ts';
 import { DEFAULT_COLLECTION_POLICY, type ApplicationConfig } from '../../config.ts';
 import type { Database } from '../../db/index.ts';
 import type { Persistence } from '../contracts.ts';
@@ -24,6 +25,7 @@ export function createPostgresPersistence(db: Database, timeoutMs: number, confi
       return {
         offlineCollectionRepository: new PostgresOfflineCollectionRepository(db, identity),
         cardRepository,
+        wishlistRepository: new PostgresWishlistRepository(db, identity),
         collectionRepository: new PostgresCollectionRepository({
           db,
           identity,

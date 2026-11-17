@@ -10,6 +10,7 @@ import type { OfflineCollectionRepository } from '../cards/offline-collection-re
 import type { CardRepository } from '../cards/repository.ts';
 import type { CollectionRepository } from '../collections/repository.ts';
 import type { ForexRepository } from '../forex/repository.ts';
+import type { WishlistRepository } from '../wishlist/repository.ts';
 
 /** Supplied by authentication composition, never populated from request input. */
 export interface AuthenticatedIdentity {
@@ -25,6 +26,7 @@ interface RequestRepositories {
   offlineCollectionRepository: OfflineCollectionRepository;
   cardRepository: CardRepository;
   collectionRepository: CollectionRepository;
+  wishlistRepository: WishlistRepository;
   cardPricingRepository: CardPricingRepository;
   userPreferencesRepository: UserPreferencesRepository;
 }
