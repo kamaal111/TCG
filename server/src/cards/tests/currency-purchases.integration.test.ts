@@ -1,4 +1,5 @@
-import { createCardRequest, validCardPayload } from './utils.ts';
+import { createCardRequest, ownershipPayload, seedCatalogPrinting, validCardPayload } from './utils.ts';
+import { cardPrice } from '../../db/schema/card-pricing.ts';
 import { card } from '../../db/schema/cards.ts';
 import { exchangeRate } from '../../db/schema/forex.ts';
 import { integrationTest } from '../../tests/fixtures.ts';
@@ -65,17 +66,20 @@ for (const method of ['POST', 'PUT'] as const) {
       const getCard = vi.spyOn(pricingClient, 'getCardById');
       const path = method === 'PUT' ? `${LIST_CARDS_ROUTE_PATH}/${existing.id}` : LIST_CARDS_ROUTE_PATH;
 
+      const printing =
+        method === 'POST' ? await seedCatalogPrinting(db, validCardPayload, 'scrydex_static') : undefined;
+
       const response = await app.request(path, {
         method,
         headers: authenticatedHeaders,
-        body: JSON.stringify(validCardPayload),
+        body: JSON.stringify({ ...ownershipPayload(validCardPayload), priced_card_id: printing?.id }),
       });
 
       expect(response.status).toBe(500);
       expect(await response.json()).toEqual({ code: 'INTERNAL_SERVER_ERROR', message: 'Something went wrong' });
       expect(search).not.toHaveBeenCalled();
       expect(getCard).not.toHaveBeenCalled();
-      expect(await db.query.cardPrice.findMany()).toEqual([]);
+      expect(await db.$count(cardPrice)).toBe(printing == null ? 0 : 1);
     },
   );
 }

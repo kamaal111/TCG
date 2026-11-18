@@ -25,21 +25,21 @@ struct TCGCardDetailScreenModelTests {
     }
 
     @Test
-    func `Editing a card out of the selected set keeps updated details and refreshes the filtered list`() async throws {
+    func `Editing ownership keeps the card in its catalog set and filtered list`() async throws {
         let feature = TCGCards(client: .preview(cardsOutcome: .success(cards: PreviewTCGCardsClient.sampleCards)))
         try await feature.load(game: .pokemon, setNames: ["Base Set"], query: nil, illustrators: [])
             .get()
         let model = TCGCardDetailScreenModel(card: try #require(feature.cards.first))
         model.edit()
         let editor = try #require(model.editor)
-        editor.values.setName = "Crown Zenith"
+        editor.values.notes = "For trade"
 
         await model.save(using: feature)
 
         #expect(model.editor == nil)
-        #expect(model.card.card.setName == "Crown Zenith")
-        #expect(feature.cards.isEmpty)
-        #expect(feature.availableSetNames == ["Crown Zenith"])
+        #expect(model.card.card.setName == "Base Set")
+        #expect(model.card.card.notes == "For trade")
+        #expect(feature.cards.first?.card == model.card.card)
     }
 
     @Test
@@ -65,18 +65,18 @@ struct TCGCardDetailScreenModelTests {
         let model = TCGCardDetailScreenModel(card: try #require(feature.cards.first))
         model.edit()
         let editor = try #require(model.editor)
-        editor.values.name = "Updated card"
+        let originalName = editor.values.name
         editor.values.notes = "  Saved note  "
         editor.values.quantities = [.nearMint: 3]
         await model.save(using: feature)
         #expect(model.editor == nil)
         #expect(model.card == feature.cards.first)
-        #expect(model.card.card.name == "Updated card")
+        #expect(model.card.card.name == originalName)
         #expect(model.card.card.notes == "Saved note")
         #expect(model.card.card.quantities == [.init(condition: .nearMint, quantity: 3)])
         model.edit()
         let nextEditor = try #require(model.editor)
-        #expect(nextEditor.values.name == "Updated card")
+        #expect(nextEditor.values.name == originalName)
         #expect(nextEditor.values.notes == "Saved note")
         #expect(!nextEditor.hasUnsavedChanges)
         #expect(nextEditor.requestDismissal())
@@ -88,11 +88,11 @@ struct TCGCardDetailScreenModelTests {
         let original = model.card
         model.edit()
         let editor = try #require(model.editor)
-        editor.values.name = ""
+        editor.values.batches = []
         await model.save(using: TCGCards(client: .preview(cardsOutcome: .empty)))
         #expect(model.editor === editor)
-        #expect(editor.values.name.isEmpty)
-        #expect(editor.fieldErrors[.name] != nil)
+        #expect(editor.values.batches.isEmpty)
+        #expect(editor.fieldErrors[.quantities] != nil)
         #expect(model.card == original)
         #expect(!editor.requestDismissal())
         #expect(editor.isShowingDiscardConfirmation)

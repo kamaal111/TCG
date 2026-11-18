@@ -1,6 +1,6 @@
 import { drizzle } from 'drizzle-orm/node-postgres';
 
-import { createCardRequest, requestOwnedPrices } from './utils.ts';
+import { createCardRequest, requestOwnedPrices, validCardPayload } from './utils.ts';
 import { StaticScrydexClient } from '../../card-pricing/scrydex/static-client.ts';
 import { cardPurchaseBatch } from '../../db/schema/cards.ts';
 import { appRelations } from '../../db/schema/index.ts';
@@ -10,7 +10,7 @@ integrationTest(
   'loads purchase batches in one read and skips cost writes and provider calls on cached collections',
   async ({ app, db, storageClient, createApp, user, authenticatedHeaders }) => {
     for (let index = 0; index < 12; index += 1) {
-      const created = await createCardRequest(app, user.sessionToken);
+      const created = await createCardRequest(app, user.sessionToken, validCardPayload);
       expect(created.status).toBe(201);
     }
 

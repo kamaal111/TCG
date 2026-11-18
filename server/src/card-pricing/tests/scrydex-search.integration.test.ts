@@ -7,7 +7,13 @@ import { createTestScrydexClient } from './utils.ts';
 import { proxyURLForOriginURL } from '../../card-images/keys.ts';
 import { LIST_CARDS_ROUTE_PATH } from '../../cards/routes/list-cards.ts';
 import { CardsListResponseSchema, CardWithPriceSchema, OwnedCardPricesSchema } from '../../cards/schemas/responses.ts';
-import { createCardRequest, createTestCard, requestOwnedPrices } from '../../cards/tests/utils.ts';
+import {
+  createCardRequest,
+  createTestCard,
+  ownershipPayload,
+  postCard,
+  requestOwnedPrices,
+} from '../../cards/tests/utils.ts';
 import { cardPrice, cardPriceSearch } from '../../db/schema/card-pricing.ts';
 import { card } from '../../db/schema/cards.ts';
 import type App from '../../runtime/node/app.ts';
@@ -186,7 +192,7 @@ describe('Scrydex search through the authenticated pricing API', () => {
       } satisfies Parameters<typeof createCardRequest>[2];
 
       const saved = await createTestCard(app, user.sessionToken, { ...payload, priced_card_id: alt.id });
-      const defaultCard = await createTestCard(app, user.sessionToken, payload);
+      const defaultCard = await createTestCard(app, user.sessionToken, { ...payload, priced_card_id: base.id });
       expect(saved.price.priced_card?.image_url).toBe(alt.image_url);
       expect(defaultCard.price.priced_card?.image_url).toBe(base.image_url);
       expect(await db.query.card.findFirst({ where: { id: saved.id } })).toMatchObject({
@@ -323,38 +329,58 @@ describe('Scrydex search through the authenticated pricing API', () => {
       const update = await search.app.request(`${LIST_CARDS_ROUTE_PATH}/${saved.id}`, {
         method: 'PUT',
         headers,
-        body: JSON.stringify({ ...CHI_YU_PAYLOAD, priced_card_id: replacement.id }),
+        body: JSON.stringify({ ...ownershipPayload(CHI_YU_PAYLOAD), priced_card_id: replacement.id }),
       });
 
-      expect(update.status).toBe(200);
-      expect(CardWithPriceSchema.parse(await update.json()).price.priced_card?.image_url).toBe(replacement.image_url);
+      expect(update.status).toBe(400);
       expect(await db.query.card.findFirst({ where: { id: saved.id } })).toMatchObject({
-        pricingCardId: alternate.id,
+        pricingCardId: CHI_YU.id,
       });
 
-      const wrongPrinting = await createTestCard(search.app, user.sessionToken, {
-        ...CHI_YU_PAYLOAD,
-        set_name: 'Other Set',
-        priced_card_id: selected.id,
-      });
+      const wrongPrinting = await postCard(
+        search.app,
+        headers,
+        JSON.stringify({
+          ...ownershipPayload(CHI_YU_PAYLOAD),
+          priced_card_id: selected.id,
+          set_name: 'Other Set',
+        }),
+      );
 
-      expect(wrongPrinting.price.status).toBe('no_match');
-      expect(await db.query.card.findFirst({ where: { id: wrongPrinting.id } })).toMatchObject({ pricingCardId: null });
+      expect(wrongPrinting.status).toBe(400);
 
-      const ambiguous = await createTestCard(search.app, user.sessionToken, {
-        ...CHI_YU_PAYLOAD,
-        priced_card_id: '550e8400-e29b-41d4-a716-446655440000',
-      });
+      const unknown = await postCard(
+        search.app,
+        headers,
+        JSON.stringify({
+          ...ownershipPayload(CHI_YU_PAYLOAD),
+          priced_card_id: '550e8400-e29b-41d4-a716-446655440000',
+        }),
+      );
 
-      expect(ambiguous.price.status).toBe('no_match');
-      expect(await db.query.card.findFirst({ where: { id: ambiguous.id } })).toMatchObject({ pricingCardId: null });
+      expect(unknown.status).toBe(400);
+      expect(await db.$count(card)).toBe(1);
     },
   );
 
   integrationTest('recovers an existing unlinked card after a number-only search', async ({ createApp, user, db }) => {
     const search = createSearchApp({ createApp, user, expectedQuery: '!printed_number:"259/193"', cards: [CHI_YU] });
-    const saved = await createTestCard(search.app, user.sessionToken, CHI_YU_PAYLOAD);
-    expect(saved.price.status).toBe('no_match');
+
+    const [saved] = await db
+      .insert(card)
+      .values({
+        userId: user.userId,
+        game: CHI_YU_PAYLOAD.game,
+        name: CHI_YU_PAYLOAD.name,
+        setName: CHI_YU_PAYLOAD.set_name,
+        cardNumber: CHI_YU_PAYLOAD.card_number,
+      })
+      .returning();
+
+    assert(saved != null);
+
+    const firstPrice = await requestOwnedPrices(search.app, sessionHeaders(user.sessionToken), [saved.id]);
+    expect(OwnedCardPricesSchema.parse(await firstPrice.json()).prices[0]?.price.status).toBe('no_match');
 
     const results = PricingSearchResponseSchema.parse(await (await search.request('259/193')).json());
     expect(results.matches).toHaveLength(1);
@@ -393,6 +419,7 @@ describe('Scrydex search through the authenticated pricing API', () => {
         const created = await createCardRequest(search.app, search.user.sessionToken, {
           game: 'pokemon',
           name: match.name,
+          priced_card_id: match.id,
           set_name: providerCard.expansion.name,
           card_number: match.card_number,
           purchases: [{ condition: 'near_mint', quantity: 1, purchase_price: null, currency: null }],

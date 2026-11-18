@@ -26,15 +26,13 @@ integrationTest(
     const collection = await createTestCollection(app, headers);
 
     const inputs = [
-      { name: 'Giratina VSTAR', card_number: 'GG69', set_name: 'Crown Zenith A' },
-      { name: 'Charizard ex', card_number: '199', set_name: '151 A' },
-      { name: 'Giratina VSTAR', card_number: 'GG69', set_name: 'Crown Zenith B' },
-      { name: 'Charizard ex', card_number: '199', set_name: '151 B' },
+      { name: 'Giratina VSTAR', card_number: 'GG69', set_name: 'Crown Zenith' },
+      { name: 'Charizard ex', card_number: '199', set_name: '151' },
     ];
 
     const ids: string[] = [];
 
-    for (const input of inputs) {
+    for (const input of [...inputs, ...inputs]) {
       const owned = await createTestCard(app, user.sessionToken, {
         ...input,
         game: 'pokemon',

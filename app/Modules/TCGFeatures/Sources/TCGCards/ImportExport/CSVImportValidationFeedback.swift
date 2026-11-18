@@ -4,6 +4,7 @@ enum CSVImportValidationFeedback {
     private enum CollectionField: String {
         case cards
         case purchases
+        case printing = "priced_card_id"
     }
 
     static func rows(for issue: TCGClientValidationIssue, submitted: [CSVImportCard]) -> [CSVImportIssue] {
@@ -26,7 +27,10 @@ enum CSVImportValidationFeedback {
             column = field == .id ? .purchaseID : field
         } else {
             guard path.count == 3 else { return [] }
-            guard let field = CardsCSV.Column(rawValue: path[2]) else { return [] }
+            let field =
+                CollectionField(rawValue: path[2]) == .printing
+                ? .cardNumber : CardsCSV.Column(rawValue: path[2])
+            guard let field else { return [] }
 
             affected = rows
             column = field

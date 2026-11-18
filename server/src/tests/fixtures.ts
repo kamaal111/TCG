@@ -3,6 +3,7 @@ import { createTestRequestId, getLogsForRequestId, withRequestId } from './logs.
 import { createTestObjectStorage } from './storage.ts';
 import { createTestDatabase, createTestUser } from './utils.ts';
 import { StaticScrydexClient } from '../card-pricing/scrydex/static-client.ts';
+import { registerCardFixtureDatabase } from '../cards/tests/utils.ts';
 import App from '../runtime/node/app.ts';
 
 export const integrationTest = test
@@ -24,6 +25,7 @@ export const integrationTest = test
     const createApp = (overrides: ConstructorParameters<typeof App>[0] = {}) => {
       const application = new App({ db: setup.db, pricingClient, storageClient, ...overrides });
       applications.push(application);
+      registerCardFixtureDatabase(application.app, overrides.db ?? setup.db);
 
       return application.app;
     };

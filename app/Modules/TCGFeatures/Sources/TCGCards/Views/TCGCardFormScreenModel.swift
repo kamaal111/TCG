@@ -16,21 +16,7 @@ final class TCGCardFormScreenModel {
     let mode: Mode
 
     var values: CardFormValues {
-        didSet {
-            if values.game != oldValue.game || values.name != oldValue.name || values.cardNumber != oldValue.cardNumber
-                || values.setName != oldValue.setName
-            {
-                values.selectedPricedCardID = nil
-                values.defaultMarketPrice = nil
-                values.defaultMarketCurrency = nil
-                values.marketPricedOn = nil
-                values.pricingCardID = nil
-                for index in values.batches.indices {
-                    values.batches[index].applyDefaultPrice(nil, currency: values.preferredCurrency)
-                }
-            }
-            revalidateIfNeeded()
-        }
+        didSet { revalidateIfNeeded() }
     }
 
     private(set) var fieldErrors: [TCGCardsValidationField: String] = [:]
@@ -46,7 +32,8 @@ final class TCGCardFormScreenModel {
         self.mode = mode
         let initial: CardFormValues
         switch mode {
-        case .add, .draft:
+        case .add(let printing): initial = initialValues ?? CardFormValues(pricedCard: printing)
+        case .draft:
             initial =
                 initialValues
                 ?? CardFormValues(game: .onePiece, name: "", setName: "", cardNumber: "", notes: "", quantities: [:])
@@ -97,45 +84,16 @@ final class TCGCardFormScreenModel {
         return current != initial
     }
 
-    private struct PricingIdentity: Equatable {
-        let game: ClientCardGame
-        let name: String
-        let setName: String
-        let cardNumber: String
-    }
-
-    private var pricingIdentity: PricingIdentity {
-        PricingIdentity(game: values.game, name: values.name, setName: values.setName, cardNumber: values.cardNumber)
-    }
-
     func refreshPurchaseDefault(using cards: TCGCards) async {
-        if case .draft = mode { return }
-        guard !values.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
-        guard !values.cardNumber.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        guard case .edit(let card) = mode else { return }
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = .gmt
         if let date = values.marketPricedOn, calendar.isDateInToday(date) { return }
-        let identity = pricingIdentity
+
         guard !Task.isCancelled else { return }
-        let result = await cards.purchaseDefault(
-            game: identity.game,
-            name: identity.name,
-            cardNumber: identity.cardNumber
-        )
+        let match = await cards.purchaseDefault(cardID: card.id)
         guard !Task.isCancelled else { return }
-        guard identity == pricingIdentity else { return }
-        guard case .success(let matches) = result else { return }
-        let allowsFallback = identity.game != .onePiece || values.pricingCardID == nil
-        let match =
-            values.pricingCardID.flatMap { id in matches.matches.first { $0.id == id } }
-            ?? (allowsFallback
-                ? matches.matches.first {
-                    $0.cardNumber.caseInsensitiveCompare(identity.cardNumber) == .orderedSame
-                        && $0.name.caseInsensitiveCompare(identity.name) == .orderedSame
-                }
-                : nil)
-        guard let match else { return }
-        applyMarketDefault(match)
+        if let match { applyMarketDefault(match) }
     }
 
     func applyMarketDefault(_ card: PricedCard) {
@@ -211,7 +169,12 @@ final class TCGCardFormScreenModel {
         let result: Result<Void, TCGCardsOperationError>
         switch mode {
         case .draft: return false
-        case .add: result = await cards.addCard(values)
+        case .add(let printing):
+            guard let pricedCardID = UUID(uuidString: printing.id) else {
+                toast = String(localized: "Choose the printing again from Search or Wishlist.", bundle: .module)
+                return false
+            }
+            result = await cards.addCard(.init(pricedCardID: pricedCardID, ownership: values.payload))
         case .edit(let card):
             result = await cards.updateCard(id: card.id, values: values).map { savedCard = $0 }
         }
@@ -244,7 +207,7 @@ final class TCGCardFormScreenModel {
     }
 
     enum Mode {
-        case add
+        case add(PricedCard)
         case draft
         case edit(Card)
 

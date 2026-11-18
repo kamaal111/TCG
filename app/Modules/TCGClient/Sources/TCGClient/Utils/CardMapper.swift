@@ -48,7 +48,18 @@ enum CardMapper {
     }
 
     static func makeImportRequest(_ payload: ImportCardsPayload) -> Components.Schemas.ImportCards {
-        .init(cards: payload.cards.map(Self.makeGeneratedImportCard))
+        .init(
+            cards: payload.cards.map { card in
+                .init(
+                    notes: card.notes,
+                    purchases: card.purchases.map(Self.makeImportPurchase),
+                    id: UUIDCoding.encode(card.id),
+                    createdAt: card.createdAt,
+                    updatedAt: card.updatedAt,
+                    pricedCardId: UUIDCoding.encode(card.pricedCardID)
+                )
+            }
+        )
     }
 
     static func makeImportResult(_ result: Components.Schemas.ImportCardsResponse) -> ImportCardsResult {
@@ -78,25 +89,16 @@ enum CardMapper {
 
     static func makeGeneratedImportCard(_ card: ImportCardPayload) -> Components.Schemas.ImportCard {
         .init(
+            collectionId: card.collectionID.map(UUIDCoding.encode),
+            notes: card.notes,
+            purchases: card.purchases.map(Self.makeImportPurchase),
+            id: UUIDCoding.encode(card.id),
+            createdAt: card.createdAt,
+            updatedAt: card.updatedAt,
             game: makeImportGame(card.game),
             name: card.name,
             setName: card.setName,
-            cardNumber: card.cardNumber,
-            collectionId: card.collectionID.map(UUIDCoding.encode),
-            notes: card.notes,
-            purchases: card.purchases.map { purchase in
-                .init(
-                    id: UUIDCoding.encode(purchase.id),
-                    condition: makeImportCondition(purchase.condition),
-                    quantity: purchase.quantity,
-                    purchasePrice: purchase.purchasePrice,
-                    currency: purchase.currency.map(PricedCardMapper.generatedNullableCurrency),
-                    automaticPriceDate: purchase.automaticPriceDate
-                )
-            },
-            id: UUIDCoding.encode(card.id),
-            createdAt: card.createdAt,
-            updatedAt: card.updatedAt
+            cardNumber: card.cardNumber
         )
     }
 
@@ -107,9 +109,21 @@ enum CardMapper {
         }
     }
 
+    private static func makeImportPurchase(_ purchase: ImportPurchasePayload) -> Components.Schemas.ImportedCardPurchase
+    {
+        .init(
+            id: UUIDCoding.encode(purchase.id),
+            condition: makeImportCondition(purchase.condition),
+            quantity: purchase.quantity,
+            purchasePrice: purchase.purchasePrice,
+            currency: purchase.currency.map(PricedCardMapper.generatedNullableCurrency),
+            automaticPriceDate: purchase.automaticPriceDate
+        )
+    }
+
     private static func makeImportCondition(
         _ condition: CardCondition
-    ) -> Components.Schemas.ImportCard.PurchasesPayloadPayload.ConditionPayload {
+    ) -> Components.Schemas.ImportedCardPurchase.ConditionPayload {
         switch condition {
         case .mint: .mint
         case .nearMint: .nearMint
@@ -120,16 +134,20 @@ enum CardMapper {
         }
     }
 
-    static func makeGeneratedPayload(_ payload: UpsertCardPayload) -> Components.Schemas.UpsertCard {
+    static func makeCreateRequest(_ payload: CreateCardPayload) -> Components.Schemas.CreateCard {
         .init(
-            game: makeGeneratedGame(payload.game),
-            name: payload.name,
-            setName: payload.setName,
-            cardNumber: payload.cardNumber,
             collectionId: payload.collectionID.map(UUIDCoding.encode),
             notes: payload.notes,
             purchases: payload.purchases.map(Self.makeGeneratedBatch),
-            pricedCardId: payload.pricedCardID.map(UUIDCoding.encode)
+            pricedCardId: UUIDCoding.encode(payload.pricedCardID)
+        )
+    }
+
+    static func makeUpdateRequest(_ payload: UpdateCardPayload) -> Components.Schemas.UpdateCard {
+        .init(
+            collectionId: payload.collectionID.map(UUIDCoding.encode),
+            notes: payload.notes,
+            purchases: payload.purchases.map(Self.makeGeneratedBatch)
         )
     }
 
@@ -273,13 +291,6 @@ enum CardMapper {
         case .good: .good
         case .played: .played
         case .damaged: .damaged
-        }
-    }
-
-    private static func makeGeneratedGame(_ game: ClientCardGame) -> Components.Schemas.UpsertCard.GamePayload {
-        switch game {
-        case .onePiece: .onePiece
-        case .pokemon: .pokemon
         }
     }
 

@@ -1,7 +1,7 @@
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { z } from 'zod';
 
-import { createTestCard, validCardPayload } from './utils.ts';
+import { createTestCard, ownershipPayload, validCardPayload } from './utils.ts';
 import { CollectionSchema } from '../../collections/schemas/responses.ts';
 import { appRelations } from '../../db/schema/index.ts';
 import { PostgresOfflineCollectionRepository } from '../../persistence/postgres/offline-collection.ts';
@@ -59,7 +59,7 @@ describe('Offline collection integration', () => {
   integrationTest(
     'scopes records to the caller and rejects deleted or superseded entries',
     async ({ app, user, authenticatedHeaders, createUser }) => {
-      const edited = await createTestCard(app, user.sessionToken);
+      const edited = await createTestCard(app, user.sessionToken, validCardPayload);
       const deleted = await createTestCard(app, user.sessionToken, { ...validCardPayload, card_number: 'OP01-004' });
       const first = await app.request(`${path}/manifest`, { headers: authenticatedHeaders });
       expect(first.status).toBe(200);
@@ -77,7 +77,7 @@ describe('Offline collection integration', () => {
       const edit = await app.request(`/app-api/cards/${edited.id}`, {
         method: 'PUT',
         headers: authenticatedHeaders,
-        body: JSON.stringify({ ...validCardPayload, notes: 'Offline update' }),
+        body: JSON.stringify({ ...ownershipPayload(validCardPayload), notes: 'Offline update' }),
       });
 
       expect(edit.status).toBe(200);

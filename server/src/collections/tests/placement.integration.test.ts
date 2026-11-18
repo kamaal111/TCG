@@ -6,7 +6,7 @@ import type { Hono } from 'hono';
 
 import { integrationTest } from './fixtures.ts';
 import { readCollection, createTestCollection, saveLayout } from './utils.ts';
-import { createCardRequest, validCardPayload, createTestCard } from '../../cards/tests/utils.ts';
+import { createCardRequest, validCardPayload, createTestCard, ownershipPayload } from '../../cards/tests/utils.ts';
 import type { HonoEnvironment } from '../../context.ts';
 import { card, cardPurchaseBatch } from '../../db/schema/cards.ts';
 import { CollectionsSchema, CollectionSummarySchema } from '../schemas/responses.ts';
@@ -90,7 +90,7 @@ integrationTest(
       return app.request(`/app-api/cards/${entry.id}`, {
         method: 'PUT',
         headers,
-        body: JSON.stringify({ ...validCardPayload, collection_id: collectionId }),
+        body: JSON.stringify({ ...ownershipPayload(validCardPayload), collection_id: collectionId }),
       });
     };
 
@@ -139,7 +139,11 @@ integrationTest(
 
     expect(response.status).toBe(400);
     expect(ValidationErrorResponseSchema.parse(await response.json()).context?.validations).toMatchObject([
-      { code: 'binder_full', path: ['collection_id'] },
+      {
+        code: 'binder_full',
+        path: ['collection_id'],
+        message: 'This binder is full. Choose another collection or increase its page dimensions.',
+      },
     ]);
     expect(await db.select().from(card).where(eq(card.userId, user.userId))).toEqual(storedCards);
     expect(await readCollection(instance, headers, collection.id)).toEqual(before);
@@ -162,7 +166,7 @@ integrationTest(
     const move = await instance.request(`/app-api/cards/${moving.id}`, {
       method: 'PUT',
       headers,
-      body: JSON.stringify({ ...validCardPayload, collection_id: collection.id }),
+      body: JSON.stringify({ ...ownershipPayload(validCardPayload), collection_id: collection.id }),
     });
 
     expect(move.status).toBe(400);

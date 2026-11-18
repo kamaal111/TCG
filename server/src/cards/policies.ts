@@ -1,12 +1,18 @@
-import type { UpsertCard, ImportCard } from './schemas/payloads.ts';
-import type { OwnedCard, PurchaseBatch } from './types.ts';
+import type { ResolvedCSVCard } from './repository.ts';
+import type { UpdateCard, ImportCard } from './schemas/payloads.ts';
+import type { CardIdentity, OwnedCard, PurchaseBatch } from './types.ts';
 
-export function pricingLinkFields(existing: OwnedCard, values: UpsertCard) {
-  const identityChanged =
-    existing.game !== values.game ||
-    existing.name !== values.name ||
-    existing.setName !== values.set_name ||
-    existing.cardNumber !== values.card_number;
+export function sameCardIdentity(left: CardIdentity, right: CardIdentity): boolean {
+  return (
+    left.game === right.game &&
+    left.name === right.name &&
+    left.setName === right.setName &&
+    left.cardNumber === right.cardNumber
+  );
+}
+
+export function pricingLinkFields(existing: OwnedCard, values: CardIdentity) {
+  const identityChanged = !sameCardIdentity(existing, values);
 
   return {
     pricingCardId: identityChanged ? null : existing.pricingCardId,
@@ -20,7 +26,13 @@ export function decimalScale(amount: string): string {
   return `${whole}.${fraction.padEnd(6, '0')}`;
 }
 
-export function cardFields(values: UpsertCard) {
+export function cardFields(values: ImportCard | ResolvedCSVCard) {
+  if ('printing' in values) {
+    const { illustrator: _illustrator, ...identity } = values.printing;
+
+    return { ...identity, notes: values.notes ?? null };
+  }
+
   return {
     game: values.game,
     name: values.name,
@@ -30,7 +42,7 @@ export function cardFields(values: UpsertCard) {
   };
 }
 
-export function purchaseBatchFields(cardId: string, batch: UpsertCard['purchases'][number]) {
+export function purchaseBatchFields(cardId: string, batch: UpdateCard['purchases'][number]) {
   return {
     id: batch.id,
     cardId,
@@ -41,16 +53,17 @@ export function purchaseBatchFields(cardId: string, batch: UpsertCard['purchases
   };
 }
 
-export function importMatches(existing: OwnedCard, purchases: PurchaseBatch[], input: ImportCard): boolean {
+export function importMatches(
+  existing: OwnedCard,
+  purchases: PurchaseBatch[],
+  input: ImportCard | ResolvedCSVCard,
+): boolean {
   const fields = cardFields(input);
 
   if (
-    existing.game !== fields.game ||
-    existing.name !== fields.name ||
-    existing.setName !== fields.setName ||
-    existing.cardNumber !== fields.cardNumber ||
+    !sameCardIdentity(existing, fields) ||
     existing.notes !== fields.notes ||
-    existing.createdAt.getTime() !== new Date(input.created_at).getTime() ||
+    (!('printing' in input) && existing.createdAt.getTime() !== new Date(input.created_at).getTime()) ||
     existing.updatedAt.getTime() !== new Date(input.updated_at).getTime()
   ) {
     return false;

@@ -1,8 +1,8 @@
 import { CONTENTFUL_STATUS_CODES } from '@tcg/http/status';
 import { eq } from 'drizzle-orm';
 
-import { createCardRequest, validCardPayload } from './utils.ts';
-import { cardConditionQuantity } from '../../db/schema/cards.ts';
+import { createCardRequest, ownershipPayload, postCard, seedCatalogPrinting, validCardPayload } from './utils.ts';
+import { card, cardConditionQuantity } from '../../db/schema/cards.ts';
 import { expectErrorResponse, expectValidationIssueForField } from '../../tests/auth.ts';
 import { integrationTest } from '../../tests/fixtures.ts';
 import { CREATE_CARD_ROUTE_PATH } from '../routes/create-card.ts';
@@ -16,42 +16,39 @@ describe('Create card integration', () => {
     });
   });
 
-  integrationTest('rejects invalid card fields and quantities', async ({ app, authenticatedHeaders }) => {
+  integrationTest('rejects invalid card fields and quantities', async ({ app, authenticatedHeaders, db }) => {
+    const printing = await seedCatalogPrinting(db, validCardPayload, 'scrydex_static');
+    const valid = { ...ownershipPayload(validCardPayload), priced_card_id: printing.id };
+
     const cases: [string, unknown][] = [
-      ['name', { ...validCardPayload, name: '' }],
-      ['set_name', { ...validCardPayload, set_name: '' }],
-      ['card_number', { ...validCardPayload, card_number: '' }],
-      ['game', { ...validCardPayload, game: 'digimon' }],
-      ['purchases', { ...validCardPayload, purchases: [] }],
-      [
-        'quantity',
-        { ...validCardPayload, purchases: [{ condition: 'mint', quantity: 0, purchase_price: null, currency: null }] },
-      ],
+      ['priced_card_id', { ...valid, priced_card_id: undefined }],
+      ['priced_card_id', { ...valid, priced_card_id: 'invalid' }],
+      ['purchases', { ...valid, purchases: [] }],
+      ['quantity', { ...valid, purchases: [{ condition: 'mint', quantity: 0, purchase_price: null, currency: null }] }],
       [
         'quantity',
         {
-          ...validCardPayload,
+          ...valid,
           purchases: [{ condition: 'mint', quantity: 1.5, purchase_price: null, currency: null }],
         },
       ],
       [
         'condition',
         {
-          ...validCardPayload,
+          ...valid,
           purchases: [{ condition: 'pristine', quantity: 1, purchase_price: null, currency: null }],
         },
       ],
       [
         'purchases',
         {
-          ...validCardPayload,
+          ...valid,
           purchases: [
             { condition: 'mint', quantity: 999, purchase_price: null, currency: null },
             { condition: 'mint', quantity: 2, purchase_price: null, currency: null },
           ],
         },
       ],
-      ['name', { ...validCardPayload, name: 'a'.repeat(201) }],
     ];
 
     for (const [field, payload] of cases) {
@@ -63,10 +60,39 @@ describe('Create card integration', () => {
 
       await expectValidationIssueForField(response, field);
     }
+
+    expect(await db.$count(card)).toBe(0);
+  });
+
+  integrationTest('explains how to recover from an unknown printing ID', async ({ app, authenticatedHeaders, db }) => {
+    const response = await postCard(
+      app,
+      authenticatedHeaders,
+      JSON.stringify({
+        ...ownershipPayload(validCardPayload),
+        priced_card_id: '550e8400-e29b-41d4-a716-446655440000',
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({
+      code: 'INVALID_PAYLOAD',
+      context: {
+        validations: [
+          {
+            code: 'invalid_printing',
+            path: ['priced_card_id'],
+            message:
+              'The printing ID could not be found in the catalog. Select the printing again from Search or Wishlist.',
+          },
+        ],
+      },
+    });
+    expect(await db.$count(card)).toBe(0);
   });
 
   integrationTest('creates and persists a card with deterministic quantities', async ({ app, db, user }) => {
-    const response = await createCardRequest(app, user.sessionToken);
+    const response = await createCardRequest(app, user.sessionToken, validCardPayload);
 
     expect(response.status).toBe(CONTENTFUL_STATUS_CODES.CREATED);
     const body = CardSchema.parse(await response.json());
@@ -92,14 +118,20 @@ describe('Create card integration', () => {
 
   integrationTest(
     'round-trips notes and multiple conditions and logs success',
-    async ({ app, getLogsForRequestId, withRequestId, authenticatedHeaders }) => {
+    async ({ app, db, getLogsForRequestId, withRequestId, authenticatedHeaders }) => {
       const { headers, requestId } = withRequestId(authenticatedHeaders);
 
-      const response = await app.request(CREATE_CARD_ROUTE_PATH, {
-        method: 'POST',
+      const selected = await seedCatalogPrinting(db, validCardPayload, 'scrydex_static');
+
+      const response = await postCard(
+        app,
         headers,
-        body: JSON.stringify({ ...validCardPayload, notes: 'Alternate art' }),
-      });
+        JSON.stringify({
+          ...ownershipPayload(validCardPayload),
+          priced_card_id: selected.id,
+          notes: 'Alternate art',
+        }),
+      );
 
       const body = CardSchema.parse(await response.json());
 

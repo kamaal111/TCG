@@ -1,6 +1,6 @@
 import { inArray } from 'drizzle-orm';
 
-import { createTestCard } from './utils.ts';
+import { createTestCard, validCardPayload } from './utils.ts';
 import { cardConditionQuantity, cardPurchaseBatch } from '../../db/schema/cards.ts';
 import { expectErrorResponse, expectValidationIssueForField } from '../../tests/auth.ts';
 import { integrationTest } from '../../tests/fixtures.ts';
@@ -13,9 +13,9 @@ describe('Delete cards integration', () => {
   integrationTest(
     'deletes owned cards with cascades, preserves other cards, and logs counts',
     async ({ app, db, withRequestId, getLogsForRequestId, user, authenticatedHeaders }) => {
-      const first = await createTestCard(app, user.sessionToken);
-      const second = await createTestCard(app, user.sessionToken);
-      const preserved = await createTestCard(app, user.sessionToken);
+      const first = await createTestCard(app, user.sessionToken, validCardPayload);
+      const second = await createTestCard(app, user.sessionToken, validCardPayload);
+      const preserved = await createTestCard(app, user.sessionToken, validCardPayload);
       const ids = [second.id, first.id];
       const { headers, requestId } = withRequestId(authenticatedHeaders);
       const response = await app.request(path, { method: 'DELETE', headers, body: JSON.stringify({ card_ids: ids }) });
@@ -46,8 +46,8 @@ describe('Delete cards integration', () => {
     'deduplicates IDs, hides ownership, preserves foreign cards, and safely retries',
     async ({ app, db, user, createUser, authenticatedHeaders }) => {
       const other = await createUser();
-      const owned = await createTestCard(app, user.sessionToken);
-      const foreign = await createTestCard(app, other.sessionToken);
+      const owned = await createTestCard(app, user.sessionToken, validCardPayload);
+      const foreign = await createTestCard(app, other.sessionToken, validCardPayload);
 
       const request = {
         method: 'DELETE',
@@ -69,7 +69,7 @@ describe('Delete cards integration', () => {
   integrationTest(
     'deletes one ID through the shared endpoint and reports missing single IDs',
     async ({ app, db, user, authenticatedHeaders }) => {
-      const owned = await createTestCard(app, user.sessionToken);
+      const owned = await createTestCard(app, user.sessionToken, validCardPayload);
 
       const deleted = await app.request(path, {
         method: 'DELETE',
@@ -93,7 +93,7 @@ describe('Delete cards integration', () => {
   );
 
   integrationTest('removes both previous deletion paths', async ({ app, db, user, authenticatedHeaders }) => {
-    const owned = await createTestCard(app, user.sessionToken);
+    const owned = await createTestCard(app, user.sessionToken, validCardPayload);
 
     const previousSingle = await app.request(`/app-api/cards/${owned.id}`, {
       method: 'DELETE',
@@ -123,7 +123,7 @@ describe('Delete cards integration', () => {
   });
 
   integrationTest('requires a session before deleting any cards', async ({ app, db, user }) => {
-    const owned = await createTestCard(app, user.sessionToken);
+    const owned = await createTestCard(app, user.sessionToken, validCardPayload);
 
     const response = await app.request(path, {
       method: 'DELETE',
@@ -149,7 +149,7 @@ describe('Delete cards integration', () => {
   );
 
   integrationTest('validates the entire batch before mutation', async ({ app, db, user, authenticatedHeaders }) => {
-    const owned = await createTestCard(app, user.sessionToken);
+    const owned = await createTestCard(app, user.sessionToken, validCardPayload);
 
     const response = await app.request(path, {
       method: 'DELETE',

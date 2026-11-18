@@ -513,7 +513,7 @@ export class PostgresCollectionRepository implements CollectionRepository {
           await tx.insert(cardCollection).values(created.slice(start, start + COLLECTION_BATCH_SIZE));
         }
 
-        const result = await this.cardRepository.importCards(backup.cards, tx);
+        const result = await this.cardRepository.restoreCards(backup.cards, tx);
 
         const sources = backup.cards.map(c => c.id);
 

@@ -11,10 +11,10 @@ import TCGUtils
 
 struct CardFormValues: Equatable {
     var collectionID: UUID?
-    var game: ClientCardGame
-    var name: String
-    var setName: String
-    var cardNumber: String
+    let game: ClientCardGame
+    let name: String
+    let setName: String
+    let cardNumber: String
     var notes: String
     var batches: [PurchaseBatchFormValue] = []
     var preferredCurrency: Currency?
@@ -22,8 +22,8 @@ struct CardFormValues: Equatable {
     var defaultMarketPrice: Decimal?
     var defaultMarketCurrency: Currency?
     var marketPricedOn: Date?
-    var pricingCardID: String?
-    var selectedPricedCardID: UUID?
+    var illustrator: String?
+    var variantName: String?
 
     var quantities: [CardCondition: Int] {
         get {
@@ -82,6 +82,7 @@ struct CardFormValues: Equatable {
         setName = card.setName
         cardNumber = card.cardNumber
         notes = card.notes ?? ""
+        illustrator = card.illustrator
         batches = card.purchases.map { PurchaseBatchFormValue(batch: $0) }
     }
 
@@ -92,7 +93,8 @@ struct CardFormValues: Equatable {
         cardNumber = pricedCard.cardNumber
         notes = ""
         quantities = [:]
-        selectedPricedCardID = UUID(uuidString: pricedCard.id)
+        illustrator = pricedCard.illustrator
+        variantName = pricedCard.variantName
         updateMarketDefault(pricedCard)
     }
 
@@ -102,19 +104,15 @@ struct CardFormValues: Equatable {
         }
         defaultMarketCurrency = pricedCard.market?.currency
         marketPricedOn = pricedCard.pricedOn
-        pricingCardID = pricedCard.id
+        illustrator = pricedCard.illustrator ?? illustrator
+        variantName = pricedCard.variantName ?? variantName
     }
 
-    var payload: UpsertCardPayload {
-        return UpsertCardPayload(
-            game: game,
-            name: name.trimmingCharacters(in: .whitespacesAndNewlines),
-            setName: setName.trimmingCharacters(in: .whitespacesAndNewlines),
-            cardNumber: cardNumber.trimmingCharacters(in: .whitespacesAndNewlines),
+    var payload: UpdateCardPayload {
+        UpdateCardPayload(
             notes: trimmedNotes.isEmpty ? nil : trimmedNotes,
             purchases: batches.filter { $0.quantity > 0 }.map(\.purchase),
-            collectionID: collectionID,
-            pricedCardID: selectedPricedCardID
+            collectionID: collectionID
         )
     }
 

@@ -57,8 +57,8 @@ struct TCGCollectionsTests {
         let context = try await CollectionTestFixtures.selectedContext()
         let previous = try #require(context.collections.selectedID)
         let model = TCGCardFormScreenModel(
-            mode: .add,
-            initialValues: .init(pricedCard: PreviewTCGPricingClient.samplePricedCards[0])
+            mode: .add(PreviewTCGPricingClient.samplePricedCards[0]),
+            initialValues: nil
         )
         model.configureCollection(currentID: previous, unfiledID: context.collections.unfiled?.id)
         model.values.quantities = [.nearMint: 3]
@@ -217,14 +217,14 @@ struct TCGCollectionsTests {
     }
 
     @Test func `Adding from All cards defaults to Unfiled without dirtying the form`() {
-        let model = TCGCardFormScreenModel(mode: .add, initialValues: nil)
+        let model = TCGCardFormScreenModel(mode: .add(CardsTestIDs.addPrinting), initialValues: nil)
         model.configureCollection(currentID: nil, unfiledID: CardsTestIDs.unfiledCollection)
         #expect(model.values.collectionID == CardsTestIDs.unfiledCollection)
         #expect(!model.hasUnsavedChanges)
     }
 
     @Test func `Choosing the default collection does not dirty an untouched card form`() {
-        let model = TCGCardFormScreenModel(mode: .add, initialValues: nil)
+        let model = TCGCardFormScreenModel(mode: .add(CardsTestIDs.addPrinting), initialValues: nil)
         model.configureCollection(
             currentID: CardsTestIDs.favoritesCollection,
             unfiledID: CardsTestIDs.unfiledCollection

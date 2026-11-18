@@ -10,7 +10,7 @@ import Testing
 struct TCGCardsImportReviewSnapshotTests {
     @Test
     func `Renders a clean editable review`() async {
-        let model = TCGCardsImportReviewModel(filename: "my-cards.csv", cards: [CardsCSVFixtures.draft])
+        let model = await CSVImportTestClient.readyReview(filename: "my-cards.csv", draft: CSVImportTestClient.draft)
         #expect(model.selectedPurchaseCount == 2)
         await assertScreenSnapshot(testName: #function) {
             TCGCardsImportReviewScreen(model: model).tcgCards(TCGCards(client: .preview(cardsOutcome: .empty)))
@@ -19,10 +19,10 @@ struct TCGCardsImportReviewSnapshotTests {
 
     @Test
     func `Renders actionable purchase errors`() async {
-        var draft = CardsCSVFixtures.draft
+        var draft = CSVImportTestClient.draft
         draft.rows[0][.quantity] = "two"
         draft.rows[0].isIncluded = false
-        let model = TCGCardsImportReviewModel(filename: "my-cards.csv", cards: [draft])
+        let model = await CSVImportTestClient.readyReview(filename: "my-cards.csv", draft: draft)
         #expect(model.invalidRowCount == 1)
         await assertScreenSnapshot(testName: #function) {
             TCGCardsImportReviewScreen(model: model).tcgCards(TCGCards(client: .preview(cardsOutcome: .empty)))
@@ -30,8 +30,19 @@ struct TCGCardsImportReviewSnapshotTests {
     }
 
     @Test
-    func `Renders import completion counts`() async {
+    func `Renders unmatched rows with catalog feedback`() async {
+        let cards = TCGCards(client: .preview(pricingOutcome: .empty))
         let model = TCGCardsImportReviewModel(filename: "my-cards.csv", cards: [CardsCSVFixtures.draft])
+        await model.refreshLookups(using: cards)
+        #expect(!model.canImport)
+        await assertScreenSnapshot(testName: #function) {
+            TCGCardsImportReviewScreen(model: model).tcgCards(cards)
+        }
+    }
+
+    @Test
+    func `Renders import completion counts`() async {
+        let model = await CSVImportTestClient.readyReview(filename: "my-cards.csv", draft: CSVImportTestClient.draft)
         model.completion = .init(
             result: .init(
                 importedCount: 1,
@@ -55,7 +66,7 @@ struct TCGCardsImportReviewSnapshotTests {
             message: "Invalid ISO date"
         )
         let collection = TCGCards(client: .preview(cardsOutcome: .validationErrors([issue])))
-        let model = TCGCardsImportReviewModel(filename: "my-cards.csv", cards: [CardsCSVFixtures.draft])
+        let model = await CSVImportTestClient.readyReview(filename: "my-cards.csv", draft: CSVImportTestClient.draft)
         await model.submit(using: collection)
         #expect(model.serverIssues.first?.row == 2)
         await assertScreenSnapshot(testName: #function) {
@@ -65,9 +76,9 @@ struct TCGCardsImportReviewSnapshotTests {
 
     @Test
     func `Renders an import rejection when the response cannot be decoded`() async throws {
-        let transport = CSVImportTransport(status: .badRequest, response: "not JSON")
+        let transport = CSVImportTransport(status: .badRequest, response: "not JSON", fails: false, catalogPages: [])
         let collection = try CSVImportTestClient.makeCollection(transport: transport)
-        let model = TCGCardsImportReviewModel(filename: "my-cards.csv", cards: [CardsCSVFixtures.draft])
+        let model = await CSVImportTestClient.readyReview(filename: "my-cards.csv", draft: CSVImportTestClient.draft)
         await model.submit(using: collection)
         #expect(model.submissionError?.contains("couldn’t accept this import") == true)
         await assertScreenSnapshot(testName: #function) {
@@ -77,9 +88,9 @@ struct TCGCardsImportReviewSnapshotTests {
 
     @Test
     func `Renders an unreadable import result without connection advice`() async throws {
-        let transport = CSVImportTransport(status: .ok, response: "{}")
+        let transport = CSVImportTransport(status: .ok, response: "{}", fails: false, catalogPages: [])
         let collection = try CSVImportTestClient.makeCollection(transport: transport)
-        let model = TCGCardsImportReviewModel(filename: "my-cards.csv", cards: [CardsCSVFixtures.draft])
+        let model = await CSVImportTestClient.readyReview(filename: "my-cards.csv", draft: CSVImportTestClient.draft)
         await model.submit(using: collection)
         #expect(model.submissionError?.contains("couldn’t read the import confirmation") == true)
         await assertScreenSnapshot(testName: #function) {

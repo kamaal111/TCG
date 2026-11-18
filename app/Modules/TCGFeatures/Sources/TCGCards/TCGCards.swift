@@ -504,17 +504,22 @@ public final class TCGCards {
         collectionState.status = isFinal ? .loaded : .loading
     }
 
-    func purchaseDefault(game: ClientCardGame, name: String, cardNumber: String) async -> Result<
+    func catalogSearch(game: ClientCardGame, name: String, cardNumber: String, cursor: String?) async -> Result<
         CardSearchResult, SearchPricingErrors
     > {
         await client.pricing.search(
-            .init(game: game, query: "\(name) \(cardNumber)", languages: [], mode: .card, cursor: nil)
+            .init(game: game, query: "\(name) \(cardNumber)", languages: [], mode: .card, cursor: cursor)
         )
     }
 
-    func addCard(_ values: CardFormValues) async -> Result<Void, TCGCardsOperationError> {
+    func purchaseDefault(cardID: UUID) async -> PricedCard? {
+        let result = await client.cards.prices(ids: [cardID])
+        return try? result.get().first { $0.price.cardId == cardID }?.price.price
+    }
+
+    func addCard(_ payload: CreateCardPayload) async -> Result<Void, TCGCardsOperationError> {
         let identity = displayIdentity
-        let result = await client.cards.create(with: values.payload)
+        let result = await client.cards.create(with: payload)
             .map { card in if displayIdentity == identity { insertCard(card) } }
             .mapError(mapCreateError)
         if case .success = result {
@@ -530,11 +535,7 @@ public final class TCGCards {
     }
 
     func moveCard(_ card: Card, to collectionID: UUID) async -> Result<CardWithPrice, TCGCardsOperationError> {
-        let payload = UpsertCardPayload(
-            game: card.game,
-            name: card.name,
-            setName: card.setName,
-            cardNumber: card.cardNumber,
+        let payload = UpdateCardPayload(
             notes: card.notes,
             purchases: card.purchases,
             collectionID: collectionID
@@ -542,7 +543,7 @@ public final class TCGCards {
         return await updateCard(id: card.id, payload: payload)
     }
 
-    private func updateCard(id: UUID, payload: UpsertCardPayload) async -> Result<CardWithPrice, TCGCardsOperationError>
+    private func updateCard(id: UUID, payload: UpdateCardPayload) async -> Result<CardWithPrice, TCGCardsOperationError>
     {
         let identity = displayIdentity
         let result = await client.cards.update(id: id, with: payload)
@@ -608,10 +609,7 @@ public final class TCGCards {
         CardsCSV.export([]).mapError { _ in .fileWriteFailed }
     }
 
-    func importCards(_ drafts: [CSVImportCard]) async -> Result<CardsImportCompletion, CardBackupErrors> {
-        let now = Date()
-        let cards = drafts.compactMap { CardsCSV.makeCard($0, now: now) }
-        let payload = ImportCardsPayload(cards: cards.map(ImportCardPayload.init))
+    func importCards(_ payload: ImportCardsPayload) async -> Result<CardsImportCompletion, CardBackupErrors> {
         switch await client.cards.importCards(payload) {
         case .failure(let error): return .failure(error)
         case .success(let result):
@@ -745,14 +743,7 @@ public final class TCGCards {
         issues.compactMap { issue in
             guard let path = issue.path.first else { return nil }
             guard let field = TCGCardsValidationField(rawValue: path) else { return nil }
-            let message =
-                issue.code == "binder_full"
-                ? String(
-                    localized: "This binder is full. Choose another collection or increase its page dimensions.",
-                    bundle: .module
-                )
-                : issue.message
-            return .init(field: field, message: message)
+            return .init(field: field, message: issue.message)
         }
     }
 }

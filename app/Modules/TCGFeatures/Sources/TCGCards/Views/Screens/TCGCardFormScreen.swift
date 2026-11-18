@@ -19,8 +19,8 @@ public struct TCGCardFormScreen: View {
     @State private var model: TCGCardFormScreenModel
     private let onAdded: () -> Void
 
-    public init(pricedCard: PricedCard, onAdded: @escaping () -> Void = {}) {
-        _model = State(initialValue: TCGCardFormScreenModel(mode: .add, initialValues: .init(pricedCard: pricedCard)))
+    public init(pricedCard: PricedCard, onAdded: @escaping () -> Void) {
+        _model = State(initialValue: TCGCardFormScreenModel(mode: .add(pricedCard), initialValues: nil))
         self.onAdded = onAdded
     }
 

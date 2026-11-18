@@ -1,4 +1,4 @@
-import { requestOwnedPrices, createTestCard } from './utils.ts';
+import { requestOwnedPrices, createTestCard, validCardPayload } from './utils.ts';
 import { expectErrorResponse } from '../../tests/auth.ts';
 import { integrationTest } from '../../tests/fixtures.ts';
 import { OwnedCardPricesSchema } from '../schemas/responses.ts';
@@ -7,8 +7,8 @@ integrationTest(
   'prices the owned ID only and hides foreign card details',
   async ({ app, user, createUser, authenticatedHeaders }) => {
     const other = await createUser();
-    const own = await createTestCard(app, user.sessionToken);
-    const foreign = await createTestCard(app, other.sessionToken);
+    const own = await createTestCard(app, user.sessionToken, validCardPayload);
+    const foreign = await createTestCard(app, other.sessionToken, validCardPayload);
     const ids = [own.id, foreign.id, crypto.randomUUID()];
     const priced = await requestOwnedPrices(app, authenticatedHeaders, ids);
 

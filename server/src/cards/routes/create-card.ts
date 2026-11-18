@@ -8,8 +8,9 @@ import { APP_API_ROUTE_NAME } from '../../constants/common.ts';
 import type { HonoEnvironment } from '../../context.ts';
 import { logDisplayPrices } from '../../forex/logging.ts';
 import { CARDS_OPENAPI_TAG, CARDS_ROUTE_NAME } from '../constants.ts';
+import { InvalidCatalogPrinting } from '../exceptions.ts';
 import { cardsLogger } from '../logging.ts';
-import { UpsertCardSchema } from '../schemas/payloads.ts';
+import { CreateCardSchema } from '../schemas/payloads.ts';
 import { CardWithPriceSchema } from '../schemas/responses.ts';
 import { serializeCardWithPrice } from '../utils/cards.ts';
 
@@ -24,7 +25,7 @@ const routeConfig = createRoute({
     "Add an owned trading card entry to the authenticated user's collection and place its copies after the last occupied binder slot, creating a page if needed. If placement would exceed the page limit, the request returns a collection_id validation issue without saving the card.",
   middleware: [requireSessionMiddleware] as const,
   security: [{ bearerAuth: [] }],
-  request: { body: { content: { [MIME_TYPES.JSON]: { schema: UpsertCardSchema } } } },
+  request: { body: { content: { [MIME_TYPES.JSON]: { schema: CreateCardSchema } } } },
   responses: {
     [CONTENTFUL_STATUS_CODES.CREATED]: {
       description: 'Card added successfully',
@@ -50,11 +51,16 @@ export const CREATE_CARD_ROUTE_PATH = `${APP_API_ROUTE_NAME}${CARDS_ROUTE_NAME}`
 const createCardRoute = defineOpenAPIRoute<HonoEnvironment, typeof routeConfig>({
   route: routeConfig,
   handler: async c => {
-    const values = c.req.valid('json');
-    const pricingLink = await c.get('cardPricingService').resolveSelectedPricingLink(values);
+    const { priced_card_id, ...values } = c.req.valid('json');
+    const printings = await c.get('cardPricingService').catalogPrintings([priced_card_id]);
+    const printing = printings.get(priced_card_id.toLowerCase());
+
+    if (printing == null) {
+      throw new InvalidCatalogPrinting([['priced_card_id']], 'create');
+    }
 
     const [createdCard, display] = await Promise.all([
-      c.get('cardRepository').create(values, pricingLink),
+      c.get('cardRepository').create(values, printing),
       c.get('forexService').displayContext(),
     ]);
 

@@ -63,6 +63,17 @@ export class PostgresCardPricingRepository implements CardPricingRepository {
     return this.db.query.cardPrice.findFirst({ where: { id, pricingSource, game } });
   }
 
+  getCachedCardPricesById(pricingSource: PricingSource, ids: readonly string[]): Promise<CardPriceRow[]> {
+    if (ids.length === 0) {
+      return Promise.resolve([]);
+    }
+
+    return this.db
+      .select()
+      .from(cardPrice)
+      .where(and(eq(cardPrice.pricingSource, pricingSource), sql`${cardPrice.id} = any(${sql.param(ids)}::text[])`));
+  }
+
   async findCachedPrinting(
     pricingSource: PricingSource,
     game: CardGame,

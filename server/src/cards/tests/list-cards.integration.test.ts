@@ -28,7 +28,7 @@ describe('List cards integration', () => {
 
       expect(created.status).toBe(201);
       const collection = CollectionSchema.parse(await created.json());
-      const unfiled = await createTestCard(app, owner.sessionToken);
+      const unfiled = await createTestCard(app, owner.sessionToken, validCardPayload);
 
       const filed = await createTestCard(app, owner.sessionToken, {
         ...validCardPayload,
@@ -36,7 +36,7 @@ describe('List cards integration', () => {
         card_number: '50%_Luffy',
       });
 
-      await createCardRequest(app, other.sessionToken);
+      await createCardRequest(app, other.sessionToken, validCardPayload);
       const first = await app.request(`${LIST_CARDS_ROUTE_PATH}?query=lUfFy&limit=1`, { headers });
       expect(first.status).toBe(200);
       const page = CardsListResponseSchema.parse(await first.json());
@@ -86,7 +86,7 @@ describe('List cards integration', () => {
     'returns only the session user cards newest first and logs success',
     async ({ app, getLogsForRequestId, withRequestId, user: owner, createUser, authenticatedHeaders }) => {
       const otherUser = await createUser();
-      const first = await createTestCard(app, owner.sessionToken);
+      const first = await createTestCard(app, owner.sessionToken, validCardPayload);
 
       const second = await createTestCard(app, owner.sessionToken, {
         ...validCardPayload,
@@ -97,7 +97,7 @@ describe('List cards integration', () => {
         purchases: [{ condition: 'mint', quantity: 1, purchase_price: null, currency: null }],
       });
 
-      await createCardRequest(app, otherUser.sessionToken);
+      await createCardRequest(app, otherUser.sessionToken, validCardPayload);
 
       const { headers, requestId } = withRequestId(authenticatedHeaders);
       const response = await app.request(LIST_CARDS_ROUTE_PATH, { headers });
@@ -119,7 +119,7 @@ describe('List cards integration', () => {
   );
 
   integrationTest('filters the session user collection by game', async ({ app, user: owner, authenticatedHeaders }) => {
-    const onePiece = await createTestCard(app, owner.sessionToken);
+    const onePiece = await createTestCard(app, owner.sessionToken, validCardPayload);
     await createCardRequest(app, owner.sessionToken, {
       ...validCardPayload,
       game: 'pokemon',
@@ -141,7 +141,7 @@ describe('List cards integration', () => {
     'combines game and repeated exact sets while retaining all owned set choices',
     async ({ app, user: owner, createUser, authenticatedHeaders }) => {
       const otherUser = await createUser();
-      const first = await createTestCard(app, owner.sessionToken);
+      const first = await createTestCard(app, owner.sessionToken, validCardPayload);
       const specialSet = 'Special, Set & + 日本語';
 
       const second = await createTestCard(app, owner.sessionToken, { ...validCardPayload, set_name: specialSet });
@@ -181,7 +181,7 @@ describe('List cards integration', () => {
   integrationTest(
     'filters one set across games and deduplicates available names',
     async ({ app, user: owner, authenticatedHeaders }) => {
-      const first = await createTestCard(app, owner.sessionToken);
+      const first = await createTestCard(app, owner.sessionToken, validCardPayload);
 
       const second = await createTestCard(app, owner.sessionToken, { ...validCardPayload, game: 'pokemon' });
 
@@ -202,7 +202,7 @@ describe('List cards integration', () => {
   integrationTest(
     'reads a bounded card page and complete set choices when no selected sets match',
     async ({ app, db, createApp, user: owner, authenticatedHeaders }) => {
-      await createCardRequest(app, owner.sessionToken);
+      await createCardRequest(app, owner.sessionToken, validCardPayload);
       const query = new URLSearchParams();
       query.append('set_name', 'romance dawn');
       query.append('set_name', 'Unknown');
@@ -237,7 +237,7 @@ describe('List cards integration', () => {
     async ({ app, user: owner, createUser, authenticatedHeaders }) => {
       const otherUser = await createUser();
       await createCardRequest(app, owner.sessionToken, { ...validCardPayload, game: 'pokemon' });
-      await createCardRequest(app, otherUser.sessionToken);
+      await createCardRequest(app, otherUser.sessionToken, validCardPayload);
 
       const response = await app.request(`${LIST_CARDS_ROUTE_PATH}?game=one_piece`, {
         headers: authenticatedHeaders,
@@ -270,7 +270,7 @@ describe('List cards integration', () => {
   integrationTest(
     'returns card details while the pricing lock is held',
     async ({ app, connectionString, db, user, authenticatedHeaders }) => {
-      const created = await createTestCard(app, user.sessionToken);
+      const created = await createTestCard(app, user.sessionToken, validCardPayload);
       const pricingCardId = 'one-piece-pricing-lock-test';
       await db.update(card).set({ pricingCardId, pricingSource: 'scrydex_static' }).where(eq(card.id, created.id));
 

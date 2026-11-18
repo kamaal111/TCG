@@ -623,12 +623,12 @@ struct TCGCardsFeatureTests {
     @Test
     func `Add update and delete mutate the collection`() async throws {
         let feature = makeFeature(.empty)
-        try await feature.addCard(validValues).get()
+        try await feature.addCard(.init(pricedCardID: CardsTestIDs.addPrintingID, ownership: validValues.payload)).get()
         let cardWithPrice = try #require(feature.cards.first)
         var updated = validValues
-        updated.name = "Updated"
+        updated.notes = "Updated"
         _ = try await feature.updateCard(id: cardWithPrice.card.id, values: updated).get()
-        #expect(feature.cards.first?.card.name == "Updated")
+        #expect(feature.cards.first?.card.notes == "Updated")
         try await feature.deleteCard(id: cardWithPrice.card.id).get()
         #expect(feature.cards.isEmpty)
     }
@@ -637,7 +637,7 @@ struct TCGCardsFeatureTests {
     func `Adding a card fetches and merges only that card's price`() async throws {
         let feature = makeFeature(.empty)
 
-        try await feature.addCard(validValues).get()
+        try await feature.addCard(.init(pricedCardID: CardsTestIDs.addPrintingID, ownership: validValues.payload)).get()
         let card = try #require(feature.cards.first)
 
         #expect(feature.cards.map(\.card.id) == [card.card.id])
@@ -657,7 +657,7 @@ struct TCGCardsFeatureTests {
         let priceBeforeUpdate = feature.cards.first { $0.card.id == otherCardId }?.price
 
         var updated = validValues
-        updated.name = "Updated"
+        updated.notes = "Updated"
         _ = try await feature.updateCard(
             id: CardsTestIDs.primary,
             values: updated

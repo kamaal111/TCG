@@ -9,6 +9,7 @@ struct CSVImportReviewContent: View {
     struct Actions {
         let editCard: (CSVImportCard) -> Void
         let editRow: (CSVImportRow, UUID) -> Void
+        let choosePrinting: (CSVImportCard) -> Void
         let downloadTemplate: () -> Void
         let chooseAnotherFile: () -> Void
     }
@@ -51,10 +52,14 @@ struct CSVImportReviewContent: View {
                 CSVImportCardReviewView(
                     card: card,
                     serverIssues: model.serverIssues,
+                    lookup: model.lookup(for: card),
+                    selectedPrinting: model.selectedPrinting(for: card),
                     actions: .init(
                         edit: { actions.editCard(card) },
                         remove: { model.removeCard(id: card.id) },
-                        editRow: { actions.editRow($0, card.id) }
+                        editRow: { actions.editRow($0, card.id) },
+                        choosePrinting: { actions.choosePrinting(card) },
+                        retryLookup: { model.retryLookup(for: card) }
                     )
                 )
                 .disabled(model.isSubmitting)
@@ -72,7 +77,7 @@ struct CSVImportReviewContent: View {
             .buttonStyle(.borderedProminent)
             .disabled(!model.canImport)
             Text(
-                "Matching IDs replace cards and their complete purchase history in your collection. Unchanged cards and excluded rows are skipped.",
+                "Matching IDs and printings update the complete purchase history. Unchanged cards and excluded rows are skipped.",
                 bundle: .module
             )
             .font(

@@ -116,9 +116,6 @@ struct TCGCardFormScreenModelTests {
         model.applyMarketDefault(PreviewTCGPricingClient.samplePricedCards[0])
         #expect(model.values.batches[0].currency == .jpy)
         #expect(model.values.batches[0].price == model.values.defaultMarketPrice.map { $0 * 150 })
-        model.values.name = "Different card"
-        #expect(model.values.batches[0].priceText.isEmpty)
-        #expect(model.values.batches[0].currency == .jpy)
     }
 
     @Test
@@ -155,31 +152,31 @@ struct TCGCardFormScreenModelTests {
     }
 
     private func makeCurrencySelectionModel() -> TCGCardFormScreenModel {
-        let model = TCGCardFormScreenModel(mode: .add, initialValues: validValues)
+        let model = TCGCardFormScreenModel(mode: .add(CardsTestIDs.addPrinting), initialValues: validValues)
         model.values.defaultMarketPrice = 284
         model.values.defaultMarketCurrency = .usd
         model.configureCurrency(preferred: .usd, rates: currencySelectionRates)
         return model
     }
 
-    @Test func `A full binder keeps the card draft and shows a collection field error`() async throws {
+    @Test func `A full binder keeps the draft and displays the API message on the collection field`() async throws {
+        let message = "This binder has no room for these copies. Choose another collection."
         let transport = CSVImportTransport(
             status: .badRequest,
             response: """
                 {"message":"Invalid validation","code":"INVALID_PAYLOAD","context":{"validations":[
-                    {"code":"binder_full","path":["collection_id"],"message":"Server fallback"}
+                    {"code":"binder_full","path":["collection_id"],"message":"\(message)"}
                 ]}}
-                """
+                """,
+            fails: false,
+            catalogPages: []
         )
-        let model = TCGCardFormScreenModel(mode: .add, initialValues: validValues)
+        let model = TCGCardFormScreenModel(mode: .add(CardsTestIDs.addPrinting), initialValues: validValues)
         let original = model.values
         let cards = TCGCards(client: try makeClient(transport: transport))
         #expect(!(await model.submit(using: cards)))
         #expect(model.values == original)
-        #expect(
-            model.fieldErrors[.collection]
-                == "This binder is full. Choose another collection or increase its page dimensions."
-        )
+        #expect(model.fieldErrors[.collection] == message)
         #expect(!model.isSubmitting)
     }
 
@@ -188,12 +185,14 @@ struct TCGCardFormScreenModelTests {
             status: .serviceUnavailable,
             response: """
                 {"message":"Unavailable","code":"UNAVAILABLE"}
-                """
+                """,
+            fails: false,
+            catalogPages: []
         )
         let collections = TCGCollections(client: try makeClient(transport: transport), defaults: nil)
         let model = TCGCardFormScreenModel(
-            mode: .add,
-            initialValues: .init(pricedCard: PreviewTCGPricingClient.samplePricedCards[0])
+            mode: .add(PreviewTCGPricingClient.samplePricedCards[0]),
+            initialValues: nil
         )
         let original = model.values
         await #expect(throws: CollectionsError.unavailable) {
@@ -218,7 +217,7 @@ struct TCGCardFormScreenModelTests {
     {
         let (source, rate, expectedText) = scenario
         let sourcePrice = try #require(Decimal(string: source))
-        let model = TCGCardFormScreenModel(mode: .add, initialValues: validValues)
+        let model = TCGCardFormScreenModel(mode: .add(CardsTestIDs.addPrinting), initialValues: validValues)
         model.values.defaultMarketPrice = sourcePrice
         model.values.defaultMarketCurrency = .usd
         model.configureCurrency(
@@ -235,7 +234,7 @@ struct TCGCardFormScreenModelTests {
 
     @Test
     func `Currency refresh preserves and rejects manually entered prices beyond six decimals`() {
-        let model = TCGCardFormScreenModel(mode: .add, initialValues: validValues)
+        let model = TCGCardFormScreenModel(mode: .add(CardsTestIDs.addPrinting), initialValues: validValues)
         model.values.batches[0].priceText = "1.2345678"
         model.values.batches[0].priceWasEdited = true
         model.values.defaultMarketPrice = 10
@@ -250,7 +249,7 @@ struct TCGCardFormScreenModelTests {
 
     @Test
     func `Converted purchase defaults save six decimal prices through the generated client`() async throws {
-        let model = TCGCardFormScreenModel(mode: .add, initialValues: validValues)
+        let model = TCGCardFormScreenModel(mode: .add(CardsTestIDs.addPrinting), initialValues: validValues)
         model.values.defaultMarketPrice = 10
         model.values.defaultMarketCurrency = .usd
         model.configureCurrency(
@@ -258,9 +257,12 @@ struct TCGCardFormScreenModelTests {
             rates: ExchangeRates(date: "2026-10-16", rates: ["EUR": 1, "USD": 1.9])
         )
         let transport = PurchaseSaveTransport()
-        let saved = try await makeClient(transport: transport).cards.create(with: model.values.payload).get()
+        let saved = try await makeClient(transport: transport).cards
+            .create(with: .init(pricedCardID: CardsTestIDs.addPrintingID, ownership: model.values.payload))
+            .get()
         let body = try #require(await transport.requestBody)
-        let sent = try JSONDecoder().decode(Components.Schemas.UpsertCard.self, from: body)
+        let sent = try JSONDecoder().decode(Components.Schemas.CreateCard.self, from: body)
+        #expect(sent.pricedCardId == CardsTestIDs.addPrintingID.uuidString.lowercased())
         let purchase = try #require(sent.purchases.first)
         #expect(purchase.purchasePrice == "5.263158")
         #expect(purchase.currency?.rawValue == "EUR")
@@ -270,7 +272,7 @@ struct TCGCardFormScreenModelTests {
 
     @Test
     func `Market defaults return a converted batch without changing the original`() {
-        let model = TCGCardFormScreenModel(mode: .add, initialValues: nil)
+        let model = TCGCardFormScreenModel(mode: .add(CardsTestIDs.addPrinting), initialValues: nil)
         model.configureCurrency(
             preferred: .eur,
             rates: ExchangeRates(date: "2026-10-16", rates: ["EUR": 1, "USD": 1.25])
@@ -289,7 +291,7 @@ struct TCGCardFormScreenModelTests {
 
     @Test
     func `Defaults new purchases to EUR and preserves manual JPY overrides`() {
-        let model = TCGCardFormScreenModel(mode: .add, initialValues: nil)
+        let model = TCGCardFormScreenModel(mode: .add(CardsTestIDs.addPrinting), initialValues: nil)
         model.configureCurrency(
             preferred: .eur,
             rates: ExchangeRates(date: "2026-10-16", rates: ["EUR": 1, "USD": 1.25, "JPY": 150])
@@ -330,7 +332,7 @@ struct TCGCardFormScreenModelTests {
 
     @Test(arguments: PreviewTCGPricingClient.samplePricedCards)
     func `Searched cards prefill details with empty quantities and notes`(card: PricedCard) {
-        let model = TCGCardFormScreenModel(mode: .add, initialValues: .init(pricedCard: card))
+        let model = TCGCardFormScreenModel(mode: .add(card), initialValues: nil)
         #expect(model.values.game == card.game)
         #expect(model.values.name == card.name)
         #expect(model.values.setName == card.setName)
@@ -341,84 +343,37 @@ struct TCGCardFormScreenModelTests {
 
     @Test(arguments: PreviewTCGPricingClient.samplePricedCards)
     func `Searched card details are the dismissal baseline`(card: PricedCard) {
-        let model = TCGCardFormScreenModel(mode: .add, initialValues: .init(pricedCard: card))
+        let model = TCGCardFormScreenModel(mode: .add(card), initialValues: nil)
         #expect(!model.hasUnsavedChanges)
         #expect(model.requestDismissal())
-        model.values.name = "Edited name"
+        model.values.notes = "Edited note"
         #expect(!model.requestDismissal())
         #expect(model.isShowingDiscardConfirmation)
         model.keepEditing()
-        model.values.name = card.name
+        model.values.notes = ""
         #expect(!model.hasUnsavedChanges)
         #expect(model.requestDismissal())
     }
 
     @Test(arguments: PreviewTCGPricingClient.samplePricedCards)
     func `Searched cards require a quantity before saving`(card: PricedCard) async {
-        let model = TCGCardFormScreenModel(mode: .add, initialValues: .init(pricedCard: card))
+        let model = TCGCardFormScreenModel(mode: .add(card), initialValues: nil)
         let collection = TCGCards(client: .preview(cardsOutcome: .empty))
         #expect(!(await model.submit(using: collection)))
         #expect(Set(model.fieldErrors.keys) == [.quantities])
         #expect(collection.cards.isEmpty)
     }
 
-    @Test
-    func `Only an explicit search selection is sent when saving`() throws {
-        let id = try #require(UUID(uuidString: "550e8400-e29b-41d4-a716-446655440000"))
-        let card = PricedCard(
-            id: id.uuidString,
-            game: .pokemon,
-            name: "Chi-Yu ex",
-            cardNumber: "259/193",
-            setName: "Paldea Evolved",
-            illustrator: nil,
-            pricedOn: .distantPast,
-            fetchedAt: .distantPast
-        )
-        let selected = TCGCardFormScreenModel(mode: .add, initialValues: .init(pricedCard: card))
-        selected.values.notes = "Alternate art"
-        #expect(selected.values.payload.pricedCardID == id)
-        selected.values.setName = "Other Set"
-        #expect(selected.values.payload.pricedCardID == nil)
-
-        let manual = TCGCardFormScreenModel(mode: .add, initialValues: nil)
-        manual.applyMarketDefault(card)
-        #expect(manual.values.payload.pricedCardID == nil)
-    }
-
-    @Test
-    func `Missing searched set remains required and can be supplied`() async {
-        let card = PricedCard(
-            id: "missing-set",
-            game: .pokemon,
-            name: "Pikachu",
-            cardNumber: "58/102",
-            illustrator: nil,
-            pricedOn: .distantPast,
-            fetchedAt: .distantPast
-        )
-        let model = TCGCardFormScreenModel(mode: .add, initialValues: .init(pricedCard: card))
-        let collection = TCGCards(client: .preview(cardsOutcome: .empty))
-        model.values.quantities = [.nearMint: 1]
-        #expect(model.values.setName.isEmpty)
-        #expect(!(await model.submit(using: collection)))
-        #expect(Set(model.fieldErrors.keys) == [.setName])
-        model.values.setName = "Base Set"
-        #expect(await model.submit(using: collection))
-        #expect(collection.cards.first?.card.setName == "Base Set")
-    }
-
     @Test(arguments: PreviewTCGPricingClient.samplePricedCards)
-    func `Prefilled add saves edited details quantities and notes`(card: PricedCard) async throws {
-        let model = TCGCardFormScreenModel(mode: .add, initialValues: .init(pricedCard: card))
+    func `Prefilled add saves the selected printing, quantities and notes`(card: PricedCard) async throws {
+        let model = TCGCardFormScreenModel(mode: .add(card), initialValues: nil)
         let collection = TCGCards(client: .preview(cardsOutcome: .empty))
-        model.values.name = "Corrected name"
         model.values.quantities = [.nearMint: 2, .played: 1]
         model.values.notes = "  My notes  "
         #expect(await model.submit(using: collection))
         let saved = try #require(collection.cards.first?.card)
         #expect(saved.game == card.game)
-        #expect(saved.name == "Corrected name")
+        #expect(saved.name == card.name)
         #expect(saved.setName == card.setName)
         #expect(saved.cardNumber == card.cardNumber)
         #expect(saved.notes == "My notes")
@@ -434,8 +389,8 @@ struct TCGCardFormScreenModelTests {
     @Test
     func `Prefilled add retains values after server failure`() async {
         let model = TCGCardFormScreenModel(
-            mode: .add,
-            initialValues: .init(pricedCard: PreviewTCGPricingClient.samplePricedCards[0])
+            mode: .add(PreviewTCGPricingClient.samplePricedCards[0]),
+            initialValues: nil
         )
         model.values.quantities = [.nearMint: 1]
         model.values.notes = "Keep this draft"
@@ -448,7 +403,7 @@ struct TCGCardFormScreenModelTests {
 
     @Test
     func `Unchanged add and edit forms dismiss without confirmation`() {
-        let add = TCGCardFormScreenModel(mode: .add, initialValues: nil)
+        let add = TCGCardFormScreenModel(mode: .add(CardsTestIDs.addPrinting), initialValues: nil)
         let edit = TCGCardFormScreenModel(mode: .edit(PreviewTCGCardsClient.sampleCards[0]), initialValues: nil)
         #expect(add.requestDismissal())
         #expect(edit.requestDismissal())
@@ -456,19 +411,10 @@ struct TCGCardFormScreenModelTests {
         #expect(!edit.isShowingDiscardConfirmation)
     }
 
-    @Test(arguments: ChangedTextField.allCases)
-    func `Changed text fields require discard confirmation`(field: ChangedTextField) {
-        let model = TCGCardFormScreenModel(mode: .add, initialValues: nil)
-        model.values[keyPath: field.keyPath] = "Draft"
-        #expect(model.hasUnsavedChanges)
-        #expect(!model.requestDismissal())
-        #expect(model.isShowingDiscardConfirmation)
-    }
-
     @Test
-    func `Changed game requires discard confirmation`() {
-        let model = TCGCardFormScreenModel(mode: .add, initialValues: nil)
-        model.values.game = .pokemon
+    func `Changed notes require discard confirmation`() {
+        let model = TCGCardFormScreenModel(mode: .add(CardsTestIDs.addPrinting), initialValues: nil)
+        model.values.notes = "Draft"
         #expect(model.hasUnsavedChanges)
         #expect(!model.requestDismissal())
         #expect(model.isShowingDiscardConfirmation)
@@ -496,7 +442,7 @@ struct TCGCardFormScreenModelTests {
 
     @Test
     func `Zero quantities match missing quantities`() {
-        let model = TCGCardFormScreenModel(mode: .add, initialValues: nil)
+        let model = TCGCardFormScreenModel(mode: .add(CardsTestIDs.addPrinting), initialValues: nil)
         model.values.quantities[.nearMint] = 1
         #expect(model.hasUnsavedChanges)
         model.values.quantities[.nearMint] = 0
@@ -506,8 +452,8 @@ struct TCGCardFormScreenModelTests {
 
     @Test
     func `Keeping edits preserves the draft and validation errors`() async {
-        let model = TCGCardFormScreenModel(mode: .add, initialValues: nil)
-        model.values.name = "Draft"
+        let model = TCGCardFormScreenModel(mode: .add(CardsTestIDs.addPrinting), initialValues: nil)
+        model.values.notes = "Draft"
         let submitted = await model.submit(using: TCGCards(client: .preview(cardsOutcome: .empty)))
         #expect(!submitted)
         let draft = model.values
@@ -525,7 +471,7 @@ struct TCGCardFormScreenModelTests {
     func `Submission blocks repeated saves and dismissal and preserves edits on failure`() async throws {
         let transport = PendingCardSubmissionTransport()
         let client = try makeClient(transport: transport)
-        let model = TCGCardFormScreenModel(mode: .add, initialValues: nil)
+        let model = TCGCardFormScreenModel(mode: .add(CardsTestIDs.addPrinting), initialValues: nil)
         model.values = validValues
         let submission = Task { await model.submit(using: TCGCards(client: client)) }
         await transport.waitForRequest()
@@ -544,20 +490,17 @@ struct TCGCardFormScreenModelTests {
     }
 
     @Test
-    func `Empty fields and quantities are validated`() async {
-        let model = TCGCardFormScreenModel(mode: .add, initialValues: nil)
+    func `Missing purchases are validated`() async {
+        let model = TCGCardFormScreenModel(mode: .add(CardsTestIDs.addPrinting), initialValues: nil)
         let submitted = await model.submit(using: TCGCards(client: .preview(cardsOutcome: .empty)))
         #expect(!submitted)
-        #expect(model.fieldErrors[.name] != nil)
-        #expect(model.fieldErrors[.setName] != nil)
-        #expect(model.fieldErrors[.cardNumber] != nil)
         #expect(model.fieldErrors[.quantities] != nil)
         #expect(!model.isSubmitting)
     }
 
     @Test
     func `Valid add submits successfully`() async {
-        let model = TCGCardFormScreenModel(mode: .add, initialValues: nil)
+        let model = TCGCardFormScreenModel(mode: .add(CardsTestIDs.addPrinting), initialValues: nil)
         model.values = validValues
         #expect(await model.submit(using: TCGCards(client: .preview(cardsOutcome: .empty))))
         #expect(!model.isSubmitting)
@@ -572,16 +515,16 @@ struct TCGCardFormScreenModelTests {
     }
 
     @Test
-    func `Server validation maps set name and unavailable sets toast`() async {
-        let issue = TCGClientValidationIssue(code: "too_small", path: ["set_name"], message: "Required")
-        let validationModel = TCGCardFormScreenModel(mode: .add, initialValues: nil)
+    func `Server validation maps a printing error and unavailable sets toast`() async {
+        let issue = TCGClientValidationIssue(code: "too_small", path: ["priced_card_id"], message: "Required")
+        let validationModel = TCGCardFormScreenModel(mode: .add(CardsTestIDs.addPrinting), initialValues: nil)
         validationModel.values = validValues
         _ = await validationModel.submit(
             using: TCGCards(client: .preview(cardsOutcome: .validationErrors([issue])))
         )
-        #expect(validationModel.fieldErrors[.setName] == "Required")
+        #expect(validationModel.fieldErrors[.printing] == "Required")
 
-        let unavailableModel = TCGCardFormScreenModel(mode: .add, initialValues: nil)
+        let unavailableModel = TCGCardFormScreenModel(mode: .add(CardsTestIDs.addPrinting), initialValues: nil)
         unavailableModel.values = validValues
         _ = await unavailableModel.submit(using: TCGCards(client: .preview(cardsOutcome: .serverUnavailable)))
         #expect(unavailableModel.toast != nil)
@@ -591,7 +534,7 @@ struct TCGCardFormScreenModelTests {
     @Test
     func `New batches prefill the average instead of the lowest price`() throws {
         let card = PreviewTCGPricingClient.samplePricedCards[0]
-        let model = TCGCardFormScreenModel(mode: .add, initialValues: .init(pricedCard: card))
+        let model = TCGCardFormScreenModel(mode: .add(card), initialValues: nil)
         model.addBatch(condition: .played)
         let batch = try #require(model.values.batches.first)
         let average = try #require(card.market?.market)
@@ -602,7 +545,7 @@ struct TCGCardFormScreenModelTests {
 
     @Test
     func `Multiple purchases in one condition retain individual costs and aggregate quantities`() {
-        let model = TCGCardFormScreenModel(mode: .add, initialValues: validValues)
+        let model = TCGCardFormScreenModel(mode: .add(CardsTestIDs.addPrinting), initialValues: validValues)
         model.values.batches = [
             .init(condition: .nearMint, quantity: 2, priceText: "2"),
             .init(condition: .nearMint, quantity: 3, priceText: "4"),
@@ -615,7 +558,7 @@ struct TCGCardFormScreenModelTests {
 
     @Test
     func `Market refresh preserves a manually edited price`() {
-        let model = TCGCardFormScreenModel(mode: .add, initialValues: validValues)
+        let model = TCGCardFormScreenModel(mode: .add(CardsTestIDs.addPrinting), initialValues: validValues)
         model.values.batches[0].priceText = "1.234567"
         model.values.batches[0].priceWasEdited = true
         model.applyMarketDefault(PreviewTCGPricingClient.samplePricedCards[0])
@@ -623,21 +566,8 @@ struct TCGCardFormScreenModelTests {
     }
 
     @Test
-    func `Changing the selected card clears automatic prices but preserves manual costs`() {
-        let model = TCGCardFormScreenModel(mode: .add, initialValues: validValues)
-        model.applyMarketDefault(PreviewTCGPricingClient.samplePricedCards[0])
-        model.addBatch(condition: .played)
-        model.values.batches[1].priceText = "3.50"
-        model.values.batches[1].priceWasEdited = true
-        model.values.name = "Different card"
-        #expect(model.values.batches[0].priceText.isEmpty)
-        #expect(model.values.batches[1].price == Decimal(string: "3.50"))
-        #expect(model.values.defaultMarketPrice == nil)
-    }
-
-    @Test
     func `Invalid purchase text is validated and requires discard confirmation`() {
-        let model = TCGCardFormScreenModel(mode: .add, initialValues: validValues)
+        let model = TCGCardFormScreenModel(mode: .add(CardsTestIDs.addPrinting), initialValues: validValues)
         model.values.batches[0].priceText = "-1"
         #expect(TCGCardsValidator.issues(for: model.values).map(\.field) == [.purchases])
         #expect(model.hasUnsavedChanges)
@@ -656,24 +586,9 @@ struct TCGCardFormScreenModelTests {
             pricedOn: .now,
             fetchedAt: .now
         )
-        let model = TCGCardFormScreenModel(mode: .add, initialValues: .init(pricedCard: card))
+        let model = TCGCardFormScreenModel(mode: .add(card), initialValues: nil)
         model.addBatch(condition: .mint)
         #expect(model.values.batches.first?.price == nil)
-    }
-
-    @Test
-    func `A pricing response for an obsolete card cannot prefill the edited card`() async throws {
-        let transport = PendingCardSubmissionTransport()
-        let client = try makeClient(transport: transport)
-        let model = TCGCardFormScreenModel(mode: .add, initialValues: validValues)
-        let refresh = Task { await model.refreshPurchaseDefault(using: TCGCards(client: client)) }
-        await transport.waitForRequest()
-        model.values.name = "Different card"
-        await transport.completePricing()
-        await refresh.value
-        #expect(model.values.defaultMarketPrice == nil)
-        #expect(model.values.batches[0].priceText.isEmpty)
-        #expect(model.values.name == "Different card")
     }
 
     private func makeClient(transport: any ClientTransport) throws -> TCGClient {
@@ -691,18 +606,6 @@ struct TCGCardFormScreenModelTests {
         )
     }
 
-    enum ChangedTextField: CaseIterable, Sendable {
-        case name, setName, cardNumber, notes
-
-        var keyPath: WritableKeyPath<CardFormValues, String> {
-            switch self {
-            case .name: \CardFormValues.name
-            case .setName: \CardFormValues.setName
-            case .cardNumber: \CardFormValues.cardNumber
-            case .notes: \CardFormValues.notes
-            }
-        }
-    }
 }
 
 private actor PurchaseSaveTransport: ClientTransport {
@@ -748,19 +651,6 @@ private actor PendingCardSubmissionTransport: ClientTransport {
     func waitForRequest() async {
         guard !hasStarted else { return }
         await withCheckedContinuation { waitingForRequest = $0 }
-    }
-
-    func completePricing() {
-        guard let response else { preconditionFailure("A pricing request must be pending.") }
-        self.response = nil
-        let body = """
-            {"matches":[{"id":"priced-card","game":"one_piece","name":"Monkey D. Luffy","card_number":"OP01-003",
-            "market":{"condition":"near_mint","currency":"USD","market":5},
-            "priced_on":"2026-10-08T00:00:00.000Z","fetched_at":"2026-10-08T10:00:00.000Z"}]}
-            """
-        response.resume(
-            returning: (HTTPResponse(status: .ok, headerFields: [.contentType: "application/json"]), HTTPBody(body))
-        )
     }
 
     func failRequest() {

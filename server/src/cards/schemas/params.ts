@@ -6,6 +6,8 @@ import { base64UrlCursorPattern, paginationCursor } from '../../utils/pagination
 import { CARD_GAMES } from '../types.ts';
 import { decodeCardCursor } from '../utils/pagination.ts';
 
+const SetNameFilterSchema = CardCoreFieldsSchema.shape.set_name.nonempty();
+
 export const CardIdParamsSchema = z.object({
   cardId: UuidSchema.meta({
     description: 'Unique card entry identifier',
@@ -53,13 +55,13 @@ export const CardsListQuerySchema = CardsPaginationQuerySchema.extend({
   game: z.enum(CARD_GAMES).optional().meta({ description: 'Optional game filter', example: 'one_piece' }),
   set_name: z
     .preprocess(value => {
-      const single = CardCoreFieldsSchema.shape.set_name.safeParse(value);
+      const single = SetNameFilterSchema.safeParse(value);
 
       return single.success ? [single.data] : value;
-    }, z.array(CardCoreFieldsSchema.shape.set_name).optional())
+    }, z.array(SetNameFilterSchema).optional())
     .meta({
       type: 'array',
-      items: z.toJSONSchema(CardCoreFieldsSchema.shape.set_name),
+      items: z.toJSONSchema(SetNameFilterSchema),
       description: 'Optional exact set names. Repeat set_name for multiple sets; omitted means all sets.',
       example: ['Base Set', 'Crown Zenith'],
     }),

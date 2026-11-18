@@ -136,7 +136,7 @@ struct PreviewTCGCardsClientTests {
     @Test
     func `Create appends a card`() async throws {
         let client = TCGClient.preview(cardsOutcome: .empty)
-        let created = try await client.cards.create(with: previewPayload).get()
+        let created = try await client.cards.create(with: previewCreatePayload).get()
         #expect(
             try await listCards(client).get().cards.map(
                 \.card
@@ -154,7 +154,7 @@ struct PreviewTCGCardsClientTests {
             with: previewPayload
         )
         .get()
-        #expect(updated.card.name == previewPayload.name)
+        #expect(updated.card.name == PreviewTCGCardsClient.sampleCards[0].name)
         #expect(
             try await listCards(client).get().cards.first?
                 .card
@@ -239,7 +239,7 @@ struct PreviewTCGCardsClientTests {
         let issue = TCGClientValidationIssue(code: "too_small", path: ["name"], message: "Required")
         let client = TCGClient.preview(cardsOutcome: .validationErrors([issue]))
         await #expect(throws: CreateCardErrors.badRequest(validations: [issue])) {
-            try await client.cards.create(with: previewPayload).get()
+            try await client.cards.create(with: previewCreatePayload).get()
         }
     }
 
@@ -262,7 +262,7 @@ struct PreviewTCGCardsClientTests {
             try await listCards(client).get().cards
         }
         await #expect(throws: CreateCardErrors.unavailable) {
-            try await client.cards.create(with: previewPayload).get()
+            try await client.cards.create(with: previewCreatePayload).get()
         }
         await #expect(throws: UpdateCardErrors.unavailable) {
             try await client.cards.update(
@@ -286,11 +286,12 @@ struct PreviewTCGCardsClientTests {
 
 }
 
-private let previewPayload = UpsertCardPayload(
-    game: .pokemon,
-    name: "Bulbasaur",
-    setName: "Base Set",
-    cardNumber: "44/102",
+private let previewCreatePayload = CreateCardPayload(
+    pricedCardID: UUID(uuid: (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1)),
+    ownership: previewPayload
+)
+
+private let previewPayload = UpdateCardPayload(
     notes: nil,
     purchases: [.init(condition: .excellent, quantity: 1)],
     collectionID: nil

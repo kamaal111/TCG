@@ -12,6 +12,7 @@ export interface CardPricingRepository {
     pricedOn: string,
   ): Promise<CardPriceRow | undefined>;
   getCachedCardPriceById(source: PricingSource, game: CardGame, id: string): Promise<CardPriceRow | undefined>;
+  getCachedCardPricesById(source: PricingSource, ids: readonly string[]): Promise<CardPriceRow[]>;
   findCachedPrinting(
     source: PricingSource,
     game: CardGame,

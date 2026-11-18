@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { CONTENTFUL_STATUS_CODES } from '@tcg/http/status';
 import { eq, sql } from 'drizzle-orm';
 
-import { createCardRequest } from './utils.ts';
+import { createCardRequest, csvImportPayload, seedCatalogPrinting, validCardPayload } from './utils.ts';
 import { createTestScrydexClient } from '../../card-pricing/tests/utils.ts';
 import { card, cardPurchaseBatch } from '../../db/schema/cards.ts';
 import { sessionHeaders } from '../../tests/auth.ts';
@@ -14,7 +14,7 @@ import { ExportCardsResponseSchema, ImportCardsResponseSchema } from '../schemas
 
 const backupCard = {
   id: '550e8400-e29b-41d4-a716-446655440000',
-  game: 'one_piece',
+  game: 'one_piece' as const,
   name: 'Monkey D. Luffy',
   set_name: 'Romance Dawn',
   card_number: 'OP01-003',
@@ -41,7 +41,7 @@ const backupCard = {
   ],
 };
 
-describe('Card backup integration', () => {
+describe('Card CSV import and export integration', () => {
   integrationTest('requires authentication for both operations', async ({ app }) => {
     expect((await app.request(EXPORT_CARDS_ROUTE_PATH)).status).toBe(CONTENTFUL_STATUS_CODES.UNAUTHORIZED);
     expect((await app.request(IMPORT_CARDS_ROUTE_PATH, { method: 'POST' })).status).toBe(
@@ -52,11 +52,11 @@ describe('Card backup integration', () => {
   integrationTest(
     'imports purchases and timestamps and skips repeat imports',
     async ({ app, db, user, authenticatedHeaders }) => {
-      const request = () => {
+      const request = async () => {
         return app.request(IMPORT_CARDS_ROUTE_PATH, {
           method: 'POST',
           headers: authenticatedHeaders,
-          body: JSON.stringify({ cards: [backupCard] }),
+          body: JSON.stringify(await csvImportPayload(db, [backupCard], 'scrydex_static')),
         });
       };
 
@@ -99,7 +99,9 @@ describe('Card backup integration', () => {
     'transfers a backup to another account without changing the owner',
     async ({ app, db, user: owner, createUser, authenticatedHeaders }) => {
       const recipient = await createUser();
-      expect((await createCardRequest(app, owner.sessionToken)).status).toBe(CONTENTFUL_STATUS_CODES.CREATED);
+      expect((await createCardRequest(app, owner.sessionToken, validCardPayload)).status).toBe(
+        CONTENTFUL_STATUS_CODES.CREATED,
+      );
 
       const original = ExportCardsResponseSchema.parse(
         await (
@@ -112,10 +114,13 @@ describe('Card backup integration', () => {
       const result = await app.request(IMPORT_CARDS_ROUTE_PATH, {
         method: 'POST',
         headers: sessionHeaders(recipient.sessionToken),
-        body: JSON.stringify({
-          ...original,
-          cards: original.cards.map(source => ({ ...source, name: 'Recipient copy' })),
-        }),
+        body: JSON.stringify(
+          await csvImportPayload(
+            db,
+            original.cards.map(source => ({ ...source, name: 'Recipient copy' })),
+            'scrydex_static',
+          ),
+        ),
       });
 
       expect(result.status).toBe(CONTENTFUL_STATUS_CODES.OK);
@@ -142,7 +147,7 @@ describe('Card backup integration', () => {
           return app.request(IMPORT_CARDS_ROUTE_PATH, {
             method: 'POST',
             headers: authenticatedHeaders,
-            body: JSON.stringify({ cards: [backupCard] }),
+            body: JSON.stringify(await csvImportPayload(db, [backupCard], 'scrydex_static')),
           });
         }),
       );
@@ -182,7 +187,7 @@ describe('Card backup integration', () => {
       const response = await app.request(IMPORT_CARDS_ROUTE_PATH, {
         method: 'POST',
         headers: authenticatedHeaders,
-        body: JSON.stringify({ cards: [backupCard, invalid] }),
+        body: JSON.stringify(await csvImportPayload(db, [backupCard, invalid], 'scrydex_static')),
       });
 
       expect(response.status).toBe(CONTENTFUL_STATUS_CODES.BAD_REQUEST);
@@ -199,7 +204,7 @@ describe('Card backup integration', () => {
       const response = await app.request(IMPORT_CARDS_ROUTE_PATH, {
         method: 'POST',
         headers,
-        body: JSON.stringify({ cards: [backupCard] }),
+        body: JSON.stringify(await csvImportPayload(db, [backupCard], 'scrydex_static')),
       });
 
       expect(response.status).toBe(CONTENTFUL_STATUS_CODES.INTERNAL_SERVER_ERROR);
@@ -226,7 +231,7 @@ describe('Card backup integration', () => {
 
   integrationTest(
     'backs up cards without fetching prices or filling missing costs',
-    async ({ createApp, authenticatedHeaders }) => {
+    async ({ createApp, db, authenticatedHeaders }) => {
       let providerRequests = 0;
 
       const pricingClient = createTestScrydexClient(async () => {
@@ -240,7 +245,7 @@ describe('Card backup integration', () => {
       const imported = await isolated.request(IMPORT_CARDS_ROUTE_PATH, {
         method: 'POST',
         headers: authenticatedHeaders,
-        body: JSON.stringify({ cards: [backupCard] }),
+        body: JSON.stringify(await csvImportPayload(db, [backupCard], 'scrydex_real')),
       });
 
       expect(imported.status).toBe(CONTENTFUL_STATUS_CODES.OK);
@@ -288,7 +293,7 @@ describe('Card backup integration', () => {
       const response = await app.request(IMPORT_CARDS_ROUTE_PATH, {
         method: 'POST',
         headers,
-        body: JSON.stringify({ cards: [input] }),
+        body: JSON.stringify(await csvImportPayload(db, [input], 'scrydex_static')),
       });
 
       expect(response.status).toBe(200);
@@ -326,7 +331,7 @@ describe('Card backup integration', () => {
       const repeated = await app.request(IMPORT_CARDS_ROUTE_PATH, {
         method: 'POST',
         headers: authenticatedHeaders,
-        body: JSON.stringify({ cards: [input] }),
+        body: JSON.stringify(await csvImportPayload(db, [input], 'scrydex_static')),
       });
 
       expect(await repeated.json()).toEqual({ imported_count: 0, updated_count: 0, skipped_count: 1 });
@@ -337,9 +342,9 @@ describe('Card backup integration', () => {
   );
 
   integrationTest(
-    'replaces changed owned cards and complete purchases, retaining owned purchase IDs and restoring older timestamps',
+    'updates ownership while retaining card identity, creation time and owned purchase IDs',
     async ({ app, db, user, authenticatedHeaders }) => {
-      expect((await createCardRequest(app, user.sessionToken)).status).toBe(201);
+      expect((await createCardRequest(app, user.sessionToken, validCardPayload)).status).toBe(201);
 
       const original = ExportCardsResponseSchema.parse(
         await (await app.request(EXPORT_CARDS_ROUTE_PATH, { headers: authenticatedHeaders })).json(),
@@ -352,20 +357,15 @@ describe('Card backup integration', () => {
       const unchanged = await app.request(IMPORT_CARDS_ROUTE_PATH, {
         method: 'POST',
         headers: authenticatedHeaders,
-        body: JSON.stringify(original),
+        body: JSON.stringify(await csvImportPayload(db, original.cards, 'scrydex_static')),
       });
 
       expect(await unchanged.json()).toEqual({ imported_count: 0, updated_count: 0, skipped_count: 1 });
       const purchase = source.purchases[0];
       assert(purchase);
-      await db
-        .update(card)
-        .set({ pricingCardId: 'old-provider-id', pricingSource: 'scrydex' })
-        .where(eq(card.userId, user.userId));
 
       const input = {
         ...source,
-        name: 'Changed',
         notes: 'Restored',
         created_at: backupCard.created_at,
         updated_at: backupCard.updated_at,
@@ -377,7 +377,7 @@ describe('Card backup integration', () => {
       const updated = await app.request(IMPORT_CARDS_ROUTE_PATH, {
         method: 'POST',
         headers: authenticatedHeaders,
-        body: JSON.stringify({ cards: [input] }),
+        body: JSON.stringify(await csvImportPayload(db, [input], 'scrydex_static')),
       });
 
       expect(updated.status).toBe(200);
@@ -390,11 +390,10 @@ describe('Card backup integration', () => {
 
       expect(stored).toMatchObject({
         id: source.id,
-        name: 'Changed',
+        name: source.name,
         notes: 'Restored',
-        pricingCardId: null,
-        pricingSource: null,
-        createdAt: new Date(backupCard.created_at),
+        pricingSource: 'scrydex_static',
+        createdAt: new Date(source.created_at),
         updatedAt: new Date(backupCard.updated_at),
       });
       assert(stored);
@@ -412,7 +411,7 @@ describe('Card backup integration', () => {
       const repeated = await app.request(IMPORT_CARDS_ROUTE_PATH, {
         method: 'POST',
         headers: authenticatedHeaders,
-        body: JSON.stringify({ cards: [input] }),
+        body: JSON.stringify(await csvImportPayload(db, [input], 'scrydex_static')),
       });
 
       expect(await repeated.json()).toEqual({ imported_count: 0, updated_count: 0, skipped_count: 1 });
@@ -428,11 +427,11 @@ describe('Card backup integration', () => {
   integrationTest(
     'updates imported source IDs, removes absent purchases, and ignores purchase order on retry',
     async ({ app, db, user, authenticatedHeaders }) => {
-      const request = (cards: unknown[]) => {
+      const request = async (cards: (Omit<typeof backupCard, 'purchases'> & { purchases: unknown })[]) => {
         return app.request(IMPORT_CARDS_ROUTE_PATH, {
           method: 'POST',
           headers: authenticatedHeaders,
-          body: JSON.stringify({ cards }),
+          body: JSON.stringify(await csvImportPayload(db, cards, 'scrydex_static')),
         });
       };
 
@@ -480,7 +479,7 @@ describe('Card backup integration', () => {
       const response = await app.request(IMPORT_CARDS_ROUTE_PATH, {
         method: 'POST',
         headers,
-        body: JSON.stringify({ cards: [input] }),
+        body: JSON.stringify(await csvImportPayload(db, [input], 'scrydex_static')),
       });
 
       expect(response.status).toBe(400);
@@ -520,7 +519,7 @@ describe('Card backup integration', () => {
       const response = await app.request(IMPORT_CARDS_ROUTE_PATH, {
         method: 'POST',
         headers: authenticatedHeaders,
-        body: JSON.stringify({ cards: [input] }),
+        body: JSON.stringify(await csvImportPayload(db, [input], 'scrydex_static')),
       });
 
       expect(response.status).toBe(200);
@@ -535,11 +534,11 @@ describe('Card backup integration', () => {
   integrationTest(
     'rolls back replacement fields, deleted purchases, and quantities when purchase persistence fails',
     async ({ app, db, user, authenticatedHeaders }) => {
-      const request = (cards: unknown[]) => {
+      const request = async (cards: (Omit<typeof backupCard, 'purchases'> & { purchases: unknown })[]) => {
         return app.request(IMPORT_CARDS_ROUTE_PATH, {
           method: 'POST',
           headers: authenticatedHeaders,
-          body: JSON.stringify({ cards }),
+          body: JSON.stringify(await csvImportPayload(db, cards, 'scrydex_static')),
         });
       };
 
@@ -555,7 +554,7 @@ describe('Card backup integration', () => {
       );
 
       const response = await request([
-        { ...backupCard, name: 'Failed replacement', purchases: [{ ...backupCard.purchases[0], quantity: 3 }] },
+        { ...backupCard, notes: 'Failed replacement', purchases: [{ ...backupCard.purchases[0], quantity: 3 }] },
       ]);
 
       expect(response.status).toBe(500);
@@ -565,6 +564,75 @@ describe('Card backup integration', () => {
           with: { purchaseBatches: true, quantities: true },
         }),
       ).toEqual(before);
+    },
+  );
+
+  integrationTest(
+    'rejects missing or unknown printings and rolls back a mismatched existing printing',
+    async ({ app, db, user, authenticatedHeaders }) => {
+      const owned = await createCardRequest(app, user.sessionToken, validCardPayload);
+      const original = await owned.json();
+      const [valid] = (await csvImportPayload(db, [backupCard], 'scrydex_static')).cards;
+      assert(valid != null);
+
+      const send = (cards: unknown[]) => {
+        return app.request(IMPORT_CARDS_ROUTE_PATH, {
+          method: 'POST',
+          headers: authenticatedHeaders,
+          body: JSON.stringify({ cards }),
+        });
+      };
+
+      const invalidCard = { ...valid, id: crypto.randomUUID() };
+      const path = ['cards', '1', 'priced_card_id'];
+      const missing = await send([valid, { ...invalidCard, priced_card_id: undefined }]);
+
+      expect(missing.status).toBe(400);
+      expect(await missing.json()).toMatchObject({
+        code: 'INVALID_PAYLOAD',
+        context: { validations: [{ path }] },
+      });
+
+      const unknown = await send([valid, { ...invalidCard, priced_card_id: 'b0fc023e-863e-4ddc-a879-bf4c5a59f60b' }]);
+
+      expect(unknown.status).toBe(400);
+      expect(await unknown.json()).toMatchObject({
+        code: 'INVALID_PAYLOAD',
+        context: {
+          validations: [
+            {
+              code: 'invalid_printing',
+              path,
+              message:
+                'The printing ID could not be found in the catalog. Retry the catalog lookup and select a printing.',
+            },
+          ],
+        },
+      });
+
+      const alternate = await seedCatalogPrinting(db, backupCard, 'scrydex_static', 'altArt');
+
+      const conflict = await send([
+        valid,
+        { ...valid, id: original.id, priced_card_id: alternate.id, notes: 'Rejected' },
+      ]);
+
+      expect(conflict.status).toBe(400);
+      expect(await conflict.json()).toMatchObject({
+        code: 'INVALID_PAYLOAD',
+        context: {
+          validations: [
+            {
+              code: 'printing_conflict',
+              path,
+              message:
+                'The selected printing conflicts with the saved card for this ID. Select the printing already in your collection.',
+            },
+          ],
+        },
+      });
+      expect(await db.$count(card)).toBe(1);
+      expect(await db.query.card.findFirst({ where: { userId: user.userId } })).toMatchObject({ notes: null });
     },
   );
 

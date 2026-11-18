@@ -302,11 +302,8 @@ struct TCGCardsListScreenModelTests {
         model.gameFilter = .pokemon
         model.setNames = ["Base Set"]
         await model.load(using: feature)
-        var values = validValues
-        values.game = .pokemon
-        values.setName = "Crown Zenith"
-
-        try await feature.addCard(values).get()
+        let id = try #require(UUID(uuidString: PreviewTCGPricingClient.samplePricedCards[1].id))
+        try await feature.addCard(.init(pricedCardID: id, ownership: validValues.payload)).get()
 
         #expect(feature.cards.map(\.card.id) == [CardsTestIDs.secondary])
         #expect(feature.availableSetNames == ["Base Set", "Crown Zenith"])
