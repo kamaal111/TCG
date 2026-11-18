@@ -30,7 +30,8 @@ const routeConfig = createRoute({
 const listWishlistRoute = defineOpenAPIRoute<HonoEnvironment, typeof routeConfig>({
   route: routeConfig,
   handler: async c => {
-    const result = await c.get('wishlistRepository').list(c.req.valid('query').cursor, c.get('config').PUBLIC_BASE_URL);
+    const { cursor, query } = c.req.valid('query');
+    const result = await c.get('wishlistRepository').list(cursor, c.get('config').PUBLIC_BASE_URL, query);
 
     return c.json(result, CONTENTFUL_STATUS_CODES.OK);
   },

@@ -30,7 +30,7 @@ public struct TCGCardsListScreen: View {
     }
 
     public var body: some View {
-        keyboardScopedContent
+        content
             .toolbar {
                 if !cardCollection.isReadOnly {
                     Button {
@@ -79,13 +79,6 @@ public struct TCGCardsListScreen: View {
             }
     }
 
-    private var keyboardScopedContent: some View {
-        TCGSearchKeyboardScope(query: $model.query, prompt: Text("Search cards", bundle: .module)) {
-            content
-                .navigationTitle(collectionTitle)
-        }
-    }
-
     private var isConfirmingDeletion: Binding<Bool> {
         Binding(
             get: { model.cardToDelete != nil },
@@ -116,41 +109,30 @@ public struct TCGCardsListScreen: View {
             )
     }
 
-    @ViewBuilder
     private var collectionList: some View {
-        #if os(macOS)
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: 16) {
-                    gameFilterMenu
-                    collectionRows
-                    paginationFooter
-                }
-                .padding(24)
-            }
-        #else
-            List {
-                gameFilterMenu
-                    .listRowSeparator(.hidden)
-
-                if cardCollection.cards.isEmpty, cardCollection.hasLoadedCurrentCollection {
-                    emptyCollection
-                } else {
-                    cardRows
-                        .onDelete(perform: deleteCards)
-                    paginationFooter
-                        .listRowSeparator(.hidden)
-                }
-            }
-            .scrollContentBackground(hidesScrollBackground ? .hidden : .automatic)
-        #endif
-    }
-
-    private var paginationFooter: some View {
-        CollectionPaginationFooter(
-            isLoading: cardCollection.isLoadingNextPage,
-            error: cardCollection.nextPageError,
-            retry: { Task { _ = await cardCollection.loadNextPage() } }
-        )
+        @Bindable var model = model
+        return TCGCollectionList(
+            title: Text(verbatim: collectionTitle),
+            query: $model.query,
+            hidesScrollBackground: hidesScrollBackground,
+            showsEmptyContent: cardCollection.cards.isEmpty && cardCollection.hasLoadedCurrentCollection
+        ) {
+            gameFilterMenu
+        } rows: {
+            #if os(macOS)
+                cardRows
+            #else
+                cardRows.onDelete(perform: deleteCards)
+            #endif
+        } emptyContent: {
+            emptyCollection
+        } footer: {
+            TCGCollectionPaginationFooter(
+                isLoading: cardCollection.isLoadingNextPage,
+                errorDescription: cardCollection.nextPageError?.errorDescription,
+                retry: { Task { _ = await cardCollection.loadNextPage() } }
+            )
+        }
     }
 
     private func loadNextPageIfNeeded(after card: CardWithPrice) {
@@ -217,27 +199,11 @@ public struct TCGCardsListScreen: View {
         return Text(verbatim: CardGame(client: game).title)
     }
 
-    @ViewBuilder
-    private var collectionRows: some View {
-        if cardCollection.cards.isEmpty, cardCollection.hasLoadedCurrentCollection {
-            emptyCollection
-                .frame(maxWidth: .infinity, minHeight: 480)
-        } else {
-            ForEach(cardCollection.cards, id: \.card.id) { cardWithPrice in
-                cardButton(for: cardWithPrice)
-                    .onAppear { loadNextPageIfNeeded(after: cardWithPrice) }
-                    #if os(macOS)
-                        .padding(12)
-                        .background(.background.secondary, in: RoundedRectangle(cornerRadius: 12))
-                    #endif
-            }
-        }
-    }
-
     private var cardRows: some DynamicViewContent {
         ForEach(cardCollection.cards, id: \.card.id) { cardWithPrice in
             cardButton(for: cardWithPrice)
                 .onAppear { loadNextPageIfNeeded(after: cardWithPrice) }
+                .tcgCollectionListRow()
         }
     }
 

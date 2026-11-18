@@ -11,8 +11,8 @@ public final class TCGWishlist {
         self.client = client
     }
 
-    func page(after cursor: String?) async -> Result<WishlistPage, WishlistError> {
-        await client.list(cursor: cursor)
+    func page(after cursor: String?, query: String?) async -> Result<WishlistPage, WishlistError> {
+        await client.list(cursor: cursor, query: query)
     }
 
     func save(pricedCardID: String) async -> Result<Void, WishlistError> {

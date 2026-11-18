@@ -48,13 +48,29 @@ struct TCGWishlistClientTests {
                 }
                 """
         )
-        let page = try await makeClient(transport).list(cursor: "previous").get()
+        let page = try await makeClient(transport).list(cursor: "previous", query: "Monkey D. Luffy").get()
         #expect(page.entries.map(\.printingKey) == [Self.key])
         #expect(page.entries.map(\.variantName) == ["Alternate Art"])
         #expect(page.nextCursor == "next")
         let request = try #require(await transport.request)
-        #expect(request.path == "/app-api/wishlist?cursor=previous")
+        #expect(request.method == .get)
+        let path = try #require(request.path)
+        let url = try #require(URLComponents(string: path))
+        #expect(url.path == "/app-api/wishlist")
+        #expect(
+            url.queryItems == [
+                URLQueryItem(name: "query", value: "Monkey D. Luffy"),
+                URLQueryItem(name: "cursor", value: "previous"),
+            ]
+        )
         #expect(await transport.operationID == "get/app-api/wishlist")
+    }
+
+    @Test func `Omits the search query for an unfiltered page`() async throws {
+        let transport = WishlistTransport(status: .ok, response: #"{"entries":[],"next_cursor":null}"#)
+        _ = try await makeClient(transport).list(cursor: "previous").get()
+        let request = try #require(await transport.request)
+        #expect(request.path == "/app-api/wishlist?cursor=previous")
     }
 
     @Test func `Maps an unknown pricing record`() async {

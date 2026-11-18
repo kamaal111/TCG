@@ -80,14 +80,18 @@ struct TCGCardsListScreenSnapshotTests {
     @Test
     func `Renders the loading pagination footer`() async {
         await assertScreenSnapshot(testName: #function) {
-            CollectionPaginationFooter(isLoading: true, error: nil, retry: {})
+            TCGCollectionPaginationFooter(isLoading: true, errorDescription: nil, retry: {})
         }
     }
 
     @Test
     func `Renders the pagination retry footer`() async {
         await assertScreenSnapshot(testName: #function) {
-            CollectionPaginationFooter(isLoading: false, error: .serverUnavailable, retry: {})
+            TCGCollectionPaginationFooter(
+                isLoading: false,
+                errorDescription: TCGCardsOperationError.serverUnavailable.errorDescription,
+                retry: {}
+            )
         }
     }
 

@@ -18,20 +18,20 @@ struct CardRow: View {
     let exploreImage: () -> Void
 
     var body: some View {
-        HStack(alignment: .top) {
+        TCGCollectionRowContent {
             Button(action: exploreImage) {
                 CardImageView(url: cardWithPrice.imageURL)
             }
             .buttonStyle(.plain)
             .disabled(cardWithPrice.imageURL == nil)
             .accessibilityLabel(Text("Explore image of \(cardWithPrice.card.name)", bundle: .module))
+        } details: {
             Button(action: showDetails) {
                 details
             }
             .buttonStyle(.plain)
             .accessibilityLabel(Text("Details for \(cardWithPrice.card.name)", bundle: .module))
         }
-        .padding(.vertical, 4)
     }
 
     private var details: some View {

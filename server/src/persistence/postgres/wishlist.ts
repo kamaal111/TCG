@@ -1,10 +1,11 @@
-import { and, eq, inArray, sql } from 'drizzle-orm';
+import { and, eq, ilike, inArray, or, sql } from 'drizzle-orm';
 
 import { proxyURLForOriginURL } from '../../card-images/keys.ts';
 import { pricedCardMetadata } from '../../card-pricing/utils/pricing.ts';
 import type { Database } from '../../db/index.ts';
 import { cardPrice, wishlist } from '../../db/schema/index.ts';
 import { cursorPage } from '../../utils/pagination.ts';
+import { literalSubstringPattern } from '../../utils/search.ts';
 import type { WishlistRepository } from '../../wishlist/repository.ts';
 import { WishlistCardSchema } from '../../wishlist/schemas/responses.ts';
 import { encodeWishlistCursor, type WishlistCursor } from '../../wishlist/utils/pagination.ts';
@@ -21,7 +22,9 @@ export class PostgresWishlistRepository implements WishlistRepository {
     this.identity = identity;
   }
 
-  async list(cursor: WishlistCursor | undefined, baseURL: string) {
+  async list(cursor: WishlistCursor | undefined, baseURL: string, query?: string) {
+    const pattern = query !== undefined ? literalSubstringPattern(query) : undefined;
+
     const rows = await this.db
       .select({
         card: wishlist.card,
@@ -32,6 +35,13 @@ export class PostgresWishlistRepository implements WishlistRepository {
       .where(
         and(
           eq(wishlist.userId, this.identity.requireUserId()),
+          pattern !== undefined
+            ? or(
+                ilike(sql`${wishlist.card}->>'name'`, pattern),
+                ilike(sql`${wishlist.card}->>'set_name'`, pattern),
+                ilike(sql`${wishlist.card}->>'card_number'`, pattern),
+              )
+            : undefined,
           cursor != null
             ? sql`(${wishlist.savedAt}, ${wishlist.printingKey}) < (${cursor.savedAt}::timestamp, ${cursor.printingKey})`
             : undefined,

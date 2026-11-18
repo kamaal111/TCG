@@ -5,6 +5,7 @@ export interface WishlistRepository {
   list(
     cursor: WishlistCursor | undefined,
     baseURL: string,
+    query?: string,
   ): Promise<{
     entries: WishlistCard[];
     next_cursor: string | null;

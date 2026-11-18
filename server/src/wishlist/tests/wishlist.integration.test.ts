@@ -170,3 +170,80 @@ integrationTest(
     expect(other.matches.find(card => card.id === match.id)?.is_wishlisted).toBe(false);
   },
 );
+
+integrationTest(
+  'searches all saved printings by literal text within the current account',
+  async ({ app, db, user, createUser, authenticatedHeaders }) => {
+    const visitor = await createUser();
+
+    const [row] = await db
+      .insert(cardPrice)
+      .values({ ...alternateArt, pricedOn: '2026-11-17' })
+      .returning();
+
+    assert(row);
+    const card = WishlistCardSchema.parse(serializePricedCard(row.game, row, 'https://example.com'));
+
+    const newer = Array.from({ length: 51 }, (_, index) => {
+      const key = printingKey({ ...alternateArt, pricingCardId: `zoro-${index}` });
+
+      return {
+        userId: user.userId,
+        printingKey: key,
+        card: { ...card, printing_key: key, name: 'Zoro', set_name: 'Romance Dawn', card_number: 'OP01-025' },
+        savedAt: new Date('2026-11-18T10:00:00.000Z'),
+      };
+    });
+
+    await db.insert(wishlist).values([
+      ...newer,
+      {
+        userId: user.userId,
+        printingKey: card.printing_key,
+        card: { ...card, name: '100% Luffy' },
+        savedAt: new Date('2026-11-17T10:00:00.000Z'),
+      },
+      { userId: visitor.userId, printingKey: card.printing_key, card },
+    ]);
+
+    async function list(query: string, cursor?: string) {
+      const params = new URLSearchParams({ query });
+
+      if (cursor !== undefined) {
+        params.set('cursor', cursor);
+      }
+
+      const response = await app.request(`${path}?${params}`, { headers: authenticatedHeaders });
+      expect(response.status).toBe(200);
+
+      return pageSchema.parse(await response.json());
+    }
+
+    for (const query of ['  lUfFy  ', 'the new era', 'op05-119', '%']) {
+      const page = await list(query);
+      expect(page.entries.map(entry => entry.name)).toEqual(['100% Luffy']);
+      expect(page.next_cursor).toBeNull();
+    }
+
+    expect(await list('Pikachu')).toEqual({ entries: [], next_cursor: null });
+
+    const first = await list('Zoro');
+    expect(first.entries).toHaveLength(50);
+    assert(first.next_cursor);
+    const second = await list('Zoro', first.next_cursor);
+    expect(second.next_cursor).toBeNull();
+    expect([...first.entries, ...second.entries].map(entry => entry.printing_key)).toEqual(
+      newer
+        .map(entry => entry.printingKey)
+        .sort()
+        .reverse(),
+    );
+  },
+);
+
+integrationTest('rejects blank and overlong wishlist queries', async ({ app, authenticatedHeaders }) => {
+  for (const query of ['   ', 'a'.repeat(201)]) {
+    const response = await app.request(`${path}?${new URLSearchParams({ query })}`, { headers: authenticatedHeaders });
+    expect(response.status).toBe(400);
+  }
+});
