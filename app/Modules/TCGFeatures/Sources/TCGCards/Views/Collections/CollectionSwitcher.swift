@@ -7,6 +7,17 @@ struct CollectionSwitcher: View {
     let actions: CollectionNavigationActions
     let wishlistSelection: Binding<Bool>?
 
+    private enum DestinationIcon: String {
+        case allCards = "rectangle.stack"
+        case wishlist = "heart"
+        case namedCollection = "rectangle.grid.3x2"
+    }
+
+    private var selectedIcon: DestinationIcon {
+        if wishlistSelection?.wrappedValue == true { return .wishlist }
+        return collections.selectedID == nil ? .allCards : .namedCollection
+    }
+
     var body: some View {
         Menu {
             Button {
@@ -16,7 +27,7 @@ struct CollectionSwitcher: View {
                 Label {
                     Text("All cards", bundle: .module)
                 } icon: {
-                    Image(systemName: "rectangle.stack")
+                    Image(systemName: DestinationIcon.allCards.rawValue)
                 }
             }
             if let wishlistSelection {
@@ -26,7 +37,7 @@ struct CollectionSwitcher: View {
                     Label {
                         Text("Wishlist", bundle: .module)
                     } icon: {
-                        Image(systemName: "heart")
+                        Image(systemName: DestinationIcon.wishlist.rawValue)
                     }
                 }
             }
@@ -38,7 +49,7 @@ struct CollectionSwitcher: View {
                     Label {
                         CollectionTitle(collection: collection)
                     } icon: {
-                        Image(systemName: "rectangle.grid.3x2")
+                        Image(systemName: DestinationIcon.namedCollection.rawValue)
                     }
                 }
             }
@@ -55,7 +66,7 @@ struct CollectionSwitcher: View {
             Label {
                 Text("Collections", bundle: .module)
             } icon: {
-                Image(systemName: "rectangle.stack")
+                Image(systemName: selectedIcon.rawValue)
             }
         }
         .help(Text("Choose a collection", bundle: .module))

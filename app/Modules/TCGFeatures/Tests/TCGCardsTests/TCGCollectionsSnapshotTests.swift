@@ -173,6 +173,27 @@ struct TCGCollectionsSnapshotTests {
         }
     }
 
+    #if os(iOS)
+        @Test func `Renders the Wishlist switcher while a named collection is selected`() async throws {
+            let context = try await CollectionTestFixtures.selectedContext()
+            #expect(context.collections.selected?.name == "Favorites")
+
+            await assertCollectionSnapshot(testName: #function) {
+                CollectionSwitcher(
+                    collections: context.collections,
+                    actions: .init(create: {}, rename: { _ in }, delete: {}, editLayout: {}),
+                    wishlistSelection: .constant(true)
+                )
+                .labelStyle(.iconOnly)
+                .buttonStyle(.plain)
+                .padding()
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                .background(Color(uiColor: .systemBackground))
+                .environment(context.cards)
+            }
+        }
+    #endif
+
     @Test func `Renders page creation in a binder without pages while browsing`() async {
         let collection = CollectionTestFixtures.collection()
         #expect(collection.pages.isEmpty)
