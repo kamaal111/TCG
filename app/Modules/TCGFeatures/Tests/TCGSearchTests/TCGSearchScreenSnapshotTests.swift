@@ -69,6 +69,38 @@ struct TCGSearchScreenSnapshotTests {
         }
     }
 
+    @Test
+    func `Renders saved printings in the Wishlist list`() async {
+        let model = await wishlistModel(entries: [WishlistTestClient.luffy])
+        await assertScreenSnapshot(testName: #function) {
+            NavigationStack {
+                TCGWishlistScreen(isVisible: false, model: model) { _, _ in EmptyView() }
+            }
+            .cardImageLoader(PreviewCardImageLoader(outcome: .success))
+        }
+    }
+
+    @Test
+    func `Renders no matching Wishlist printings`() async {
+        let model = await wishlistModel(entries: [], query: "Pikachu")
+        // Capture the results state independently of the system search field's clear button.
+        await assertScreenSnapshot(testName: #function) {
+            TCGWishlistScreen(isVisible: false, model: model) { _, _ in EmptyView() }
+        }
+    }
+
+    private func wishlistModel(entries: [PricedCard], query: String = "") async -> TCGWishlistScreenModel {
+        let wishlist = TCGWishlist(
+            client: WishlistTestClient(responses: [
+                .success(.init(entries: entries, nextCursor: nil))
+            ])
+        )
+        let model = TCGWishlistScreenModel()
+        model.query = query
+        await model.refresh(using: wishlist)
+        return model
+    }
+
     #if os(iOS)
         @Test
         func `Shows a filled Wishlist heart to the left of Add`() async {
@@ -104,7 +136,7 @@ struct TCGSearchScreenSnapshotTests {
                     addForm: { _, _ in EmptyView() }
                 )
                 .tcgSearch(TCGSearch(client: .preview(), history: TCGSearchHistoryStore()))
-                .environment(\.tcgWishlist, TCGWishlist(client: WishlistSnapshotClient()))
+                .environment(\.tcgWishlist, TCGWishlist(client: WishlistTestClient()))
                 .environment(\.tcgPricePrivacy, privacy)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(.background)
@@ -547,13 +579,3 @@ private struct SuspendedImageLoader: CardImageLoader {
         return nil
     }
 }
-
-#if os(iOS)
-    private struct WishlistSnapshotClient: TCGWishlistClient {
-        func list(cursor: String?) async -> Result<WishlistPage, WishlistError> { .failure(.unavailable) }
-
-        func save(_ payload: SaveWishlistPrinting) async -> Result<Void, WishlistError> { .success(()) }
-
-        func remove(printingKey: String) async -> Result<Void, WishlistError> { .success(()) }
-    }
-#endif

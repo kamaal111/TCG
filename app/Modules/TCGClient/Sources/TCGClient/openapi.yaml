@@ -1981,6 +1981,20 @@ paths:
       parameters:
         - schema:
             type: string
+            minLength: 1
+            maxLength: 200
+            description: >-
+              Case-insensitive literal substring in card name, set name, or card
+              number; omitted means all saved printings.
+            example: Luffy
+          required: false
+          description: >-
+            Case-insensitive literal substring in card name, set name, or card
+            number; omitted means all saved printings.
+          name: query
+          in: query
+        - schema:
+            type: string
             pattern: ^[A-Za-z0-9_-]+$
             maxLength: 220
           required: false

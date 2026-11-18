@@ -1,19 +1,25 @@
 import OpenAPIRuntime
 
 public protocol TCGWishlistClient: Sendable {
-    func list(cursor: String?) async -> Result<WishlistPage, WishlistError>
+    func list(cursor: String?, query: String?) async -> Result<WishlistPage, WishlistError>
 
     func save(_ payload: SaveWishlistPrinting) async -> Result<Void, WishlistError>
 
     func remove(printingKey: String) async -> Result<Void, WishlistError>
 }
 
+extension TCGWishlistClient {
+    public func list(cursor: String?) async -> Result<WishlistPage, WishlistError> {
+        await list(cursor: cursor, query: nil)
+    }
+}
+
 struct TCGWishlistClientImpl: TCGWishlistClient {
     let client: Client
 
-    func list(cursor: String?) async -> Result<WishlistPage, WishlistError> {
+    func list(cursor: String?, query: String?) async -> Result<WishlistPage, WishlistError> {
         do {
-            switch try await client.getAppApiWishlist(query: .init(cursor: cursor)) {
+            switch try await client.getAppApiWishlist(query: .init(query: query, cursor: cursor)) {
             case .ok(let response):
                 guard let page = try? response.body.json, page.entries.allSatisfy({ $0.printingKey != nil }) else {
                     return .failure(.unavailable)

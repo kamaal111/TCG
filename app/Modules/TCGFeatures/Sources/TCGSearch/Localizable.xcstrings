@@ -69,6 +69,9 @@
     "Cards" : {
 
     },
+    "Change your search to see more cards." : {
+
+    },
     "Change your set filter to see more cards." : {
 
     },
@@ -82,6 +85,9 @@
 
     },
     "Clear search history?" : {
+
+    },
+    "Couldn't load wishlist" : {
 
     },
     "Details for %@" : {

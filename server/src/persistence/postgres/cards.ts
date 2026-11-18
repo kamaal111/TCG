@@ -34,6 +34,7 @@ import { DEFAULT_COLLECTION_POLICY, DEFAULT_IMPORT_POLICY, type ApplicationConfi
 import type { Database } from '../../db/index.ts';
 import { card, cardMetadata, cardConditionQuantity, cardPurchaseBatch } from '../../db/schema/cards.ts';
 import { cursorPage } from '../../utils/pagination.ts';
+import { literalSubstringPattern } from '../../utils/search.ts';
 import type { AuthenticatedIdentity, RepositoryDiagnostics } from '../contracts.ts';
 
 type Transaction = Parameters<Parameters<Database['transaction']>[0]>[0];
@@ -78,7 +79,7 @@ export class PostgresCardRepository implements CardRepository {
    */
   async listCollection(options: Parameters<CardRepository['listCollection']>[0]): Promise<CardCollection> {
     const { game, setNames, limit, cursor, query } = options;
-    const searchPattern = query != null ? `%${query.replace(/[\\%_]/g, '\\$&')}%` : undefined;
+    const searchPattern = query != null ? literalSubstringPattern(query) : undefined;
 
     return this.db.transaction(
       async tx => {

@@ -112,9 +112,9 @@ struct BinderCardPicker: View {
     @ViewBuilder
     private var pagination: some View {
         if content.isLoadingNextPage || content.nextPageError != nil {
-            CollectionPaginationFooter(
+            TCGCollectionPaginationFooter(
                 isLoading: content.isLoadingNextPage,
-                error: content.nextPageError,
+                errorDescription: content.nextPageError?.errorDescription,
                 retry: { actions.retryNext?() }
             )
         } else if content.hasMore {

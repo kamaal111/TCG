@@ -22,6 +22,9 @@
     "Close" : {
 
     },
+    "Couldn't load more cards" : {
+
+    },
     "Couldn’t delete cached images" : {
 
     },
@@ -61,6 +64,9 @@
     "Loading image…" : {
 
     },
+    "Loading more cards…" : {
+
+    },
     "No cached card images" : {
 
     },
@@ -76,7 +82,13 @@
     "Retry" : {
 
     },
+    "Search cards" : {
+
+    },
     "Set name" : {
+
+    },
+    "Try again" : {
 
     },
     "Unavailable" : {
