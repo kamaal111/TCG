@@ -62,6 +62,7 @@ const listCardsRoute = defineOpenAPIRoute<HonoEnvironment, typeof routeConfig>({
       game,
       setNames: set_name ?? [],
       illustrators: illustrator ?? [],
+      backfillEnglishAliases: true,
     });
 
     const response = {

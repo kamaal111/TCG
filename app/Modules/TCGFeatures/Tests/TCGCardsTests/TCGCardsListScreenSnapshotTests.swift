@@ -110,7 +110,8 @@ struct TCGCardsListScreenSnapshotTests {
             purchasePriceChangePercent: change,
             collectionID: nil,
             allocationAdjustments: nil,
-            illustrator: nil
+            illustrator: nil,
+            englishSearchAlias: nil
         )
     }
 

@@ -4,13 +4,16 @@ import { and, eq, sql } from 'drizzle-orm';
 
 import { ONE_PIECE_VARIANT_SEPARATOR } from '../../card-pricing/constants.ts';
 import type { CardPricingRepository } from '../../card-pricing/repository.ts';
-import type {
-  CardGame,
-  PricingSource,
-  CardPriceRow,
-  CardPriceSearchRow,
-  CardPriceUpsertValues,
+import {
+  CARD_GAME_MAP,
+  isScrydexPricingSource,
+  type CardGame,
+  type PricingSource,
+  type CardPriceRow,
+  type CardPriceSearchRow,
+  type CardPriceUpsertValues,
 } from '../../card-pricing/types.ts';
+import { EnglishSearchAliasResponseSchema } from '../../card-pricing/utils/english-search-alias.ts';
 import { cachedIllustrator } from '../../card-pricing/utils/illustrator.ts';
 import { normalizeCardNumber, normalizeName } from '../../card-pricing/utils/query.ts';
 import type { OwnedCard } from '../../cards/types.ts';
@@ -86,7 +89,7 @@ export class PostgresCardPricingRepository implements CardPricingRepository {
         and(
           eq(cardPrice.pricingSource, pricingSource),
           eq(cardPrice.game, game),
-          game === 'one_piece'
+          game === CARD_GAME_MAP.ONE_PIECE
             ? sql`strpos(${cardPrice.pricingCardId}, ${ONE_PIECE_VARIANT_SEPARATOR}) = 0`
             : undefined,
           sql`upper(btrim(regexp_replace(${cardPrice.cardNumber}, '[[:space:]]+', ' ', 'g'))) = ${normalizeCardNumber(printing.cardNumber)}`,
@@ -175,28 +178,39 @@ export class PostgresCardPricingRepository implements CardPricingRepository {
       for (const value of values) {
         const illustrator = cachedIllustrator({ prices: value.card.pricing, raw: value.raw });
 
-        if (illustrator == null) {
+        const alias =
+          value.game === CARD_GAME_MAP.POKEMON && isScrydexPricingSource(value.pricingSource)
+            ? EnglishSearchAliasResponseSchema.safeParse(value.raw).data?.translation.en.name
+            : undefined;
+
+        if (illustrator == null && alias == null) {
           continue;
         }
 
         const identity = JSON.stringify([value.pricingSource, value.game, value.card.id]);
+        const existing = metadata.get(identity);
 
         metadata.set(identity, {
           pricingSource: value.pricingSource,
           game: value.game,
           pricingCardId: value.card.id,
-          illustrator,
+          illustrator: illustrator ?? existing?.illustrator,
+          englishSearchAlias: alias ?? existing?.englishSearchAlias,
         });
       }
 
       if (metadata.size > 0) {
+        const illustrator = sql`coalesce(excluded.illustrator, ${cardMetadata.illustrator})`;
+        const alias = sql`coalesce(excluded.english_search_alias, ${cardMetadata.englishSearchAlias})`;
+
         await tx
           .insert(cardMetadata)
           .values([...metadata.values()])
           .onConflictDoUpdate({
             target: [cardMetadata.pricingSource, cardMetadata.game, cardMetadata.pricingCardId],
-            set: { illustrator: sql`excluded.illustrator` },
-            setWhere: sql`${cardMetadata.illustrator} is distinct from excluded.illustrator`,
+            set: { illustrator, englishSearchAlias: alias },
+            setWhere: sql`${cardMetadata.illustrator} is distinct from ${illustrator}
+              or ${cardMetadata.englishSearchAlias} is distinct from ${alias}`,
           });
       }
 

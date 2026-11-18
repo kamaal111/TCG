@@ -386,7 +386,7 @@ public final class TCGCollections {
 
         if case .success(let page) = result {
             let checkedAt = cards.now()
-            cards.snapshot.verify(page.cards, at: checkedAt)
+            cards.snapshot.verify(page.cards, at: checkedAt, updating: scope)
             let cached = cards.snapshot.rows(for: scope) ?? []
             let byID = Dictionary(cached.map { ($0.card.id, $0) }, uniquingKeysWith: { first, _ in first })
             let merged = page.cards.map { cards.keepingPrice(for: $0, cached: byID[$0.card.id]) }

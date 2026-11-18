@@ -133,7 +133,7 @@ public final class TCGCards {
 
         switch result {
         case .success(let details):
-            snapshot.verify([details], at: now())
+            snapshot.verify([details], at: now(), updating: nil)
             return .success(keepingPrice(for: details, cached: compatibleDisplay(entry)))
         case .failure(.notFound):
             deletedCardIDs.insert(entry.card.id)
@@ -455,7 +455,7 @@ public final class TCGCards {
                 return .failure(.serverUnavailable)
             }
 
-            snapshot.verify(page.cards, at: now())
+            snapshot.verify(page.cards, at: now(), updating: scope)
             return .success(true)
         }
     }

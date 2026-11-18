@@ -1,3 +1,4 @@
+import { PostgresCardMetadataRepository } from './card-metadata.ts';
 import { serializeCollectionLayout } from './collection-layout.ts';
 import type { OfflineCollectionIDs, OfflineCollectionRepository } from '../../cards/offline-collection-repository.ts';
 import type { Database } from '../../db/index.ts';
@@ -7,10 +8,12 @@ type OfflineQueryDatabase = Pick<Database, 'query'>;
 
 export class PostgresOfflineCollectionRepository implements OfflineCollectionRepository {
   private readonly db: Database;
+  private readonly metadata: PostgresCardMetadataRepository;
   private readonly identity: AuthenticatedIdentity;
 
   constructor(db: Database, identity: AuthenticatedIdentity) {
     this.db = db;
+    this.metadata = new PostgresCardMetadataRepository(db, identity);
     this.identity = identity;
   }
 
@@ -39,8 +42,11 @@ export class PostgresOfflineCollectionRepository implements OfflineCollectionRep
 
     const cards = await db.query.card.findMany({
       where: { userId: this.identity.requireUserId(), id: ids != null ? { in: ids } : undefined },
+      extras: {
+        cachedAlias: owned => this.metadata.cachedEnglishSearchAlias(owned),
+      },
       with: {
-        metadata: { columns: { illustrator: true } },
+        metadata: { columns: { illustrator: true, englishSearchAlias: true } },
         purchaseBatches: {
           columns: { createdAt: false, updatedAt: false },
           orderBy: { createdAt: 'asc', id: 'asc' },
@@ -49,8 +55,12 @@ export class PostgresOfflineCollectionRepository implements OfflineCollectionRep
       },
     });
 
-    return cards.map(({ metadata, cachedPrices, ...owned }) => ({
-      owned: { ...owned, illustrator: metadata?.illustrator },
+    return cards.map(({ metadata, cachedPrices, cachedAlias, ...owned }) => ({
+      owned: {
+        ...owned,
+        illustrator: metadata?.illustrator,
+        englishSearchAlias: metadata?.englishSearchAlias ?? cachedAlias,
+      },
       price: cachedPrices[0],
     }));
   }

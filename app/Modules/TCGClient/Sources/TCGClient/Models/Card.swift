@@ -64,6 +64,7 @@ public struct Card: Codable, Hashable, Identifiable, Sendable {
     public let setName: String
     public let cardNumber: String
     public let illustrator: String?
+    public let englishSearchAlias: String?
     public let notes: String?
     public let purchases: [CardPurchase]
     public let purchasePriceChangePercent: Double?
@@ -71,9 +72,10 @@ public struct Card: Codable, Hashable, Identifiable, Sendable {
     public let createdAt: Date
     public let updatedAt: Date
 
-    /// Searches the name, set, and printed number using localized substring matching.
+    /// Searches the saved name, English alias, set, and printed number using localized substring matching.
     public func matchesSearch(_ query: String) -> Bool {
         name.localizedStandardContains(query)
+            || englishSearchAlias?.localizedStandardContains(query) == true
             || setName.localizedStandardContains(query)
             || cardNumber.localizedStandardContains(query)
     }
@@ -92,7 +94,8 @@ public struct Card: Codable, Hashable, Identifiable, Sendable {
         displayCurrency: Currency? = nil,
         collectionID: UUID?,
         allocationAdjustments: Int?,
-        illustrator: String?
+        illustrator: String?,
+        englishSearchAlias: String?
     ) {
         self.collectionID = collectionID
         self.allocationAdjustments = allocationAdjustments
@@ -101,6 +104,7 @@ public struct Card: Codable, Hashable, Identifiable, Sendable {
         self.name = name
         self.setName = setName
         self.illustrator = illustrator
+        self.englishSearchAlias = englishSearchAlias
         self.cardNumber = cardNumber
         self.notes = notes
         self.purchases = purchases
@@ -134,6 +138,7 @@ public struct Card: Codable, Hashable, Identifiable, Sendable {
         case displayCurrency = "display_currency"
         case setName = "set_name"
         case illustrator
+        case englishSearchAlias = "english_search_alias"
         case cardNumber = "card_number"
         case createdAt = "created_at"
         case updatedAt = "updated_at"
@@ -196,7 +201,8 @@ extension Card {
             displayCurrency: currency,
             collectionID: collectionID,
             allocationAdjustments: allocationAdjustments,
-            illustrator: illustrator ?? self.illustrator
+            illustrator: illustrator ?? self.illustrator,
+            englishSearchAlias: englishSearchAlias
         )
     }
 }

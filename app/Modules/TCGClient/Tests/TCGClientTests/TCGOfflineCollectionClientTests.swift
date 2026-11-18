@@ -6,6 +6,21 @@ import Testing
 @testable import TCGClient
 
 struct TCGOfflineCollectionClientTests {
+    @Test func `Decodes downloaded aliases and preserves the name in the local record`() async throws {
+        let transport = OfflineTransport(
+            status: .ok,
+            response: """
+                {"cards":[\(shiftryOwnedCardJSON)],"collections":[]}
+                """
+        )
+        let records = try await makeClient(transport).records([])
+        let card = try #require(records.cards.first?.card)
+        let stored = try JSONDecoder().decode(Card.self, from: JSONEncoder().encode(card))
+        #expect(stored.matchesSearch("Shiftry"))
+        #expect(stored.matchesSearch("ダーテング"))
+        #expect(stored.name == "ダーテング")
+    }
+
     @Test func `Sends the previous ETag and accepts a bodyless 304`() async throws {
         let transport = OfflineTransport(status: .notModified, response: nil)
         let client = makeClient(transport)
@@ -78,6 +93,7 @@ struct TCGOfflineCollectionClientTests {
         TCGOfflineCollectionClient(
             client: Client(
                 serverURL: URL(filePath: "/"),
+                configuration: .init(dateTranscoder: .iso8601WithFractionalSeconds),
                 transport: transport,
                 middlewares: [OfflineManifestETagMiddleware()]
             )

@@ -5,6 +5,7 @@ import { omit } from '@kamaalio/kamaal/objects';
 import type { CardImportProgress } from '@tcg/http/progress';
 import { and, eq, getColumns, ilike, inArray, isNotNull, isNull, ne, notInArray, or, sql } from 'drizzle-orm';
 
+import { PostgresCardMetadataRepository } from './card-metadata.ts';
 import { placeCardInBinder } from './collection-placement.ts';
 import {
   bumpCollections,
@@ -15,6 +16,7 @@ import {
   reconcilePlacements,
 } from './collection-transactions.ts';
 import type { OwnedCardPriceResponse } from '../../card-pricing/schemas/responses.ts';
+import { CARD_GAME_MAP } from '../../card-pricing/types.ts';
 import { CardNotFound, InvalidCatalogPrinting } from '../../cards/exceptions.ts';
 import {
   pricingLinkFields,
@@ -54,6 +56,7 @@ const DEFAULT_CARD_POLICY = {
 
 export class PostgresCardRepository implements CardRepository {
   private readonly db: Database;
+  private readonly metadata: PostgresCardMetadataRepository;
   private readonly identity: AuthenticatedIdentity;
   private readonly diagnostics: RepositoryDiagnostics;
   private readonly config: CardPolicy;
@@ -65,6 +68,7 @@ export class PostgresCardRepository implements CardRepository {
     config: CardPolicy = DEFAULT_CARD_POLICY,
   ) {
     this.db = db;
+    this.metadata = new PostgresCardMetadataRepository(db, identity);
     this.identity = identity;
     this.diagnostics = diagnostics;
     this.config = config;
@@ -82,7 +86,7 @@ export class PostgresCardRepository implements CardRepository {
     const { game, setNames, limit, cursor, query } = options;
     const searchPattern = query != null ? literalSubstringPattern(query) : undefined;
 
-    return this.db.transaction(
+    const result = await this.db.transaction(
       async tx => {
         const selectedCollection =
           options.collection_id != null
@@ -110,7 +114,7 @@ export class PostgresCardRepository implements CardRepository {
         const ownedIdentities = tx
           .selectDistinct({ game: card.game, pricingSource: card.pricingSource, pricingCardId: card.pricingCardId })
           .from(card)
-          .where(and(ownership, eq(card.game, 'pokemon'), isNotNull(card.pricingCardId)))
+          .where(and(ownership, eq(card.game, CARD_GAME_MAP.POKEMON), isNotNull(card.pricingCardId)))
           .as('owned_identities');
 
         const illustratorRows = await tx
@@ -133,6 +137,7 @@ export class PostgresCardRepository implements CardRepository {
           .select({
             ...getColumns(card),
             illustrator: cardMetadata.illustrator,
+            englishSearchAlias: cardMetadata.englishSearchAlias,
             cursorCreatedAt: sql<string>`to_char(${card.createdAt}, 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`,
           })
           .from(card)
@@ -141,11 +146,15 @@ export class PostgresCardRepository implements CardRepository {
             and(
               ownership,
               selectedIllustrators.length > 0
-                ? and(eq(card.game, 'pokemon'), inArray(sql`lower(${cardMetadata.illustrator})`, selectedIllustrators))
+                ? and(
+                    eq(card.game, CARD_GAME_MAP.POKEMON),
+                    inArray(sql`lower(${cardMetadata.illustrator})`, selectedIllustrators),
+                  )
                 : undefined,
               searchPattern !== undefined
                 ? or(
                     ilike(card.name, searchPattern),
+                    ilike(cardMetadata.englishSearchAlias, searchPattern),
                     ilike(card.setName, searchPattern),
                     ilike(card.cardNumber, searchPattern),
                   )
@@ -209,6 +218,10 @@ export class PostgresCardRepository implements CardRepository {
       },
       { isolationLevel: 'repeatable read', accessMode: 'read only' },
     );
+
+    return options.backfillEnglishAliases
+      ? { ...result, cards: await this.metadata.backfillEnglishSearchAliases(result.cards) }
+      : result;
   }
 
   /**
@@ -228,11 +241,15 @@ export class PostgresCardRepository implements CardRepository {
       where: { id: { in: cardIds }, userId: this.userId },
       with: {
         purchaseBatches: { orderBy: { createdAt: 'asc', id: 'asc' } },
-        metadata: { columns: { illustrator: true } },
+        metadata: { columns: { illustrator: true, englishSearchAlias: true } },
       },
     });
 
-    return cards.map(({ metadata, ...owned }) => ({ ...owned, illustrator: metadata?.illustrator }));
+    return cards.map(({ metadata, ...owned }) => ({
+      ...owned,
+      illustrator: metadata?.illustrator,
+      englishSearchAlias: metadata?.englishSearchAlias,
+    }));
   }
 
   async getArtworkOrigins(cardIds: string[]) {

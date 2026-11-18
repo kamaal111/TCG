@@ -10,6 +10,7 @@ import { PostgresCardPricingRepository } from '../../persistence/postgres/card-p
 import { integrationTest } from '../../tests/fixtures.ts';
 import { SEARCH_PRICING_ROUTE_PATH } from '../routes/search-pricing.ts';
 import { PricingSearchResponseSchema } from '../schemas/responses.ts';
+import { CARD_GAME_MAP } from '../types.ts';
 
 const ARITA_CARD = {
   id: 'base1-4',
@@ -20,6 +21,45 @@ const ARITA_CARD = {
 };
 
 describe('Illustrator search and owned filtering', () => {
+  integrationTest(
+    'populates English search aliases on refresh and merges metadata fields independently',
+    async ({ db, user }) => {
+      const repository = new PostgresCardPricingRepository(db, { requireUserId: () => user.userId });
+      const identity = { game: CARD_GAME_MAP.POKEMON, pricingSource: 'scrydex_static' } as const;
+      const printing = { id: 'sv5m_ja-72', name: 'ダーテング', cardNumber: '072/071', pricing: {} };
+      const cacheEntry = { ...identity, card: printing };
+      const metadata = () => db.query.cardMetadata.findFirst({ where: { ...identity, pricingCardId: printing.id } });
+
+      await repository.upsertCardPrice({
+        ...cacheEntry,
+        pricedOn: '2026-01-01',
+        raw: {},
+      });
+      expect(await metadata()).toBeUndefined();
+
+      await repository.upsertCardPrices([
+        { ...cacheEntry, pricedOn: '2026-01-02', raw: { translation: { en: { name: ' Shiftry ' } } } },
+        { ...cacheEntry, pricedOn: '2026-01-03', raw: { artist: 'Known artist' } },
+      ]);
+      const populated = await metadata();
+
+      expect(populated).toMatchObject({ englishSearchAlias: 'Shiftry', illustrator: 'Known artist' });
+      await repository.upsertCardPrices([
+        { ...cacheEntry, pricedOn: '2026-01-04', raw: { translation: { en: { name: '   ' } } } },
+        { ...cacheEntry, pricedOn: '2026-01-05', raw: { translation: { en: { name: 123 } } } },
+        { ...cacheEntry, pricedOn: '2026-01-06', raw: {} },
+      ]);
+      expect(await metadata()).toEqual(populated);
+
+      await repository.upsertCardPrice({
+        ...cacheEntry,
+        pricedOn: '2026-01-07',
+        raw: { translation: { en: { name: 'Updated Shiftry' } } },
+      });
+      expect(await metadata()).toMatchObject({ englishSearchAlias: 'Updated Shiftry', illustrator: 'Known artist' });
+    },
+  );
+
   integrationTest('requires an explicit search mode', async ({ app, authenticatedHeaders }) => {
     const response = await app.request(`${SEARCH_PRICING_ROUTE_PATH}?game=pokemon&query=Arita`, {
       headers: authenticatedHeaders,

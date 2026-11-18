@@ -1,8 +1,14 @@
+import assert from 'node:assert/strict';
+
+import { eq } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { z } from 'zod';
 
 import { createTestCard, ownershipPayload, validCardPayload } from './utils.ts';
+import { CARD_GAME_MAP } from '../../card-pricing/types.ts';
 import { CollectionSchema } from '../../collections/schemas/responses.ts';
+import { cardPrice } from '../../db/schema/card-pricing.ts';
+import { card } from '../../db/schema/cards.ts';
 import { appRelations } from '../../db/schema/index.ts';
 import { PostgresOfflineCollectionRepository } from '../../persistence/postgres/offline-collection.ts';
 import { sessionHeaders } from '../../tests/auth.ts';
@@ -12,6 +18,68 @@ import { ManifestSchema, RecordsSchema } from '../schemas/offline-collection.ts'
 const path = '/app-api/cards/offline';
 
 describe('Offline collection integration', () => {
+  integrationTest(
+    'downloads a cached alias for an unopened page and updates the incremental manifest',
+    async ({ app, db, user, authenticatedHeaders, pricingClient }) => {
+      const printing = {
+        game: CARD_GAME_MAP.POKEMON,
+        name: 'ダーテング',
+        cardNumber: '072/071',
+        pricingSource: 'scrydex_static',
+        pricingCardId: 'sv5m_ja-72',
+      } as const;
+
+      const [owned] = await db
+        .insert(card)
+        .values({ ...printing, userId: user.userId, setName: 'Cyber Judge' })
+        .returning();
+
+      const [price] = await db
+        .insert(cardPrice)
+        .values({ ...printing, prices: {}, pricedOn: '2026-01-01' })
+        .returning();
+
+      assert(owned != null && price != null);
+
+      const search = vi.spyOn(pricingClient, 'searchCards');
+      const lookup = vi.spyOn(pricingClient, 'getCardById');
+      const first = await app.request(`${path}/manifest`, { headers: authenticatedHeaders });
+
+      expect(first.status).toBe(200);
+      const initial = ManifestSchema.parse(await first.json());
+      const previousETag = z.string().parse(first.headers.get('ETag'));
+
+      await db
+        .update(cardPrice)
+        .set({ raw: { translation: { en: { name: 'Shiftry' } } } })
+        .where(eq(cardPrice.id, price.id));
+      const headers = new Headers(authenticatedHeaders);
+
+      headers.set('If-None-Match', previousETag);
+      const latest = await app.request(`${path}/manifest`, { headers });
+
+      expect(latest.status).toBe(200);
+      expect(latest.headers.get('ETag')).not.toBe(previousETag);
+      const manifest = ManifestSchema.parse(await latest.json());
+
+      expect(manifest.entries).not.toEqual(initial.entries);
+
+      const records = await app.request(`${path}/records`, {
+        method: 'POST',
+        headers: authenticatedHeaders,
+        body: JSON.stringify({ entries: manifest.entries }),
+      });
+
+      expect(records.status).toBe(200);
+      expect(RecordsSchema.parse(await records.json()).cards).toMatchObject([
+        { id: owned.id, name: 'ダーテング', english_search_alias: 'Shiftry' },
+      ]);
+      expect(await db.query.cardMetadata.findMany()).toEqual([]);
+      expect(search).not.toHaveBeenCalled();
+      expect(lookup).not.toHaveBeenCalled();
+    },
+  );
+
   integrationTest(
     'checks unchanged collections without a response body or provider requests',
     async ({ app, user, authenticatedHeaders, pricingClient }) => {

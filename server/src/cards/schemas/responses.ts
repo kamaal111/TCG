@@ -7,6 +7,7 @@ import { ApiCommonDatetime, ApiCountSchema, UuidSchema } from '../../schemas/com
 
 export const CardSchema = CardCoreFieldsSchema.extend({
   illustrator: z.string().optional(),
+  english_search_alias: z.string().optional(),
   collection_id: UuidSchema.nullish(),
   allocation_adjustments: ApiCountSchema.optional(),
   id: UuidSchema.meta({

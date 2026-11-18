@@ -44,7 +44,8 @@ struct PreviewTCGCardsClient: TCGCardsClient {
                 displayCurrency: card.displayCurrency,
                 collectionID: collectionID,
                 allocationAdjustments: card.allocationAdjustments,
-                illustrator: card.illustrator
+                illustrator: card.illustrator,
+                englishSearchAlias: card.englishSearchAlias
             )
             return .success(())
         }
@@ -124,7 +125,8 @@ struct PreviewTCGCardsClient: TCGCardsClient {
                     },
                     collectionID: cards.first(where: { $0.id == input.id })?.collectionID,
                     allocationAdjustments: nil,
-                    illustrator: printing.illustrator
+                    illustrator: printing.illustrator,
+                    englishSearchAlias: nil
                 )
                 if let index = cards.firstIndex(where: { $0.id == input.id }) {
                     if cards[index] != imported {
@@ -221,7 +223,8 @@ struct PreviewTCGCardsClient: TCGCardsClient {
             purchases: payload.purchases,
             collectionID: Self.collectionID(payload.collectionID),
             allocationAdjustments: nil,
-            illustrator: printing.illustrator
+            illustrator: printing.illustrator,
+            englishSearchAlias: nil
         )
         state.cards.withLock { $0.append(card) }
         return .success(
@@ -249,7 +252,8 @@ struct PreviewTCGCardsClient: TCGCardsClient {
                 purchases: payload.purchases,
                 collectionID: Self.collectionID(payload.collectionID ?? previous.collectionID),
                 allocationAdjustments: nil,
-                illustrator: previous.illustrator
+                illustrator: previous.illustrator,
+                englishSearchAlias: previous.englishSearchAlias
             )
             cards[index] = card
             return .success(CardWithPrice(card: card, price: Self.price(for: card)))
@@ -299,7 +303,8 @@ struct PreviewTCGCardsClient: TCGCardsClient {
             ],
             collectionID: nil,
             allocationAdjustments: nil,
-            illustrator: nil
+            illustrator: nil,
+            englishSearchAlias: nil
         ),
         Card(
             id: UUID(uuid: (0, 0, 0, 0, 0, 0, 64, 0, 128, 0, 0, 0, 0, 0, 0, 2)),
@@ -313,7 +318,8 @@ struct PreviewTCGCardsClient: TCGCardsClient {
             purchases: [.init(condition: .mint, quantity: 1)],
             collectionID: nil,
             allocationAdjustments: nil,
-            illustrator: "Mitsuhiro Arita"
+            illustrator: "Mitsuhiro Arita",
+            englishSearchAlias: nil
         ),
     ]
 
