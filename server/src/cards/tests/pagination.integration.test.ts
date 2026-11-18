@@ -4,7 +4,7 @@ import crypto from 'node:crypto';
 import { CONTENTFUL_STATUS_CODES } from '@tcg/http/status';
 import { eq, sql } from 'drizzle-orm';
 
-import { createCardRequest, validCardPayload, requestOwnedPrices } from './utils.ts';
+import { createCardRequest, csvImportPayload, validCardPayload, requestOwnedPrices } from './utils.ts';
 import { card, cardPurchaseBatch } from '../../db/schema/cards.ts';
 import { integrationTest } from '../../tests/fixtures.ts';
 import { EXPORT_CARDS_ROUTE_PATH } from '../routes/export-cards.ts';
@@ -27,7 +27,7 @@ for (const path of [LIST_CARDS_ROUTE_PATH, EXPORT_CARDS_ROUTE_PATH]) {
         const ids: string[] = [];
 
         for (let index = 0; index < 3; index += 1) {
-          const response = await createCardRequest(app, user.sessionToken);
+          const response = await createCardRequest(app, user.sessionToken, validCardPayload);
           expect(response.status).toBe(CONTENTFUL_STATUS_CODES.CREATED);
           const created = CardSchema.parse(await response.json());
           ids.push(created.id);
@@ -61,11 +61,11 @@ for (const path of [LIST_CARDS_ROUTE_PATH, EXPORT_CARDS_ROUTE_PATH]) {
         const ids: string[] = [];
 
         for (let index = 0; index < 3; index += 1) {
-          const response = await createCardRequest(app, user.sessionToken);
+          const response = await createCardRequest(app, user.sessionToken, validCardPayload);
           ids.push(CardSchema.parse(await response.json()).id);
         }
 
-        await createCardRequest(app, other.sessionToken);
+        await createCardRequest(app, other.sessionToken, validCardPayload);
         await db
           .update(card)
           .set({ createdAt: new Date('2026-07-20T10:30:00.000Z') })
@@ -123,7 +123,7 @@ integrationTest(
       await createCardRequest(app, user.sessionToken, { ...validCardPayload, game: 'pokemon', set_name: setName });
     }
 
-    await createCardRequest(app, user.sessionToken);
+    await createCardRequest(app, user.sessionToken, validCardPayload);
     const path = `${LIST_CARDS_ROUTE_PATH}?game=pokemon&set_name=Base%20Set&limit=1`;
 
     const first = CardsListResponseSchema.parse(
@@ -173,7 +173,7 @@ integrationTest(
     const imported = await app.request(IMPORT_CARDS_ROUTE_PATH, {
       method: 'POST',
       headers: authenticatedHeaders,
-      body: JSON.stringify({ cards }),
+      body: JSON.stringify(await csvImportPayload(db, cards, 'scrydex_static')),
     });
 
     expect(imported.status).toBe(CONTENTFUL_STATUS_CODES.OK);

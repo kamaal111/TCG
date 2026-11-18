@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 
 import { eq } from 'drizzle-orm';
 
-import { createCardRequest, validCardPayload, createTestCard, requestOwnedPrices } from './utils.ts';
+import { createCardRequest, validCardPayload, createTestCard, requestOwnedPrices, ownershipPayload } from './utils.ts';
 import { cardConditionQuantity, cardPurchaseBatch } from '../../db/schema/cards.ts';
 import { integrationTest } from '../../tests/fixtures.ts';
 import { CardWithPriceSchema, OwnedCardPricesSchema } from '../schemas/responses.ts';
@@ -41,7 +41,7 @@ describe('Purchase batches integration', () => {
         method: 'PUT',
         headers: authenticatedHeaders,
         body: JSON.stringify({
-          ...payload,
+          ...ownershipPayload(payload),
           purchases: [
             { ...batch, purchase_price: '3.123456' },
             { condition: 'played', quantity: 1, purchase_price: '1', currency: 'USD' },
@@ -129,8 +129,8 @@ describe('Purchase batches integration', () => {
         method: 'PUT',
         headers: authenticatedHeaders,
         body: JSON.stringify({
-          ...payload,
-          name: 'Changed',
+          ...ownershipPayload(payload),
+          notes: 'Changed',
           purchases: [{ ...payload.purchases[0], id: batch.id }, payload.purchases[1]],
         }),
       });
@@ -149,9 +149,8 @@ describe('Purchase batches integration', () => {
       method: 'PUT',
       headers: authenticatedHeaders,
       body: JSON.stringify({
-        ...validCardPayload,
+        ...ownershipPayload(validCardPayload),
         purchases: undefined,
-        quantities: [{ condition: 'near_mint', quantity: 2 }],
       }),
     });
 

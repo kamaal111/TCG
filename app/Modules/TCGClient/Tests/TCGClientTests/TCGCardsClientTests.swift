@@ -58,7 +58,9 @@ struct TCGCardsClientTests {
             wire[field] = "not-a-uuid"
         }
         let transport = CardsRequestTransport(status: .created, body: try JSONSerialization.data(withJSONObject: wire))
-        let result = await makeClient(transport: transport).cards.create(with: payload)
+        let result = await makeClient(transport: transport).cards.create(
+            with: .init(pricedCardID: ClientTestIDs.responseCard, ownership: payload)
+        )
         guard case .failure(.unknown(let status, _, let cause)) = result else {
             Issue.record("A malformed UUID response must fail instead of creating a card.")
             return
@@ -83,15 +85,13 @@ struct TCGCardsClientTests {
         )
         let transport = CardsRequestTransport(status: .created, body: body)
         let selectedID = try #require(UUID(uuidString: "550e8400-e29b-41d4-a716-446655440000"))
-        let input = UpsertCardPayload(
-            game: .onePiece,
-            name: "Luffy",
-            setName: "Romance Dawn",
-            cardNumber: "OP01-003",
-            notes: nil,
-            purchases: [.init(condition: .nearMint, quantity: 2, purchasePrice: 1500, currency: .jpy)],
-            collectionID: nil,
-            pricedCardID: selectedID
+        let input = CreateCardPayload(
+            pricedCardID: selectedID,
+            ownership: .init(
+                notes: nil,
+                purchases: [.init(condition: .nearMint, quantity: 2, purchasePrice: 1500, currency: .jpy)],
+                collectionID: nil
+            )
         )
         let client = makeClient(transport: transport)
         let result = try await client.cards.create(with: input).get()
@@ -107,7 +107,7 @@ struct TCGCardsClientTests {
         #expect(request.method == .post)
         #expect(request.path == "/app-api/cards")
         #expect(request.operationID == "post/app-api/cards")
-        let sent = try JSONDecoder().decode(Components.Schemas.UpsertCard.self, from: requestBody)
+        let sent = try JSONDecoder().decode(Components.Schemas.CreateCard.self, from: requestBody)
         #expect(sent.pricedCardId == selectedID.uuidString.lowercased())
         #expect(sent.purchases.first?.purchasePrice == "1500")
         #expect(sent.purchases.first?.currency?.rawValue == "JPY")
@@ -157,7 +157,7 @@ struct TCGCardsClientTests {
             allocationAdjustments: nil,
             illustrator: nil
         )
-        let input = ImportCardsPayload(cards: [.init(card: source)])
+        let input = ImportCardsPayload(cards: [.init(card: source, pricedCardID: ClientTestIDs.responseCard)])
         let result = try await makeClient(transport: transport).cards.importCards(input).get()
         let request = try #require(await transport.request)
         let body = try #require(request.body)
@@ -458,14 +458,19 @@ struct TCGCardsClientTests {
     @Test
     func `Creates a card with a snake case payload`() async throws {
         let transport = CardsRequestTransport(status: .created, body: cardJSON)
-        let card = try await makeClient(transport: transport).cards.create(with: payload).get()
+        let card = try await makeClient(transport: transport).cards
+            .create(with: .init(pricedCardID: ClientTestIDs.responseCard, ownership: payload))
+            .get()
         let request = try #require(await transport.request)
         let body = try #require(request.body)
 
         #expect(request.method == .post)
         #expect(request.path == "/app-api/cards")
         #expect(request.operationID == "post/app-api/cards")
-        #expect(try JSONDecoder().decode(UpsertCardPayload.self, from: body) == payload)
+        #expect(
+            try JSONDecoder().decode(CreateCardPayload.self, from: body)
+                == .init(pricedCardID: ClientTestIDs.responseCard, ownership: payload)
+        )
         #expect(card.card == expectedCard)
         #expect(card.card.notes == nil)
         #expect(card.price == expectedPrice)
@@ -474,7 +479,9 @@ struct TCGCardsClientTests {
     @Test
     func `Maps create validation errors`() async {
         let transport = CardsRequestTransport(status: .badRequest, body: validationJSON)
-        let result = await makeClient(transport: transport).cards.create(with: payload)
+        let result = await makeClient(transport: transport).cards.create(
+            with: .init(pricedCardID: ClientTestIDs.responseCard, ownership: payload)
+        )
 
         #expect(throws: CreateCardErrors.badRequest(validations: [validationIssue])) {
             try result.get()
@@ -494,6 +501,10 @@ struct TCGCardsClientTests {
         #expect(request.method == .put)
         #expect(request.path == "/app-api/cards/00000000-0000-4000-8000-000000000010")
         #expect(request.operationID == "put/app-api/cards/{cardId}")
+        let body = try #require(request.body)
+        #expect(try JSONDecoder().decode(UpdateCardPayload.self, from: body) == payload)
+        let wire = try #require(JSONSerialization.jsonObject(with: body) as? [String: Any])
+        #expect(Set(wire.keys) == ["purchases"])
         #expect(card.card == expectedCard)
         #expect(card.price == expectedPrice)
     }
@@ -536,19 +547,23 @@ struct TCGCardsClientTests {
     func `Creates purchases with every supported currency`(currency: Currency) async throws {
         let input = try purchasePayload(id: nil, currency: currency)
         let transport = CardsRequestTransport(status: .created, body: purchaseCardJSON)
-        _ = try await makeClient(transport: transport).cards.create(with: input).get()
+        _ = try await makeClient(transport: transport).cards
+            .create(with: .init(pricedCardID: ClientTestIDs.responseCard, ownership: input))
+            .get()
         let request = try #require(await transport.request)
         let body = try #require(request.body)
-        let sent = try JSONDecoder().decode(Components.Schemas.UpsertCard.self, from: body)
+        let sent = try JSONDecoder().decode(Components.Schemas.UpdateCard.self, from: body)
         let purchase = try #require(sent.purchases.first)
         #expect(purchase.currency?.rawValue == currency.rawValue)
     }
 
     @Test
     func `Creates purchases and decodes exact prices`() async throws {
-        let input = try purchasePayload(id: nil)
+        let input = try purchasePayload(id: nil, currency: .usd)
         let transport = CardsRequestTransport(status: .created, body: purchaseCardJSON)
-        let saved = try await makeClient(transport: transport).cards.create(with: input).get()
+        let saved = try await makeClient(transport: transport).cards
+            .create(with: .init(pricedCardID: ClientTestIDs.responseCard, ownership: input))
+            .get()
         let request = try #require(await transport.request)
         #expect(request.operationID == "post/app-api/cards")
         try assertPurchasePayload(request, expectedID: nil)
@@ -557,7 +572,8 @@ struct TCGCardsClientTests {
 
     @Test
     func `Updates purchases and decodes exact prices`() async throws {
-        let input = try purchasePayload(id: UUID(uuid: (0, 0, 0, 0, 0, 0, 64, 0, 128, 0, 0, 0, 0, 0, 1, 36)))
+        let id = UUID(uuid: (0, 0, 0, 0, 0, 0, 64, 0, 128, 0, 0, 0, 0, 0, 1, 36))
+        let input = try purchasePayload(id: id, currency: .usd)
         let transport = CardsRequestTransport(status: .ok, body: purchaseCardJSON)
         let saved = try await makeClient(transport: transport).cards.update(
             id: ClientTestIDs.responseCard,
@@ -566,7 +582,7 @@ struct TCGCardsClientTests {
         .get()
         let request = try #require(await transport.request)
         #expect(request.operationID == "put/app-api/cards/{cardId}")
-        try assertPurchasePayload(request, expectedID: UUID(uuid: (0, 0, 0, 0, 0, 0, 64, 0, 128, 0, 0, 0, 0, 0, 1, 36)))
+        try assertPurchasePayload(request, expectedID: id)
         try assertPurchaseResponse(saved)
     }
 
@@ -677,13 +693,9 @@ struct TCGCardsClientTests {
         }
     }
 
-    private func purchasePayload(id: UUID?, currency: Currency = .usd) throws -> UpsertCardPayload {
+    private func purchasePayload(id: UUID?, currency: Currency) throws -> UpdateCardPayload {
         let amount = try #require(Decimal(string: "3.123456"))
-        return UpsertCardPayload(
-            game: .onePiece,
-            name: payload.name,
-            setName: payload.setName,
-            cardNumber: payload.cardNumber,
+        return UpdateCardPayload(
             notes: nil,
             purchases: [
                 CardPurchase(id: id, condition: .nearMint, quantity: 2, purchasePrice: amount, currency: currency)
@@ -697,7 +709,7 @@ struct TCGCardsClientTests {
         let wire = try #require(JSONSerialization.jsonObject(with: body) as? [String: Any])
         #expect(wire["quantities"] == nil)
         #expect(wire["purchase_batches"] == nil)
-        let sent = try JSONDecoder().decode(Components.Schemas.UpsertCard.self, from: body)
+        let sent = try JSONDecoder().decode(Components.Schemas.UpdateCard.self, from: body)
         #expect(sent.purchases.count == 1)
         let purchase = try #require(sent.purchases.first)
         #expect(purchase.id == expectedID.map(UUIDCoding.encode))
@@ -970,11 +982,7 @@ private struct CardsRecordedRequest: Sendable {
     let body: Data?
 }
 
-private let payload = UpsertCardPayload(
-    game: .onePiece,
-    name: "Monkey D. Luffy",
-    setName: "Romance Dawn",
-    cardNumber: "OP01-003",
+private let payload = UpdateCardPayload(
     notes: nil,
     purchases: [.init(condition: .nearMint, quantity: 2)],
     collectionID: nil

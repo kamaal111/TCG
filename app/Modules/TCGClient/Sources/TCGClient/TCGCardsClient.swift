@@ -24,9 +24,9 @@ public protocol TCGCardsClient: Sendable {
         CardCollectionPage, ListCardsErrors
     >
 
-    func create(with payload: UpsertCardPayload) async -> Result<CardWithPrice, CreateCardErrors>
+    func create(with payload: CreateCardPayload) async -> Result<CardWithPrice, CreateCardErrors>
 
-    func update(id: UUID, with payload: UpsertCardPayload) async -> Result<CardWithPrice, UpdateCardErrors>
+    func update(id: UUID, with payload: UpdateCardPayload) async -> Result<CardWithPrice, UpdateCardErrors>
 
     func delete(ids: [UUID]) async -> Result<DeleteCardsResult, DeleteCardsErrors>
 }
@@ -290,10 +290,10 @@ struct TCGCardsClientImpl: TCGCardsClient {
         }
     }
 
-    func create(with payload: UpsertCardPayload) async -> Result<CardWithPrice, CreateCardErrors> {
+    func create(with payload: CreateCardPayload) async -> Result<CardWithPrice, CreateCardErrors> {
         let response: Operations.PostAppApiCards.Output
         do {
-            response = try await client.postAppApiCards(body: .json(CardMapper.makeGeneratedPayload(payload)))
+            response = try await client.postAppApiCards(body: .json(CardMapper.makeCreateRequest(payload)))
         } catch {
             return .failure(.unknown(status: HTTPResponse.Status.serviceUnavailable.code, payload: nil, cause: error))
         }
@@ -321,12 +321,12 @@ struct TCGCardsClientImpl: TCGCardsClient {
         }
     }
 
-    func update(id: UUID, with payload: UpsertCardPayload) async -> Result<CardWithPrice, UpdateCardErrors> {
+    func update(id: UUID, with payload: UpdateCardPayload) async -> Result<CardWithPrice, UpdateCardErrors> {
         let response: Operations.PutAppApiCardsCardId.Output
         do {
             response = try await client.putAppApiCardsCardId(
                 path: .init(cardId: UUIDCoding.encode(id)),
-                body: .json(CardMapper.makeGeneratedPayload(payload))
+                body: .json(CardMapper.makeUpdateRequest(payload))
             )
         } catch {
             return .failure(.unknown(status: HTTPResponse.Status.serviceUnavailable.code, payload: nil, cause: error))

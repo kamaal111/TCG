@@ -22,6 +22,20 @@ final class TCGCardsImportReviewModel {
     private var nextRowID = 1
     private(set) var removedRowCount = 0
     private(set) var removedCardCount = 0
+    private let importDate = Date()
+    private var lookups: [CSVPrintingQuery: CSVPrintingLookup] = [:]
+    private var choices: [UUID: PrintingChoice] = [:]
+    private var lookupRevision = 0
+
+    private struct PrintingChoice {
+        let query: CSVPrintingQuery
+        let key: String
+    }
+
+    struct LookupTask: Equatable {
+        let queries: [CSVPrintingQuery]
+        let revision: Int
+    }
 
     init(url: URL) {
         filename = url.lastPathComponent
@@ -39,7 +53,12 @@ final class TCGCardsImportReviewModel {
         nextRowID = (cards.flatMap(\.rows).map(\.id).max() ?? 1) + 1
     }
 
-    var selectedCards: [Card] { cards.compactMap { CardsCSV.makeCard($0, now: Date()) } }
+    var selectedCards: [Card] {
+        cards.compactMap { draft in
+            guard selectedPrinting(for: draft) != nil else { return nil }
+            return CardsCSV.makeCard(draft, now: importDate)
+        }
+    }
 
     var selectedPurchaseCount: Int { selectedCards.reduce(0) { $0 + $1.purchases.count } }
 
@@ -52,12 +71,62 @@ final class TCGCardsImportReviewModel {
 
     var excludedRowCount: Int { removedRowCount + cards.reduce(0) { $0 + $1.rows.filter { !$0.isIncluded }.count } }
 
-    var canImport: Bool { fatalError == nil && !selectedCards.isEmpty && !isSubmitting && completion == nil }
+    var canImport: Bool {
+        fatalError == nil && !selectedCards.isEmpty && !isSubmitting && completion == nil
+            && cards.allSatisfy { query(for: $0) == nil || selectedPrinting(for: $0) != nil }
+    }
+
+    var lookupTask: LookupTask {
+        var seen: Set<CSVPrintingQuery> = []
+        let queries = cards.compactMap { query(for: $0) }.filter { seen.insert($0).inserted }
+        return .init(queries: queries, revision: lookupRevision)
+    }
+
+    func lookup(for draft: CSVImportCard) -> CSVPrintingLookup? {
+        guard let query = query(for: draft) else { return nil }
+        return lookups[query] ?? .loading
+    }
+
+    func refreshLookups(using collection: TCGCards) async {
+        for query in lookupTask.queries where lookups[query] == nil {
+            let result = await CSVPrintingLookup.resolve(query, using: collection)
+            guard !Task.isCancelled else { return }
+            lookups[query] = result
+        }
+    }
+
+    func retryLookup(for draft: CSVImportCard) {
+        guard let query = query(for: draft) else { return }
+        clearServerIssues(rows: draft.rows)
+        lookups.removeValue(forKey: query)
+        lookupRevision += 1
+    }
+
+    func choosePrinting(_ printing: PricedCard, for draftID: UUID) {
+        guard let draft = cards.first(where: { $0.id == draftID }), let query = query(for: draft) else { return }
+        guard case .matches(let matches) = lookups[query], matches.contains(printing) else { return }
+        choices[draftID] = .init(query: query, key: printing.printingKey ?? printing.id)
+        clearServerIssues(rows: draft.rows)
+        hasEdits = true
+    }
+
+    func selectedPrinting(for draft: CSVImportCard) -> PricedCard? {
+        guard let query = query(for: draft), case .matches(let matches) = lookups[query] else { return nil }
+        if let choice = choices[draft.id], choice.query == query {
+            return matches.first { ($0.printingKey ?? $0.id) == choice.key }
+        }
+        return matches.count == 1 ? matches.first : nil
+    }
+
+    private func query(for draft: CSVImportCard) -> CSVPrintingQuery? {
+        CardsCSV.makeCard(draft, now: importDate).map(CSVPrintingQuery.init)
+    }
 
     func removeCard(id: UUID) {
         clearServerIssues(rows: cards.first { $0.id == id }?.rows ?? [])
         removedRowCount += cards.first { $0.id == id }?.rows.count ?? 0
         cards.removeAll { $0.id == id }
+        choices.removeValue(forKey: id)
         removedCardCount += 1
         hasEdits = true
     }
@@ -70,6 +139,12 @@ final class TCGCardsImportReviewModel {
         corrected.isIncluded = row.isIncluded && CardsCSV.issues(for: row).isEmpty
         cards[cardIndex].rows[rowIndex] = corrected
         cards = CardsCSV.group(cards.flatMap(\.rows))
+        let unchanged = Set(
+            cards.compactMap { draft in
+                choices[draft.id]?.query == query(for: draft) ? draft.id : nil
+            }
+        )
+        choices = choices.filter { unchanged.contains($0.key) }
         hasEdits = true
     }
 
@@ -94,10 +169,10 @@ final class TCGCardsImportReviewModel {
         }
         let edited = Card(
             id: original.id,
-            game: payload.game,
-            name: payload.name,
-            setName: payload.setName,
-            cardNumber: payload.cardNumber,
+            game: original.game,
+            name: original.name,
+            setName: original.setName,
+            cardNumber: original.cardNumber,
             notes: payload.notes,
             createdAt: original.createdAt,
             updatedAt: original.updatedAt,
@@ -126,12 +201,21 @@ final class TCGCardsImportReviewModel {
     func submit(using collection: TCGCards) async {
         guard canImport else { return }
         isSubmitting = true
+        defer { isSubmitting = false }
         submissionError = nil
         serverIssues = []
         unmappedServerErrors = []
-        let submitted = cards.filter { CardsCSV.makeCard($0, now: Date()) != nil }
-        defer { isSubmitting = false }
-        switch await collection.importCards(cards) {
+        var submitted: [CSVImportCard] = []
+        var payloads: [CSVImportCardPayload] = []
+        for draft in cards {
+            guard let card = CardsCSV.makeCard(draft, now: importDate) else { continue }
+            guard let printing = selectedPrinting(for: draft), let pricedCardID = UUID(uuidString: printing.id) else {
+                return
+            }
+            submitted.append(draft)
+            payloads.append(.init(card: card, pricedCardID: pricedCardID))
+        }
+        switch await collection.importCards(.init(cards: payloads)) {
         case .success(let result): completion = result
         case .failure(.unauthorized):
             submissionError = String(

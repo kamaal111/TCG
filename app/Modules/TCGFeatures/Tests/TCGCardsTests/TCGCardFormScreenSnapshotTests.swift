@@ -34,8 +34,8 @@ struct TCGCardFormScreenSnapshotTests {
     @Test
     func `Renders multiple purchase batches`() async {
         let model = TCGCardFormScreenModel(
-            mode: .add,
-            initialValues: .init(pricedCard: PreviewTCGPricingClient.samplePricedCards[0])
+            mode: .add(PreviewTCGPricingClient.samplePricedCards[0]),
+            initialValues: nil
         )
         model.values.batches = [
             .init(condition: .nearMint, quantity: 2),
@@ -57,16 +57,11 @@ struct TCGCardFormScreenSnapshotTests {
     }
 
     @Test
-    func `Renders an empty add form`() async {
-        await assertScreenSnapshot(testName: #function) { makeScreen(model: .init(mode: .add, initialValues: nil)) }
-    }
-
-    @Test
     func `Renders a searched Pokemon add form`() async {
         let card = PreviewTCGPricingClient.samplePricedCards[1]
         #expect(card.game == .pokemon)
         await assertScreenSnapshot(testName: #function) {
-            TCGCardFormScreen(pricedCard: card)
+            TCGCardFormScreen(pricedCard: card, onAdded: {})
                 .environment(TCGCards(client: .preview(cardsOutcome: .empty)))
         }
     }
@@ -76,7 +71,7 @@ struct TCGCardFormScreenSnapshotTests {
         let card = PreviewTCGPricingClient.samplePricedCards[0]
         #expect(card.game == .onePiece)
         await assertScreenSnapshot(testName: #function) {
-            TCGCardFormScreen(pricedCard: card)
+            TCGCardFormScreen(pricedCard: card, onAdded: {})
                 .environment(TCGCards(client: .preview(cardsOutcome: .empty)))
         }
     }
@@ -102,7 +97,7 @@ struct TCGCardFormScreenSnapshotTests {
 
     @Test
     func `Renders validation errors`() async {
-        let model = TCGCardFormScreenModel(mode: .add, initialValues: nil)
+        let model = TCGCardFormScreenModel(mode: .add(CardsTestIDs.addPrinting), initialValues: nil)
         _ = await model.submit(using: TCGCards(client: .preview(cardsOutcome: .empty)))
         await assertScreenSnapshot(testName: #function) { makeScreen(model: model) }
     }

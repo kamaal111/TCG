@@ -95,16 +95,20 @@ struct PreviewTCGCardsClient: TCGCardsClient {
     func importCards(_ payload: ImportCardsPayload) async -> Result<ImportCardsResult, CardBackupErrors> {
         if case .validationErrors(let issues) = outcome { return .failure(.badRequest(validations: issues)) }
         if case .serverUnavailable = outcome { return .failure(.unknown(status: 503)) }
+        let resolved = payload.cards.compactMap { input in
+            Self.printing(for: input.pricedCardID).map { (input, $0) }
+        }
+        guard resolved.count == payload.cards.count else { return .failure(.badRequest(validations: [])) }
         return state.cards.withLock { cards in
             var count = 0
             var updated = 0
-            for input in payload.cards {
+            for (input, printing) in resolved {
                 let imported = Card(
                     id: input.id,
-                    game: input.game,
-                    name: input.name,
-                    setName: input.setName,
-                    cardNumber: input.cardNumber,
+                    game: printing.game,
+                    name: printing.name,
+                    setName: printing.setName ?? "",
+                    cardNumber: printing.cardNumber,
                     notes: input.notes,
                     createdAt: input.createdAt,
                     updatedAt: input.updatedAt,
@@ -120,7 +124,7 @@ struct PreviewTCGCardsClient: TCGCardsClient {
                     },
                     collectionID: cards.first(where: { $0.id == input.id })?.collectionID,
                     allocationAdjustments: nil,
-                    illustrator: nil
+                    illustrator: printing.illustrator
                 )
                 if let index = cards.firstIndex(where: { $0.id == input.id }) {
                     if cards[index] != imported {
@@ -198,28 +202,55 @@ struct PreviewTCGCardsClient: TCGCardsClient {
         )
     }
 
-    func create(with payload: UpsertCardPayload) async -> Result<CardWithPrice, CreateCardErrors> {
+    func create(with payload: CreateCardPayload) async -> Result<CardWithPrice, CreateCardErrors> {
         if case .validationErrors(let issues) = outcome { return .failure(.badRequest(validations: issues)) }
         if case .serverUnavailable = outcome { return .failure(.unavailable) }
 
-        let card = state.cards.withLock { cards in
-            let card = Self.makeCard(id: UUID(), payload: payload)
-            cards.append(card)
-            return card
+        guard let printing = Self.printing(for: payload.pricedCardID) else {
+            return .failure(.badRequest(validations: []))
         }
-        return .success(CardWithPrice(card: card, price: Self.price(for: card)))
+        let card = Card(
+            id: UUID(),
+            game: printing.game,
+            name: printing.name,
+            setName: printing.setName ?? "",
+            cardNumber: printing.cardNumber,
+            notes: payload.notes,
+            createdAt: Self.fixedDate,
+            updatedAt: Self.fixedDate,
+            purchases: payload.purchases,
+            collectionID: Self.collectionID(payload.collectionID),
+            allocationAdjustments: nil,
+            illustrator: printing.illustrator
+        )
+        state.cards.withLock { $0.append(card) }
+        return .success(
+            CardWithPrice(card: card, price: .init(cardId: card.id, status: .priced, price: printing))
+        )
     }
 
-    func update(id: UUID, with payload: UpsertCardPayload) async -> Result<CardWithPrice, UpdateCardErrors> {
+    func update(id: UUID, with payload: UpdateCardPayload) async -> Result<CardWithPrice, UpdateCardErrors> {
         if case .notFound = outcome { return .failure(.notFound) }
         if case .validationErrors(let issues) = outcome { return .failure(.badRequest(validations: issues)) }
         if case .serverUnavailable = outcome { return .failure(.unavailable) }
 
         return state.cards.withLock { cards in
             guard let index = cards.firstIndex(where: { $0.id == id }) else { return .failure(.notFound) }
-            var updated = payload
-            if updated.collectionID == nil { updated.collectionID = cards[index].collectionID }
-            let card = Self.makeCard(id: id, payload: updated, createdAt: cards[index].createdAt)
+            let previous = cards[index]
+            let card = Card(
+                id: id,
+                game: previous.game,
+                name: previous.name,
+                setName: previous.setName,
+                cardNumber: previous.cardNumber,
+                notes: payload.notes,
+                createdAt: previous.createdAt,
+                updatedAt: Self.fixedDate,
+                purchases: payload.purchases,
+                collectionID: Self.collectionID(payload.collectionID ?? previous.collectionID),
+                allocationAdjustments: nil,
+                illustrator: previous.illustrator
+            )
             cards[index] = card
             return .success(CardWithPrice(card: card, price: Self.price(for: card)))
         }
@@ -288,25 +319,12 @@ struct PreviewTCGCardsClient: TCGCardsClient {
 
     private static let fixedDate = Date(timeIntervalSince1970: 1_750_000_000)
 
-    private static func makeCard(
-        id: UUID,
-        payload: UpsertCardPayload,
-        createdAt: Date = fixedDate
-    ) -> Card {
-        Card(
-            id: id,
-            game: payload.game,
-            name: payload.name,
-            setName: payload.setName,
-            cardNumber: payload.cardNumber,
-            notes: payload.notes,
-            createdAt: createdAt,
-            updatedAt: fixedDate,
-            purchases: payload.purchases,
-            collectionID: payload.collectionID == PreviewTCGCollectionsClient.unfiledID ? nil : payload.collectionID,
-            allocationAdjustments: nil,
-            illustrator: nil
-        )
+    private static func printing(for id: UUID) -> PricedCard? {
+        PreviewTCGPricingClient.samplePricedCards.first { UUID(uuidString: $0.id) == id }
+    }
+
+    private static func collectionID(_ id: UUID?) -> UUID? {
+        id == PreviewTCGCollectionsClient.unfiledID ? nil : id
     }
 }
 

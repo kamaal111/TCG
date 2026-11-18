@@ -11,7 +11,7 @@ import { CARDS_OPENAPI_TAG } from '../constants.ts';
 import { CardNotFound } from '../exceptions.ts';
 import { cardsLogger } from '../logging.ts';
 import { CardIdParamsSchema } from '../schemas/params.ts';
-import { UpsertCardSchema } from '../schemas/payloads.ts';
+import { UpdateCardSchema } from '../schemas/payloads.ts';
 import { CardWithPriceSchema } from '../schemas/responses.ts';
 import { serializeCardWithPrice } from '../utils/cards.ts';
 
@@ -21,13 +21,13 @@ const routeConfig = createRoute({
   method: 'put',
   path: UPDATE_CARD_PATH,
   tags: [CARDS_OPENAPI_TAG],
-  summary: 'Replace an owned card',
-  description: 'Replace an owned card entry and all quantities for the authenticated user.',
+  summary: 'Update ownership details for a card',
+  description: 'Replace purchases and notes and optionally move the card to another collection.',
   middleware: [requireSessionMiddleware] as const,
   security: [{ bearerAuth: [] }],
   request: {
     params: CardIdParamsSchema,
-    body: { content: { [MIME_TYPES.JSON]: { schema: UpsertCardSchema } } },
+    body: { content: { [MIME_TYPES.JSON]: { schema: UpdateCardSchema } } },
   },
   responses: {
     [CONTENTFUL_STATUS_CODES.OK]: {
@@ -59,10 +59,9 @@ const updateCardRoute = defineOpenAPIRoute<HonoEnvironment, typeof routeConfig>(
     const { cardId } = c.req.valid('param');
 
     const values = c.req.valid('json');
-    const pricingLink = await c.get('cardPricingService').resolveSelectedPricingLink(values);
 
     const [updatedCard, display] = await Promise.all([
-      c.get('cardRepository').update(cardId, values, pricingLink),
+      c.get('cardRepository').update(cardId, values),
       c.get('forexService').displayContext(),
     ]);
 
@@ -78,7 +77,7 @@ const updateCardRoute = defineOpenAPIRoute<HonoEnvironment, typeof routeConfig>(
       throw display.error;
     }
 
-    const [price] = await c.get('cardPricingService').priceOwnedCards([updatedCard]);
+    const [price] = await c.get('cardPricingService').priceOwnedCards([updatedCard], { allowUnavailable: true });
 
     await c.get('cardRepository').backfillPurchasePrices([updatedCard], [price]);
 

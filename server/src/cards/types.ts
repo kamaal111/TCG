@@ -28,7 +28,13 @@ export interface OwnedCard {
   updatedAt: Date;
 }
 
-export type CardPricingLink = Pick<OwnedCard, 'pricingCardId' | 'pricingSource'>;
+export type CardIdentity = Pick<OwnedCard, 'game' | 'name' | 'setName' | 'cardNumber'>;
+
+export type CatalogPrinting = CardIdentity &
+  Pick<OwnedCard, 'illustrator'> & {
+    pricingCardId: string;
+    pricingSource: string;
+  };
 
 export interface PurchaseBatch {
   id: string;

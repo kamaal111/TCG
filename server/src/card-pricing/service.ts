@@ -18,10 +18,10 @@ import { imageKeyForOriginURL, storageKeyForImageKey } from '../card-images/keys
 import { imagesLogger } from '../card-images/logging.ts';
 import type { CardImageRow } from '../card-images/repository.ts';
 import type { CardWithPurchases } from '../cards/repository.ts';
-import type { UpsertCard } from '../cards/schemas/payloads.ts';
-import type { CardPricingLink } from '../cards/types.ts';
+import type { CatalogPrinting } from '../cards/types.ts';
 import type { HonoContext } from '../context.ts';
 import { isNonEmpty, type NonEmptyArray } from '../utils/type-utils.ts';
+import { cachedIllustrator } from './utils/illustrator.ts';
 import { searchPageKey } from './utils/pagination.ts';
 import { serializePricedCard } from './utils/pricing.ts';
 import { buildSearchQuery, normalizeCardNumber, normalizeName, queryKey, todayUTC } from './utils/query.ts';
@@ -197,25 +197,25 @@ export class CardPricingService {
     return [priced, ...rest];
   }
 
-  async resolveSelectedPricingLink(values: UpsertCard): Promise<CardPricingLink | undefined> {
-    if (values.priced_card_id == null) {
-      return undefined;
-    }
+  async catalogPrintings(ids: readonly string[]): Promise<ReadonlyMap<string, CatalogPrinting>> {
+    const rows = await this.repository.getCachedCardPricesById(this.client.source, ids);
 
-    const source = this.client.source;
-    const row = await this.repository.getCachedCardPriceById(source, values.game, values.priced_card_id);
-
-    if (
-      row == null ||
-      row.prices.setName == null ||
-      normalizeName(row.prices.setName).toLowerCase() !== normalizeName(values.set_name).toLowerCase() ||
-      normalizeName(row.name).toLowerCase() !== normalizeName(values.name).toLowerCase() ||
-      normalizeCardNumber(row.cardNumber) !== normalizeCardNumber(values.card_number)
-    ) {
-      return undefined;
-    }
-
-    return { pricingCardId: row.pricingCardId, pricingSource: source };
+    return new Map(
+      rows.map(row => {
+        return [
+          row.id,
+          {
+            game: row.game,
+            name: row.name,
+            setName: row.prices.setName ?? '',
+            cardNumber: row.cardNumber,
+            illustrator: cachedIllustrator(row),
+            pricingCardId: row.pricingCardId,
+            pricingSource: row.pricingSource,
+          },
+        ];
+      }),
+    );
   }
 
   private async priceOwnedCard(card: CardWithPurchases): Promise<OwnedCardPriceResponse> {

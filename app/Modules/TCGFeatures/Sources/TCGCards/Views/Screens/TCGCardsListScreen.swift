@@ -31,23 +31,8 @@ public struct TCGCardsListScreen: View {
 
     public var body: some View {
         content
-            .toolbar {
-                if !cardCollection.isReadOnly {
-                    Button {
-                        model.presentedForm = .add
-                    } label: {
-                        Label {
-                            Text("Add card", bundle: .module)
-                        } icon: {
-                            Image(systemName: "plus")
-                        }
-                    }
-                    .help(Text("Add card", bundle: .module))
-                }
-            }
             .sheet(item: $model.presentedForm) { route in
                 switch route {
-                case .add: TCGCardFormScreen(model: .init(mode: .add, initialValues: nil))
                 case .detail(let card): TCGCardDetailScreen(model: .init(card: card))
                 case .edit(let card): TCGCardFormScreen(model: .init(editing: card))
                 }
@@ -225,7 +210,7 @@ public struct TCGCardsListScreen: View {
             ContentUnavailableView(
                 "No cards",
                 systemImage: "rectangle.stack.badge.plus",
-                description: Text("Add your first card to start your collection.")
+                description: Text("Find a printing in Search or Wishlist to add your first card.", bundle: .module)
             )
         }
     }

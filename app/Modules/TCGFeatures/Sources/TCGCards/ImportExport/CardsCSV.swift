@@ -29,7 +29,7 @@ struct CSVImportCard: Identifiable, Equatable {
     var rows: [CSVImportRow]
     var isIncluded = true
 
-    var name: String { rows.first?[.name] ?? "" }
+    var name: String { (rows.first(where: \.isIncluded) ?? rows.first)?[.name] ?? "" }
 }
 
 enum CardsCSVError: LocalizedError, Equatable {
@@ -144,7 +144,7 @@ enum CardsCSV {
                 cards[position].rows.append(row)
             } else {
                 positions[key] = cards.count
-                cards.append(.init(id: UUID(), rows: [row]))
+                cards.append(.init(id: UUID(uuidString: sourceID) ?? row.generatedPurchaseID, rows: [row]))
             }
         }
         for index in cards.indices {
@@ -207,10 +207,13 @@ enum CardsCSV {
         if ClientCardGame(rawValue: trimmed(row[.game])) == nil {
             issue(.game, String(localized: "Enter one_piece or pokemon.", bundle: .module))
         }
-        for (column, maximum) in [(Column.name, 200), (.setName, 200), (.cardNumber, 50)] {
+        for (column, maximum) in [(Column.name, 200), (.cardNumber, 50)] {
             if trimmed(row[column]).isEmpty || row[column].count > maximum {
                 issue(column, String(localized: "Enter a value between 1 and \(maximum) characters.", bundle: .module))
             }
+        }
+        if row[.setName].count > 200 {
+            issue(.setName, String(localized: "Shorten the set name to 200 characters or fewer.", bundle: .module))
         }
         if row[.notes].count > 2000 {
             issue(.notes, String(localized: "Shorten the notes to 2000 characters or fewer.", bundle: .module))

@@ -141,8 +141,8 @@ struct TCGCollectionsSnapshotTests {
     @Test func `Renders collection creation alongside a searched card draft`() async {
         let context = await CollectionTestFixtures.loadedContext()
         let model = TCGCardFormScreenModel(
-            mode: .add,
-            initialValues: .init(pricedCard: PreviewTCGPricingClient.samplePricedCards[0])
+            mode: .add(PreviewTCGPricingClient.samplePricedCards[0]),
+            initialValues: nil
         )
         #expect(model.canChooseCollection)
         await assertCollectionSnapshot(testName: #function) {
@@ -154,7 +154,7 @@ struct TCGCollectionsSnapshotTests {
 
     @Test func `Renders new collection naming without leaving the card draft`() async {
         let context = await CollectionTestFixtures.loadedContext()
-        let model = TCGCardFormScreenModel(mode: .add, initialValues: nil)
+        let model = TCGCardFormScreenModel(mode: .add(CardsTestIDs.addPrinting), initialValues: nil)
         #expect(context.collections.collections.count == 1)
         await assertCollectionSnapshot(testName: #function) {
             NewCollectionScreen { name in

@@ -6,11 +6,12 @@ import * as yaml from 'js-yaml';
 import { z } from 'zod';
 
 import { SIGN_UP_ROUTE_PATH } from './auth/constants.ts';
-import { createCardRequest, validCardPayload } from './cards/tests/utils.ts';
+import { ownershipPayload, postCard, validCardPayload } from './cards/tests/utils.ts';
 import { MAX_BINDER_DIMENSION } from './collections/constants.ts';
 import { DEFAULT_COLLECTION_POLICY } from './config.ts';
 import type { HonoEnvironment } from './context.ts';
 import { CURRENCY_CODES } from './forex/currencies.ts';
+import { sessionHeaders } from './tests/auth.ts';
 import { expectValidationIssueForFields } from './tests/auth.ts';
 import { integrationTest } from './tests/fixtures.ts';
 
@@ -43,12 +44,11 @@ describe('OpenAPI specification integration', () => {
     expect(document.components.schemas.ImportCard).toMatchObject({
       properties: {
         notes: { type: ['null', 'string'], maxLength: 2000 },
-        purchases: {
-          items: {
-            properties: { currency: { $ref: '#/components/schemas/NullableCurrency', default: null } },
-          },
-        },
+        purchases: { items: { $ref: '#/components/schemas/ImportedCardPurchase' } },
       },
+    });
+    expect(document.components.schemas.ImportedCardPurchase).toMatchObject({
+      properties: { currency: { $ref: '#/components/schemas/NullableCurrency', default: null } },
     });
   });
 
@@ -82,10 +82,14 @@ describe('OpenAPI specification integration', () => {
       body: JSON.stringify({ email: 'not-an-email', password: 'password123', name: 'Test User' }),
     });
 
-    const cardsResponse = await createCardRequest(app, user.sessionToken, { ...validCardPayload, name: '' });
+    const cardsResponse = await postCard(
+      app,
+      sessionHeaders(user.sessionToken),
+      JSON.stringify(ownershipPayload(validCardPayload)),
+    );
 
     await expectValidationIssueForFields(authResponse, ['email']);
-    await expectValidationIssueForFields(cardsResponse, ['name']);
+    await expectValidationIssueForFields(cardsResponse, ['priced_card_id']);
   });
 
   integrationTest('describes both the auth routes and the standard-schema routes', async ({ app }) => {
@@ -146,7 +150,8 @@ describe('OpenAPI specification integration', () => {
       expect.arrayContaining([
         'Card',
         'CardWithPrice',
-        'UpsertCard',
+        'CreateCard',
+        'UpdateCard',
         'DeleteCards',
         'DeleteCardsResponse',
         'PricedCard',

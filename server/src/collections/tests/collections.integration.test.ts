@@ -2,7 +2,7 @@ import crypto from 'node:crypto';
 
 import { readCollection, createTestCollection } from './utils.ts';
 import { CardSchema } from '../../cards/schemas/responses.ts';
-import { createCardRequest, validCardPayload, createTestCard } from '../../cards/tests/utils.ts';
+import { createCardRequest, validCardPayload, createTestCard, ownershipPayload } from '../../cards/tests/utils.ts';
 import { sessionHeaders } from '../../tests/auth.ts';
 import { integrationTest } from '../../tests/fixtures.ts';
 import { BackupSchema, CollectionSchema, CollectionsSchema, CollectionSummarySchema } from '../schemas/responses.ts';
@@ -129,7 +129,7 @@ integrationTest(
       method: 'PUT',
       headers,
       body: JSON.stringify({
-        ...validCardPayload,
+        ...ownershipPayload(validCardPayload),
         purchases: [{ condition: 'near_mint', quantity: 2, purchase_price: null, currency: null }],
       }),
     });
@@ -244,6 +244,66 @@ integrationTest(
 );
 
 integrationTest(
+  'restores a legacy unmatched card and a catalog card whose set is unavailable',
+  async ({ app, db, user, createUser, authenticatedHeaders: headers }) => {
+    const owned = await createTestCard(app, user.sessionToken, { ...validCardPayload, set_name: '' });
+    expect(owned.set_name).toBe('');
+    const list = await app.request('/app-api/cards', { headers });
+    expect(await list.json()).toMatchObject({ cards: [{ id: owned.id, set_name: '' }], available_set_names: [] });
+
+    const exported = await app.request('/app-api/collections/export', { method: 'POST', headers, body: '{}' });
+    const backup = BackupSchema.parse(await exported.json());
+    const source = backup.cards[0];
+    expect(source).toBeDefined();
+
+    if (source == null) {
+      return;
+    }
+
+    const legacy = {
+      ...source,
+      id: crypto.randomUUID(),
+      name: 'Handwritten promo',
+      set_name: 'Personal archive',
+      card_number: 'LEGACY-1',
+      notes: 'Traded at a tournament',
+    };
+
+    const recipient = await createUser();
+
+    const restored = await app.request('/app-api/collections/import', {
+      method: 'POST',
+      headers: sessionHeaders(recipient.sessionToken),
+      body: JSON.stringify({ ...backup, cards: [source, legacy] }),
+    });
+
+    expect(restored.status).toBe(200);
+    expect(
+      await db.query.card.findMany({
+        where: { userId: recipient.userId },
+        with: { purchaseBatches: true },
+      }),
+    ).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: owned.name, setName: '', importSourceId: owned.id }),
+        expect.objectContaining({
+          game: legacy.game,
+          name: legacy.name,
+          setName: legacy.set_name,
+          cardNumber: legacy.card_number,
+          notes: legacy.notes,
+          pricingCardId: null,
+          purchaseBatches: expect.arrayContaining([
+            expect.objectContaining({ condition: 'near_mint', quantity: 2 }),
+            expect.objectContaining({ condition: 'played', quantity: 1 }),
+          ]),
+        }),
+      ]),
+    );
+  },
+);
+
+integrationTest(
   'rejects foreign collection access, invalid coordinates and stale revisions',
   async ({ app, createUser, authenticatedHeaders: headers }) => {
     const other = await createUser();
@@ -317,7 +377,7 @@ integrationTest(
         await app.request(`/app-api/cards/${card.id}`, {
           method: 'PUT',
           headers,
-          body: JSON.stringify({ ...validCardPayload, collection_id: null }),
+          body: JSON.stringify({ ...ownershipPayload(validCardPayload), collection_id: null }),
         })
       ).status,
     ).toBe(200);

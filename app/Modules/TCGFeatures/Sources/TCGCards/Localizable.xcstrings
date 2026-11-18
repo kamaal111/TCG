@@ -196,6 +196,12 @@
     "Cards updated: %lld" : {
 
     },
+    "Catalog lookup failed. Try again." : {
+
+    },
+    "Catalog printing matched" : {
+
+    },
     "Change page dimensions?" : {
 
     },
@@ -211,6 +217,9 @@
     "Choose Another File…" : {
 
     },
+    "Choose Printing" : {
+
+    },
     "Choose a card" : {
 
     },
@@ -221,6 +230,9 @@
 
     },
     "Choose between 1 and %lld columns and rows. Cards that no longer fit move to extra pages; gaps are preserved." : {
+
+    },
+    "Choose the printing again from Search or Wishlist." : {
 
     },
     "Clear slot" : {
@@ -260,6 +272,9 @@
 
     },
     "Correct Row" : {
+
+    },
+    "Correct row %lld" : {
 
     },
     "Correct the values below. Card fields must match across purchases with the same card ID." : {
@@ -412,10 +427,19 @@
     "Export collections" : {
 
     },
+    "Find a printing in Search or Wishlist to add your first card." : {
+
+    },
+    "Finding a catalog printing…" : {
+
+    },
     "Game" : {
 
     },
     "Generate Card ID" : {
+
+    },
+    "Illustrator" : {
 
     },
     "Illustrators" : {
@@ -476,16 +500,16 @@
     "Loading the latest prices…" : {
 
     },
-    "Matching IDs replace cards and their complete purchase history in your collection. Unchanged cards and excluded rows are skipped." : {
+    "Matching IDs and printings update the complete purchase history. Unchanged cards and excluded rows are skipped." : {
 
     },
     "Missing columns: %@. Download the CSV template and copy your data into its columns." : {
 
     },
-    "Monkey D. Luffy" : {
+    "Move to another collection" : {
 
     },
-    "Move to another collection" : {
+    "Multiple printings match these rows. Choose the one you own." : {
 
     },
     "Name" : {
@@ -504,6 +528,9 @@
 
     },
     "No cards" : {
+
+    },
+    "No catalog printing matches these rows. Correct the card fields or exclude the rows." : {
 
     },
     "No matching cards" : {
@@ -528,9 +555,6 @@
 
     },
     "OK" : {
-
-    },
-    "OP01-003" : {
 
     },
     "Optional notes" : {
@@ -582,6 +606,9 @@
     "Pricing" : {
 
     },
+    "Printing: %@" : {
+
+    },
     "Provide both purchase_price and currency, or leave both blank." : {
 
     },
@@ -628,6 +655,9 @@
     "Retry" : {
 
     },
+    "Retry Catalog Lookup" : {
+
+    },
     "Retry Refresh" : {
 
     },
@@ -638,9 +668,6 @@
 
     },
     "Review, edit, or remove cards before importing. Your collection won’t change until you confirm." : {
-
-    },
-    "Romance Dawn" : {
 
     },
     "Row %lld has %lld columns; the header has %lld. Check for missing cells or extra commas. Put text containing commas inside double quotes." : {
@@ -714,6 +741,9 @@
     "Shorten the notes to 2000 characters or fewer." : {
 
     },
+    "Shorten the set name to 200 characters or fewer." : {
+
+    },
     "Slot contents" : {
 
     },
@@ -735,6 +765,9 @@
     "The backup couldn’t be saved. Please try again." : {
 
     },
+    "The previous printing is unavailable. Choose a printing to continue." : {
+
+    },
     "The server is unavailable. Please try again." : {
 
     },
@@ -745,9 +778,6 @@
 
     },
     "This backup version is not supported." : {
-
-    },
-    "This binder is full. Choose another collection or increase its page dimensions." : {
 
     },
     "This card is no longer in your collection." : {
@@ -775,6 +805,9 @@
 
     },
     "Unnamed card" : {
+
+    },
+    "Variant" : {
 
     },
     "View" : {

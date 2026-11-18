@@ -1,4 +1,5 @@
 import SwiftUI
+import TCGClient
 import TCGDesignSystem
 import TCGUtils
 import UniformTypeIdentifiers
@@ -10,6 +11,7 @@ public struct TCGCardsImportReviewScreen: View {
     @State private var model: TCGCardsImportReviewModel
     @State private var rowEditor: RowEditorSelection?
     @State private var cardEditor: CSVImportCard?
+    @State private var printingEditor: CSVImportCard?
     @State private var isChoosingFile = false
     @State private var isConfirmingFileChange = false
     @State private var isConfirmingDiscard = false
@@ -36,6 +38,7 @@ public struct TCGCardsImportReviewScreen: View {
                         actions: .init(
                             editCard: { cardEditor = $0 },
                             editRow: { row, cardID in rowEditor = .init(cardID: cardID, row: row) },
+                            choosePrinting: { printingEditor = $0 },
                             downloadTemplate: downloadTemplate,
                             chooseAnotherFile: chooseAnotherFile
                         )
@@ -57,12 +60,21 @@ public struct TCGCardsImportReviewScreen: View {
             .frame(width: 650, height: 650)
         #endif
         .interactiveDismissDisabled(model.hasEdits || model.isSubmitting)
+        .task(id: model.lookupTask) { await model.refreshLookups(using: collection) }
         .sheet(item: $rowEditor) { selection in
             CSVRowEditor(row: selection.row) { row in model.saveRow(row, cardID: selection.cardID) }
         }
         .sheet(item: $cardEditor) { card in
             if let value = CardsCSV.makeCard(card, now: Date()) {
                 CSVCardEditor(card: value) { values in model.saveCard(values, id: card.id) }
+            }
+        }
+        .sheet(item: $printingEditor) { card in
+            if case .matches(let printings) = model.lookup(for: card) {
+                CSVPrintingPicker(printings: printings, selectedID: model.selectedPrinting(for: card)?.id) { printing in
+                    model.choosePrinting(printing, for: card.id)
+                    printingEditor = nil
+                }
             }
         }
         .confirmationDialog(Text("Discard import edits?", bundle: .module), isPresented: $isConfirmingDiscard) {

@@ -8,7 +8,7 @@ import { purchaseQuantities } from '../utils/quantities.ts';
 
 const MAX_CONDITIONS = CARD_CONDITIONS.length;
 
-const CardInputSchema = CardCoreFieldsSchema.extend({
+const CardOwnershipSchema = z.strictObject({
   collection_id: UuidSchema.nullish(),
   notes: z
     .string()
@@ -30,14 +30,14 @@ const CardInputSchema = CardCoreFieldsSchema.extend({
     }),
 });
 
-function validatePurchases(values: z.infer<typeof CardInputSchema>, context: z.RefinementCtx) {
-  const ids = values.purchases.flatMap(purchase => (purchase.id == null ? [] : [purchase.id]));
+function validatePurchases({ purchases }: Pick<UpdateCard, 'purchases'>, context: z.RefinementCtx) {
+  const ids = purchases.flatMap(purchase => (purchase.id == null ? [] : [purchase.id]));
 
   if (new Set(ids).size !== ids.length) {
     context.addIssue({ code: 'custom', path: ['purchases'], message: 'Purchase IDs must be unique' });
   }
 
-  if (purchaseQuantities(values.purchases).some(({ quantity }) => quantity > MAX_COPIES_PER_CONDITION)) {
+  if (purchaseQuantities(purchases).some(({ quantity }) => quantity > MAX_COPIES_PER_CONDITION)) {
     context.addIssue({
       code: 'custom',
       path: ['purchases'],
@@ -46,25 +46,30 @@ function validatePurchases(values: z.infer<typeof CardInputSchema>, context: z.R
   }
 }
 
-export const UpsertCardSchema = CardInputSchema.extend({
-  priced_card_id: UuidSchema.optional().meta({ description: 'Selected priced card from search' }),
+const SelectedPrintingSchema = UuidSchema.meta({ description: 'UUID of the selected catalog printing or variant' });
+
+export const CreateCardSchema = CardOwnershipSchema.extend({
+  priced_card_id: SelectedPrintingSchema,
 })
   .superRefine(validatePurchases)
   .meta({
-    $id: 'UpsertCard',
-    title: 'Upsert Card',
-    description: 'Fields used to create or fully replace an owned card entry',
+    $id: 'CreateCard',
+    title: 'Create Card',
+    description: 'Create an owned card from the selected catalog printing',
     example: {
-      game: 'one_piece',
-      name: 'Monkey D. Luffy',
-      set_name: 'Romance Dawn',
-      card_number: 'OP01-003',
+      priced_card_id: '550e8400-e29b-41d4-a716-446655440000',
       notes: 'Alternate art',
       purchases: [{ condition: 'near_mint', quantity: 2, purchase_price: null, currency: null }],
     },
   });
 
-export type UpsertCard = z.infer<typeof UpsertCardSchema>;
+export const UpdateCardSchema = CardOwnershipSchema.superRefine(validatePurchases).meta({
+  $id: 'UpdateCard',
+  title: 'Update Card',
+  description: 'Replace ownership details for an existing card',
+});
+
+export type UpdateCard = z.infer<typeof CardOwnershipSchema>;
 
 export const DeleteCardsSchema = z
   .object({
@@ -72,12 +77,40 @@ export const DeleteCardsSchema = z
   })
   .meta({ $id: 'DeleteCards', title: 'Delete Cards' });
 
-export const ImportCardSchema = CardInputSchema.extend({
+const ImportedCardPurchaseSchema = CardPurchaseSchema.omit({ display_price: true })
+  .extend({
+    purchase_price: CardPurchaseSchema.shape.purchase_price.optional().default(null),
+    currency: CardPurchaseSchema.shape.currency.optional().default(null),
+    automatic_price_date: z.iso.date().nullish().default(null).meta({
+      description: 'Original market pricing day; requires a purchase price when provided',
+      example: '2026-07-20',
+    }),
+  })
+  .superRefine((purchase, context) => {
+    if ((purchase.purchase_price == null) !== (purchase.currency == null)) {
+      context.addIssue({
+        code: 'custom',
+        path: ['purchase_price'],
+        message: 'Purchase price and currency must be provided together',
+      });
+    }
+
+    if (purchase.automatic_price_date != null && purchase.purchase_price == null) {
+      context.addIssue({
+        code: 'custom',
+        path: ['automatic_price_date'],
+        message: 'Automatic price date requires a purchase price',
+      });
+    }
+  })
+  .meta({ $id: 'ImportedCardPurchase', title: 'Imported Card Purchase' });
+
+const ImportedCardFieldsSchema = CardOwnershipSchema.extend({
   id: UuidSchema.meta({
     description: 'Source card identifier used to create or replace cards owned by the importing account',
     example: '550e8400-e29b-41d4-a716-446655440000',
   }),
-  notes: UpsertCardSchema.shape.notes
+  notes: CardOwnershipSchema.shape.notes
     .meta({ description: 'Optional notes preserved from the backup', example: 'Alternate art' })
     .nullable()
     .transform(notes => notes ?? undefined),
@@ -90,38 +123,14 @@ export const ImportCardSchema = CardInputSchema.extend({
     example: '2026-07-20T10:30:00.000Z',
   }),
   purchases: z
-    .array(
-      CardPurchaseSchema.omit({ display_price: true })
-        .extend({
-          purchase_price: CardPurchaseSchema.shape.purchase_price.optional().default(null),
-          currency: CardPurchaseSchema.shape.currency.optional().default(null),
-          automatic_price_date: z.iso.date().nullish().default(null).meta({
-            description: 'Original market pricing day; requires a purchase price when provided',
-            example: '2026-07-20',
-          }),
-        })
-        .superRefine((purchase, context) => {
-          if ((purchase.purchase_price == null) !== (purchase.currency == null)) {
-            context.addIssue({
-              code: 'custom',
-              path: ['purchase_price'],
-              message: 'Purchase price and currency must be provided together',
-            });
-          }
-
-          if (purchase.automatic_price_date != null && purchase.purchase_price == null) {
-            context.addIssue({
-              code: 'custom',
-              path: ['automatic_price_date'],
-              message: 'Automatic price date requires a purchase price',
-            });
-          }
-        }),
-    )
+    .array(ImportedCardPurchaseSchema)
     .nonempty()
     .max(MAX_CONDITIONS * MAX_COPIES_PER_CONDITION)
     .meta({ description: 'Purchase batches preserved from the backup, including exact costs and currencies' }),
-})
+});
+
+export const ImportCardSchema = z
+  .object({ ...ImportedCardFieldsSchema.shape, ...CardCoreFieldsSchema.shape })
   .superRefine(validatePurchases)
   .meta({
     $id: 'ImportCard',
@@ -130,18 +139,27 @@ export const ImportCardSchema = CardInputSchema.extend({
     example: IMPORT_CARD_EXAMPLE,
   });
 
-export const ImportCardsSchema = z
-  .object({
-    cards: z.array(ImportCardSchema).meta({
-      description:
-        'Cards to import; matching owned identifiers replace changed cards and their complete purchase history',
-    }),
-  })
-  .meta({
-    $id: 'ImportCards',
-    title: 'Import Cards',
-    description: "A collection backup to import into the authenticated user's account",
-    example: { cards: [IMPORT_CARD_EXAMPLE] },
-  });
+const CSVImportCardSchema = ImportedCardFieldsSchema.omit({ collection_id: true })
+  .extend({ priced_card_id: SelectedPrintingSchema })
+  .superRefine(validatePurchases)
+  .meta({ $id: 'CSVImportCard', title: 'CSV Import Card' });
+
+export const ImportCardsSchema = z.strictObject({ cards: z.array(CSVImportCardSchema) }).meta({
+  $id: 'ImportCards',
+  title: 'Import Cards',
+  description: 'Import a batch of owned cards with a selected catalog printing for each entry',
+  example: {
+    cards: [
+      {
+        id: IMPORT_CARD_EXAMPLE.id,
+        notes: IMPORT_CARD_EXAMPLE.notes,
+        created_at: IMPORT_CARD_EXAMPLE.created_at,
+        updated_at: IMPORT_CARD_EXAMPLE.updated_at,
+        purchases: IMPORT_CARD_EXAMPLE.purchases,
+        priced_card_id: '550e8400-e29b-41d4-a716-446655440010',
+      },
+    ],
+  },
+});
 
 export type ImportCard = z.infer<typeof ImportCardSchema>;

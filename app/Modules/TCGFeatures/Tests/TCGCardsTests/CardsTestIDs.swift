@@ -1,6 +1,11 @@
 import Foundation
 
+@testable import TCGClient
+
 enum CardsTestIDs {
+    static let addPrinting = PreviewTCGPricingClient.samplePricedCards[0]
+    static let addPrintingID = UUID(uuid: (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1))
+
     static let primary = UUID(uuid: (0, 0, 0, 0, 0, 0, 64, 0, 128, 0, 0, 0, 0, 0, 0, 1))
     static let secondary = UUID(uuid: (0, 0, 0, 0, 0, 0, 64, 0, 128, 0, 0, 0, 0, 0, 0, 2))
     static let third = UUID(uuid: (0, 0, 0, 0, 0, 0, 64, 0, 128, 0, 0, 0, 0, 0, 0, 3))

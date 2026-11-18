@@ -9,8 +9,8 @@
     struct TCGCardFormDismissalObserverTests {
         @Test
         func `Native dismissal attempts request confirmation and preserve the draft`() {
-            let model = TCGCardFormScreenModel(mode: .add, initialValues: nil)
-            model.values.name = "Draft"
+            let model = TCGCardFormScreenModel(mode: .add(CardsTestIDs.addPrinting), initialValues: nil)
+            model.values.notes = "Draft"
             let observer = TCGCardFormDismissalObserver.ObserverController(isDismissalDisabled: true) {
                 _ = model.requestDismissal()
             }
@@ -19,7 +19,7 @@
             #expect(!observer.presentationControllerShouldDismiss(presentation))
             observer.presentationControllerDidAttemptToDismiss(presentation)
             #expect(model.isShowingDiscardConfirmation)
-            #expect(model.values.name == "Draft")
+            #expect(model.values.notes == "Draft")
             model.keepEditing()
             #expect(!model.isShowingDiscardConfirmation)
             #expect(!observer.presentationControllerShouldDismiss(presentation))
@@ -27,7 +27,7 @@
 
         @Test
         func `An unchanged form permits native dismissal`() {
-            let model = TCGCardFormScreenModel(mode: .add, initialValues: nil)
+            let model = TCGCardFormScreenModel(mode: .add(CardsTestIDs.addPrinting), initialValues: nil)
             let observer = TCGCardFormDismissalObserver.ObserverController(
                 isDismissalDisabled: model.hasUnsavedChanges
             ) {

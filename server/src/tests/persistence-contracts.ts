@@ -4,7 +4,7 @@ import type { UserPreferencesRepository } from '../auth/repository.ts';
 import type { CardImageRepository } from '../card-images/repository.ts';
 import type { PricingCoordinator } from '../card-pricing/coordinator.ts';
 import type { CardRepository } from '../cards/repository.ts';
-import { UpsertCardSchema, ImportCardSchema } from '../cards/schemas/payloads.ts';
+import { UpdateCardSchema, ImportCardSchema } from '../cards/schemas/payloads.ts';
 import type { ForexRepository } from '../forex/repository.ts';
 import type { ObjectStorageClient } from '../storage/client.ts';
 
@@ -33,14 +33,20 @@ export function definePersistenceContracts(name: string, createFixture: () => Pr
         const alice = await contract.createOwner();
         const bob = await contract.createOwner();
 
+        const printing = {
+          game: 'pokemon',
+          name: 'Pikachu',
+          setName: 'Base',
+          cardNumber: '58',
+          pricingCardId: 'base-58',
+          pricingSource: 'scrydex_static',
+        } as const;
+
         const card = await alice.cards.create(
-          UpsertCardSchema.parse({
-            game: 'pokemon',
-            name: 'Pikachu',
-            set_name: 'Base',
-            card_number: '58',
+          UpdateCardSchema.parse({
             purchases: [{ condition: 'near_mint', quantity: 1, purchase_price: '2.50', currency: 'EUR' }],
           }),
+          printing,
         );
 
         await alice.preferences.updatePreferredCurrency('EUR');
@@ -49,11 +55,7 @@ export function definePersistenceContracts(name: string, createFixture: () => Pr
         expect(
           await bob.cards.update(
             card.id,
-            UpsertCardSchema.parse({
-              game: 'pokemon',
-              name: 'Pikachu',
-              set_name: 'Base',
-              card_number: '58',
+            UpdateCardSchema.parse({
               purchases: [{ condition: 'near_mint', quantity: 2, purchase_price: null, currency: null }],
             }),
           ),
@@ -65,7 +67,7 @@ export function definePersistenceContracts(name: string, createFixture: () => Pr
       },
     );
 
-    integrationTest('imports the same backup idempotently', async ({ contract }) => {
+    integrationTest('imports the same catalog printing idempotently', async ({ contract }) => {
       const owner = await contract.createOwner();
 
       const input = ImportCardSchema.parse({
@@ -87,8 +89,29 @@ export function definePersistenceContracts(name: string, createFixture: () => Pr
         ],
       });
 
-      expect(await owner.cards.importCards([input])).toEqual({ imported_count: 1, updated_count: 0, skipped_count: 0 });
-      expect(await owner.cards.importCards([input])).toEqual({ imported_count: 0, updated_count: 0, skipped_count: 1 });
+      const resolved = {
+        ...input,
+        printing: {
+          game: input.game,
+          name: input.name,
+          setName: input.set_name,
+          cardNumber: input.card_number,
+          pricingCardId: 'base-58',
+          pricingSource: 'scrydex_static',
+        },
+        sourceIndex: 0,
+      };
+
+      expect(await owner.cards.importCards([resolved])).toEqual({
+        imported_count: 1,
+        updated_count: 0,
+        skipped_count: 0,
+      });
+      expect(await owner.cards.importCards([resolved])).toEqual({
+        imported_count: 0,
+        updated_count: 0,
+        skipped_count: 1,
+      });
     });
 
     integrationTest('claims once and fences completion by lease owner', async ({ contract }) => {

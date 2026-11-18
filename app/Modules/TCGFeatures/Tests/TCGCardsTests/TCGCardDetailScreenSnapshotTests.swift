@@ -142,9 +142,9 @@ struct TCGCardDetailScreenSnapshotTests {
         let model = makeModel()
         model.edit()
         let editor = try #require(model.editor)
-        editor.values.name = ""
+        editor.values.batches = []
         await model.save(using: TCGCards(client: .preview(cardsOutcome: .empty)))
-        #expect(editor.fieldErrors[.name] != nil)
+        #expect(editor.fieldErrors[.quantities] != nil)
         await assertScreenSnapshot(testName: #function) { makeScreen(model, isEditingCollection: true) }
     }
 

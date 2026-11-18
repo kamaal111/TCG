@@ -168,7 +168,7 @@ enum CollectionMapper {
     }
 
     private static func makePurchase(
-        _ purchase: Components.Schemas.ImportCard.PurchasesPayloadPayload
+        _ purchase: Components.Schemas.ImportedCardPurchase
     ) -> Result<ImportPurchasePayload, UUIDCodingError> {
         UUIDCoding.decode(purchase.id)
             .map { id in
@@ -191,7 +191,7 @@ enum CollectionMapper {
     }
 
     private static func makeCondition(
-        _ condition: Components.Schemas.ImportCard.PurchasesPayloadPayload.ConditionPayload
+        _ condition: Components.Schemas.ImportedCardPurchase.ConditionPayload
     ) -> CardCondition {
         switch condition {
         case .mint: .mint

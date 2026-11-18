@@ -5,7 +5,14 @@ import { eq } from 'drizzle-orm';
 import { createTestScrydexClient } from './utils.ts';
 import { LIST_CARDS_ROUTE_PATH } from '../../cards/routes/list-cards.ts';
 import { OwnedCardPricesSchema } from '../../cards/schemas/responses.ts';
-import { createCardRequest, createTestCard, requestOwnedPrices } from '../../cards/tests/utils.ts';
+import {
+  createCardRequest,
+  createTestCard,
+  requestOwnedPrices,
+  seedCatalogPrinting,
+  validCardPayload,
+} from '../../cards/tests/utils.ts';
+import { cardPrice } from '../../db/schema/card-pricing.ts';
 import { card } from '../../db/schema/cards.ts';
 import { integrationTest } from '../../tests/fixtures.ts';
 import { StaticScrydexClient } from '../scrydex/static-client.ts';
@@ -22,7 +29,7 @@ describe('Scrydex owned-card pricing', () => {
   integrationTest(
     'decodes a daily lookup and reuses the persisted price',
     async ({ app, db, createApp, user, authenticatedHeaders }) => {
-      const created = await createTestCard(app, user.sessionToken);
+      const created = await createTestCard(app, user.sessionToken, validCardPayload);
       await db
         .update(card)
         .set({ game: 'pokemon', pricingCardId: providerCard.id, pricingSource: 'scrydex_real' })
@@ -61,7 +68,7 @@ describe('Scrydex owned-card pricing', () => {
   integrationTest(
     'does not hide unexpected collection pricing failures',
     async ({ app, db, withRequestId, getLogsForRequestId, createApp, user, authenticatedHeaders }) => {
-      const created = await createTestCard(app, user.sessionToken);
+      const created = await createTestCard(app, user.sessionToken, validCardPayload);
       await db
         .update(card)
         .set({ pricingCardId: 'uncached', pricingSource: 'scrydex_static' })
@@ -84,14 +91,20 @@ describe('Scrydex owned-card pricing', () => {
   );
 
   integrationTest(
-    'keeps create and update pricing failures strict after saving',
+    'uses the cached printing and allows ownership updates when its price provider is unavailable',
     async ({ db, createApp, user, authenticatedHeaders }) => {
       const pricingClient = createTestScrydexClient(async () => Response.json({ data: null }));
 
       const realApp = createApp({ pricingClient });
-      const created = await createCardRequest(realApp, user.sessionToken);
-      expect(created.status).toBe(503);
-      expect(await created.json()).toMatchObject({ code: 'PRICING_PROVIDER_UNAVAILABLE' });
+      const printing = await seedCatalogPrinting(db, validCardPayload, 'scrydex_real');
+
+      const created = await createCardRequest(realApp, user.sessionToken, {
+        ...validCardPayload,
+        priced_card_id: printing.id,
+      });
+
+      expect(created.status).toBe(201);
+      await db.update(cardPrice).set({ pricedOn: '2025-01-01' }).where(eq(cardPrice.id, printing.id));
 
       const savedCards = await db.query.card.findMany();
       expect(savedCards).toHaveLength(1);
@@ -104,17 +117,14 @@ describe('Scrydex owned-card pricing', () => {
         method: 'PUT',
         headers: authenticatedHeaders,
         body: JSON.stringify({
-          game: saved.game,
-          name: 'Updated card',
-          set_name: saved.setName,
-          card_number: saved.cardNumber,
+          notes: 'Updated notes',
           purchases: [{ condition: 'near_mint', quantity: 1, purchase_price: null, currency: null }],
         }),
       });
 
-      expect(updated.status).toBe(503);
-      expect(await updated.json()).toMatchObject({ code: 'PRICING_PROVIDER_UNAVAILABLE' });
-      expect(await db.query.card.findFirst({ where: { id: saved.id } })).toMatchObject({ name: 'Updated card' });
+      expect(updated.status).toBe(200);
+      expect(await updated.json()).toMatchObject({ price: { status: 'unavailable' }, name: saved.name });
+      expect(await db.query.card.findFirst({ where: { id: saved.id } })).toMatchObject({ notes: 'Updated notes' });
     },
   );
 
@@ -122,8 +132,8 @@ describe('Scrydex owned-card pricing', () => {
     integrationTest(
       `keeps cards visible and logs provider failures during ${operation}`,
       async ({ app, db, withRequestId, getLogsForRequestId, createApp, user, authenticatedHeaders }) => {
-        const failed = await createTestCard(app, user.sessionToken);
-        const successful = await createTestCard(app, user.sessionToken);
+        const failed = await createTestCard(app, user.sessionToken, validCardPayload);
+        const successful = await createTestCard(app, user.sessionToken, validCardPayload);
         await db
           .update(card)
           .set({

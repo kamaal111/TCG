@@ -533,9 +533,9 @@ paths:
   /app-api/cards/import:
     post:
       description: >-
-        Import cards into the authenticated user's collection. Matching owned
-        IDs replace changed cards and complete purchase history; unchanged cards
-        are skipped.
+        Import catalog cards into the authenticated user's collection. Matching
+        owned IDs and printings replace ownership details; unchanged cards are
+        skipped.
       requestBody:
         content:
           application/json:
@@ -568,7 +568,7 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       security:
         - bearerAuth: []
-      summary: Import new cards and replace changed owned cards
+      summary: Import catalog cards and update their ownership details
       tags:
         - Cards
   /app-api/cards:
@@ -582,7 +582,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/UpsertCard'
+              $ref: '#/components/schemas/CreateCard'
       responses:
         '201':
           description: Card added successfully
@@ -700,7 +700,7 @@ paths:
               type: string
               minLength: 1
               maxLength: 200
-              description: Set name
+              description: Set name, empty when unavailable
               example: Romance Dawn
               $schema: https://json-schema.org/draft/2020-12/schema
             description: >-
@@ -788,8 +788,8 @@ paths:
   /app-api/cards/{cardId}:
     put:
       description: >-
-        Replace an owned card entry and all quantities for the authenticated
-        user.
+        Replace purchases and notes and optionally move the card to another
+        collection.
       parameters:
         - schema:
             type: string
@@ -804,7 +804,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/UpsertCard'
+              $ref: '#/components/schemas/UpdateCard'
       responses:
         '200':
           description: Card updated successfully
@@ -840,7 +840,7 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       security:
         - bearerAuth: []
-      summary: Replace an owned card
+      summary: Update ownership details for a card
       tags:
         - Cards
     get:
@@ -2574,9 +2574,8 @@ components:
           example: Monkey D. Luffy
         set_name:
           type: string
-          minLength: 1
           maxLength: 200
-          description: Set name
+          description: Set name, empty when unavailable
           example: Romance Dawn
         card_number:
           type: string
@@ -2702,21 +2701,16 @@ components:
         cards:
           type: array
           items:
-            $ref: '#/components/schemas/ImportCard'
-          description: >-
-            Cards to import; matching owned identifiers replace changed cards
-            and their complete purchase history
+            $ref: '#/components/schemas/CSVImportCard'
       required:
         - cards
       title: Import Cards
-      description: A collection backup to import into the authenticated user's account
+      description: >-
+        Import a batch of owned cards with a selected catalog printing for each
+        entry
       example:
         cards:
           - id: 550e8400-e29b-41d4-a716-446655440000
-            game: one_piece
-            name: Monkey D. Luffy
-            set_name: Romance Dawn
-            card_number: OP01-003
             notes: Alternate art
             created_at: '2026-07-20T10:30:00.000Z'
             updated_at: '2026-07-20T10:30:00.000Z'
@@ -2727,41 +2721,61 @@ components:
                 purchase_price: '2.50'
                 currency: USD
                 automatic_price_date: '2026-07-20'
-    ImportCard:
+            priced_card_id: 550e8400-e29b-41d4-a716-446655440010
+    ImportedCardPurchase:
       type: object
       properties:
-        game:
+        id:
           type: string
-          enum:
-            - one_piece
-            - pokemon
-          description: Trading card game
-          example: one_piece
-        name:
-          type: string
-          minLength: 1
-          maxLength: 200
-          description: Card name
-          example: Monkey D. Luffy
-        set_name:
-          type: string
-          minLength: 1
-          maxLength: 200
-          description: Set name
-          example: Romance Dawn
-        card_number:
-          type: string
-          minLength: 1
-          maxLength: 50
-          description: Card number
-          example: OP01-003
-        collection_id:
-          type:
-            - 'null'
-            - string
           format: uuid
           description: UUID identifier, normalized to lowercase
           example: 550e8400-e29b-41d4-a716-446655440000
+        condition:
+          type: string
+          enum:
+            - mint
+            - near_mint
+            - excellent
+            - good
+            - played
+            - damaged
+          description: Condition of the owned copies
+          example: near_mint
+        quantity:
+          type: integer
+          minimum: 1
+          maximum: 999
+          description: Number of copies owned in this condition
+          example: 2
+        purchase_price:
+          type:
+            - 'null'
+            - string
+          pattern: ^(?:0|[1-9]\d{0,13})(?:\.\d{1,6})?$
+          description: >-
+            Nonnegative price per card, as an exact decimal with at most six
+            fractional digits
+          example: '2.50'
+          default: null
+        currency:
+          $ref: '#/components/schemas/NullableCurrency'
+          default: null
+        automatic_price_date:
+          type:
+            - 'null'
+            - string
+          format: date
+          description: Original market pricing day; requires a purchase price when provided
+          example: '2026-07-20'
+          default: null
+      required:
+        - id
+        - condition
+        - quantity
+      title: Imported Card Purchase
+    CSVImportCard:
+      type: object
+      properties:
         notes:
           type:
             - 'null'
@@ -2772,57 +2786,7 @@ components:
         purchases:
           type: array
           items:
-            type: object
-            properties:
-              id:
-                type: string
-                format: uuid
-                description: UUID identifier, normalized to lowercase
-                example: 550e8400-e29b-41d4-a716-446655440000
-              condition:
-                type: string
-                enum:
-                  - mint
-                  - near_mint
-                  - excellent
-                  - good
-                  - played
-                  - damaged
-                description: Condition of the owned copies
-                example: near_mint
-              quantity:
-                type: integer
-                minimum: 1
-                maximum: 999
-                description: Number of copies owned in this condition
-                example: 2
-              purchase_price:
-                type:
-                  - 'null'
-                  - string
-                pattern: ^(?:0|[1-9]\d{0,13})(?:\.\d{1,6})?$
-                description: >-
-                  Nonnegative price per card, as an exact decimal with at most
-                  six fractional digits
-                example: '2.50'
-                default: null
-              currency:
-                $ref: '#/components/schemas/NullableCurrency'
-                default: null
-              automatic_price_date:
-                type:
-                  - 'null'
-                  - string
-                format: date
-                description: >-
-                  Original market pricing day; requires a purchase price when
-                  provided
-                example: '2026-07-20'
-                default: null
-            required:
-              - id
-              - condition
-              - quantity
+            $ref: '#/components/schemas/ImportedCardPurchase'
           minItems: 1
           maxItems: 5994
           description: >-
@@ -2845,35 +2809,18 @@ components:
           format: date-time
           description: Original last update timestamp preserved from the backup
           example: '2026-07-20T10:30:00.000Z'
+        priced_card_id:
+          type: string
+          format: uuid
+          description: UUID of the selected catalog printing or variant
+          example: 550e8400-e29b-41d4-a716-446655440000
       required:
-        - game
-        - name
-        - set_name
-        - card_number
         - purchases
         - id
         - created_at
         - updated_at
-      title: Import Card
-      description: >-
-        An owned card from a backup, preserving source identity, timestamps, and
-        purchase history
-      example:
-        id: 550e8400-e29b-41d4-a716-446655440000
-        game: one_piece
-        name: Monkey D. Luffy
-        set_name: Romance Dawn
-        card_number: OP01-003
-        notes: Alternate art
-        created_at: '2026-07-20T10:30:00.000Z'
-        updated_at: '2026-07-20T10:30:00.000Z'
-        purchases:
-          - id: 550e8400-e29b-41d4-a716-446655440001
-            condition: near_mint
-            quantity: 2
-            purchase_price: '2.50'
-            currency: USD
-            automatic_price_date: '2026-07-20'
+        - priced_card_id
+      title: CSV Import Card
     CardWithPrice:
       allOf:
         - $ref: '#/components/schemas/Card'
@@ -3132,34 +3079,9 @@ components:
       example:
         card_id: 550e8400-e29b-41d4-a716-446655440000
         status: priced
-    UpsertCard:
+    CreateCard:
       type: object
       properties:
-        game:
-          type: string
-          enum:
-            - one_piece
-            - pokemon
-          description: Trading card game
-          example: one_piece
-        name:
-          type: string
-          minLength: 1
-          maxLength: 200
-          description: Card name
-          example: Monkey D. Luffy
-        set_name:
-          type: string
-          minLength: 1
-          maxLength: 200
-          description: Set name
-          example: Romance Dawn
-        card_number:
-          type: string
-          minLength: 1
-          maxLength: 50
-          description: Card number
-          example: OP01-003
         collection_id:
           type:
             - 'null'
@@ -3185,21 +3107,15 @@ components:
         priced_card_id:
           type: string
           format: uuid
-          description: Selected priced card from search
+          description: UUID of the selected catalog printing or variant
           example: 550e8400-e29b-41d4-a716-446655440000
       required:
-        - game
-        - name
-        - set_name
-        - card_number
         - purchases
-      title: Upsert Card
-      description: Fields used to create or fully replace an owned card entry
+        - priced_card_id
+      title: Create Card
+      description: Create an owned card from the selected catalog printing
       example:
-        game: one_piece
-        name: Monkey D. Luffy
-        set_name: Romance Dawn
-        card_number: OP01-003
+        priced_card_id: 550e8400-e29b-41d4-a716-446655440000
         notes: Alternate art
         purchases:
           - condition: near_mint
@@ -3273,9 +3189,8 @@ components:
           type: array
           items:
             type: string
-            minLength: 1
             maxLength: 200
-            description: Set name
+            description: Set name, empty when unavailable
             example: Romance Dawn
           description: >-
             Distinct owned set names in alphabetical order, scoped by game but
@@ -3318,6 +3233,35 @@ components:
         - code
       title: Card Not Found Error Response
       description: Error response for a missing or inaccessible owned card entry
+    UpdateCard:
+      type: object
+      properties:
+        collection_id:
+          type:
+            - 'null'
+            - string
+          format: uuid
+          description: UUID identifier, normalized to lowercase
+          example: 550e8400-e29b-41d4-a716-446655440000
+        notes:
+          type: string
+          maxLength: 2000
+          description: Optional notes about this owned card
+          example: Alternate art
+        purchases:
+          type: array
+          items:
+            $ref: '#/components/schemas/CardPurchaseInput'
+          minItems: 1
+          maxItems: 5994
+          description: >-
+            Complete list of owned purchases. On update, retain IDs to edit
+            purchases, omit IDs to add purchases, and omit existing purchases to
+            remove them. Condition totals are derived from this list.
+      required:
+        - purchases
+      title: Update Card
+      description: Replace ownership details for an existing card
     DeleteCardsResponse:
       type: object
       properties:
@@ -3798,6 +3742,102 @@ components:
                 currency: USD
                 automatic_price_date: '2026-07-20'
             collection_id: 550e8400-e29b-41d4-a716-446655440010
+    ImportCard:
+      type: object
+      properties:
+        collection_id:
+          type:
+            - 'null'
+            - string
+          format: uuid
+          description: UUID identifier, normalized to lowercase
+          example: 550e8400-e29b-41d4-a716-446655440000
+        notes:
+          type:
+            - 'null'
+            - string
+          maxLength: 2000
+          description: Optional notes preserved from the backup
+          example: Alternate art
+        purchases:
+          type: array
+          items:
+            $ref: '#/components/schemas/ImportedCardPurchase'
+          minItems: 1
+          maxItems: 5994
+          description: >-
+            Purchase batches preserved from the backup, including exact costs
+            and currencies
+        id:
+          type: string
+          format: uuid
+          description: >-
+            Source card identifier used to create or replace cards owned by the
+            importing account
+          example: 550e8400-e29b-41d4-a716-446655440000
+        created_at:
+          type: string
+          format: date-time
+          description: Original creation timestamp preserved from the backup
+          example: '2026-07-20T10:30:00.000Z'
+        updated_at:
+          type: string
+          format: date-time
+          description: Original last update timestamp preserved from the backup
+          example: '2026-07-20T10:30:00.000Z'
+        game:
+          type: string
+          enum:
+            - one_piece
+            - pokemon
+          description: Trading card game
+          example: one_piece
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: Card name
+          example: Monkey D. Luffy
+        set_name:
+          type: string
+          maxLength: 200
+          description: Set name, empty when unavailable
+          example: Romance Dawn
+        card_number:
+          type: string
+          minLength: 1
+          maxLength: 50
+          description: Card number
+          example: OP01-003
+      required:
+        - purchases
+        - id
+        - created_at
+        - updated_at
+        - game
+        - name
+        - set_name
+        - card_number
+      title: Import Card
+      description: >-
+        An owned card from a backup, preserving source identity, timestamps, and
+        purchase history
+      example:
+        id: 550e8400-e29b-41d4-a716-446655440000
+        game: one_piece
+        name: Monkey D. Luffy
+        set_name: Romance Dawn
+        card_number: OP01-003
+        notes: Alternate art
+        created_at: '2026-07-20T10:30:00.000Z'
+        updated_at: '2026-07-20T10:30:00.000Z'
+        purchases:
+          - id: 550e8400-e29b-41d4-a716-446655440001
+            condition: near_mint
+            quantity: 2
+            purchase_price: '2.50'
+            currency: USD
+            automatic_price_date: '2026-07-20'
     CollectionBackupCard:
       allOf:
         - $ref: '#/components/schemas/ImportCard'

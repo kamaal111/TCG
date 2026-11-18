@@ -3,7 +3,7 @@ import crypto from 'node:crypto';
 
 import { omit } from '@kamaalio/kamaal/objects';
 import type { CardImportProgress } from '@tcg/http/progress';
-import { and, eq, getColumns, ilike, inArray, isNotNull, isNull, notInArray, or, sql } from 'drizzle-orm';
+import { and, eq, getColumns, ilike, inArray, isNotNull, isNull, ne, notInArray, or, sql } from 'drizzle-orm';
 
 import { placeCardInBinder } from './collection-placement.ts';
 import {
@@ -15,18 +15,19 @@ import {
   reconcilePlacements,
 } from './collection-transactions.ts';
 import type { OwnedCardPriceResponse } from '../../card-pricing/schemas/responses.ts';
-import { CardNotFound } from '../../cards/exceptions.ts';
+import { CardNotFound, InvalidCatalogPrinting } from '../../cards/exceptions.ts';
 import {
   pricingLinkFields,
   decimalScale,
   cardFields,
   purchaseBatchFields,
   importMatches,
+  sameCardIdentity,
 } from '../../cards/policies.ts';
-import type { CardRepository } from '../../cards/repository.ts';
-import type { ImportCard, UpsertCard } from '../../cards/schemas/payloads.ts';
+import type { CardRepository, ResolvedCSVCard } from '../../cards/repository.ts';
+import type { ImportCard, UpdateCard } from '../../cards/schemas/payloads.ts';
 import type { DeleteCardsResponse, ImportCardsResponse } from '../../cards/schemas/responses.ts';
-import type { CardWithPurchases, CardCollection, CardPricingLink } from '../../cards/types.ts';
+import type { CardWithPurchases, CardCollection, CatalogPrinting } from '../../cards/types.ts';
 import { encodeCardCursor } from '../../cards/utils/pagination.ts';
 import { marketPurchaseAmount } from '../../cards/utils/purchase-price.ts';
 import { purchaseQuantities } from '../../cards/utils/quantities.ts';
@@ -94,7 +95,11 @@ export class PostgresCardRepository implements CardRepository {
           selectedCollection !== undefined ? membershipFilter(selectedCollection) : undefined,
         );
 
-        const sets = await tx.selectDistinct({ name: card.setName }).from(card).where(ownership).orderBy(card.setName);
+        const sets = await tx
+          .selectDistinct({ name: card.setName })
+          .from(card)
+          .where(and(ownership, ne(card.setName, '')))
+          .orderBy(card.setName);
 
         const metadataIdentity = and(
           eq(cardMetadata.game, card.game),
@@ -246,7 +251,7 @@ export class PostgresCardRepository implements CardRepository {
    * @param values Card fields and purchases to persist.
    * @returns The created card with its purchases.
    */
-  create(values: UpsertCard, pricingLink?: CardPricingLink): Promise<CardWithPurchases> {
+  create(values: UpdateCard, { illustrator, ...identity }: CatalogPrinting): Promise<CardWithPurchases> {
     if (values.purchases.some(batch => batch.id != null)) {
       throw new CardNotFound();
     }
@@ -260,8 +265,8 @@ export class PostgresCardRepository implements CardRepository {
         .values({
           userId: this.userId,
           collectionId,
-          ...cardFields(values),
-          ...pricingLink,
+          ...identity,
+          notes: values.notes ?? null,
         })
         .returning();
 
@@ -284,11 +289,22 @@ export class PostgresCardRepository implements CardRepository {
       });
       await bumpCollections(tx, this.identity, [collectionId]);
 
-      return { ...createdCard, purchaseBatches };
+      return { ...createdCard, illustrator, purchaseBatches };
     });
   }
 
-  async importCards(inputs: ImportCard[], transaction?: Transaction): Promise<ImportCardsResponse> {
+  importCards(inputs: ResolvedCSVCard[]): Promise<ImportCardsResponse> {
+    return this.writeImportedCards(inputs);
+  }
+
+  restoreCards(inputs: ImportCard[], transaction: Transaction): Promise<ImportCardsResponse> {
+    return this.writeImportedCards(inputs, transaction);
+  }
+
+  private async writeImportedCards(
+    inputs: readonly (ImportCard | ResolvedCSVCard)[],
+    transaction?: Transaction,
+  ): Promise<ImportCardsResponse> {
     const started = performance.now();
     const uniqueInputs = new Map(inputs.map(input => [input.id, input]));
     const entries = uniqueInputs.values().toArray();
@@ -351,6 +367,34 @@ export class PostgresCardRepository implements CardRepository {
           .orderBy(card.id)
           .for('update');
 
+        const ownedById = new Map(lockedCards.map(row => [row.id, row]));
+
+        const ownedBySource = new Map(
+          lockedCards.flatMap(row => (row.importSourceId == null ? [] : [[row.importSourceId, row] as const])),
+        );
+
+        const conflicts = inputs.flatMap(input => {
+          if (!('printing' in input)) {
+            return [];
+          }
+
+          const existing = ownedById.get(input.id) ?? ownedBySource.get(input.id);
+          const printing = input.printing;
+
+          const agrees =
+            existing == null ||
+            (sameCardIdentity(existing, printing) &&
+              (existing.pricingCardId == null ||
+                (existing.pricingCardId === printing.pricingCardId &&
+                  existing.pricingSource === printing.pricingSource)));
+
+          return agrees ? [] : [['cards', input.sourceIndex, 'priced_card_id']];
+        });
+
+        if (conflicts.length > 0) {
+          throw new InvalidCatalogPrinting(conflicts, 'conflict');
+        }
+
         for (let offset = 0; offset < entries.length; offset += batchSize) {
           const batchStarted = performance.now();
           const chunk = entries.slice(offset, offset + batchSize);
@@ -360,12 +404,6 @@ export class PostgresCardRepository implements CardRepository {
 
           const owned = lockedCards.filter(
             row => chunkIds.has(row.id) || (row.importSourceId != null && chunkIds.has(row.importSourceId)),
-          );
-
-          const ownedById = new Map(owned.map(row => [row.id, row]));
-
-          const ownedBySource = new Map(
-            owned.flatMap(row => (row.importSourceId == null ? [] : [[row.importSourceId, row] as const])),
           );
 
           const previousPurchases =
@@ -445,13 +483,22 @@ export class PostgresCardRepository implements CardRepository {
             processedOwnedIds.add(target.id);
 
             if (existing != null) {
+              const importedFields = cardFields(input);
+
+              const fields =
+                'printing' in input
+                  ? { notes: input.notes ?? null }
+                  : {
+                      ...importedFields,
+                      ...pricingLinkFields(existing, importedFields),
+                      createdAt: new Date(input.created_at),
+                    };
+
               await tx
                 .update(card)
                 .set({
-                  ...cardFields(input),
-                  createdAt: new Date(input.created_at),
+                  ...fields,
                   updatedAt: new Date(input.updated_at),
-                  ...pricingLinkFields(existing, input),
                 })
                 .where(and(eq(card.id, target.id), eq(card.userId, this.userId)));
 
@@ -554,7 +601,7 @@ export class PostgresCardRepository implements CardRepository {
    * @param values Replacement card fields and purchases.
    * @returns The updated card with its purchases, or undefined when absent.
    */
-  update(cardId: string, values: UpsertCard, pricingLink?: CardPricingLink): Promise<CardWithPurchases | undefined> {
+  update(cardId: string, values: UpdateCard): Promise<CardWithPurchases | undefined> {
     return this.db.transaction(async tx => {
       await lockCollections(tx, this.identity);
 
@@ -588,10 +635,9 @@ export class PostgresCardRepository implements CardRepository {
       const [updatedCard] = await tx
         .update(card)
         .set({
-          ...cardFields(values),
+          notes: values.notes ?? null,
           collectionId,
           updatedAt: new Date(),
-          ...(pricingLink ?? pricingLinkFields(ownedCard, values)),
         })
         .where(and(eq(card.id, cardId), eq(card.userId, this.userId)))
         .returning();
@@ -815,6 +861,6 @@ function upsertPurchases(tx: Transaction, purchases: PurchaseWrite[]) {
     });
 }
 
-function conditionQuantityRows(cardId: string, purchases: UpsertCard['purchases']) {
+function conditionQuantityRows(cardId: string, purchases: UpdateCard['purchases']) {
   return purchaseQuantities(purchases).map(quantity => ({ cardId, ...quantity }));
 }

@@ -3,16 +3,17 @@ import SwiftUI
 struct CSVImportRowReviewView: View {
     let row: CSVImportRow
     let issues: [CSVImportIssue]
+    let needsCatalogMatch: Bool
     let onEdit: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Image(
-                    systemName: row.isIncluded && issues.isEmpty
+                    systemName: isReady
                         ? "checkmark.circle.fill" : "exclamationmark.circle.fill"
                 )
-                .foregroundStyle(row.isIncluded && issues.isEmpty ? .green : .orange)
+                .foregroundStyle(isReady ? .green : .orange)
                 Text("Row \(row.id) · \(row[.condition]) · quantity: \(row[.quantity])", bundle: .module)
             }
             if row[.purchasePrice].isEmpty {
@@ -23,13 +24,17 @@ struct CSVImportRowReviewView: View {
             Button {
                 onEdit()
             } label: {
-                if issues.isEmpty {
+                if issues.isEmpty && !needsCatalogMatch {
                     Text("Edit Purchase", bundle: .module)
                 } else {
                     Text("Correct Row", bundle: .module)
                 }
             }
-            .accessibilityLabel(Text("Edit purchase at row \(row.id)", bundle: .module))
+            .accessibilityLabel(
+                needsCatalogMatch
+                    ? Text("Correct row \(row.id)", bundle: .module)
+                    : Text("Edit purchase at row \(row.id)", bundle: .module)
+            )
             ForEach(issues) { issue in
                 CSVImportIssueView(issue: issue)
             }
@@ -38,4 +43,6 @@ struct CSVImportRowReviewView: View {
             }
         }
     }
+
+    private var isReady: Bool { row.isIncluded && issues.isEmpty && !needsCatalogMatch }
 }

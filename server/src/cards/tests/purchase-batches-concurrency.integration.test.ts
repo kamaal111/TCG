@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 
 import { eq } from 'drizzle-orm';
 
-import { createTestCard, requestOwnedPrices } from './utils.ts';
+import { createTestCard, requestOwnedPrices, validCardPayload } from './utils.ts';
 import { createTestScrydexClient } from '../../card-pricing/tests/utils.ts';
 import type { Database } from '../../db/index.ts';
 import { card, cardPurchaseBatch } from '../../db/schema/cards.ts';
@@ -18,7 +18,7 @@ interface PendingPricingSetup {
 }
 
 async function pendingPricing({ app, db, sessionToken, createApp }: PendingPricingSetup) {
-  const owned = await createTestCard(app, sessionToken);
+  const owned = await createTestCard(app, sessionToken, validCardPayload);
   const batch = owned.purchases[0];
   assert(batch != null);
   await db

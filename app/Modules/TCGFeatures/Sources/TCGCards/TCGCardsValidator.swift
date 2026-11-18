@@ -11,27 +11,10 @@ import TCGClient
 enum TCGCardsValidator {
     static func issues(for values: CardFormValues) -> [TCGCardsValidationIssue] {
         [
-            textIssue(values.name, field: .name, label: String(localized: "Name"), maximum: 200),
-            textIssue(values.setName, field: .setName, label: String(localized: "Set name"), maximum: 200),
-            textIssue(values.cardNumber, field: .cardNumber, label: String(localized: "Card number"), maximum: 50),
             notesIssue(values.notes),
             quantitiesIssue(values.quantities),
             batchesIssue(values.batches),
         ].compactMap(\.self)
-    }
-
-    private static func textIssue(
-        _ value: String,
-        field: TCGCardsValidationField,
-        label: String,
-        maximum: Int
-    ) -> TCGCardsValidationIssue? {
-        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return .init(field: field, message: "\(label) is required.") }
-        guard trimmed.count <= maximum else {
-            return .init(field: field, message: "\(label) must contain at most \(maximum) characters.")
-        }
-        return nil
     }
 
     private static func notesIssue(_ notes: String) -> TCGCardsValidationIssue? {

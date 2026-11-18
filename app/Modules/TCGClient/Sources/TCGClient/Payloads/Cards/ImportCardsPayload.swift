@@ -1,10 +1,35 @@
 import Foundation
 
 public struct ImportCardsPayload: Codable, Equatable, Sendable {
-    public let cards: [ImportCardPayload]
+    public let cards: [CSVImportCardPayload]
 
-    public init(cards: [ImportCardPayload]) {
+    public init(cards: [CSVImportCardPayload]) {
         self.cards = cards
+    }
+}
+
+public struct CSVImportCardPayload: Codable, Equatable, Sendable {
+    public let id: UUID
+    public let pricedCardID: UUID
+    public let notes: String?
+    public let createdAt: Date
+    public let updatedAt: Date
+    public let purchases: [ImportPurchasePayload]
+
+    public init(card: Card, pricedCardID: UUID) {
+        id = card.id
+        self.pricedCardID = pricedCardID
+        notes = card.notes
+        createdAt = card.createdAt
+        updatedAt = card.updatedAt
+        purchases = card.purchases.map(ImportPurchasePayload.init)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id, notes, purchases
+        case pricedCardID = "priced_card_id"
+        case createdAt = "created_at"
+        case updatedAt = "updated_at"
     }
 }
 

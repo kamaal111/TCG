@@ -195,19 +195,16 @@ final class TCGCardsListScreenModel {
     }
 
     enum CardFormRoute: Identifiable {
-        case add
         case detail(CardWithPrice)
         case edit(CardWithPrice)
 
         enum ID: Hashable {
-            case add
             case detail(UUID)
             case edit(UUID)
         }
 
         var id: ID {
             switch self {
-            case .add: .add
             case .detail(let card): .detail(card.card.id)
             case .edit(let card): .edit(card.card.id)
             }

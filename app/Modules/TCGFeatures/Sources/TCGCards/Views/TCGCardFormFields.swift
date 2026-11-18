@@ -8,7 +8,6 @@ struct TCGCardFormFields: View {
     @Environment(\.tcgCollections) private var collections
     @Environment(\.tcgCurrency) private var currencyState
     @Environment(TCGCards.self) private var cards
-    @FocusState private var focusedPricingField: PricingField?
     @State private var purchaseDefaultRefreshID = 0
 
     @Bindable var model: TCGCardFormScreenModel
@@ -21,20 +20,9 @@ struct TCGCardFormFields: View {
             if model.canChooseCollection, let collections {
                 CardCollectionField(model: model, collections: collections)
             }
-            TCGGamePicker(selection: gameSelection)
-
-            TCGFormField(label: "Name", error: model.fieldErrors[.name]) {
-                TextField("Monkey D. Luffy", text: $model.values.name)
-                    .focused($focusedPricingField, equals: .name)
-                    .onSubmit { focusedPricingField = nil }
-            }
-            TCGFormField(label: "Set name", error: model.fieldErrors[.setName]) {
-                TextField("Romance Dawn", text: $model.values.setName)
-            }
-            TCGFormField(label: "Card number", error: model.fieldErrors[.cardNumber]) {
-                TextField("OP01-003", text: $model.values.cardNumber)
-                    .focused($focusedPricingField, equals: .cardNumber)
-                    .onSubmit { focusedPricingField = nil }
+            catalogIdentity
+            if let error = model.fieldErrors[.printing] {
+                TCGInlineError(error).font(.caption)
             }
 
             VStack(alignment: .leading, spacing: 10) {
@@ -108,25 +96,49 @@ struct TCGCardFormFields: View {
         }
         .onChange(of: currencyState?.preferenceLoaded) { _, _ in purchaseDefaultRefreshID += 1 }
         .onChange(of: currencyState?.rates) { _, _ in purchaseDefaultRefreshID += 1 }
-        .onChange(of: focusedPricingField) { previous, _ in
-            guard previous != nil else { return }
-            purchaseDefaultRefreshID += 1
+    }
+
+    private var catalogIdentity: some View {
+        let values = model.values
+        return VStack(alignment: .leading, spacing: 8) {
+            LabeledContent {
+                Text(CardGame(client: values.game).title)
+            } label: {
+                Text("Game", bundle: .module)
+            }
+            LabeledContent {
+                Text(values.name)
+            } label: {
+                Text("Name", bundle: .module)
+            }
+            if !values.setName.isEmpty {
+                LabeledContent {
+                    Text(values.setName)
+                } label: {
+                    Text("Set name", bundle: .module)
+                }
+            }
+            LabeledContent {
+                Text(values.cardNumber)
+            } label: {
+                Text("Card number", bundle: .module)
+            }
+            if let variantName = values.variantName {
+                LabeledContent {
+                    Text(variantName)
+                } label: {
+                    Text("Variant", bundle: .module)
+                }
+            }
+            if let illustrator = values.illustrator {
+                LabeledContent {
+                    Text(illustrator)
+                } label: {
+                    Text("Illustrator", bundle: .module)
+                }
+            }
         }
-        .onChange(of: model.values.game) { _, _ in
-            purchaseDefaultRefreshID += 1
-        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .textSelection(.enabled)
     }
-
-    private enum PricingField: Hashable {
-        case name
-        case cardNumber
-    }
-
-    private var gameSelection: Binding<CardGame> {
-        Binding(
-            get: { CardGame(client: model.values.game) },
-            set: { newValue in model.values.game = newValue.clientGame }
-        )
-    }
-
 }
