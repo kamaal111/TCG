@@ -227,7 +227,8 @@ enum CardMapper {
                                     displayCurrency: card.displayCurrency.map(PricedCardMapper.makeCurrency),
                                     collectionID: collectionID,
                                     allocationAdjustments: card.allocationAdjustments,
-                                    illustrator: card.illustrator
+                                    illustrator: card.illustrator,
+                                    englishSearchAlias: card.englishSearchAlias
                                 )
                             }
                     }

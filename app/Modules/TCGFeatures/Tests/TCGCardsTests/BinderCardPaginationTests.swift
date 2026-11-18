@@ -122,7 +122,8 @@ struct BinderCardPaginationTests {
             },
             collectionID: nil,
             allocationAdjustments: nil,
-            illustrator: source.illustrator
+            illustrator: source.illustrator,
+            englishSearchAlias: source.englishSearchAlias
         )
         return CardWithPrice(card: card, price: OwnedCardPrice(cardId: card.id, status: .pending))
     }

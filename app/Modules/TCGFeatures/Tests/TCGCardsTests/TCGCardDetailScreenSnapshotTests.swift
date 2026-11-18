@@ -27,7 +27,8 @@ struct TCGCardDetailScreenSnapshotTests {
             purchases: [.init(condition: .nearMint, quantity: 3, purchasePrice: 5, currency: .eur)],
             collectionID: nil,
             allocationAdjustments: nil,
-            illustrator: nil
+            illustrator: nil,
+            englishSearchAlias: nil
         )
         let model = TCGCardDetailScreenModel(card: .init(card: card, price: PreviewTCGCardsClient.price(for: card)))
         #expect(model.card.card.purchases.first?.purchasePrice == 5)
@@ -64,7 +65,8 @@ struct TCGCardDetailScreenSnapshotTests {
             updatedAt: source.updatedAt,
             collectionID: nil,
             allocationAdjustments: nil,
-            illustrator: "Mitsuhiro Arita"
+            illustrator: "Mitsuhiro Arita",
+            englishSearchAlias: nil
         )
         let model = TCGCardDetailScreenModel(
             card: .init(card: card, price: .init(cardId: card.id, status: .unavailable))
@@ -101,7 +103,8 @@ struct TCGCardDetailScreenSnapshotTests {
             ],
             collectionID: nil,
             allocationAdjustments: nil,
-            illustrator: nil
+            illustrator: nil,
+            englishSearchAlias: nil
         )
         let model = TCGCardDetailScreenModel(card: .init(card: card, price: PreviewTCGCardsClient.price(for: card)))
         #expect(model.card.card.purchases.count == 2)

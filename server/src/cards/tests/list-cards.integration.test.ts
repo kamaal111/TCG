@@ -5,9 +5,11 @@ import { Client } from 'pg';
 
 import { createCardRequest, validCardPayload, createTestCard } from './utils.ts';
 import { StaticScrydexClient } from '../../card-pricing/scrydex/static-client.ts';
+import { CARD_GAME_MAP } from '../../card-pricing/types.ts';
 import { todayUTC } from '../../card-pricing/utils/query.ts';
 import { CollectionSchema } from '../../collections/schemas/responses.ts';
-import { card } from '../../db/schema/cards.ts';
+import { cardPrice } from '../../db/schema/card-pricing.ts';
+import { card, cardMetadata } from '../../db/schema/cards.ts';
 import { appRelations } from '../../db/schema/index.ts';
 import { expectErrorResponse } from '../../tests/auth.ts';
 import { integrationTest } from '../../tests/fixtures.ts';
@@ -15,6 +17,126 @@ import { LIST_CARDS_ROUTE_PATH } from '../routes/list-cards.ts';
 import { CardsListResponseSchema } from '../schemas/responses.ts';
 
 describe('List cards integration', () => {
+  integrationTest(
+    'backfills each page of linked Pokémon in one statement without calling Scrydex',
+    async ({ db, createApp, user, createUser, authenticatedHeaders: headers }) => {
+      const otherUser = await createUser();
+      const identity = { game: CARD_GAME_MAP.POKEMON, pricingSource: 'scrydex_static' } as const;
+      const owned = { ...identity, userId: user.userId, setName: 'Cyber Judge' };
+      const shiftry = { ...owned, name: 'ダーテング', cardNumber: '072/071', pricingCardId: 'sv5m_ja-72' };
+
+      const seed = [
+        shiftry,
+        shiftry,
+        { ...owned, name: 'ピカチュウ', cardNumber: '025', pricingCardId: 'pikachu' },
+        { ...owned, name: 'イーブイ', cardNumber: '133', pricingCardId: 'eevee' },
+        { ...owned, name: 'コダック', cardNumber: '054', pricingCardId: 'psyduck' },
+        { ...shiftry, userId: otherUser.userId },
+      ];
+
+      await db.insert(card).values(
+        seed.map((entry, index) => ({
+          ...entry,
+          createdAt: new Date(Date.UTC(2026, 0, 10 - index)),
+        })),
+      );
+      const cached = { ...identity, pricedOn: '2026-01-01', prices: {} };
+
+      await db.insert(cardPrice).values([
+        {
+          ...cached,
+          pricingCardId: shiftry.pricingCardId,
+          name: shiftry.name,
+          cardNumber: shiftry.cardNumber,
+          raw: { translation: { en: { name: ' Shiftry ' } } },
+        },
+        {
+          ...cached,
+          pricingCardId: shiftry.pricingCardId,
+          name: shiftry.name,
+          cardNumber: shiftry.cardNumber,
+          pricedOn: '2026-01-02',
+          raw: { translation: { en: { name: 123 } } },
+        },
+        {
+          ...cached,
+          pricingCardId: 'pikachu',
+          name: 'ピカチュウ',
+          cardNumber: '025',
+          raw: { translation: { en: { name: 'Pikachu' } } },
+        },
+        {
+          ...cached,
+          pricingCardId: 'eevee',
+          name: 'イーブイ',
+          cardNumber: '133',
+          raw: { translation: { en: { name: 'Eevee' } } },
+        },
+        {
+          ...cached,
+          pricingCardId: 'psyduck',
+          name: 'コダック',
+          cardNumber: '054',
+          pricingSource: 'scrydex_real',
+          raw: { translation: { en: { name: 'Psyduck' } } },
+        },
+      ]);
+      await db
+        .insert(cardMetadata)
+        .values({ ...identity, pricingCardId: shiftry.pricingCardId, illustrator: 'Known artist' });
+
+      const logQuery = vi.fn<(query: string, parameters: unknown[]) => void>();
+      const loggedDB = drizzle({ client: db.$client, relations: appRelations, logger: { logQuery } });
+      const pricingClient = new StaticScrydexClient();
+      const search = vi.spyOn(pricingClient, 'searchCards');
+      const lookup = vi.spyOn(pricingClient, 'getCardById');
+      const app = createApp({ db: loggedDB, pricingClient });
+
+      const list = async (parameters: Record<string, string>) => {
+        const response = await app.request(`${LIST_CARDS_ROUTE_PATH}?${new URLSearchParams(parameters)}`, { headers });
+
+        expect(response.status).toBe(200);
+
+        return CardsListResponseSchema.parse(await response.json());
+      };
+
+      const page = await list({ limit: '3' });
+
+      expect(page.cards.map(({ name, english_search_alias }) => [name, english_search_alias])).toEqual([
+        ['ダーテング', 'Shiftry'],
+        ['ダーテング', 'Shiftry'],
+        ['ピカチュウ', 'Pikachu'],
+      ]);
+      expect(page.cards[0]?.illustrator).toBe('Known artist');
+      expect(await db.query.cardMetadata.findFirst({ where: { ...identity, pricingCardId: 'eevee' } })).toBeUndefined();
+      const firstStatementCount = logQuery.mock.calls.length;
+
+      expect(
+        logQuery.mock.calls.filter(([statement]) => statement.includes('insert into "card_metadata"')),
+      ).toHaveLength(1);
+      logQuery.mockClear();
+      await list({ limit: '3' });
+      expect(logQuery).toHaveBeenCalledTimes(firstStatementCount - 1);
+
+      const next = await list({ limit: '3', cursor: page.next_cursor ?? '' });
+
+      expect(next.cards.map(({ name, english_search_alias }) => [name, english_search_alias])).toEqual([
+        ['イーブイ', 'Eevee'],
+        ['コダック', undefined],
+      ]);
+
+      for (const query of ['sHiFtRy', 'ダーテング', '072/071']) {
+        expect((await list({ query })).cards.map(({ name }) => name)).toEqual(['ダーテング', 'ダーテング']);
+      }
+
+      expect((await list({ query: 'Cyber Judge' })).cards).toHaveLength(5);
+      expect((await list({ query: 'Psyduck' })).cards).toEqual([]);
+      expect((await list({ query: '054' })).cards).toMatchObject([{ name: 'コダック' }]);
+      expect(search).not.toHaveBeenCalled();
+      expect(lookup).not.toHaveBeenCalled();
+    },
+  );
+
   integrationTest(
     'searches across collections with owned paginated results and literal wildcard characters',
     async ({ app, user: owner, createUser, authenticatedHeaders: headers }) => {

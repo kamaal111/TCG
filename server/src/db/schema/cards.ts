@@ -33,6 +33,7 @@ export const cardMetadata = pgTable(
     game: cardGameEnum('game').notNull(),
     pricingCardId: text('pricing_card_id').notNull(),
     illustrator: text('illustrator'),
+    englishSearchAlias: text('english_search_alias'),
     updatedAt: timestamp('updated_at')
       .defaultNow()
       .$onUpdate(() => new Date())

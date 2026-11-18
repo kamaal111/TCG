@@ -674,13 +674,13 @@ paths:
             minLength: 1
             maxLength: 200
             description: >-
-              Case-insensitive literal substring in card name, set name, or card
-              number; omitted means all cards.
+              Case-insensitive literal substring in card name, English search
+              alias, set name, or card number; omitted means all cards.
             example: Luffy
           required: false
           description: >-
-            Case-insensitive literal substring in card name, set name, or card
-            number; omitted means all cards.
+            Case-insensitive literal substring in card name, English search
+            alias, set name, or card number; omitted means all cards.
           name: query
           in: query
         - schema:
@@ -2584,6 +2584,8 @@ components:
           description: Card number
           example: OP01-003
         illustrator:
+          type: string
+        english_search_alias:
           type: string
         collection_id:
           type:

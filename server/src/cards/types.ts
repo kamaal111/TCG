@@ -23,6 +23,7 @@ export interface OwnedCard {
   pricingCardId: string | null;
   pricingSource: string | null;
   illustrator?: string | null;
+  englishSearchAlias?: string | null;
   notes: string | null;
   createdAt: Date;
   updatedAt: Date;

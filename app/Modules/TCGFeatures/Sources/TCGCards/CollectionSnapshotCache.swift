@@ -71,7 +71,22 @@ final class CollectionSnapshotCache {
         return verified.row
     }
 
-    func verify(_ rows: [CardWithPrice], at now: Date) {
+    func verify(_ rows: [CardWithPrice], at now: Date, updating scope: Scope?) {
+        let changedAliases = rows.compactMap { row -> String? in
+            guard let alias = row.card.englishSearchAlias,
+                alias != snapshot.verifiedCards?[row.card.id]?.row.card.englishSearchAlias
+            else { return nil }
+            return alias
+        }
+        if !changedAliases.isEmpty {
+            for index in snapshot.pages.indices where snapshot.pages[index].scope != scope {
+                if let query = snapshot.pages[index].scope.query,
+                    changedAliases.contains(where: { $0.localizedStandardContains(query) })
+                {
+                    snapshot.pages[index].checkedAt = nil
+                }
+            }
+        }
         var verified = (snapshot.verifiedCards ?? [:]).filter { Self.isFresh($0.value.checkedAt, at: now) }
         for row in rows { verified[row.card.id] = VerifiedCard(row: row, checkedAt: now) }
         snapshot.verifiedCards = verified

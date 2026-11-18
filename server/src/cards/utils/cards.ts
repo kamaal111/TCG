@@ -84,6 +84,7 @@ function serializeCardFields(card: CardWithPurchases, display?: ForexDisplayCont
     card_number: card.cardNumber,
     notes: card.notes,
     illustrator: card.illustrator ?? undefined,
+    english_search_alias: card.englishSearchAlias ?? undefined,
     purchases: card.purchaseBatches.map(batch => serializePurchase(batch, display)),
     purchase_price_change_percent: null,
     display_currency: display?.currency,

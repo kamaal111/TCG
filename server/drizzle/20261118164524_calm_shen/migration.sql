@@ -1,0 +1,1 @@
+ALTER TABLE "card_metadata" ADD COLUMN "english_search_alias" text;

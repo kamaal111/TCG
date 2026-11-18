@@ -205,7 +205,8 @@ enum CardsCSVFixtures {
         ],
         collectionID: nil,
         allocationAdjustments: nil,
-        illustrator: nil
+        illustrator: nil,
+        englishSearchAlias: nil
     )
     static var rows: [CSVImportRow] {
         card.purchases.enumerated().map { CardsCSV.row(card: card, purchase: $0.element, line: $0.offset + 2) }

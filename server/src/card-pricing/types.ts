@@ -22,6 +22,12 @@ export const PRICING_SOURCES = {
 
 export type PricingSource = GetRecordValues<typeof PRICING_SOURCES>;
 
+export const SCRYDEX_PRICING_SOURCES = [PRICING_SOURCES.SCRYDEX_REAL, PRICING_SOURCES.SCRYDEX_STATIC] as const;
+
+export function isScrydexPricingSource(source: string | null): source is (typeof SCRYDEX_PRICING_SOURCES)[number] {
+  return SCRYDEX_PRICING_SOURCES.some(scrydexSource => scrydexSource === source);
+}
+
 export interface PriceMovement {
   priceChange: number;
   percentChange: number;

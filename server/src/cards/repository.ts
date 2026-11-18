@@ -20,6 +20,7 @@ export interface CardRepository {
       illustrators: string[];
       collection_id?: string;
       query?: string;
+      backfillEnglishAliases?: boolean;
     },
   ): Promise<CardCollection>;
   get(cardId: string): Promise<CardWithPurchases | undefined>;

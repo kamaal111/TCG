@@ -19,6 +19,41 @@ import Testing
 @MainActor
 struct TCGCardsFeatureTests {
     @Test
+    func `Searches again after a collection page supplies an alias for a cached empty search`() async throws {
+        let transport = PendingCollectionTransport()
+        let now = Date(timeIntervalSince1970: 1_784_548_800)
+        let feature = makePendingFeature(transport, now: { now })
+        let snapshot = feature.snapshot
+        let searchScope = CollectionSnapshotCache.Scope(query: "Shiftry")
+        snapshot.saveRead(
+            [],
+            for: searchScope,
+            checkedAt: now,
+            list: .init(
+                nextCursor: nil,
+                visitedCursors: [],
+                pageCount: 1,
+                sets: [],
+                illustrators: [],
+                requiresPricing: false
+            )
+        )
+        let listPath = "/app-api/cards"
+        let load = Task { await feature.load(game: nil, setNames: [], query: nil, illustrators: []) }
+        await transport.waitForRequest(listPath)
+        await transport.completeShiftryPage(listPath)
+        try await load.value.get()
+        try #require(snapshot.freshPage(for: searchScope, at: now) == nil)
+
+        let searchPath = "/app-api/cards?query=Shiftry"
+        let search = Task { await feature.load(game: nil, setNames: [], query: "Shiftry", illustrators: []) }
+        await transport.waitForRequest(searchPath)
+        await transport.completeShiftryPage(searchPath)
+        try await search.value.get()
+        #expect(feature.cards.map(\.card.name) == ["ダーテング"])
+    }
+
+    @Test
     func `Restores owned cards before details and applies price updates independently`() async throws {
         let directory = URL.temporaryDirectory.appending(path: UUID().uuidString, directoryHint: .isDirectory)
         defer { try? FileManager.default.removeItem(at: directory) }
@@ -1110,6 +1145,21 @@ private actor PendingCollectionTransport: ClientTransport {
             }
             """
         continuation.resume(returning: (HTTPResponse(status: .ok), HTTPBody(body)))
+    }
+
+    func completeShiftryPage(_ path: String) {
+        let id = CardsTestIDs.cachedPokemon
+        completeJSON(
+            path,
+            body: """
+                {"cards":[{"id":"\(id)","game":"pokemon","name":"ダーテング","set_name":"Cyber Judge",
+                  "card_number":"072/071","english_search_alias":"Shiftry","notes":null,"purchases":[],
+                  "purchase_price_change_percent":null,"created_at":"2026-07-20T10:30:00.000Z",
+                  "updated_at":"2026-07-20T10:30:00.000Z",
+                  "price":{"card_id":"\(id)","status":"no_price"}}],
+                 "available_illustrators":[],"available_set_names":["Cyber Judge"],"next_cursor":null}
+                """
+        )
     }
 
     func completeDeletion(deletedIDs: [UUID], notFoundIDs: [UUID]) throws {

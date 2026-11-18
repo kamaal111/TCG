@@ -49,7 +49,8 @@ export const CardsListQuerySchema = CardsPaginationQuerySchema.extend({
     }),
   collection_id: UuidSchema.optional(),
   query: CardCoreFieldsSchema.shape.name.trim().optional().meta({
-    description: 'Case-insensitive literal substring in card name, set name, or card number; omitted means all cards.',
+    description:
+      'Case-insensitive literal substring in card name, English search alias, set name, or card number; omitted means all cards.',
     example: 'Luffy',
   }),
   game: z.enum(CARD_GAMES).optional().meta({ description: 'Optional game filter', example: 'one_piece' }),

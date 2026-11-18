@@ -16,6 +16,35 @@ import Testing
 @Suite("TCGClient Cards Tests")
 struct TCGCardsClientTests {
     @Test
+    func `Decodes an English alias on collection pages and still decodes legacy stored cards`() async throws {
+        let body = Data(
+            """
+            {"cards":[\(shiftryOwnedCardJSON)],"next_cursor":null,"available_set_names":["Cyber Judge"],
+             "available_illustrators":[]}
+            """.utf8
+        )
+        let transport = CardsRequestTransport(status: .ok, body: body)
+        let page = try await makeClient(transport: transport).cards.listPage(
+            .init(game: .pokemon, setNames: [], cursor: nil, collectionID: nil, query: "Shiftry", illustrators: [])
+        )
+        .get()
+        let card = try #require(page.cards.first?.card)
+        #expect(card.name == "ダーテング")
+        #expect(card.englishSearchAlias == "Shiftry")
+        #expect(card.replacingDisplay(with: nil).matchesSearch("shiftry"))
+        #expect(card.matchesSearch("ダーテング"))
+
+        var saved = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(card)) as? [String: Any])
+        saved.removeValue(forKey: "english_search_alias")
+        let legacy = try JSONDecoder().decode(Card.self, from: JSONSerialization.data(withJSONObject: saved))
+        #expect(legacy.englishSearchAlias == nil)
+        #expect(legacy.matchesSearch("ダーテング"))
+        #expect(legacy.matchesSearch("Cyber Judge"))
+        #expect(legacy.matchesSearch("072/071"))
+        #expect(!legacy.matchesSearch("Shiftry"))
+    }
+
+    @Test
     func `Serializes repeated illustrator filters and decodes complete choices`() async throws {
         let body = Data(
             """
@@ -155,7 +184,8 @@ struct TCGCardsClientTests {
             ],
             collectionID: nil,
             allocationAdjustments: nil,
-            illustrator: nil
+            illustrator: nil,
+            englishSearchAlias: nil
         )
         let input = ImportCardsPayload(cards: [.init(card: source, pricedCardID: ClientTestIDs.responseCard)])
         let result = try await makeClient(transport: transport).cards.importCards(input).get()
@@ -909,6 +939,14 @@ struct TCGCardsClientTests {
     }
 }
 
+let shiftryOwnedCardJSON = """
+    {"id":"00000000-0000-4000-8000-000000000001","game":"pokemon","name":"ダーテング","set_name":"Cyber Judge",
+     "card_number":"072/071","english_search_alias":"Shiftry","notes":null,"purchases":[],
+     "purchase_price_change_percent":null,"created_at":"2026-11-18T10:00:00.000Z",
+     "updated_at":"2026-11-18T10:00:00.000Z",
+     "price":{"card_id":"00000000-0000-4000-8000-000000000001","status":"no_price"}}
+    """
+
 private actor CardsRequestTransport: ClientTransport {
     private(set) var request: CardsRecordedRequest?
     private(set) var requests: [CardsRecordedRequest] = []
@@ -1002,7 +1040,8 @@ private let expectedCard = Card(
     ],
     collectionID: nil,
     allocationAdjustments: nil,
-    illustrator: nil
+    illustrator: nil,
+    englishSearchAlias: nil
 )
 
 private let expectedPrice = OwnedCardPrice(

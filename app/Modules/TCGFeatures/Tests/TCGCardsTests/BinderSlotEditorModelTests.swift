@@ -100,7 +100,8 @@ struct BinderSlotEditorModelTests {
                 purchases: source.purchases,
                 collectionID: nil,
                 allocationAdjustments: nil,
-                illustrator: nil
+                illustrator: nil,
+                englishSearchAlias: nil
             )
         }
         let client = TCGClient.preview(cardsOutcome: .success(cards: entries))
