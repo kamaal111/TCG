@@ -6,6 +6,49 @@ import { createTestScrydexClient } from './utils.ts';
 import { RealScrydexClient } from '../scrydex/real-client.ts';
 
 describe('RealScrydexClient', () => {
+  it.each([
+    {
+      variant: 'firstEdition',
+      expectedMarket: { condition: 'near_mint', currency: 'JPY', low: 180_000, market: 180_000 },
+    },
+    { variant: 'reverseHolofoil', expectedMarket: undefined },
+  ])(
+    'normalizes Pokémon pricing for a sole $variant variant in search and lookup',
+    async ({ variant, expectedMarket }) => {
+      const card = {
+        id: 'vs1_ja-97',
+        name: 'ワタルのリザードン',
+        number: '97',
+        variants: [
+          {
+            name: variant,
+            prices: [
+              { type: 'raw', condition: 'NM', currency: 'JPY', low: 180_000, market: 180_000 },
+              { type: 'raw', condition: 'NM', currency: 'USD', low: 999.99, market: 999.99 },
+            ],
+          },
+        ],
+      };
+
+      const client = makeClient(async input => {
+        return jsonResponse(
+          new URL(stringifyRequestURL(input)).pathname.endsWith('/cards') ? { data: [card] } : { data: card },
+        );
+      });
+
+      const search = await client.searchCards('pokemon', 'Lance’s Charizard', { languages: [], searchBy: 'card' }, 1);
+      assert(search.isOk());
+      expect(search.value.records).toHaveLength(1);
+      expect(search.value.records[0]?.card.id).toBe(card.id);
+      expect(search.value.records[0]?.card.pricing.market).toEqual(expectedMarket);
+
+      const lookup = await client.getCardById('pokemon', card.id);
+      assert(lookup.isOk());
+      expect(lookup.value?.card.id).toBe(card.id);
+      expect(lookup.value?.card.pricing.market).toEqual(expectedMarket);
+    },
+  );
+
   it('searches lowercase promo numbers without escaping the provider identity', async () => {
     const requestedURLs: string[] = [];
 
