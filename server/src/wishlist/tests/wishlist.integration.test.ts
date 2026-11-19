@@ -2,10 +2,10 @@ import { z } from 'zod';
 
 import { SEARCH_PRICING_ROUTE_PATH } from '../../card-pricing/routes/search-pricing.ts';
 import { PricingSearchResponseSchema } from '../../card-pricing/schemas/responses.ts';
-import { PRICING_SOURCES } from '../../card-pricing/types.ts';
+import { CARD_GAME_MAP, PRICING_SOURCES } from '../../card-pricing/types.ts';
 import { serializePricedCard } from '../../card-pricing/utils/pricing.ts';
 import { printingKey } from '../../card-pricing/utils/printing-key.ts';
-import { cardPrice, wishlist } from '../../db/schema/index.ts';
+import { cardMetadata, cardPrice, wishlist } from '../../db/schema/index.ts';
 import { sessionHeaders } from '../../tests/auth.ts';
 import { integrationTest } from '../../tests/fixtures.ts';
 import { WishlistCardSchema } from '../schemas/responses.ts';
@@ -168,6 +168,83 @@ integrationTest(
     const other = PricingSearchResponseSchema.parse(await visitorSearch.json());
     expect(owner.matches.find(card => card.id === match.id)?.is_wishlisted).toBe(true);
     expect(other.matches.find(card => card.id === match.id)?.is_wishlisted).toBe(false);
+  },
+);
+
+integrationTest(
+  'finds saved Japanese printings by cached or stored English aliases while retaining their saved names',
+  async ({ app, db, createUser, authenticatedHeaders }) => {
+    const visitor = await createUser();
+
+    const printing = {
+      game: CARD_GAME_MAP.POKEMON,
+      pricingSource: PRICING_SOURCES.SCRYDEX_STATIC,
+      pricingCardId: 'sv5m_ja-72',
+      name: 'ダーテング',
+      cardNumber: '072/071',
+      prices: { setName: 'Cyber Judge' },
+    };
+
+    const [saved, other] = await db
+      .insert(cardPrice)
+      .values([
+        { ...printing, pricedOn: '2026-11-18' },
+        { ...printing, pricingCardId: 'another-shiftry', pricedOn: '2026-11-18' },
+      ])
+      .returning();
+
+    assert(saved && other);
+
+    const save = (id: string, headers: Headers) => {
+      return app.request(path, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ priced_card_id: id }),
+      });
+    };
+
+    expect((await save(saved.id, authenticatedHeaders)).status).toBe(204);
+    expect((await save(other.id, sessionHeaders(visitor.sessionToken))).status).toBe(204);
+
+    const search = async (query: string) => {
+      const response = await app.request(`${path}?${new URLSearchParams({ query })}`, {
+        headers: authenticatedHeaders,
+      });
+
+      expect(response.status).toBe(200);
+
+      return pageSchema.parse(await response.json()).entries;
+    };
+
+    expect(await search('Shiftry')).toEqual([]);
+    await db.insert(cardPrice).values([
+      { ...printing, pricedOn: '2026-11-17', raw: { translation: { en: { name: 'Shiftry' } } } },
+      {
+        ...printing,
+        pricingSource: PRICING_SOURCES.SCRYDEX_REAL,
+        pricedOn: '2026-11-19',
+        raw: { translation: { en: { name: 'Wrong alias' } } },
+      },
+      {
+        ...printing,
+        pricingCardId: other.pricingCardId,
+        pricedOn: '2026-11-19',
+        raw: { translation: { en: { name: 'Shiftry' } } },
+      },
+    ]);
+
+    for (const query of ['  sHiFtRy  ', 'ダーテング', 'Cyber Judge', '072/071']) {
+      expect(await search(query)).toMatchObject([{ id: saved.id, name: 'ダーテング' }]);
+    }
+
+    expect(await search('Wrong alias')).toEqual([]);
+    await db.insert(cardMetadata).values({
+      game: printing.game,
+      pricingSource: printing.pricingSource,
+      pricingCardId: printing.pricingCardId,
+      englishSearchAlias: 'Shiftry corrected',
+    });
+    expect(await search('corrected')).toMatchObject([{ id: saved.id, name: 'ダーテング' }]);
   },
 );
 
