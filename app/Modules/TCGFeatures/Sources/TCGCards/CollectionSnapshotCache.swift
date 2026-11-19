@@ -56,7 +56,8 @@ final class CollectionSnapshotCache {
 
     func summariesAreFresh(at now: Date) -> Bool { Self.isFresh(snapshot.summariesCheckedAt, at: now) }
 
-    func stampSummaries(at now: Date) {
+    func saveSummaries(_ summaries: [CardCollectionSummary], checkedAt now: Date) {
+        snapshot.summaries = summaries
         snapshot.summariesCheckedAt = now
         write()
     }

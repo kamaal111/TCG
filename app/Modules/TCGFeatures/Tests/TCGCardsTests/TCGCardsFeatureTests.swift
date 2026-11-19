@@ -19,6 +19,77 @@ import Testing
 @MainActor
 struct TCGCardsFeatureTests {
     @Test
+    func `A saved binder with fresh summaries retries a missing layout without falling back to All cards`() async throws
+    {
+        let suite = "TCG.collections.tests.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let directory = URL.temporaryDirectory.appending(path: suite, directoryHint: .isDirectory)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let now = Date(timeIntervalSince1970: 1_784_548_800)
+        let account = "binder@example.test"
+        var binder = CollectionTestFixtures.collection()
+        binder.revision = 1
+        let preferences = CollectionPreferences(defaults: defaults)
+        preferences.saveDestination(.named(binder.id), account: account)
+        preferences.saveView(.binder, account: account, collectionID: binder.id)
+        let previousCache = CollectionSnapshotCache(root: directory)
+        previousCache.useAccount(account)
+        previousCache.saveSummaries([binder.summary], checkedAt: now)
+
+        let transport = PendingCollectionTransport()
+        let client = makePendingClient(transport)
+        let cards = TCGCards(client: client, snapshot: CollectionSnapshotCache(root: directory), now: { now })
+        let collections = TCGCollections(client: client, defaults: defaults)
+        collections.startSession(account: account, cards: cards, seed: ([], []))
+        #expect(collections.destination == .named(binder.id))
+        #expect(collections.selected == nil)
+        #expect(cards.isShowingBinder)
+
+        let layoutPath = "/app-api/collections/\(binder.id.uuidString.lowercased())"
+        let failed = Task { await collections.reload(using: cards, force: false, loadsList: true) }
+        await transport.waitForRequest(layoutPath)
+        await transport.complete(layoutPath, status: .serviceUnavailable)
+        await failed.value
+        #expect(collections.destination == .named(binder.id))
+        #expect(preferences.restoreDestination(account: account) == .named(binder.id))
+
+        let retry = Task { await collections.reload(using: cards, force: false, loadsList: true) }
+        await transport.waitForRequest(layoutPath)
+        await transport.completeBinder(id: binder.id, page: CardsTestIDs.secondary, path: layoutPath)
+        await retry.value
+        #expect(collections.selected?.id == binder.id)
+        #expect(cards.selectedCollection?.id == binder.id)
+        #expect(await transport.requestCount == 2)
+    }
+
+    @Test func `A summaries refresh started on a binder preserves a newer system destination`() async {
+        let transport = PendingCollectionTransport()
+        let client = makePendingClient(transport)
+        let cards = TCGCards(client: client)
+        let collections = TCGCollections(client: client, defaults: nil)
+        let binder = CollectionTestFixtures.collection()
+        let first = Task { await collections.reload(using: cards, force: true, loadsList: false) }
+        await transport.waitForRequest("/app-api/collections")
+        await transport.completeCollections(id: binder.id)
+        await first.value
+
+        let path = "/app-api/collections/\(binder.id.uuidString.lowercased())"
+        let named = Task { await collections.select(.named(binder.id), using: cards, loadsList: false) }
+        await transport.waitForRequest(path)
+        await transport.completeBinder(id: binder.id, page: CardsTestIDs.secondary, path: path)
+        await named.value
+        let refresh = Task { await collections.reload(using: cards, force: true, loadsList: false) }
+        await transport.waitForRequest("/app-api/collections")
+        await collections.select(.system(.wishlist), using: cards, loadsList: false)
+        await transport.completeCollections(id: binder.id)
+        await refresh.value
+        #expect(collections.destination == .system(.wishlist))
+        #expect(collections.selectedID == nil)
+        #expect(cards.selectedCollection == nil)
+    }
+
+    @Test
     func `Searches again after a collection page supplies an alias for a cached empty search`() async throws {
         let transport = PendingCollectionTransport()
         let now = Date(timeIntervalSince1970: 1_784_548_800)
@@ -286,7 +357,7 @@ struct TCGCardsFeatureTests {
         await transport.completeCollections(id: binder)
         await load.value
         collections.setView(.binder, for: binder)
-        let select = Task { await collections.select(binder, using: feature, loadsList: true) }
+        let select = Task { await collections.select(.named(binder), using: feature, loadsList: true) }
         await transport.waitForRequest(layout)
         await transport.completeBinder(id: binder, page: page, path: layout)
         await select.value

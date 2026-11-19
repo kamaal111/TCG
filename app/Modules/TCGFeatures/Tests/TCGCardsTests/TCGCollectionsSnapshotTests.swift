@@ -177,12 +177,14 @@ struct TCGCollectionsSnapshotTests {
         @Test func `Renders the Wishlist switcher while a named collection is selected`() async throws {
             let context = try await CollectionTestFixtures.selectedContext()
             #expect(context.collections.selected?.name == "Favorites")
+            await context.collections.select(.system(.wishlist), using: context.cards, loadsList: true)
+            #expect(context.collections.destination == .system(.wishlist))
 
             await assertCollectionSnapshot(testName: #function) {
                 CollectionSwitcher(
                     collections: context.collections,
                     actions: .init(create: {}, rename: { _ in }, delete: {}, editLayout: {}),
-                    wishlistSelection: .constant(true)
+                    systemCollections: [.allCards, .wishlist]
                 )
                 .labelStyle(.iconOnly)
                 .buttonStyle(.plain)
@@ -272,7 +274,7 @@ struct TCGCollectionsSnapshotTests {
                     collections: context.collections,
                     actions: .init(create: {}, rename: { _ in }, delete: {}, editLayout: {}),
                     isEditing: .constant(true),
-                    wishlistSelection: nil
+                    systemCollections: [.allCards]
                 )
             }
             .environment(context.cards)

@@ -30,7 +30,7 @@ struct BinderLayoutSaveFailureTests {
         let cards = TCGCards(client: .preview())
         let collections = TCGCollections(client: client, defaults: nil)
         await collections.reload(using: cards, force: true, loadsList: true)
-        await collections.select(original.id, using: cards, loadsList: true)
+        await collections.select(.named(original.id), using: cards, loadsList: true)
         #expect(collections.selected == original)
         let updated = try #require(
             BinderLayout.insertingEmptyPage(
