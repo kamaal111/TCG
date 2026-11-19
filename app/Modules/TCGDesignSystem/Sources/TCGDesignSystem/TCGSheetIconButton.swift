@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// An icon-only sheet action with a fixed hit target and localized accessibility label and help.
+/// An icon-only toolbar action with a localized accessibility label and help.
 public struct TCGSheetIconButton: View {
     private let systemImage: String
     private let title: Text
@@ -21,17 +21,12 @@ public struct TCGSheetIconButton: View {
 
     public var body: some View {
         Button(action: action) {
-            Group {
-                if isLoading {
-                    ProgressView().controlSize(.small)
-                } else {
-                    Image(systemName: systemImage)
-                }
+            if isLoading {
+                ProgressView().controlSize(.small)
+            } else {
+                Image(systemName: systemImage)
             }
-            .frame(width: 44, height: 44)
-            .contentShape(Rectangle())
         }
-        .buttonStyle(.borderless)
         .disabled(isLoading)
         .accessibilityLabel(title)
         .help(title)

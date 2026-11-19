@@ -23,73 +23,65 @@ extension View {
             closeLabel: closeLabel,
             closeDisabled: closeDisabled,
             onClose: onClose,
-            actions: confirmation(),
-            usesIconActions: false,
             content: self
-        )
+        ) {
+            ToolbarItem(placement: .confirmationAction, content: confirmation)
+        }
     }
 
     /// Presents the standard sheet header with independent trailing icon actions.
-    public func tcgSheetWithIconActions<Actions: View>(
+    public func tcgSheetWithIconActions<AuxiliaryAction: View, PrimaryAction: View>(
         _ title: Text,
         closeLabel: Text,
-        @ViewBuilder actions: () -> Actions
+        auxiliaryAction: AuxiliaryAction?,
+        primaryAction: PrimaryAction
     ) -> some View {
-        TCGSheet(
-            title: title,
-            closeLabel: closeLabel,
-            closeDisabled: false,
-            onClose: nil,
-            actions: actions(),
-            usesIconActions: true,
-            content: self
-        )
+        #if os(macOS)
+            VStack(spacing: 0) {
+                TCGSheetIconActionHeader(title: title, closeLabel: closeLabel) {
+                    auxiliaryAction
+                    primaryAction
+                }
+                Divider()
+                self
+            }
+        #else
+            TCGSheet(title: title, closeLabel: closeLabel, closeDisabled: false, onClose: nil, content: self) {
+                if let auxiliaryAction {
+                    ToolbarItem(placement: .topBarTrailing) { auxiliaryAction }
+                    if #available(iOS 26, *) {
+                        ToolbarSpacer(.fixed, placement: .topBarTrailing)
+                    }
+                }
+                ToolbarItem(placement: .topBarTrailing) { primaryAction }
+            }
+        #endif
     }
 }
 
-private struct TCGSheet<Content: View, Actions: View>: View {
+private struct TCGSheet<Content: View, Actions: ToolbarContent>: View {
     @Environment(\.dismiss) private var dismiss
 
     let title: Text
     let closeLabel: Text
     let closeDisabled: Bool
     let onClose: (() -> Void)?
-    let actions: Actions
-    let usesIconActions: Bool
     let content: Content
 
-    var body: some View {
-        if usesIconActions {
-            VStack(spacing: 0) {
-                HStack(spacing: 8) {
-                    closeButton
-                    Spacer(minLength: 0)
-                    title.font(.headline).accessibilityAddTraits(.isHeader)
-                    Spacer(minLength: 0)
-                    HStack(spacing: 0) { actions }
-                }
-                .padding(.horizontal)
-                .padding(.vertical, 4)
-                Divider()
-                content
-            }
-        } else {
-            NavigationStack {
-                content
-                    .navigationTitle(title)
-                    .toolbarTitleDisplayMode(.inline)
-                    .toolbar {
-                        ToolbarItem(placement: .cancellationAction) { closeButton }
-                        ToolbarItem(placement: .confirmationAction) { actions }
-                    }
-            }
-        }
-    }
+    @ToolbarContentBuilder let actions: Actions
 
-    private var closeButton: some View {
-        Button(action: close) { closeLabel }
-            .keyboardShortcut(.cancelAction)
-            .disabled(closeDisabled)
+    var body: some View {
+        NavigationStack {
+            content
+                .navigationTitle(title)
+                .toolbarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        TCGSheetCloseButton(label: closeLabel, isDisabled: closeDisabled, action: close)
+                    }
+                    actions
+                }
+        }
     }
 
     private func close() {
@@ -100,3 +92,49 @@ private struct TCGSheet<Content: View, Actions: View>: View {
         }
     }
 }
+
+private struct TCGSheetCloseButton: View {
+    let label: Text
+    var isDisabled = false
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) { label }
+            .keyboardShortcut(.cancelAction)
+            .disabled(isDisabled)
+    }
+}
+
+#if os(macOS)
+    private struct TCGSheetIconActionHeader<Actions: View>: View {
+        @Environment(\.dismiss) private var dismiss
+
+        let title: Text
+        let closeLabel: Text
+
+        @ViewBuilder let actions: Actions
+
+        var body: some View {
+            // A macOS sheet exposes a single native primary action.
+            if #available(macOS 26, *) {
+                header
+                    .buttonStyle(.glass)
+                    .controlSize(.large)
+            } else {
+                header.buttonStyle(.borderless)
+            }
+        }
+
+        private var header: some View {
+            HStack(spacing: 8) {
+                TCGSheetCloseButton(label: closeLabel, action: dismiss.callAsFunction)
+                Spacer(minLength: 0)
+                title.font(.headline).accessibilityAddTraits(.isHeader)
+                Spacer(minLength: 0)
+                HStack(spacing: 8) { actions }
+            }
+            .padding(.horizontal)
+            .padding(.vertical, 8)
+        }
+    }
+#endif

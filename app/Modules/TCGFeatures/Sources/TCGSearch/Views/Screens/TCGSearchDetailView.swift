@@ -39,11 +39,10 @@ struct TCGSearchDetailView<AddForm: View>: View {
         cardContent
             .tcgSheetWithIconActions(
                 Text("Card details", bundle: .module),
-                closeLabel: Text("Done", bundle: .module)
-            ) {
-                wishlistToolbarItem
-                addButton
-            }
+                closeLabel: Text("Done", bundle: .module),
+                auxiliaryAction: wishlistButton,
+                primaryAction: addButton
+            )
             .background(.background)
             #if os(macOS)
                 .frame(minWidth: 480, idealWidth: 600, maxWidth: 760, minHeight: 560, idealHeight: 800)
@@ -105,17 +104,20 @@ struct TCGSearchDetailView<AddForm: View>: View {
         }
     }
 
-    @ViewBuilder
-    private var wishlistToolbarItem: some View {
-        if wishlist != nil, card.printingKey != nil,
-            let isWishlisted = wishlistModel.isWishlisted ?? selectedCard.isWishlisted
-        {
+    private var wishlistButton: (some View)? {
+        let isWishlisted: Bool? =
+            if wishlist != nil, card.printingKey != nil {
+                wishlistModel.isWishlisted ?? selectedCard.isWishlisted
+            } else {
+                nil
+            }
+        return isWishlisted.map { saved in
             TCGSheetIconButton(
-                systemImage: isWishlisted ? "heart.fill" : "heart",
-                title: wishlistActionTitle(saved: isWishlisted),
+                systemImage: saved ? "heart.fill" : "heart",
+                title: wishlistActionTitle(saved: saved),
                 isLoading: false
             ) {
-                runWishlistAction(.init(saved: !isWishlisted, dismissAfter: isWishlistEntry))
+                runWishlistAction(.init(saved: !saved, dismissAfter: isWishlistEntry))
             }
             .disabled(wishlistModel.isWorking)
         }
