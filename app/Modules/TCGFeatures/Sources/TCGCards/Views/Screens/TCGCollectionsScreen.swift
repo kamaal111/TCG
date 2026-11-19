@@ -4,7 +4,6 @@ import TCGClient
 public struct TCGCollectionsScreen<Wishlist: View>: View {
     @Environment(\.tcgCollections) private var collections
     @Environment(TCGCards.self) private var cards
-    @State private var showsWishlist = false
     private let wishlist: Wishlist?
     @State private var name = ""
     @State private var isNaming = false
@@ -26,8 +25,7 @@ public struct TCGCollectionsScreen<Wishlist: View>: View {
                     NavigationSplitView {
                         CollectionSidebar(
                             collections: collections,
-                            hasWishlist: wishlist != nil,
-                            showsWishlist: $showsWishlist
+                            systemCollections: systemCollections
                         )
                     } detail: {
                         destination(collections)
@@ -42,7 +40,7 @@ public struct TCGCollectionsScreen<Wishlist: View>: View {
             }
         }
         .environment(\.isEditingCollection, isEditingCollection)
-        .onChange(of: Destination(wishlist: showsWishlist, collectionID: collections?.selectedID)) {
+        .onChange(of: collections?.destination.available(in: systemCollections)) {
             isEditingCollection = false
             isEditingLayout = false
             isNaming = false
@@ -113,14 +111,16 @@ public struct TCGCollectionsScreen<Wishlist: View>: View {
         }
     }
 
-    private struct Destination: Equatable {
-        let wishlist: Bool
-        let collectionID: UUID?
+    private var systemCollections: [SystemCollectionID] {
+        var available: [SystemCollectionID] = [.allCards]
+        if wishlist != nil { available.append(.wishlist) }
+        return available
     }
 
     @ViewBuilder
     private func destination(_ collections: TCGCollections) -> some View {
-        if showsWishlist, let wishlist {
+        switch collections.destination.available(in: systemCollections) {
+        case .system(.wishlist):
             wishlist
                 #if os(iOS)
                     .toolbar {
@@ -128,17 +128,17 @@ public struct TCGCollectionsScreen<Wishlist: View>: View {
                             CollectionSwitcher(
                                 collections: collections,
                                 actions: navigationActions,
-                                wishlistSelection: $showsWishlist
+                                systemCollections: systemCollections
                             )
                         }
                     }
                 #endif
-        } else {
+        case .system(.allCards), .named:
             CollectionContentView(
                 collections: collections,
                 actions: navigationActions,
                 isEditing: $isEditingCollection,
-                wishlistSelection: wishlist == nil ? nil : $showsWishlist
+                systemCollections: systemCollections
             )
         }
     }

@@ -5,12 +5,25 @@ struct CollectionPreferences {
 
     init(defaults: UserDefaults?) { self.defaults = defaults }
 
-    func restore(account: String) -> UUID? {
-        defaults?.string(forKey: selectionKey(account: account)).flatMap(UUID.init(uuidString:))
+    func restoreDestination(account: String) -> CollectionDestination {
+        guard let value = defaults?.string(forKey: destinationKey(account: account)) else { return .allCards }
+
+        if value.hasPrefix("system:"), let id = SystemCollectionID(rawValue: String(value.dropFirst("system:".count))) {
+            return .system(id)
+        }
+        if value.hasPrefix("named:"), let id = UUID(uuidString: String(value.dropFirst("named:".count))) {
+            return .named(id)
+        }
+        return .allCards
     }
 
-    func save(_ collectionID: UUID?, account: String) {
-        defaults?.set(collectionID?.uuidString, forKey: selectionKey(account: account))
+    func saveDestination(_ destination: CollectionDestination, account: String) {
+        let value: String
+        switch destination {
+        case .system(let id): value = "system:\(id.rawValue)"
+        case .named(let id): value = "named:\(id.uuidString)"
+        }
+        defaults?.set(value, forKey: destinationKey(account: account))
     }
 
     func restoreView(account: String, collectionID: UUID) -> CollectionViewMode? {
@@ -22,7 +35,7 @@ struct CollectionPreferences {
         defaults?.set(view.rawValue, forKey: viewKey(account: account, collectionID: collectionID))
     }
 
-    private func selectionKey(account: String) -> String { "TCG.collections.last.\(account)" }
+    private func destinationKey(account: String) -> String { "TCG.collections.destination.\(account)" }
 
     private func viewKey(account: String, collectionID: UUID) -> String {
         "TCG.collections.view.\(account).\(collectionID.uuidString)"

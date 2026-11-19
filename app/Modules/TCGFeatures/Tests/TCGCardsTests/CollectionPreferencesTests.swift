@@ -7,24 +7,34 @@ struct CollectionPreferencesTests {
     private let alice = "alice@example.com"
     private let bob = "bob@example.com"
 
-    @Test func `Last opened collection persists separately for each account`() throws {
+    @Test func `All destination types persist separately for each account`() throws {
         try withDefaults { defaults in
             let store = CollectionPreferences(defaults: defaults)
-            store.save(CardsTestIDs.favoritesCollection, account: alice)
-            store.save(CardsTestIDs.otherCollection, account: bob)
+            let favorites = CollectionDestination.named(CardsTestIDs.favoritesCollection)
+            store.saveDestination(.system(.wishlist), account: alice)
+            store.saveDestination(favorites, account: bob)
             let restored = CollectionPreferences(defaults: defaults)
-            #expect(
-                restored.restore(account: alice)
-                    == CardsTestIDs.favoritesCollection
-            )
-            #expect(
-                restored.restore(account: bob)
-                    == CardsTestIDs.otherCollection
-            )
-            #expect(restored.restore(account: "new@example.com") == nil)
-            store.save(nil, account: alice)
-            #expect(CollectionPreferences(defaults: defaults).restore(account: alice) == nil)
-            #expect(CollectionPreferences(defaults: defaults).restore(account: bob) == CardsTestIDs.otherCollection)
+            #expect(restored.restoreDestination(account: alice) == .system(.wishlist))
+            #expect(restored.restoreDestination(account: bob) == favorites)
+
+            store.saveDestination(.allCards, account: alice)
+            let reopened = CollectionPreferences(defaults: defaults)
+            #expect(reopened.restoreDestination(account: alice) == .allCards)
+            #expect(reopened.restoreDestination(account: bob) == favorites)
+            #expect(defaults.string(forKey: "TCG.collections.destination.\(alice)") == "system:all-cards")
+        }
+    }
+
+    @Test(
+        arguments: [nil, "system:unrecognized", "named:invalid-uuid"] as [String?]
+    )
+    func `Missing or unrecognized destinations fall back to All cards with legacy data present`(
+        value: String?
+    ) throws {
+        try withDefaults { defaults in
+            defaults.set(CardsTestIDs.favoritesCollection.uuidString, forKey: "TCG.collections.last.\(alice)")
+            defaults.set(value, forKey: "TCG.collections.destination.\(alice)")
+            #expect(CollectionPreferences(defaults: defaults).restoreDestination(account: alice) == .allCards)
         }
     }
 

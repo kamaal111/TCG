@@ -68,7 +68,9 @@ struct TCGAppTabs: View {
 
     @ViewBuilder
     private var collectionsTab: some View {
-        if auth.isLoggedIn, wishlist != nil {
+        if auth.isLoggedIn, let account = auth.session?.email, !collections.hasRestoredDestination(for: account) {
+            ProgressView()
+        } else if auth.isLoggedIn, wishlist != nil {
             TCGCollectionsScreen {
                 TCGWishlistScreen(isVisible: selectedTab == .collections) { card, onAdded in
                     TCGCardFormScreen(pricedCard: card, onAdded: onAdded)

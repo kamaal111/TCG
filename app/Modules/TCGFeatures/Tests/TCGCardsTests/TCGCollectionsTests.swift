@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 
 @testable import TCGCards
@@ -5,6 +6,68 @@ import Testing
 
 @MainActor
 struct TCGCollectionsTests {
+    @Test func `Wishlist reopens by account and keeps card form context only within a session`() async throws {
+        let suite = "TCG.collections.tests.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let directory = URL.temporaryDirectory.appending(path: suite, directoryHint: .isDirectory)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let client = TCGClient.preview()
+        let cards = TCGCards(client: client, snapshot: CollectionSnapshotCache(root: directory), now: { .now })
+        let collections = TCGCollections(client: client, defaults: defaults)
+        let account = "wishlist@example.test"
+        collections.startSession(account: account, cards: cards, seed: ([], []))
+        #expect(await collections.create(name: "Favorites", using: cards))
+        let favorites = try #require(collections.selectedID)
+
+        await collections.select(.system(.wishlist), using: cards, loadsList: true)
+        await collections.reload(using: cards, force: true, loadsList: false)
+        #expect(collections.destination == .system(.wishlist))
+        #expect(collections.cardFormCollectionID == favorites)
+        #expect(cards.selectedCollection == nil)
+        collections.stopLiveLoading(using: cards)
+
+        let reopenedCards = TCGCards(client: client, snapshot: CollectionSnapshotCache(root: directory), now: { .now })
+        let reopened = TCGCollections(client: client, defaults: defaults)
+        reopened.startSession(account: "other@example.test", cards: reopenedCards, seed: ([], []))
+        #expect(reopened.destination == .allCards)
+        reopened.startSession(account: account, cards: reopenedCards, seed: ([], []))
+        #expect(reopened.destination == .system(.wishlist))
+        #expect(reopened.cardFormCollectionID == nil)
+        #expect(reopened.destination.available(in: [.allCards]) == .allCards)
+        #expect(CollectionPreferences(defaults: defaults).restoreDestination(account: account) == .system(.wishlist))
+
+        await reopened.select(.allCards, using: reopenedCards, loadsList: false)
+        reopened.stopLiveLoading(using: reopenedCards)
+        reopened.startSession(account: account, cards: reopenedCards, seed: ([], []))
+        #expect(reopened.destination == .allCards)
+    }
+
+    @Test func `A reopened named collection falls back to All cards when deleted`() async throws {
+        let suite = "TCG.collections.tests.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let directory = URL.temporaryDirectory.appending(path: suite, directoryHint: .isDirectory)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let client = TCGClient.preview()
+        let account = "favorites@example.test"
+        let cards = TCGCards(client: client, snapshot: CollectionSnapshotCache(root: directory), now: { .now })
+        let collections = TCGCollections(client: client, defaults: defaults)
+        collections.startSession(account: account, cards: cards, seed: ([], []))
+        #expect(await collections.create(name: "Favorites", using: cards))
+        let binder = try #require(collections.selected)
+        collections.stopLiveLoading(using: cards)
+
+        let reopenedCards = TCGCards(client: client, snapshot: CollectionSnapshotCache(root: directory), now: { .now })
+        let reopened = TCGCollections(client: client, defaults: defaults)
+        reopened.startSession(account: account, cards: reopenedCards, seed: ([], []))
+        #expect(reopened.destination == .named(binder.id))
+        #expect(reopened.selected == binder)
+        #expect(await reopened.delete(binder, using: reopenedCards))
+        #expect(reopened.destination == .allCards)
+        #expect(CollectionPreferences(defaults: defaults).restoreDestination(account: account) == .allCards)
+    }
+
     @Test func `Downloaded collections include empty binders and Unfiled and load binder pages locally`() async throws {
         let client = TCGClient.preview(cardsOutcome: .serverUnavailable)
         let cards = TCGCards(client: client)
@@ -40,16 +103,16 @@ struct TCGCollectionsTests {
         collections.useDownload(cards: savedCards, collections: [favorites, empty, unfiled])
 
         #expect(collections.namedCollections.map(\.id) == [favorites.id, empty.id, unfiled.id])
-        await collections.select(favorites.id, using: cards, loadsList: true)
+        await collections.select(.named(favorites.id), using: cards, loadsList: true)
         #expect(try await collections.page(page.id, using: cards, force: false).get().cards == [first])
-        await collections.select(empty.id, using: cards, loadsList: true)
+        await collections.select(.named(empty.id), using: cards, loadsList: true)
         #expect(
             try await collections.page(CollectionTestFixtures.emptyPage.id, using: cards, force: false).get().cards
                 .isEmpty
         )
-        await collections.select(unfiled.id, using: cards, loadsList: true)
+        await collections.select(.named(unfiled.id), using: cards, loadsList: true)
         #expect(cards.cards == savedCards.filter { $0.card.collectionID == nil })
-        await collections.select(nil, using: cards, loadsList: true)
+        await collections.select(.allCards, using: cards, loadsList: true)
         #expect(cards.cards == savedCards)
     }
 
@@ -82,7 +145,7 @@ struct TCGCollectionsTests {
         let context = try await CollectionTestFixtures.selectedContext()
         let cards = context.cards
         let collections = context.collections
-        await collections.select(nil, using: cards, loadsList: true)
+        await collections.select(.allCards, using: cards, loadsList: true)
         #expect(collections.selected == nil)
         #expect(await collections.create(name: "Favorites", using: cards))
         let favorites = try #require(collections.selected)
@@ -170,8 +233,8 @@ struct TCGCollectionsTests {
             )
         )
         #expect(await context.collections.save(swapped, using: context.cards))
-        await context.collections.select(nil, using: context.cards, loadsList: true)
-        await context.collections.select(binder.id, using: context.cards, loadsList: true)
+        await context.collections.select(.allCards, using: context.cards, loadsList: true)
+        await context.collections.select(.named(binder.id), using: context.cards, loadsList: true)
         let reopened = try #require(context.collections.selected)
         #expect(reopened.pages == swapped.pages)
         #expect(reopened.pages.map(\.id) == [first, CardsTestIDs.primary, second])
@@ -192,7 +255,7 @@ struct TCGCollectionsTests {
         values.collectionID = collection.id
         _ = try await context.cards.updateCard(id: card.card.id, values: values).get()
         #expect(context.cards.cards.map(\.card.id) == [card.card.id])
-        await context.collections.select(nil, using: context.cards, loadsList: true)
+        await context.collections.select(.allCards, using: context.cards, loadsList: true)
         #expect(Set(context.cards.cards.map(\.card.id)) == allIDs)
         #expect(context.collections.selected == nil)
         await context.collections.reload(using: context.cards, force: true, loadsList: true)
@@ -204,9 +267,10 @@ struct TCGCollectionsTests {
     @Test func `Searching All cards finds a card outside the last opened collection`() async throws {
         let context = try await CollectionTestFixtures.selectedContext()
         let selected = try #require(context.collections.selected)
-        await context.collections.select(context.collections.unfiled?.id, using: context.cards, loadsList: true)
+        let unfiledID = try #require(context.collections.unfiled?.id)
+        await context.collections.select(.named(unfiledID), using: context.cards, loadsList: true)
         #expect(context.cards.cards.isEmpty)
-        await context.collections.select(nil, using: context.cards, loadsList: true)
+        await context.collections.select(.allCards, using: context.cards, loadsList: true)
         let model = TCGCardsListScreenModel(preferences: nil)
         model.query = "lUfFy"
         await model.load(using: context.cards)

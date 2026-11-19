@@ -6,58 +6,27 @@ struct CollectionSwitcher: View {
     @Environment(TCGCards.self) private var cards
     let collections: TCGCollections
     let actions: CollectionNavigationActions
-    let wishlistSelection: Binding<Bool>?
-
-    private enum DestinationIcon: String {
-        case allCards = "rectangle.stack"
-        case wishlist = "heart"
-        case namedCollection = "rectangle.grid.3x2"
-    }
-
-    private var selectedIcon: DestinationIcon {
-        if wishlistSelection?.wrappedValue == true { return .wishlist }
-        return collections.selectedID == nil ? .allCards : .namedCollection
-    }
+    let systemCollections: [SystemCollectionID]
 
     var body: some View {
         TCGNavigationMenu {
-            Button {
-                wishlistSelection?.wrappedValue = false
-                Task { await collections.select(nil, using: cards, loadsList: true) }
-            } label: {
-                Label {
-                    Text("All cards", bundle: .module)
-                } icon: {
-                    Image(systemName: DestinationIcon.allCards.rawValue)
-                }
-            }
-            if let wishlistSelection {
+            ForEach(systemCollections, id: \.self) { id in
                 Button {
-                    wishlistSelection.wrappedValue = true
+                    choose(.system(id))
                 } label: {
-                    Label {
-                        Text("Wishlist", bundle: .module)
-                    } icon: {
-                        Image(systemName: DestinationIcon.wishlist.rawValue)
-                    }
+                    CollectionNavigationLabel.system(id)
                 }
             }
             ForEach(collections.namedCollections) { collection in
                 Button {
-                    wishlistSelection?.wrappedValue = false
-                    Task { await collections.select(collection.id, using: cards, loadsList: true) }
+                    choose(.named(collection.id))
                 } label: {
-                    Label {
-                        CollectionTitle(collection: collection)
-                    } icon: {
-                        Image(systemName: DestinationIcon.namedCollection.rawValue)
-                    }
+                    CollectionNavigationLabel.named(collection)
                 }
             }
             if !cards.isReadOnly {
                 Divider()
                 Button {
-                    wishlistSelection?.wrappedValue = false
                     actions.create()
                 } label: {
                     Text("New collection", bundle: .module)
@@ -67,9 +36,13 @@ struct CollectionSwitcher: View {
             Label {
                 Text("Collections", bundle: .module)
             } icon: {
-                Image(systemName: selectedIcon.rawValue)
+                Image(systemName: collections.destination.available(in: systemCollections).systemImage)
             }
         }
         .help(Text("Choose a collection", bundle: .module))
+    }
+
+    private func choose(_ destination: CollectionDestination) {
+        Task { await collections.select(destination, using: cards, loadsList: true) }
     }
 }

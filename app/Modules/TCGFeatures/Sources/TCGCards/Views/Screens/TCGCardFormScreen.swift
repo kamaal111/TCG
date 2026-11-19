@@ -61,7 +61,10 @@ public struct TCGCardFormScreen: View {
                 guard !hasConfiguredCollection else { return }
                 guard let collections else { return }
                 hasConfiguredCollection = true
-                model.configureCollection(currentID: collections.selectedID, unfiledID: collections.unfiled?.id)
+                model.configureCollection(
+                    currentID: collections.cardFormCollectionID,
+                    unfiledID: collections.unfiled?.id
+                )
             }
             .disabled(model.isSubmitting)
     }

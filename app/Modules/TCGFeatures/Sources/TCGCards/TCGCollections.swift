@@ -9,7 +9,8 @@ import TCGClient
 @Observable
 public final class TCGCollections {
     private(set) var collections: [CardCollectionSummary] = []
-    private(set) var selectedID: UUID?
+    private(set) var destination: CollectionDestination = .allCards
+    var selectedID: UUID? { destination.namedID }
     private(set) var isWorking = false
     var error: CollectionsError?
     private let client: TCGCollectionsClient
@@ -31,6 +32,7 @@ public final class TCGCollections {
     private(set) var binderForegroundID = UUID()
     private weak var presentationCards: TCGCards?
     private var views: [UUID: CollectionViewMode] = [:]
+    private(set) var cardFormCollectionID: UUID?
 
     public init(client: TCGClient, defaults: UserDefaults?) {
         self.client = client.collections
@@ -81,27 +83,41 @@ public final class TCGCollections {
                 cards.clearCollectionSelection()
             case .authenticated:
                 guard let id = auth.session?.email else { continue }
-                if account != id {
-                    clearSession()
-                    account = id
-                    cards.useAccount(id)
-                    let seed = offlineSeed(id)
-                    cards.seedOnlineCollection(seed.cards)
-                    collections = cards.snapshot.summaries
-                    if collections.isEmpty { collections = seed.collections.map(\.summary) }
-                    let saved = preferences.restore(account: id)
-                    let cached = cards.snapshot.selected ?? seed.collections.first { $0.id == saved }
-                    if let cached, cached.id == saved {
-                        selectedID = cached.id
-                        selected = cached
-                    }
-                    cards.isShowingBinder = selected.map { view(for: $0.id) == .binder } ?? false
-                    cards.restoreCollection(selected)
-                }
+                if account != id { startSession(account: id, cards: cards, seed: offlineSeed(id)) }
                 reloadTask?.cancel()
                 reloadTask = Task { await reload(using: cards, force: false, loadsList: true) }
             }
         }
+    }
+
+    func startSession(
+        account: String,
+        cards: TCGCards,
+        seed: (cards: [CardWithPrice], collections: [CardBinderCollection])
+    ) {
+        clearSession()
+        self.account = account
+        cards.useAccount(account)
+        cards.seedOnlineCollection(seed.cards)
+        collections = cards.snapshot.summaries
+        if collections.isEmpty { collections = seed.collections.map(\.summary) }
+
+        destination = preferences.restoreDestination(account: account)
+        if let selectedID {
+            if let cached = cards.snapshot.selected, cached.id == selectedID {
+                selected = cached
+            } else {
+                selected = seed.collections.first { $0.id == selectedID }
+            }
+            layouts[selectedID] = selected
+            cardFormCollectionID = selectedID
+            cards.isShowingBinder = view(for: selectedID) == .binder
+        }
+        cards.restoreCollection(selected)
+    }
+
+    public func hasRestoredDestination(for account: String) -> Bool {
+        self.account == account
     }
 
     public func stopLiveLoading(using cards: TCGCards) {
@@ -117,7 +133,8 @@ public final class TCGCollections {
         clearReads()
         layouts.removeAll()
         account = nil
-        selectedID = nil
+        destination = .allCards
+        cardFormCollectionID = nil
         selected = nil
         collections = []
         views = [:]
@@ -151,7 +168,16 @@ public final class TCGCollections {
                 await self.reload(using: cards, force: true, loadsList: true)
             }
         }
-        if !force, cards.snapshot.summariesAreFresh(at: cards.now()) { return }
+        if !force, cards.snapshot.summariesAreFresh(at: cards.now()) {
+            guard let selectedID else { return }
+
+            if let summary = namedCollections.first(where: { $0.id == selectedID }) {
+                if selected?.revision != summary.revision {
+                    await applySelection(summary, using: cards, loadsList: loadsList)
+                }
+                return
+            }
+        }
 
         let token = generation
         reloadRevision += 1
@@ -162,16 +188,19 @@ public final class TCGCollections {
             guard generation == token, !Task.isCancelled else { return }
             guard reloadRevision == revision else { return }
             collections = result
-            cards.snapshot.stampSummaries(at: cards.now())
+            cards.snapshot.saveSummaries(result, checkedAt: cards.now())
             let currentIDs = Set(result.map(\.id))
             views = views.filter { currentIDs.contains($0.key) }
             layouts = layouts.filter { currentIDs.contains($0.key) }
-            let previous = selectedID ?? account.flatMap { preferences.restore(account: $0) }
-            let selection = result.first { $0.id == previous && !$0.isUnfiled }
-            if let previous, selection == nil {
-                cards.snapshot.removeCollection(previous)
+            if let cardFormCollectionID, !currentIDs.contains(cardFormCollectionID) {
+                self.cardFormCollectionID = nil
             }
-            await select(selection?.id, using: cards, loadsList: loadsList || previous != selection?.id)
+            let selection = result.first { $0.id == selectedID && !$0.isUnfiled }
+            if let selectedID, selection == nil {
+                await collectionDisappeared(selectedID, using: cards)
+            } else {
+                await applySelection(selection, using: cards, loadsList: loadsList)
+            }
         case .failure(let failure):
             guard generation == token, !Task.isCancelled else { return }
             guard reloadRevision == revision else { return }
@@ -179,26 +208,44 @@ public final class TCGCollections {
         }
     }
 
-    func select(_ id: UUID?, using cards: TCGCards, loadsList: Bool) async {
+    func select(_ destination: CollectionDestination, using cards: TCGCards, loadsList: Bool) async {
+        guard !Task.isCancelled else { return }
+
+        switch destination {
+        case .system:
+            if destination == .allCards { cardFormCollectionID = nil }
+            setDestination(destination)
+            await applySelection(nil, using: cards, loadsList: loadsList && destination == .allCards)
+        case .named(let id):
+            guard let summary = collections.first(where: { $0.id == id }) else { return }
+
+            cardFormCollectionID = id
+            setDestination(destination)
+            await applySelection(summary, using: cards, loadsList: loadsList)
+        }
+    }
+
+    private func setDestination(_ destination: CollectionDestination) {
+        self.destination = destination
+        if let account { preferences.saveDestination(destination, account: account) }
+    }
+
+    private func applySelection(_ summary: CardCollectionSummary?, using cards: TCGCards, loadsList: Bool) async {
         presentationCards = cards
-        guard let id else {
+        guard let summary else {
             cards.isShowingBinder = false
-            selectedID = nil
             selected = nil
-            if let account { preferences.save(nil, account: account) }
             cards.snapshot.saveCollections(collections, selected: nil)
             await cards.selectCollection(nil, loadsList: loadsList)
             return
         }
-        guard let summary = collections.first(where: { $0.id == id }) else { return }
-        selectedID = summary.id
+        let id = summary.id
         cards.isShowingBinder = view(for: id) == .binder
         if let downloadedCollections {
             selected = downloadedCollections[id]
             await cards.selectCollection(selected, loadsList: loadsList && !cards.isShowingBinder)
             return
         }
-        if let account { preferences.save(summary.id, account: account) }
         let cached = selected?.id == id ? selected : layouts[id]
         if let cached, cached.revision == summary.revision {
             selected = cached
@@ -236,7 +283,7 @@ public final class TCGCollections {
         views.removeValue(forKey: id)
         layouts.removeValue(forKey: id)
         cards.snapshot.removeCollection(id)
-        await select(nil, using: cards, loadsList: true)
+        await select(.allCards, using: cards, loadsList: true)
     }
 
     public func refreshOnForeground(using cards: TCGCards) async {
@@ -255,8 +302,9 @@ public final class TCGCollections {
             cards.invalidateCollectionReads()
             clearReads()
             selected = collection
-            selectedID = collection.id
-            await reload(using: cards, force: true, loadsList: true)
+            await select(.named(collection.id), using: cards, loadsList: true)
+            guard generation == token else { return false }
+            await reload(using: cards, force: true, loadsList: false)
             return true
         case .failure(let failure):
             error = failure
@@ -340,12 +388,12 @@ public final class TCGCollections {
     }
 
     func refresh(using cards: TCGCards, force: Bool) async {
-        let previous = selectedID
+        let previous = destination
         let revision = selected?.revision
         let token = generation
         await reload(using: cards, force: force, loadsList: false)
         guard generation == token, !Task.isCancelled else { return }
-        guard selectedID == previous else { return }
+        guard destination == previous else { return }
 
         if cards.isShowingBinder {
             guard selected?.revision == revision else { return }

@@ -7,7 +7,7 @@ struct CollectionContentView: View {
     let collections: TCGCollections
     let actions: CollectionNavigationActions
     @Binding var isEditing: Bool
-    let wishlistSelection: Binding<Bool>?
+    let systemCollections: [SystemCollectionID]
 
     var body: some View {
         VStack(spacing: 0) {
@@ -39,7 +39,7 @@ struct CollectionContentView: View {
                     CollectionSwitcher(
                         collections: collections,
                         actions: actions,
-                        wishlistSelection: wishlistSelection
+                        systemCollections: systemCollections
                     )
                 }
             #endif
