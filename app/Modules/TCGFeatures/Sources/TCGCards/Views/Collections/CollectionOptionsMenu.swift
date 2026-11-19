@@ -1,11 +1,12 @@
 import SwiftUI
+import TCGDesignSystem
 
 struct CollectionOptionsMenu: View {
     let collections: TCGCollections
     let actions: CollectionNavigationActions
 
     var body: some View {
-        Menu {
+        TCGNavigationMenu {
             if let selected = collections.selected {
                 if !selected.isUnfiled {
                     Button {

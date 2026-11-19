@@ -29,7 +29,9 @@ public struct TCGScene: Scene {
     @State private var search = TCGSearch.default()
     @State private var offline = OfflineCollection(client: .default(), defaults: .standard)
 
-    public init() {}
+    public init() {
+        TCGNavigationAppearance.install()
+    }
 
     public var body: some Scene {
         WindowGroup {
