@@ -1984,13 +1984,14 @@ paths:
             minLength: 1
             maxLength: 200
             description: >-
-              Case-insensitive literal substring in card name, set name, or card
-              number; omitted means all saved printings.
+              Case-insensitive literal substring in card name, English search
+              alias, set name, or card number; omitted means all saved
+              printings.
             example: Luffy
           required: false
           description: >-
-            Case-insensitive literal substring in card name, set name, or card
-            number; omitted means all saved printings.
+            Case-insensitive literal substring in card name, English search
+            alias, set name, or card number; omitted means all saved printings.
           name: query
           in: query
         - schema:
