@@ -63,7 +63,7 @@ struct BinderSlotEditor: View {
         .toolbar {
             if model.screen != .collectionCards {
                 ToolbarItem(placement: backPlacement) {
-                    Button {
+                    TCGNavigationButton {
                         Task { await model.showCards(unfiled: false, using: cards, collections: collections) }
                     } label: {
                         Text("Back", bundle: .module)

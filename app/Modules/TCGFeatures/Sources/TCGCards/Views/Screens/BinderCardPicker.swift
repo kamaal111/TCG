@@ -60,7 +60,7 @@ struct BinderCardPicker: View {
             .toolbar {
                 if let addMore = actions.addMore {
                     ToolbarItem(placement: .primaryAction) {
-                        Button(action: addMore) { Text("Add more", bundle: .module) }
+                        TCGNavigationButton(action: addMore) { Text("Add more", bundle: .module) }
                     }
                 }
             }

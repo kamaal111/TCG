@@ -1,5 +1,6 @@
 import SwiftUI
 import TCGClient
+import TCGDesignSystem
 
 struct CollectionContentView: View {
     @Environment(TCGCards.self) private var cards
@@ -52,7 +53,7 @@ struct CollectionContentView: View {
                         if isEditing {
                             CollectionOptionsMenu(collections: collections, actions: actions)
                         }
-                        Button {
+                        TCGNavigationButton {
                             isEditing.toggle()
                         } label: {
                             if isEditing {

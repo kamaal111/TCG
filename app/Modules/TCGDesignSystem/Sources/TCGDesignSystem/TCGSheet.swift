@@ -25,7 +25,7 @@ extension View {
             onClose: onClose,
             content: self
         ) {
-            ToolbarItem(placement: .confirmationAction, content: confirmation)
+            ToolbarItem(placement: .confirmationAction) { confirmation().tcgNavigationAccent() }
         }
     }
 
@@ -36,8 +36,10 @@ extension View {
         auxiliaryAction: AuxiliaryAction?,
         primaryAction: PrimaryAction
     ) -> some View {
+        let auxiliaryAction = auxiliaryAction?.tcgNavigationAccent()
+        let primaryAction = primaryAction.tcgNavigationAccent()
         #if os(macOS)
-            VStack(spacing: 0) {
+            return VStack(spacing: 0) {
                 TCGSheetIconActionHeader(title: title, closeLabel: closeLabel) {
                     auxiliaryAction
                     primaryAction
@@ -46,7 +48,7 @@ extension View {
                 self
             }
         #else
-            TCGSheet(title: title, closeLabel: closeLabel, closeDisabled: false, onClose: nil, content: self) {
+            return TCGSheet(title: title, closeLabel: closeLabel, closeDisabled: false, onClose: nil, content: self) {
                 if let auxiliaryAction {
                     ToolbarItem(placement: .topBarTrailing) { auxiliaryAction }
                     if #available(iOS 26, *) {
@@ -99,7 +101,7 @@ private struct TCGSheetCloseButton: View {
     let action: () -> Void
 
     var body: some View {
-        Button(action: action) { label }
+        TCGNavigationButton(action: action) { label }
             .keyboardShortcut(.cancelAction)
             .disabled(isDisabled)
     }

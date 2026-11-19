@@ -1,5 +1,6 @@
 import SwiftUI
 import TCGClient
+import TCGDesignSystem
 
 struct CollectionSwitcher: View {
     @Environment(TCGCards.self) private var cards
@@ -19,7 +20,7 @@ struct CollectionSwitcher: View {
     }
 
     var body: some View {
-        Menu {
+        TCGNavigationMenu {
             Button {
                 wishlistSelection?.wrappedValue = false
                 Task { await collections.select(nil, using: cards, loadsList: true) }
