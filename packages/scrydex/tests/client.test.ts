@@ -4,7 +4,7 @@ import { ScrydexClient, type ScrydexClientOptions, type ScrydexFetch, type Scryd
 
 const card = { id: 'sv5m_ja-72', name: 'ダーテング', number: '72', provider_extra: true };
 
-function makeClient(transport: ScrydexFetch, options: ScrydexClientOptions = {}) {
+function makeClient(transport: ScrydexFetch, options: ScrydexClientOptions) {
   return new ScrydexClient({ apiKey: 'test-key', teamId: 'test-team', fetch: transport, ...options });
 }
 
@@ -23,7 +23,7 @@ describe('Scrydex request construction', () => {
     const transport = vi.fn<ScrydexFetch>().mockResolvedValue(Response.json({ data: [] }));
     const timeout = vi.spyOn(AbortSignal, 'timeout');
     const query = '(name:"ダーテング + V") AND (!language_code:JA)';
-    const result = await makeClient(transport).searchCards(game, query, 1);
+    const result = await makeClient(transport, {}).searchCards(game, query, 1);
     assert(result.isOk());
     expect(result.value).toEqual({ cards: [], providerResultCount: 0, hasMore: false, rejectedCount: 0 });
     const [input, init] = transport.mock.calls[0] ?? [];
@@ -62,7 +62,7 @@ describe('Scrydex request construction', () => {
     { game: 'one_piece', path: '/onepiece/v1/cards/set%2Fcard%20%3F%23' },
   ])('encodes $game lookup IDs as a single path segment', async ({ game, path }) => {
     const transport = vi.fn<ScrydexFetch>().mockResolvedValue(Response.json({ data: card }, { status: 201 }));
-    const result = await makeClient(transport).getCardById(game, 'set/card ?#');
+    const result = await makeClient(transport, {}).getCardById(game, 'set/card ?#');
     assert(result.isOk());
     expect(result.value).toEqual({ card, statusCode: 201 });
     const [input, init] = transport.mock.calls[0] ?? [];
@@ -100,7 +100,7 @@ describe('Scrydex request construction', () => {
   });
 
   it('requires explicit credentials when constructed without options', async () => {
-    const result = await new ScrydexClient().searchCards('pokemon', 'query', 1);
+    const result = await new ScrydexClient({}).searchCards('pokemon', 'query', 1);
     assert(result.isErr());
     expect(result.error.reason).toBe('missing_credentials');
   });
@@ -140,7 +140,7 @@ describe.each(operations)('$name failures', ({ run, name }) => {
     },
     { error: 'secret', reason: 'network_error', message: 'Scrydex request failed before a response was received' },
   ])('maps transport rejection to $reason without exposing details', async ({ error, reason, message }) => {
-    const result = await run(makeClient(vi.fn<ScrydexFetch>().mockRejectedValue(error)));
+    const result = await run(makeClient(vi.fn<ScrydexFetch>().mockRejectedValue(error), {}));
     assert(result.isErr());
     expect(result.error).toEqual({ reason, message, isRetryable: true });
   });
@@ -153,7 +153,7 @@ describe.each(operations)('$name failures', ({ run, name }) => {
   ])('maps HTTP $status with retryable=$retryable without reading its body', async ({ status, retryable }) => {
     const response = Response.json({ secret: 'private provider body' }, { status });
     const decode = vi.spyOn(response, 'json');
-    const result = await run(makeClient(async () => response));
+    const result = await run(makeClient(async () => response, {}));
     assert(result.isErr());
     expect(result.error).toEqual({
       reason: 'http_error',
@@ -165,7 +165,7 @@ describe.each(operations)('$name failures', ({ run, name }) => {
   });
 
   it('reports invalid JSON with the successful HTTP status', async () => {
-    const result = await run(makeClient(async () => new Response('{bad', { status: 201 })));
+    const result = await run(makeClient(async () => new Response('{bad', { status: 201 }), {}));
     assert(result.isErr());
     expect(result.error).toEqual({
       reason: 'invalid_response',
@@ -188,7 +188,7 @@ describe('Scrydex search decoding', () => {
       .fn<ScrydexFetch>()
       .mockResolvedValue(Response.json({ data: Array.from({ length }, () => null), ...total }));
 
-    const result = await makeClient(transport).searchCards('pokemon', 'query', 2);
+    const result = await makeClient(transport, {}).searchCards('pokemon', 'query', 2);
     assert(result.isOk());
     expect(result.value).toMatchObject({ cards: [], rejectedCount: length, hasMore });
     const [input] = transport.mock.calls[0] ?? [];
@@ -204,14 +204,14 @@ describe('Scrydex search decoding', () => {
   ])('preserves provider totals independently of rejected records: $counts', async ({ counts, expected }) => {
     const result = await makeClient(async () => {
       return Response.json({ data: [card, null, { variants: 'invalid' }], ...counts });
-    }).searchCards('pokemon', 'query', 1);
+    }, {}).searchCards('pokemon', 'query', 1);
 
     assert(result.isOk());
     expect(result.value).toEqual({ cards: [card], providerResultCount: expected, hasMore: false, rejectedCount: 2 });
   });
 
   it('leaves pricing identity and normalization decisions to the consumer', async () => {
-    const result = await makeClient(async () => Response.json({ data: [{}] })).searchCards('pokemon', 'query', 1);
+    const result = await makeClient(async () => Response.json({ data: [{}] }), {}).searchCards('pokemon', 'query', 1);
     assert(result.isOk());
     expect(result.value).toEqual({ cards: [{}], providerResultCount: 1, hasMore: false, rejectedCount: 0 });
   });
@@ -219,7 +219,7 @@ describe('Scrydex search decoding', () => {
   it.each([{}, { data: null }, { data: 'invalid' }, { data: [], totalCount: -1 }, { data: [], total_count: 1.5 }])(
     'rejects malformed search envelopes: %j',
     async body => {
-      const result = await makeClient(async () => Response.json(body)).searchCards('pokemon', 'query', 1);
+      const result = await makeClient(async () => Response.json(body), {}).searchCards('pokemon', 'query', 1);
       assert(result.isErr());
       expect(result.error).toEqual({
         reason: 'invalid_response',
@@ -231,7 +231,12 @@ describe('Scrydex search decoding', () => {
   );
 
   it('treats search 404 as an HTTP failure', async () => {
-    const result = await makeClient(async () => new Response(null, { status: 404 })).searchCards('pokemon', 'query', 1);
+    const result = await makeClient(async () => new Response(null, { status: 404 }), {}).searchCards(
+      'pokemon',
+      'query',
+      1,
+    );
+
     assert(result.isErr());
     expect(result.error).toMatchObject({ reason: 'http_error', statusCode: 404, isRetryable: false });
   });
@@ -241,7 +246,7 @@ describe('Scrydex lookup decoding', () => {
   it('returns null for 404 without decoding the body', async () => {
     const response = new Response('not JSON', { status: 404 });
     const decode = vi.spyOn(response, 'json');
-    const result = await makeClient(async () => response).getCardById('pokemon', 'missing');
+    const result = await makeClient(async () => response, {}).getCardById('pokemon', 'missing');
     assert(result.isOk());
     expect(result.value).toBeNull();
     expect(decode).not.toHaveBeenCalled();
@@ -250,7 +255,7 @@ describe('Scrydex lookup decoding', () => {
   it.each([{}, { data: null }, { data: [] }, { data: 'invalid' }, { data: { images: {} } }, card])(
     'rejects malformed lookup envelopes: %j',
     async body => {
-      const result = await makeClient(async () => Response.json(body)).getCardById('pokemon', 'card');
+      const result = await makeClient(async () => Response.json(body), {}).getCardById('pokemon', 'card');
       assert(result.isErr());
       expect(result.error).toEqual({
         reason: 'invalid_response',

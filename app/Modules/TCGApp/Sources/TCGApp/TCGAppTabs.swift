@@ -62,7 +62,7 @@ struct TCGAppTabs: View {
             await refreshDisplayPrices()
         }
         .task(id: scenePhase) {
-            if scenePhase == .active, auth.isLoggedIn { await currencyState.refresh() }
+            if scenePhase == .active, auth.isLoggedIn { await currencyState.refresh(locale: .current) }
         }
         .task(id: isCollectionVisible) {
             if isCollectionVisible { await collections.refreshOnForeground(using: cards) }

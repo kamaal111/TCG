@@ -40,7 +40,7 @@ public final class TCGWishlist {
     @ObservationIgnored private var snapshots: [Snapshot] = []
     private(set) var revision = UUID()
 
-    public convenience init(client: TCGWishlistClient, accountID: (() -> String?)? = nil) {
+    public convenience init(client: TCGWishlistClient, accountID: (() -> String?)?) {
         self.init(
             client: client,
             accountID: accountID,

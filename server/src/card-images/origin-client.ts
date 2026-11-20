@@ -40,7 +40,7 @@ export class HttpCardImageOriginClient implements CardImageOriginClient {
   private readonly maxBytes: number;
   private readonly requestTimeoutMs: number;
 
-  constructor(options: { fetch?: Fetch; maxBytes?: number; requestTimeoutMs?: number } = {}) {
+  constructor(options: { fetch?: Fetch; maxBytes?: number; requestTimeoutMs?: number }) {
     this.fetchImplementation = options.fetch ?? fetch;
     this.maxBytes = options.maxBytes ?? DEFAULT_IMAGE_POLICY.CARD_IMAGE_MAX_BYTES;
     this.requestTimeoutMs = options.requestTimeoutMs ?? DEFAULT_IMAGE_POLICY.CARD_IMAGE_REQUEST_TIMEOUT_MS;

@@ -9,7 +9,7 @@ integrationTest('keeps account creation lazy until the user factory is called', 
   expect(await db.query.user.findMany()).toEqual([]);
   expect((await app.request(SESSION_ROUTE_PATH)).status).toBe(401);
 
-  const created = await createUser();
+  const created = await createUser({});
 
   expect(await db.query.user.findMany()).toMatchObject([{ id: created.userId }]);
 });

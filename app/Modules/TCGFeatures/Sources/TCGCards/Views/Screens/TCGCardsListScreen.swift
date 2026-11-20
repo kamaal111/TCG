@@ -21,10 +21,10 @@ public struct TCGCardsListScreen: View {
     private let hidesScrollBackground: Bool
 
     public init() {
-        self.init(model: TCGCardsListScreenModel(preferences: .standard))
+        self.init(model: TCGCardsListScreenModel(preferences: .standard), hidesScrollBackground: false)
     }
 
-    init(model: TCGCardsListScreenModel, hidesScrollBackground: Bool = false) {
+    init(model: TCGCardsListScreenModel, hidesScrollBackground: Bool) {
         _model = State(initialValue: model)
         self.hidesScrollBackground = hidesScrollBackground
     }
@@ -58,7 +58,7 @@ public struct TCGCardsListScreen: View {
             .task(id: model.filters) {
                 await model.resumeLoadIfNeeded(using: cardCollection)
             }
-            .toast(model.toast, dismiss: model.dismissToast)
+            .toast(model.toast, type: .error, dismiss: model.dismissToast)
             .onChange(of: cardCollection.displayRefreshError) { _, error in
                 if let error { model.show(error) }
             }
@@ -119,6 +119,7 @@ public struct TCGCardsListScreen: View {
             TCGCollectionPaginationFooter(
                 isLoading: cardCollection.isLoadingNextPage,
                 errorDescription: cardCollection.nextPageError?.errorDescription,
+                failureTitle: nil,
                 retry: { Task { _ = await cardCollection.loadNextPage() } }
             )
         }

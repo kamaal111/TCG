@@ -35,7 +35,7 @@ async function fixture() {
   return { root, directory, text, password, confirm, note, prompts, authentication };
 }
 
-async function infrastructure(root: string, apiHost: string, format: 'json' | 'native' = 'json') {
+async function infrastructure(root: string, apiHost: string, format: 'json' | 'native') {
   const values = {
     existing_droplet_id: '101',
     existing_database_id: 'example-database',
@@ -78,7 +78,7 @@ test.each(['json', 'native'] as const)(
   async format => {
     const f = await fixture();
     const infra = await infrastructure(f.root, settings.apiHost, format);
-    await setupAppRelease({ root: f.root, directory: f.directory, prompts: f.prompts });
+    await setupAppRelease({ edit: false, root: f.root, directory: f.directory, prompts: f.prompts });
     expect(f.text).not.toHaveBeenCalled();
     expect(await readAppSettings(f.directory)).toEqual(settings);
     expect(await fs.readFile(infra.file, 'utf8')).toBe(infra.contents);
@@ -89,21 +89,21 @@ test.each(['json', 'native'] as const)(
 test('preserves existing app-release values without rereading infrastructure or asking for them', async () => {
   const f = await fixture();
   await saveAppSettings(f.directory, settings);
-  const infra = await infrastructure(f.root, 'different.mintomo.com');
+  const infra = await infrastructure(f.root, 'different.mintomo.com', 'json');
   await fs.writeFile(infra.file, 'invalid infrastructure');
-  await setupAppRelease({ root: f.root, directory: f.directory, prompts: f.prompts });
+  await setupAppRelease({ edit: false, root: f.root, directory: f.directory, prompts: f.prompts });
   expect(f.text).not.toHaveBeenCalled();
   expect(await readAppSettings(f.directory)).toEqual(settings);
 });
 
 test('uses the configured infrastructure hostname ahead of local app configuration', async () => {
   const f = await fixture();
-  await infrastructure(f.root, settings.apiHost);
+  await infrastructure(f.root, settings.apiHost, 'json');
   await fs.writeFile(
     path.join(f.root, 'app/Configuration/Remote.local.xcconfig'),
     'TCG_API_HOST = different.mintomo.com\n',
   );
-  await setupAppRelease({ root: f.root, directory: f.directory, prompts: f.prompts });
+  await setupAppRelease({ edit: false, root: f.root, directory: f.directory, prompts: f.prompts });
   expect(f.text).not.toHaveBeenCalled();
   expect((await readAppSettings(f.directory)).apiHost).toBe(settings.apiHost);
 });
@@ -112,12 +112,12 @@ test.each(['', 'api.example.com'])(
   'uses local app configuration when the infrastructure hostname is unusable: %s',
   async apiHost => {
     const f = await fixture();
-    await infrastructure(f.root, apiHost);
+    await infrastructure(f.root, apiHost, 'json');
     await fs.writeFile(
       path.join(f.root, 'app/Configuration/Remote.local.xcconfig'),
       `TCG_API_HOST = ${settings.apiHost}\n`,
     );
-    await setupAppRelease({ root: f.root, directory: f.directory, prompts: f.prompts });
+    await setupAppRelease({ edit: false, root: f.root, directory: f.directory, prompts: f.prompts });
     expect(f.text).not.toHaveBeenCalled();
     expect(await readAppSettings(f.directory)).toEqual(settings);
   },
@@ -125,7 +125,7 @@ test.each(['', 'api.example.com'])(
 
 test('asks only for the hostname when none is configured', async () => {
   const f = await fixture();
-  await setupAppRelease({ root: f.root, directory: f.directory, prompts: f.prompts });
+  await setupAppRelease({ edit: false, root: f.root, directory: f.directory, prompts: f.prompts });
   expect(f.text).toHaveBeenCalledExactlyOnceWith(
     expect.objectContaining({ message: 'Production API hostname (without https:// or a path)' }),
   );
@@ -134,10 +134,10 @@ test('asks only for the hostname when none is configured', async () => {
 
 test('asks for an absent team without asking again for a known hostname', async () => {
   const f = await fixture();
-  await infrastructure(f.root, settings.apiHost);
+  await infrastructure(f.root, settings.apiHost, 'json');
   await fs.writeFile(path.join(f.root, 'app/Configuration/App.xcconfig'), 'DEVELOPMENT_TEAM =\n');
   f.text.mockResolvedValue(settings.teamID);
-  await setupAppRelease({ root: f.root, directory: f.directory, prompts: f.prompts });
+  await setupAppRelease({ edit: false, root: f.root, directory: f.directory, prompts: f.prompts });
   expect(f.text).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ message: 'Apple Developer team ID' }));
   expect(await readAppSettings(f.directory)).toEqual(settings);
 });
@@ -145,7 +145,7 @@ test('asks for an absent team without asking again for a known hostname', async 
 test('saves settings without an extra confirmation', async () => {
   const f = await fixture();
   await saveAppSettings(f.directory, settings);
-  await setupAppRelease({ root: f.root, directory: f.directory, prompts: f.prompts });
+  await setupAppRelease({ edit: false, root: f.root, directory: f.directory, prompts: f.prompts });
   expect(f.confirm).not.toHaveBeenCalled();
   expect(await readAppSettings(f.directory)).toEqual(settings);
 });
@@ -165,11 +165,11 @@ test('explicit edit mode keeps known values as defaults and allows changing them
 
 test('unreadable infrastructure stops with its explanation instead of asking for the hostname again', async () => {
   const f = await fixture();
-  const infra = await infrastructure(f.root, settings.apiHost);
+  const infra = await infrastructure(f.root, settings.apiHost, 'json');
   await fs.writeFile(infra.file, 'invalid infrastructure');
-  await expect(setupAppRelease({ root: f.root, directory: f.directory, prompts: f.prompts })).rejects.toThrow(
-    'Cannot safely read',
-  );
+  await expect(
+    setupAppRelease({ edit: false, root: f.root, directory: f.directory, prompts: f.prompts }),
+  ).rejects.toThrow('Cannot safely read');
   expect(f.text).not.toHaveBeenCalled();
   expect(await fs.readFile(infra.file, 'utf8')).toBe('invalid infrastructure');
 });
@@ -182,17 +182,12 @@ async function linkedFixture() {
     path.join(f.root, 'app/Configuration/App.xcconfig'),
     path.join(worktree.main, 'app/Configuration/App.xcconfig'),
   );
-  worktree.git(['add', 'app/Configuration/App.xcconfig']);
-  worktree.git([
-    '-c',
-    'user.name=Fixture',
-    '-c',
-    'user.email=fixture@example.com',
-    'commit',
-    '-m',
-    'App configuration',
-  ]);
-  worktree.git(['worktree', 'add', '--detach', worktree.checkout]);
+  worktree.git(['add', 'app/Configuration/App.xcconfig'], worktree.main);
+  worktree.git(
+    ['-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.com', 'commit', '-m', 'App configuration'],
+    worktree.main,
+  );
+  worktree.git(['worktree', 'add', '--detach', worktree.checkout], worktree.main);
 
   return { ...f, ...worktree };
 }
@@ -202,7 +197,7 @@ test.each(['json', 'native'] as const)(
   async format => {
     const f = await linkedFixture();
     const infra = await infrastructure(f.main, settings.apiHost, format);
-    await setupAppRelease({ root: f.checkout, directory: f.directory, prompts: f.prompts });
+    await setupAppRelease({ edit: false, root: f.checkout, directory: f.directory, prompts: f.prompts });
     expect(f.text).not.toHaveBeenCalled();
     expect(await readAppSettings(f.directory)).toEqual(settings);
     expect(await fs.readFile(infra.file, 'utf8')).toBe(infra.contents);
@@ -215,16 +210,16 @@ test('finds the primary checkout private app configuration when neither checkout
     path.join(f.main, 'app/Configuration/Remote.local.xcconfig'),
     `TCG_API_HOST = ${settings.apiHost}\n`,
   );
-  await setupAppRelease({ root: f.checkout, directory: f.directory, prompts: f.prompts });
+  await setupAppRelease({ edit: false, root: f.checkout, directory: f.directory, prompts: f.prompts });
   expect(f.text).not.toHaveBeenCalled();
   expect(await readAppSettings(f.directory)).toEqual(settings);
 });
 
 test('keeps the current checkout infrastructure hostname ahead of the primary checkout value', async () => {
   const f = await linkedFixture();
-  await infrastructure(f.checkout, settings.apiHost);
-  await infrastructure(f.main, 'different.mintomo.com');
-  await setupAppRelease({ root: f.checkout, directory: f.directory, prompts: f.prompts });
+  await infrastructure(f.checkout, settings.apiHost, 'json');
+  await infrastructure(f.main, 'different.mintomo.com', 'json');
+  await setupAppRelease({ edit: false, root: f.checkout, directory: f.directory, prompts: f.prompts });
   expect(f.text).not.toHaveBeenCalled();
   expect(await readAppSettings(f.directory)).toEqual(settings);
 });
@@ -234,7 +229,7 @@ test('new upload setup saves email and a masked app-specific password privately'
   await saveAppSettings(f.directory, settings);
   await fs.rm(path.join(f.directory, 'app-store-connect.json'));
   f.text.mockResolvedValueOnce(f.authentication.email);
-  await setupAppRelease({ root: f.root, directory: f.directory, prompts: f.prompts });
+  await setupAppRelease({ edit: false, root: f.root, directory: f.directory, prompts: f.prompts });
   expect(f.text).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ message: 'App Store Connect email' }));
   expect(f.password).toHaveBeenCalledExactlyOnceWith('App Store Connect app-specific password');
   expect(f.confirm).not.toHaveBeenCalled();
@@ -247,7 +242,7 @@ test('new upload setup saves email and a masked app-specific password privately'
 test('reuses private upload credentials without asking for them again', async () => {
   const f = await fixture();
   await saveAppSettings(f.directory, settings);
-  await setupAppRelease({ root: f.root, directory: f.directory, prompts: f.prompts });
+  await setupAppRelease({ edit: false, root: f.root, directory: f.directory, prompts: f.prompts });
   expect(f.text).not.toHaveBeenCalled();
   expect(f.password).not.toHaveBeenCalled();
   expect(f.confirm).not.toHaveBeenCalled();
@@ -275,7 +270,7 @@ test('reuses upload settings without changing leftover local signing files or re
   await fs.mkdir(signing);
   await fs.writeFile(path.join(signing, 'ios.json'), 'old local signing settings');
   await fs.writeFile(path.join(signing, 'release.keychain-db'), 'existing private keychain');
-  await setupAppRelease({ root: f.root, directory: f.directory, prompts: f.prompts });
+  await setupAppRelease({ edit: false, root: f.root, directory: f.directory, prompts: f.prompts });
   expect(f.text).not.toHaveBeenCalled();
   expect(f.password).not.toHaveBeenCalled();
   expect(await readAppAuthentication(f.directory)).toEqual(f.authentication);

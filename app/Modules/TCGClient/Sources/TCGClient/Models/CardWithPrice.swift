@@ -10,7 +10,7 @@ public struct CardWithPrice: Codable, Hashable, Sendable {
     public let price: OwnedCardPrice
     public let imageURL: URL?
 
-    public init(card: Card, price: OwnedCardPrice, imageURL: URL? = nil) {
+    public init(card: Card, price: OwnedCardPrice, imageURL: URL?) {
         self.card = card
         self.price = price
         self.imageURL = imageURL ?? price.price?.imageURL

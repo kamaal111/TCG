@@ -19,7 +19,7 @@ async function main(): Promise<void> {
   }
 
   if (process.platform !== 'darwin') {
-    throw new InfraFailure('The Devportal LaunchAgent requires macOS.');
+    throw new InfraFailure('The Devportal LaunchAgent requires macOS.', 1);
   }
 
   const { action } = options;

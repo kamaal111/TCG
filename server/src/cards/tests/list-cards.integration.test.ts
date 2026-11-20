@@ -13,6 +13,7 @@ import { card, cardMetadata } from '../../db/schema/cards.ts';
 import { appRelations } from '../../db/schema/index.ts';
 import { expectErrorResponse } from '../../tests/auth.ts';
 import { integrationTest } from '../../tests/fixtures.ts';
+import { createTestRequestId } from '../../tests/logs.ts';
 import { LIST_CARDS_ROUTE_PATH } from '../routes/list-cards.ts';
 import { CardsListResponseSchema } from '../schemas/responses.ts';
 
@@ -20,7 +21,7 @@ describe('List cards integration', () => {
   integrationTest(
     'backfills each page of linked Pokémon in one statement without calling Scrydex',
     async ({ db, createApp, user, createUser, authenticatedHeaders: headers }) => {
-      const otherUser = await createUser();
+      const otherUser = await createUser({});
       const identity = { game: CARD_GAME_MAP.POKEMON, pricingSource: 'scrydex_static' } as const;
       const owned = { ...identity, userId: user.userId, setName: 'Cyber Judge' };
       const shiftry = { ...owned, name: 'ダーテング', cardNumber: '072/071', pricingCardId: 'sv5m_ja-72' };
@@ -140,7 +141,7 @@ describe('List cards integration', () => {
   integrationTest(
     'searches across collections with owned paginated results and literal wildcard characters',
     async ({ app, user: owner, createUser, authenticatedHeaders: headers }) => {
-      const other = await createUser();
+      const other = await createUser({});
 
       const created = await app.request('/app-api/collections', {
         method: 'POST',
@@ -207,7 +208,7 @@ describe('List cards integration', () => {
   integrationTest(
     'returns only the session user cards newest first and logs success',
     async ({ app, getLogsForRequestId, withRequestId, user: owner, createUser, authenticatedHeaders }) => {
-      const otherUser = await createUser();
+      const otherUser = await createUser({});
       const first = await createTestCard(app, owner.sessionToken, validCardPayload);
 
       const second = await createTestCard(app, owner.sessionToken, {
@@ -221,7 +222,7 @@ describe('List cards integration', () => {
 
       await createCardRequest(app, otherUser.sessionToken, validCardPayload);
 
-      const { headers, requestId } = withRequestId(authenticatedHeaders);
+      const { headers, requestId } = withRequestId(authenticatedHeaders, createTestRequestId());
       const response = await app.request(LIST_CARDS_ROUTE_PATH, { headers });
       const body = CardsListResponseSchema.parse(await response.json());
 
@@ -262,7 +263,7 @@ describe('List cards integration', () => {
   integrationTest(
     'combines game and repeated exact sets while retaining all owned set choices',
     async ({ app, user: owner, createUser, authenticatedHeaders }) => {
-      const otherUser = await createUser();
+      const otherUser = await createUser({});
       const first = await createTestCard(app, owner.sessionToken, validCardPayload);
       const specialSet = 'Special, Set & + 日本語';
 
@@ -357,7 +358,7 @@ describe('List cards integration', () => {
   integrationTest(
     'returns no cards or sets when only other games and users own cards',
     async ({ app, user: owner, createUser, authenticatedHeaders }) => {
-      const otherUser = await createUser();
+      const otherUser = await createUser({});
       await createCardRequest(app, owner.sessionToken, { ...validCardPayload, game: 'pokemon' });
       await createCardRequest(app, otherUser.sessionToken, validCardPayload);
 

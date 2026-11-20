@@ -18,7 +18,7 @@ export function createTestRequestId() {
   return `test-${crypto.randomUUID()}`;
 }
 
-export function withRequestId(headers: HeadersInit = {}, requestId = createTestRequestId()) {
+export function withRequestId(headers: HeadersInit, requestId: string) {
   const requestHeaders = new Headers(headers);
   requestHeaders.set(REQUEST_ID_HEADER_NAME, requestId);
 

@@ -119,7 +119,7 @@ describe('Purchase batches integration', () => {
   integrationTest(
     'rejects foreign batch IDs and rolls back metadata changes',
     async ({ app, db, user: owner, createUser, authenticatedHeaders }) => {
-      const other = await createUser();
+      const other = await createUser({});
       const owned = await createTestCard(app, owner.sessionToken, payload);
       const foreign = await createTestCard(app, other.sessionToken, payload);
       const batch = foreign.purchases[0];

@@ -46,7 +46,7 @@ export class ForexService {
     return ok(snapshot);
   }
 
-  collectLatest(now = new Date()): Promise<Result<ForexCollectionResult, ForexError>> {
+  collectLatest(now: Date): Promise<Result<ForexCollectionResult, ForexError>> {
     return this.collector.collectLatest(now);
   }
 }

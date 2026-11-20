@@ -11,7 +11,7 @@ public final class TCGPricePrivacy {
     private let defaults: UserDefaults?
     private static let preferenceKey = "TCG.privacy.hidePrices"
 
-    public init(defaults: UserDefaults? = .standard) {
+    public init(defaults: UserDefaults?) {
         self.defaults = defaults
         hidePrices = defaults?.bool(forKey: Self.preferenceKey) ?? false
     }

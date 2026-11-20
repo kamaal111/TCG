@@ -17,7 +17,7 @@ export function parseTailscaleIdentity(json: string) {
   const status = StatusSchema.safeParse(JSON.parse(json));
 
   if (!status.success) {
-    throw new InfraFailure('Open Tailscale, sign in, connect this Mac, then rerun just setup-devportal.');
+    throw new InfraFailure('Open Tailscale, sign in, connect this Mac, then rerun just setup-devportal.', 1);
   }
 
   const hostname = status.data.Self.DNSName.replace(/\.$/, '');
@@ -31,6 +31,7 @@ export function parseTailscaleIdentity(json: string) {
   ) {
     throw new InfraFailure(
       'Use a Mac signed into a Tailscale user account with MagicDNS enabled. Tagged devices cannot identify the operator.',
+      1,
     );
   }
 
@@ -82,6 +83,7 @@ export function portalHTTPSPort(config: ServeConfiguration, hostname: string, ba
 
   throw new InfraFailure(
     'HTTPS ports 443, 8443 and 9443 already serve other applications or Funnel. Keep them intact; ask the tailnet administrator for a dedicated Serve listener.',
+    1,
   );
 }
 
@@ -102,6 +104,7 @@ export function verifyPortalServe({ config, hostname, backendPort, httpsPort }: 
   ) {
     throw new InfraFailure(
       'Private HTTPS could not be verified. Saved settings remain available; rerun just setup-devportal.',
+      1,
     );
   }
 }

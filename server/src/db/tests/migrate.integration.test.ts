@@ -11,7 +11,7 @@ import { readMigrationCatalog, squashMigrations } from '../migration-files.ts';
 test.each([0, 1, 2, 3, 4])(
   'preserves data and runs custom SQL exactly once with %i original migrations applied',
   async applied => {
-    const fixture = await migrationFixture();
+    const fixture = await migrationFixture({ onTestFinished });
     const database = await fixture.database(applied);
 
     const baseline = await squashMigrations({
@@ -55,7 +55,7 @@ test('catches up a partial middle range and applies the following migration', as
 });
 
 test.each([1, 2, 3])('adopts nested squashes from %i original migrations', async applied => {
-  const fixture = await migrationFixture();
+  const fixture = await migrationFixture({ onTestFinished });
   const database = await fixture.database(applied);
 
   const first = await squashMigrations({

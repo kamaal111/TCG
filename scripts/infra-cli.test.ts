@@ -124,7 +124,7 @@ it('uses readable database options for supported size and node combinations', ()
 
 const hostPublicKey = `ssh-ed25519 ${Buffer.concat([Buffer.from([0, 0, 0, 11]), Buffer.from('ssh-ed25519'), Buffer.from([0, 0, 0, 32]), Buffer.alloc(32, 1)]).toString('base64')}`;
 
-function resourceValues(size = 's-1vcpu-512mb-10gb'): TerraformValues {
+function resourceValues(size: string): TerraformValues {
   return {
     existing_droplet_id: '101',
     existing_database_id: 'example-database',
@@ -170,7 +170,7 @@ interface Answers {
   cancelOnPassword?: number;
 }
 
-function scripted(answers: Answers = {}) {
+function scripted(answers: Answers) {
   const texts = structuredClone(answers.text ?? {});
   const passwords = [...(answers.passwords ?? [])];
   const notes: string[] = [];
@@ -206,7 +206,7 @@ function scripted(answers: Answers = {}) {
 
       return answers.selected ?? [];
     },
-    confirm: async (message, initialValue = true) => {
+    confirm: async (message, initialValue) => {
       questions.push({ message, initialValue });
 
       return answers.confirm?.[message] ?? initialValue;
@@ -227,7 +227,7 @@ function inputUrl(input: Parameters<typeof fetch>[0]): URL {
   return new URL(input);
 }
 
-function providerFixture(overrides: Record<string, ProviderBody> = {}) {
+function providerFixture(overrides: Record<string, ProviderBody>) {
   const size = {
     slug: 's-1vcpu-512mb-10gb',
     description: 'Basic',
@@ -311,7 +311,7 @@ async function configured(size?: string) {
   await fs.writeFile(`${store.paths.deploymentKey}.pub`, hostPublicKey);
   await store.saveEnvironment(await store.readEnvironment('release'), { TCG_DEPLOY_KEY: store.paths.deploymentKey });
   const file = path.join(store.paths.terraformDirectory, 'terraform.tfvars.json');
-  const values = resourceValues(size);
+  const values = resourceValues(size ?? 's-1vcpu-512mb-10gb');
   const original = JSON.stringify(values, null, 4) + '\n';
   await fs.writeFile(file, original, { mode: 0o600 });
 
@@ -320,8 +320,8 @@ async function configured(size?: string) {
 
 it('retains existing defaults without rewriting the Terraform file or exposing secrets', async () => {
   const f = await configured('s-1vcpu-2gb');
-  const ui = scripted();
-  const api = providerFixture();
+  const ui = scripted({});
+  const api = providerFixture({});
   await runSetup({ store: f.store, prompts: ui.prompts, repositoryRoot: f.root, request: api.request });
 
   expect(ui.questions).toContainEqual(
@@ -340,7 +340,7 @@ it('retains existing defaults without rewriting the Terraform file or exposing s
 it('prepares a capacity change using readable choices while preserving unrelated configuration', async () => {
   const f = await configured();
   const ui = scripted({ select: { 'Droplet size': 's-1vcpu-1gb' } });
-  const api = providerFixture();
+  const api = providerFixture({});
   await runSetup({ store: f.store, prompts: ui.prompts, repositoryRoot: f.root, request: api.request });
   const saved = await f.store.readTerraform();
 
@@ -377,7 +377,7 @@ it('creates fresh settings from guided answers and provider data and defers rele
     ],
   });
 
-  const api = providerFixture();
+  const api = providerFixture({});
   await runSetup({ store: f.store, prompts: ui.prompts, repositoryRoot: f.root, request: api.request });
   const resource = await f.store.readTerraform();
   const release = await f.store.readEnvironment('release');
@@ -537,7 +537,7 @@ it('reports permission errors without leaking a provider response or token', asy
 });
 
 it('reports network failures with a safe retry message', async () => {
-  const request: typeof fetch = async () => Promise.reject(new InfraFailure('network-private-value'));
+  const request: typeof fetch = async () => Promise.reject(new InfraFailure('network-private-value', 1));
   const provider = new DigitalOcean({ token: 'fixture-private-token', request });
 
   await expect(provider.sizes()).rejects.toMatchObject({
@@ -593,7 +593,7 @@ it('reads and updates native HCL without a backend, preserving unknown settings 
 
   await fs.writeFile(file, source, { mode: 0o600 });
   const document = await f.store.readTerraform();
-  const values = document.values ?? resourceValues();
+  const values = document.values ?? resourceValues('s-1vcpu-512mb-10gb');
   const noChange = await f.store.saveTerraform(document, values);
   const unchanged = await fs.readFile(file, 'utf8');
 
@@ -696,7 +696,7 @@ it('rejects an image URL with a scheme and asks again before saving', async () =
 
 it('keeps resource settings after a failed lookup and does not expose provider diagnostics', async () => {
   const f = await configured();
-  const ui = scripted();
+  const ui = scripted({});
   const request: typeof fetch = async () => new Response('private-provider-message', { status: 403 });
   await runSetup({ store: f.store, prompts: ui.prompts, repositoryRoot: f.root, request });
 
@@ -736,8 +736,8 @@ it('follows provider pagination without following arbitrary response URLs', asyn
 
 it('does not offer standby nodes that are unsupported by the selected database size', async () => {
   const f = await configured();
-  const ui = scripted();
-  const api = providerFixture();
+  const ui = scripted({});
+  const api = providerFixture({});
   await runSetup({ store: f.store, prompts: ui.prompts, repositoryRoot: f.root, request: api.request });
 
   expect(ui.questions).toContainEqual(
@@ -769,7 +769,7 @@ it('keeps a mismatched-VPC installation unchanged', async () => {
     },
   });
 
-  const ui = scripted();
+  const ui = scripted({});
   await runSetup({ store: f.store, prompts: ui.prompts, repositoryRoot: f.root, request: api.request });
 
   expect(await fs.readFile(f.file, 'utf8')).toBe(f.original);

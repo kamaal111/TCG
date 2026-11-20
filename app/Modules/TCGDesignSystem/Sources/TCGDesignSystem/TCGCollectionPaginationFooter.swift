@@ -9,7 +9,7 @@ public struct TCGCollectionPaginationFooter: View {
     public init(
         isLoading: Bool,
         errorDescription: String?,
-        failureTitle: Text? = nil,
+        failureTitle: Text?,
         retry: @escaping () -> Void
     ) {
         self.isLoading = isLoading

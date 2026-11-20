@@ -199,7 +199,11 @@ struct TCGCardsClientImpl: TCGCardsClient {
         do {
             response = try await client.getAppApiCards(query: CardMapper.makeListQuery(query))
         } catch {
-            RequestDiagnosticsMiddleware.processingFailure(error, operation: "cards.list")
+            RequestDiagnosticsMiddleware.processingFailure(
+                error,
+                operation: "cards.list",
+                logger: KamaalLogger(from: RequestDiagnosticsMiddleware.self)
+            )
             return .failure(.unknown(status: HTTPResponse.Status.serviceUnavailable.code, payload: nil, cause: error))
         }
 
@@ -222,11 +226,18 @@ struct TCGCardsClientImpl: TCGCardsClient {
 
                 return CardMapper.makeCollectionPage(collection)
                     .mapError { error in
-                        RequestDiagnosticsMiddleware.mappingFailure(operation: "cards.list")
+                        RequestDiagnosticsMiddleware.mappingFailure(
+                            operation: "cards.list",
+                            logger: KamaalLogger(from: RequestDiagnosticsMiddleware.self)
+                        )
                         return .unknown(status: HTTPResponse.Status.serviceUnavailable.code, payload: nil, cause: error)
                     }
             } catch {
-                RequestDiagnosticsMiddleware.processingFailure(error, operation: "cards.list")
+                RequestDiagnosticsMiddleware.processingFailure(
+                    error,
+                    operation: "cards.list",
+                    logger: KamaalLogger(from: RequestDiagnosticsMiddleware.self)
+                )
                 return .failure(
                     .unknown(status: HTTPResponse.Status.serviceUnavailable.code, payload: nil, cause: error)
                 )

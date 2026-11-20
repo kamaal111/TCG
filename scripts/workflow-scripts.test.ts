@@ -113,7 +113,7 @@ if ((tool === 'gpg' && process.env.FAIL_GPG) || (tool === 'ssh' && process.env.F
     await fs.writeFile(path.join(bin, name), command, { mode: 0o755 });
   }
 
-  const run = (file: string, actions: string[], extra: NodeJS.ProcessEnv = {}) => {
+  const run = (file: string, actions: string[], extra: NodeJS.ProcessEnv) => {
     return childProcess.spawnSync(file.endsWith('.ts') ? process.execPath : 'bash', [file, ...actions], {
       cwd: root,
       env: {
@@ -140,16 +140,16 @@ if ((tool === 'gpg' && process.env.FAIL_GPG) || (tool === 'ssh' && process.env.F
     commands: () => fs.readFile(log, 'utf8'),
     output: () => fs.readFile(output, 'utf8'),
     summary: () => fs.readFile(summary, 'utf8'),
-    infra: (action: string, env?: NodeJS.ProcessEnv) => {
+    infra: (action: string, env: NodeJS.ProcessEnv) => {
       return run(path.join(root, '.github/scripts/infrastructure.sh'), [action], env);
     },
-    release: (action: string, env?: NodeJS.ProcessEnv) => {
+    release: (action: string, env: NodeJS.ProcessEnv) => {
       return run(path.join(repo, '.github/scripts/release-server.sh'), [action], env);
     },
-    metadata: (action: string, env?: NodeJS.ProcessEnv) => {
+    metadata: (action: string, env: NodeJS.ProcessEnv) => {
       return run(path.join(repo, 'scripts/release-metadata.ts'), [action], env);
     },
-    localRelease: (env?: NodeJS.ProcessEnv, args: string[] = []) => {
+    localRelease: (env: NodeJS.ProcessEnv, args: string[]) => {
       return run(path.join(repo, 'scripts/release-server.sh'), args, {
         TCG_RELEASE_ENV_FILE: path.join(root, 'release.env'),
         TCG_DEPLOY_HOST: undefined,
@@ -165,7 +165,7 @@ if ((tool === 'gpg' && process.env.FAIL_GPG) || (tool === 'ssh' && process.env.F
 
 test('plan outputs describe and hash the exact private saved plan', async t => {
   const f = await fixture(t);
-  const result = f.infra('plan');
+  const result = f.infra('plan', {});
 
   expect(result.status).toBe(0);
   expect(await f.output()).toBe(`plan_hash=${planHash}\n`);
@@ -179,7 +179,7 @@ test('plan outputs describe and hash the exact private saved plan', async t => {
 
 test('a local release verifies archived main sources and deploys both immutable Linux images', async t => {
   const f = await fixture(t);
-  const result = f.localRelease();
+  const result = f.localRelease({}, []);
 
   expect(result.status).toBe(0);
   expect(await f.commands()).toContain(`"--is-ancestor","${sha}","origin/main"`);
@@ -197,7 +197,7 @@ test('a local release verifies archived main sources and deploys both immutable 
 
 test('a local release makes build inputs readable while keeping its directory and archive private', async t => {
   const f = await fixture(t);
-  const result = f.localRelease();
+  const result = f.localRelease({}, []);
   const commands = await f.commands();
 
   expect(result.status).toBe(0);
@@ -211,7 +211,7 @@ test('a local release makes build inputs readable while keeping its directory an
 
 test('a local release preserves shell variables over environment-file values', async t => {
   const f = await fixture(t);
-  const result = f.localRelease({ TCG_IMAGE_REPOSITORY: 'ghcr.io/example/override-server' });
+  const result = f.localRelease({ TCG_IMAGE_REPOSITORY: 'ghcr.io/example/override-server' }, []);
 
   expect(result.status).toBe(0);
   expect(await f.commands()).toContain(`"--tag","ghcr.io/example/override-server:${sha}"`);
@@ -243,13 +243,16 @@ test.each([
 test('a local release accepts a missing optional environment file when shell configuration is complete', async t => {
   const f = await fixture(t);
 
-  const result = f.localRelease({
-    TCG_RELEASE_ENV_FILE: path.join(f.root, 'missing.env'),
-    TCG_DEPLOY_HOST: 'server.example.ts.net',
-    TCG_IMAGE_REPOSITORY: 'ghcr.io/example/tcg-server',
-    TCG_DEPLOY_KEY: path.join(f.root, 'key'),
-    TCG_KNOWN_HOSTS: path.join(f.root, 'known_hosts'),
-  });
+  const result = f.localRelease(
+    {
+      TCG_RELEASE_ENV_FILE: path.join(f.root, 'missing.env'),
+      TCG_DEPLOY_HOST: 'server.example.ts.net',
+      TCG_IMAGE_REPOSITORY: 'ghcr.io/example/tcg-server',
+      TCG_DEPLOY_KEY: path.join(f.root, 'key'),
+      TCG_KNOWN_HOSTS: path.join(f.root, 'known_hosts'),
+    },
+    [],
+  );
 
   expect(result.status).toBe(0);
   expect(await f.commands()).toContain('"tool":"ssh"');
@@ -258,7 +261,7 @@ test('a local release accepts a missing optional environment file when shell con
 
 test('a local release rejects an environment-file read failure before running commands', async t => {
   const f = await fixture(t);
-  const result = f.localRelease({ TCG_RELEASE_ENV_FILE: f.root });
+  const result = f.localRelease({ TCG_RELEASE_ENV_FILE: f.root }, []);
 
   expect(result.status).not.toBe(0);
   expect(result.stderr).toContain('Release environment file must be a readable regular file.');
@@ -268,7 +271,7 @@ test('a local release rejects an environment-file read failure before running co
 test('a local release refuses an unmerged revision before publishing or deploying', async t => {
   const f = await fixture(t);
 
-  expect(f.localRelease({ FAIL_ANCESTRY: '1' }).status).not.toBe(0);
+  expect(f.localRelease({ FAIL_ANCESTRY: '1' }, []).status).not.toBe(0);
   expect(await f.commands()).not.toContain('"tool":"docker"');
   expect(await f.commands()).not.toContain('"tool":"ssh"');
 });
@@ -290,7 +293,7 @@ test('CI rejects an unmerged revision before checking out its scripts', async t 
 test('failed local verification prevents publishing and removes its temporary sources', async t => {
   const f = await fixture(t);
 
-  expect(f.localRelease({ FAIL_JUST: 'ready-server' }).status).not.toBe(0);
+  expect(f.localRelease({ FAIL_JUST: 'ready-server' }, []).status).not.toBe(0);
   expect(await f.commands()).not.toContain('"--push"');
   expect(await f.commands()).not.toContain('"tool":"ssh"');
   expect(await fs.readdir(f.runner)).toStrictEqual([]);
@@ -299,7 +302,7 @@ test('failed local verification prevents publishing and removes its temporary so
 test('a failed migration-image publish prevents local deployment', async t => {
   const f = await fixture(t);
 
-  expect(f.localRelease({ FAIL_DOCKER_TARGET: 'migration' }).status).not.toBe(0);
+  expect(f.localRelease({ FAIL_DOCKER_TARGET: 'migration' }, []).status).not.toBe(0);
   expect(await f.commands()).not.toContain('"tool":"ssh"');
   expect(await fs.readdir(f.runner)).toStrictEqual([]);
 });
@@ -307,13 +310,13 @@ test('a failed migration-image publish prevents local deployment', async t => {
 test('invalid registry digests prevent local SSH deployment', async t => {
   const f = await fixture(t);
 
-  expect(f.localRelease({ INVALID_DIGEST: 'latest' }).status).not.toBe(0);
+  expect(f.localRelease({ INVALID_DIGEST: 'latest' }, []).status).not.toBe(0);
   expect(await f.commands()).not.toContain('"tool":"ssh"');
 });
 
 test('a failed local SSH deployment removes its temporary sources and metadata', async t => {
   const f = await fixture(t);
-  const result = f.localRelease({ FAIL_SSH: '1' });
+  const result = f.localRelease({ FAIL_SSH: '1' }, []);
 
   expect(result.status).not.toBe(0);
   expect(await f.commands()).toContain('"tool":"ssh"');
@@ -344,11 +347,11 @@ test('the manual workflow invokes only the explicit migration operation', async 
 test('an encrypted plan survives plaintext cleanup and applies only after hash verification', async t => {
   const f = await fixture(t);
 
-  expect(f.infra('plan').status).toBe(0);
-  expect(f.infra('encrypt').status).toBe(0);
-  expect(f.infra('cleanup').status).toBe(0);
+  expect(f.infra('plan', {}).status).toBe(0);
+  expect(f.infra('encrypt', {}).status).toBe(0);
+  expect(f.infra('cleanup', {}).status).toBe(0);
   expect(await fs.readdir(path.join(f.directory, '.terraform'))).toStrictEqual([]);
-  expect(f.infra('apply').status).toBe(0);
+  expect(f.infra('apply', {}).status).toBe(0);
   expect(await fs.readFile(path.join(f.directory, '.terraform/review.commit'), 'utf8')).toBe(sha);
   expect(await f.commands()).toContain('"args":["infra-apply"]');
   expect(await f.commands()).toContain('"passphraseMatches":true');
@@ -369,8 +372,8 @@ test('failed Terraform commands keep diagnostics out of public logs and summarie
 test('a different approval hash prevents infrastructure apply', async t => {
   const f = await fixture(t);
 
-  expect(f.infra('plan').status).toBe(0);
-  expect(f.infra('encrypt').status).toBe(0);
+  expect(f.infra('plan', {}).status).toBe(0);
+  expect(f.infra('encrypt', {}).status).toBe(0);
   expect(f.infra('apply', { EXPECTED_HASH: '0'.repeat(64) }).status).not.toBe(0);
   expect(await f.commands()).not.toContain('"args":["infra-apply"]');
 });
@@ -378,9 +381,9 @@ test('a different approval hash prevents infrastructure apply', async t => {
 test('apply keeps Terraform diagnostics out of public workflow output', async t => {
   const f = await fixture(t);
 
-  expect(f.infra('plan').status).toBe(0);
-  expect(f.infra('encrypt').status).toBe(0);
-  const result = f.infra('apply');
+  expect(f.infra('plan', {}).status).toBe(0);
+  expect(f.infra('encrypt', {}).status).toBe(0);
+  const result = f.infra('apply', {});
 
   expect(result.status).toBe(0);
   expect(result.stdout + result.stderr).not.toContain('private Terraform diagnostic');
@@ -397,7 +400,7 @@ test.each(['', 'unknown', 'toString', 'constructor', '__proto__'])(
   'release metadata rejects unsupported action %j',
   async action => {
     const f = await fixture({ onTestFinished });
-    const result = f.metadata(action);
+    const result = f.metadata(action, {});
 
     expect(result.status).toBe(64);
     expect(result.stderr).toContain('Expected repository, build, digest, names, or refs.');
@@ -407,7 +410,7 @@ test.each(['', 'unknown', 'toString', 'constructor', '__proto__'])(
 
 test('release metadata rejects unknown options before writing outputs', async t => {
   const f = await fixture(t);
-  const result = f.metadata('--unexpected');
+  const result = f.metadata('--unexpected', {});
 
   expect(result.status).not.toBe(0);
   expect(result.stderr).toContain('Unknown option');
@@ -417,7 +420,7 @@ test('release metadata rejects unknown options before writing outputs', async t 
 test('release names reuse mise versions and the checked-out commit', async t => {
   const f = await fixture(t);
 
-  expect(f.metadata('names').status).toBe(0);
+  expect(f.metadata('names', {}).status).toBe(0);
   expect(await f.output()).toBe(`repository=ghcr.io/example/tcg-server\nsha=${sha}\nnode=26\npnpm=12.11.1\n`);
 });
 

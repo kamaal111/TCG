@@ -49,7 +49,7 @@ actor PreviewTCGCollectionsClient: TCGCollectionsClient {
     }
 
     func save(_ collection: CardBinderCollection) -> Result<CardBinderCollection, CollectionsError> {
-        save(SaveBinderLayoutPayload(collection: collection))
+        save(SaveBinderLayoutPayload(collection: collection, moveFromUnfiledCardID: nil))
     }
 
     func save(_ payload: SaveBinderLayoutPayload) -> Result<CardBinderCollection, CollectionsError> {

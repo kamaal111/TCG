@@ -73,7 +73,7 @@ async function fixture() {
   await sessions.initialize();
   const app = createDevportalApp(sessions, [operator], webRoot);
 
-  const request = (route: string, body?: Record<string, string | boolean>, identity: string | null = operator) => {
+  const request = (route: string, body: Record<string, string | boolean> | undefined, identity: string | null) => {
     const headers = new Headers({ 'Content-Type': 'application/json' });
 
     if (identity) {
@@ -104,50 +104,62 @@ test('authorizes every route before inspecting or exposing release data', async 
 
 test('returns validated pending commits and rejects invalid requests', async () => {
   const f = await fixture();
-  expect(ServerSchema.parse(await (await f.request('/v1/server')).json())).toEqual(server);
-  expect((await f.request('/v1/server?page=-1')).status).toBe(400);
-  expect((await f.request('/v1/releases', { ...f.start, sha: 'bad' })).status).toBe(400);
-  expect((await f.request('/v1/releases/not-a-uuid')).status).toBe(400);
+  expect(ServerSchema.parse(await (await f.request('/v1/server', undefined, operator)).json())).toEqual(server);
+  expect((await f.request('/v1/server?page=-1', undefined, operator)).status).toBe(400);
+  expect((await f.request('/v1/releases', { ...f.start, sha: 'bad' }, operator)).status).toBe(400);
+  expect((await f.request('/v1/releases/not-a-uuid', undefined, operator)).status).toBe(400);
   expect(f.run).not.toHaveBeenCalled();
 });
 
 test('rejects stale reviews, blocked targets and already deployed commits', async () => {
   const f = await fixture();
-  const stale = await f.request('/v1/releases', { ...f.start, fingerprint: 'c'.repeat(64) });
+  const stale = await f.request('/v1/releases', { ...f.start, fingerprint: 'c'.repeat(64) }, operator);
   expect(stale.status).toBe(409);
   expect(await stale.json()).toMatchObject({ code: 'REVIEW_STALE' });
   f.inspect.mockResolvedValue({ ...server, blocker: 'Server setup is required.' });
-  expect((await f.request('/v1/releases', f.start)).status).toBe(409);
+  expect((await f.request('/v1/releases', f.start, operator)).status).toBe(409);
   f.inspect.mockResolvedValue({ ...server, pending: 0 });
-  expect((await f.request('/v1/releases', f.start)).status).toBe(409);
+  expect((await f.request('/v1/releases', f.start, operator)).status).toBe(409);
   expect(f.run).not.toHaveBeenCalled();
 });
 
 test('persists stages across client reconnection and applies each approval once', async () => {
   const f = await fixture();
-  const started = await f.request('/v1/releases', f.start);
+  const started = await f.request('/v1/releases', f.start, operator);
   expect(started.status).toBe(202);
   const release = ReleaseSchema.parse(await started.json());
   await vi.waitFor(() => expect(f.sessions.get(release.id).approval?.kind).toBe('migrations'));
   expect(f.migrate).not.toHaveBeenCalled();
   expect(f.deploy).not.toHaveBeenCalled();
-  const resumed = ReleaseSchema.parse(await (await f.request(`/v1/releases/${release.id}`)).json());
+
+  const resumed = ReleaseSchema.parse(
+    await (await f.request(`/v1/releases/${release.id}`, undefined, operator)).json(),
+  );
+
   const migrationApproval = resumed.approval;
   expect(migrationApproval).not.toBeNull();
   const decision = { approved: true, requestId: crypto.randomUUID() };
-  expect((await f.request(`/v1/releases/${release.id}/approvals/${migrationApproval?.id}`, decision)).status).toBe(200);
-  expect((await f.request(`/v1/releases/${release.id}/approvals/${migrationApproval?.id}`, decision)).status).toBe(200);
+  expect(
+    (await f.request(`/v1/releases/${release.id}/approvals/${migrationApproval?.id}`, decision, operator)).status,
+  ).toBe(200);
+  expect(
+    (await f.request(`/v1/releases/${release.id}/approvals/${migrationApproval?.id}`, decision, operator)).status,
+  ).toBe(200);
   await vi.waitFor(() => expect(f.sessions.get(release.id).approval?.kind).toBe('deploy'));
   expect(f.migrate).toHaveBeenCalledOnce();
   expect(f.deploy).not.toHaveBeenCalled();
-  expect((await f.request('/v1/releases', { ...f.start, requestId: crypto.randomUUID() })).status).toBe(409);
-  expect((await f.request('/v1/releases', f.start)).status).toBe(202);
+  expect((await f.request('/v1/releases', { ...f.start, requestId: crypto.randomUUID() }, operator)).status).toBe(409);
+  expect((await f.request('/v1/releases', f.start, operator)).status).toBe(202);
   expect(f.run).toHaveBeenCalledOnce();
   const approval = f.sessions.get(release.id).approval;
-  await f.request(`/v1/releases/${release.id}/approvals/${approval?.id}`, {
-    approved: true,
-    requestId: crypto.randomUUID(),
-  });
+  await f.request(
+    `/v1/releases/${release.id}/approvals/${approval?.id}`,
+    {
+      approved: true,
+      requestId: crypto.randomUUID(),
+    },
+    operator,
+  );
   await vi.waitFor(() => expect(f.sessions.get(release.id).state).toBe('succeeded'));
   expect(f.deploy).toHaveBeenCalledOnce();
   const recovered = new ReleaseSessions(f.dependencies);
@@ -157,7 +169,7 @@ test('persists stages across client reconnection and applies each approval once'
 
 test('marks unfinished persisted sessions interrupted without automatically running work', async () => {
   const f = await fixture();
-  const started = ReleaseSchema.parse(await (await f.request('/v1/releases', f.start)).json());
+  const started = ReleaseSchema.parse(await (await f.request('/v1/releases', f.start, operator)).json());
   await vi.waitFor(() => expect(f.sessions.get(started.id).state).toBe('approval'));
   const recovered = new ReleaseSessions(f.dependencies);
   await recovered.initialize();
@@ -165,10 +177,14 @@ test('marks unfinished persisted sessions interrupted without automatically runn
   expect(f.run).toHaveBeenCalledOnce();
   // Finish the original in-process fixture so its lease is released before cleanup.
   const approval = f.sessions.get(started.id).approval;
-  await f.request(`/v1/releases/${started.id}/approvals/${approval?.id}`, {
-    approved: false,
-    requestId: crypto.randomUUID(),
-  });
+  await f.request(
+    `/v1/releases/${started.id}/approvals/${approval?.id}`,
+    {
+      approved: false,
+      requestId: crypto.randomUUID(),
+    },
+    operator,
+  );
   await vi.waitFor(() => expect(f.sessions.get(started.id).state).toBe('succeeded'));
 });
 
@@ -186,28 +202,28 @@ test('rejects browser-origin writes and oversized requests before release work',
   });
 
   expect(browser.status).toBe(403);
-  const large = await f.request('/v1/releases', { ...f.start, padding: 'x'.repeat(20000) });
+  const large = await f.request('/v1/releases', { ...f.start, padding: 'x'.repeat(20000) }, operator);
   expect(large.status).toBe(413);
   expect(f.run).not.toHaveBeenCalled();
 });
 
 test('a failed health check can be retried after the selected commit is already deployed', async () => {
   const f = await fixture();
-  f.run.mockRejectedValueOnce(new InfraFailure('Health check failed.'));
-  const original = ReleaseSchema.parse(await (await f.request('/v1/releases', f.start)).json());
+  f.run.mockRejectedValueOnce(new InfraFailure('Health check failed.', 1));
+  const original = ReleaseSchema.parse(await (await f.request('/v1/releases', f.start, operator)).json());
   await vi.waitFor(() => expect(f.sessions.get(original.id).state).toBe('failed'));
   f.inspect.mockResolvedValue({ ...server, pending: 0, commits: [] });
   f.run.mockResolvedValue(undefined);
   const retry = { ...f.start, requestId: crypto.randomUUID() };
   await vi.waitFor(async () => {
-    expect((await f.request('/v1/releases', retry)).status).toBe(202);
+    expect((await f.request('/v1/releases', retry, operator)).status).toBe(202);
   });
   expect(f.run).toHaveBeenCalledTimes(2);
 });
 
 test('serves the built portal and its assets to an allowed Tailscale user', async () => {
   const f = await fixture();
-  const html = await f.request('/');
+  const html = await f.request('/', undefined, operator);
   expect(html.status).toBe(200);
   expect(html.headers.get('cache-control')).toBe('no-store');
   expect(html.headers.get('content-security-policy')).toContain("script-src 'self'");
@@ -217,16 +233,16 @@ test('serves the built portal and its assets to an allowed Tailscale user', asyn
   expect(script).toBeDefined();
   const style = source.match(/href="(\/assets\/[^"]+\.css)"/)?.[1];
   expect(style).toBeDefined();
-  const css = await f.request(String(style));
+  const css = await f.request(String(style), undefined, operator);
   expect(css.status).toBe(200);
   expect(css.headers.get('content-type')).toContain('text/css');
   await css.text();
-  const asset = await f.request(String(script));
+  const asset = await f.request(String(script), undefined, operator);
   expect(asset.status).toBe(200);
   expect(asset.headers.get('content-type')).toContain('javascript');
   expect(await asset.text()).not.toContain('node:child_process');
-  expect((await f.request('/assets/missing.js')).status).toBe(404);
-  const unknownApi = await f.request('/v1/missing');
+  expect((await f.request('/assets/missing.js', undefined, operator)).status).toBe(404);
+  const unknownApi = await f.request('/v1/missing', undefined, operator);
   expect(unknownApi.status).toBe(404);
   expect(unknownApi.headers.get('content-type')).toContain('application/json');
 });

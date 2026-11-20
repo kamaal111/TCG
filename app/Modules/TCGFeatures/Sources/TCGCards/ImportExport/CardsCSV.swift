@@ -157,7 +157,7 @@ enum CardsCSV {
     }
 
     static func export(_ cards: [Card]) -> Result<URL, CardsCSVError> {
-        let rows = cards.flatMap { card in card.purchases.map { row(card: card, purchase: $0) } }
+        let rows = cards.flatMap { card in card.purchases.map { row(card: card, purchase: $0, line: 0) } }
         let frame = DataFrame(
             columns: columns.map { column in
                 TabularData.Column<String>(name: column.rawValue, contents: rows.map { $0[column] }).eraseToAnyColumn()
@@ -174,7 +174,7 @@ enum CardsCSV {
         }
     }
 
-    static func row(card: Card, purchase: CardPurchase, line: Int = 0) -> CSVImportRow {
+    static func row(card: Card, purchase: CardPurchase, line: Int) -> CSVImportRow {
         CSVImportRow(
             id: line,
             cells: [
@@ -383,7 +383,8 @@ enum CardsCSV {
                 quantity: quantity,
                 purchasePrice: price.isEmpty ? nil : Decimal(string: price, locale: TCGLocales.decimal),
                 currency: Currency(rawValue: trimmed(row[.currency])),
-                automaticPriceDate: trimmed(row[.automaticPriceDate]).isEmpty ? nil : trimmed(row[.automaticPriceDate])
+                automaticPriceDate: trimmed(row[.automaticPriceDate]).isEmpty ? nil : trimmed(row[.automaticPriceDate]),
+                displayPrice: nil
             )
         }
         return Card(
@@ -396,6 +397,8 @@ enum CardsCSV {
             createdAt: date(first[.createdAt]) ?? now,
             updatedAt: date(first[.updatedAt]) ?? now,
             purchases: purchases,
+            purchasePriceChangePercent: nil,
+            displayCurrency: nil,
             collectionID: nil,
             allocationAdjustments: nil,
             illustrator: nil,

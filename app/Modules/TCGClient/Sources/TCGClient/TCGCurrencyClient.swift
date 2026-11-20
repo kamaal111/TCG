@@ -14,7 +14,7 @@ struct TCGCurrencyClientImpl: TCGCurrencyClient {
     private let client: Client
     private let logger: KamaalLogger
 
-    init(client: Client, logger: KamaalLogger = KamaalLogger(from: TCGCurrencyClientImpl.self)) {
+    init(client: Client, logger: KamaalLogger) {
         self.client = client
         self.logger = logger
     }
@@ -156,7 +156,7 @@ struct TCGCurrencyClientImpl: TCGCurrencyClient {
         _ failure: CurrencyClientError,
         operation: String,
         reason: FailureReason,
-        status: Int? = nil
+        status: Int?
     ) -> CurrencyClientError {
         let message =
             "event=currency.request.failed; operation=\(operation); reason=\(reason.rawValue); status=\(status.map(String.init) ?? "none")"

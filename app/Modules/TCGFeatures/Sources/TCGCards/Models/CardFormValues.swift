@@ -42,7 +42,9 @@ struct CardFormValues: Equatable {
     }
 
     func newBatch(condition: CardCondition) -> PurchaseBatchFormValue {
-        applyingMarketDefault(to: PurchaseBatchFormValue(condition: condition, quantity: 1))
+        applyingMarketDefault(
+            to: PurchaseBatchFormValue(condition: condition, quantity: 1, priceText: "", currency: .fallback)
+        )
     }
 
     func applyingMarketDefault(to batch: PurchaseBatchFormValue) -> PurchaseBatchFormValue {
@@ -135,7 +137,7 @@ struct PurchaseBatchFormValue: Equatable, Identifiable {
     var priceWasEdited = false
     var currencyWasSelected = false
 
-    init(condition: CardCondition, quantity: Int, priceText: String = "", currency: Currency = .fallback) {
+    init(condition: CardCondition, quantity: Int, priceText: String, currency: Currency) {
         id = UUID()
         persistedID = nil
         self.condition = condition
@@ -165,7 +167,9 @@ struct PurchaseBatchFormValue: Equatable, Identifiable {
             condition: condition,
             quantity: quantity,
             purchasePrice: amount,
-            currency: amount == nil ? nil : currency
+            currency: amount == nil ? nil : currency,
+            automaticPriceDate: nil,
+            displayPrice: nil
         )
     }
 

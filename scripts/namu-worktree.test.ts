@@ -43,7 +43,7 @@ if (process.env.BREW_INSTALL === 'true') fs.copyFileSync(path.join(process.env.F
     { mode: 0o755 },
   );
 
-  const run = (args: string[], overrides: NodeJS.ProcessEnv = {}) => {
+  const run = (args: string[], overrides: NodeJS.ProcessEnv) => {
     return childProcess.spawnSync(just, args, {
       cwd: root,
       env: {
@@ -69,7 +69,7 @@ if (process.env.BREW_INSTALL === 'true') fs.copyFileSync(path.join(process.env.F
 test('uses an existing namu without Homebrew and forwards creation arguments unchanged', async () => {
   const f = await fixture();
   const args = ['create', 'feature/pricing', '--base', 'feature/cards', '--no-focus'];
-  const result = f.run(['create-worktree', ...args.slice(1)]);
+  const result = f.run(['create-worktree', ...args.slice(1)], {});
 
   expect(result.status).toBe(0);
   expect(await f.readCalls()).toBe(`${JSON.stringify(['namu', ...args])}\n`);
@@ -80,8 +80,8 @@ test('uses an existing namu without Homebrew and forwards creation arguments unc
 test('installs missing namu once before creation and keeps installation progress off stdout', async () => {
   const f = await fixture();
   await fs.unlink(path.join(f.bin, 'namu'));
-  const created = f.run(['create-worktree', 'feature/cards']);
-  const second = f.run(['create-worktree', 'feature/pricing']);
+  const created = f.run(['create-worktree', 'feature/cards'], {});
+  const second = f.run(['create-worktree', 'feature/pricing'], {});
 
   expect(created.status).toBe(0);
   expect(second.status).toBe(0);
@@ -94,7 +94,7 @@ test('installs missing namu once before creation and keeps installation progress
 
 test('delegates cleanup to namu delete with the branch as a single argument', async () => {
   const f = await fixture();
-  const result = f.run(['cleanup-worktree', 'feature/cards']);
+  const result = f.run(['cleanup-worktree', 'feature/cards'], {});
 
   expect(result.status).toBe(0);
   expect(await f.readCalls()).toBe(`${JSON.stringify(['namu', 'delete', 'feature/cards'])}\n`);
@@ -103,7 +103,7 @@ test('delegates cleanup to namu delete with the branch as a single argument', as
 test('installs missing namu before cleanup too', async () => {
   const f = await fixture();
   await fs.unlink(path.join(f.bin, 'namu'));
-  const result = f.run(['cleanup-worktree', 'feature/cards']);
+  const result = f.run(['cleanup-worktree', 'feature/cards'], {});
 
   expect(result.status).toBe(0);
   expect(await f.readCalls()).toBe(
@@ -115,7 +115,7 @@ test('explains missing Homebrew without attempting creation', async () => {
   const f = await fixture();
   await fs.unlink(path.join(f.bin, 'namu'));
   await fs.unlink(path.join(f.bin, 'brew'));
-  const result = f.run(['create-worktree', 'feature/cards']);
+  const result = f.run(['create-worktree', 'feature/cards'], {});
 
   expect(result.status).toBe(1);
   expect(result.stderr).toContain('requires Homebrew');

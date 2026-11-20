@@ -6,7 +6,7 @@ import { OwnedCardPricesSchema } from '../schemas/responses.ts';
 integrationTest(
   'prices the owned ID only and hides foreign card details',
   async ({ app, user, createUser, authenticatedHeaders }) => {
-    const other = await createUser();
+    const other = await createUser({});
     const own = await createTestCard(app, user.sessionToken, validCardPayload);
     const foreign = await createTestCard(app, other.sessionToken, validCardPayload);
     const ids = [own.id, foreign.id, crypto.randomUUID()];

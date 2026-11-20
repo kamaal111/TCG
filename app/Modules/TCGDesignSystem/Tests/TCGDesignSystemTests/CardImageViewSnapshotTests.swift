@@ -10,7 +10,7 @@ struct CardImageViewSnapshotTests {
     @Test
     func `Renders loading`() async {
         let loader = LoadingCardImageLoader()
-        assertCardImageSnapshot(testName: #function) {
+        assertCardImageSnapshot(testName: #function, size: CGSize(width: 44, height: 61)) {
             CardImageView(url: TestFixtures.imageURL)
                 .cardImageLoader(loader)
         }
@@ -19,7 +19,7 @@ struct CardImageViewSnapshotTests {
 
     @Test
     func `Renders a failed load`() {
-        assertCardImageSnapshot(testName: #function) {
+        assertCardImageSnapshot(testName: #function, size: CGSize(width: 44, height: 61)) {
             CardImageView(url: TestFixtures.imageURL)
                 .cardImageLoader(PreviewCardImageLoader(outcome: .failure))
         }
@@ -27,7 +27,7 @@ struct CardImageViewSnapshotTests {
 
     @Test
     func `Renders a missing URL`() {
-        assertCardImageSnapshot(testName: #function) { CardImageView(url: nil) }
+        assertCardImageSnapshot(testName: #function, size: CGSize(width: 44, height: 61)) { CardImageView(url: nil) }
     }
 
     @Test
@@ -41,7 +41,7 @@ struct CardImageViewSnapshotTests {
 
     private func assertCardImageSnapshot<CardImage: View>(
         testName: String,
-        size: CGSize = CGSize(width: 44, height: 61),
+        size: CGSize,
         @ViewBuilder cardImage: () -> CardImage
     ) {
         for scheme in [ColorScheme.light, .dark] {

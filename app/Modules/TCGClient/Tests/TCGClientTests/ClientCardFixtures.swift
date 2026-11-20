@@ -3,7 +3,7 @@ import Foundation
 @testable import TCGClient
 
 enum ClientCardFixtures {
-    static func card(id: UUID, setName: String? = nil, createdAt: Date? = nil) -> Card {
+    static func card(id: UUID, setName: String?, createdAt: Date?) -> Card {
         let original = PreviewTCGCardsClient.sampleCards[0]
         return Card(
             id: id,
@@ -15,6 +15,8 @@ enum ClientCardFixtures {
             createdAt: createdAt ?? original.createdAt,
             updatedAt: original.updatedAt,
             purchases: original.purchases,
+            purchasePriceChangePercent: nil,
+            displayCurrency: nil,
             collectionID: original.collectionID,
             allocationAdjustments: nil,
             illustrator: nil,

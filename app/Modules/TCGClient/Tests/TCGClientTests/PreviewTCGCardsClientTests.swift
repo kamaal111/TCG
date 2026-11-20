@@ -16,10 +16,10 @@ struct PreviewTCGCardsClientTests {
     func `Preview pages preserve complete set choices`() async throws {
         let source = PreviewTCGCardsClient.sampleCards[0]
         let cards = (0..<51).map { index in
-            ClientCardFixtures.card(id: UUID(), setName: index == 50 ? "Other Set" : source.setName)
+            ClientCardFixtures.card(id: UUID(), setName: index == 50 ? "Other Set" : source.setName, createdAt: nil)
         }
         let client = TCGClient.preview(cardsOutcome: .success(cards: cards))
-        let first = try await listCards(client).get()
+        let first = try await listCards(client, game: nil).get()
         let second = try await client.cards.listPage(
             .init(game: nil, setNames: [], cursor: first.nextCursor, collectionID: nil, query: nil, illustrators: [])
         )
@@ -67,7 +67,11 @@ struct PreviewTCGCardsClientTests {
     @Test
     func `Set selections match exactly and preserve supplied prices`() async throws {
         let cards = PreviewTCGCardsClient.sampleCards.map {
-            CardWithPrice(card: $0, price: OwnedCardPrice(cardId: $0.id, status: .unavailable))
+            CardWithPrice(
+                card: $0,
+                price: OwnedCardPrice(cardId: $0.id, status: .unavailable, price: nil),
+                imageURL: nil
+            )
         }
         let client = TCGClient.preview(cardsOutcome: .successWithPrices(cards))
         let selected = try await client.cards.listPage(
@@ -86,11 +90,15 @@ struct PreviewTCGCardsClientTests {
     @Test
     func `Preserves explicit unavailable pricing and filters by game`() async throws {
         let cards = PreviewTCGCardsClient.sampleCards.map {
-            CardWithPrice(card: $0, price: OwnedCardPrice(cardId: $0.id, status: .unavailable))
+            CardWithPrice(
+                card: $0,
+                price: OwnedCardPrice(cardId: $0.id, status: .unavailable, price: nil),
+                imageURL: nil
+            )
         }
         let client = TCGClient.preview(cardsOutcome: .successWithPrices(cards))
         #expect(
-            try await listCards(client).get().cards
+            try await listCards(client, game: nil).get().cards
                 == cards
         )
         #expect(
@@ -103,7 +111,7 @@ struct PreviewTCGCardsClientTests {
     func `Success seeds the configured cards`() async throws {
         let client = TCGClient.preview(cardsOutcome: .success(cards: PreviewTCGCardsClient.sampleCards))
         #expect(
-            try await listCards(client).get().cards.map(
+            try await listCards(client, game: nil).get().cards.map(
                 \.card
             )
                 == PreviewTCGCardsClient.sampleCards
@@ -138,7 +146,7 @@ struct PreviewTCGCardsClientTests {
         let client = TCGClient.preview(cardsOutcome: .empty)
         let created = try await client.cards.create(with: previewCreatePayload).get()
         #expect(
-            try await listCards(client).get().cards.map(
+            try await listCards(client, game: nil).get().cards.map(
                 \.card
             ) == [
                 created.card
@@ -156,7 +164,7 @@ struct PreviewTCGCardsClientTests {
         .get()
         #expect(updated.card.name == PreviewTCGCardsClient.sampleCards[0].name)
         #expect(
-            try await listCards(client).get().cards.first?
+            try await listCards(client, game: nil).get().cards.first?
                 .card
                 == updated.card
         )
@@ -190,7 +198,7 @@ struct PreviewTCGCardsClientTests {
                 )
         )
         #expect(
-            try await listCards(client).get().cards.map(
+            try await listCards(client, game: nil).get().cards.map(
                 \.card.id
             ) == [
                 ClientTestIDs.secondary
@@ -220,7 +228,7 @@ struct PreviewTCGCardsClientTests {
                 )
         )
         #expect(
-            try await listCards(client).get().cards.count
+            try await listCards(client, game: nil).get().cards.count
                 == 2
         )
     }
@@ -259,7 +267,7 @@ struct PreviewTCGCardsClientTests {
     func `Server unavailable outcome rejects every operation`() async {
         let client = TCGClient.preview(cardsOutcome: .serverUnavailable)
         await #expect(throws: ListCardsErrors.unavailable) {
-            try await listCards(client).get().cards
+            try await listCards(client, game: nil).get().cards
         }
         await #expect(throws: CreateCardErrors.unavailable) {
             try await client.cards.create(with: previewCreatePayload).get()
@@ -276,7 +284,7 @@ struct PreviewTCGCardsClientTests {
         }
     }
 
-    private func listCards(_ client: TCGClient, game: ClientCardGame? = nil) async -> Result<
+    private func listCards(_ client: TCGClient, game: ClientCardGame?) async -> Result<
         CardCollectionPage, ListCardsErrors
     > {
         await client.cards.listPage(
@@ -293,6 +301,16 @@ private let previewCreatePayload = CreateCardPayload(
 
 private let previewPayload = UpdateCardPayload(
     notes: nil,
-    purchases: [.init(condition: .excellent, quantity: 1)],
+    purchases: [
+        .init(
+            id: nil,
+            condition: .excellent,
+            quantity: 1,
+            purchasePrice: nil,
+            currency: nil,
+            automaticPriceDate: nil,
+            displayPrice: nil
+        )
+    ],
     collectionID: nil
 )

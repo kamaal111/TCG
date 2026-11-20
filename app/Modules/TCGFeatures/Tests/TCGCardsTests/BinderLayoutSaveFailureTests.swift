@@ -27,7 +27,7 @@ struct BinderLayoutSaveFailureTests {
             credentialsKeychainKey: "binder-layout-tests",
             credentialsStore: InMemoryCredentialsStore(seed: try JSONEncoder().encode(credentials))
         )
-        let cards = TCGCards(client: .preview())
+        let cards = TCGCards(client: .preview(hasValidCredentials: false))
         let collections = TCGCollections(client: client, defaults: nil)
         await collections.reload(using: cards, force: true, loadsList: true)
         await collections.select(.named(original.id), using: cards, loadsList: true)

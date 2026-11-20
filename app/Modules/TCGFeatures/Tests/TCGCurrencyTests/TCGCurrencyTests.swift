@@ -13,14 +13,14 @@ import Testing
 struct TCGCurrencyTests {
     @Test
     func `Display identity changes with saved preferences and session resets`() async {
-        let state = makeState(PreferenceTransport(explicit: true), holder: LogHolder(max: nil))
-        await state.refresh()
+        let state = makeState(PreferenceTransport(explicit: true), defaults: nil, holder: LogHolder(max: nil))
+        await state.refresh(locale: .current)
         let initial = state.displayIdentity
         #expect(await state.save(.gbp))
         let saved = state.displayIdentity
         #expect(saved != initial)
         #expect(saved.currency == .gbp)
-        await state.refresh()
+        await state.refresh(locale: .current)
         #expect(state.displayIdentity == saved)
         state.clearSession()
         #expect(state.displayIdentity != initial)
@@ -31,8 +31,8 @@ struct TCGCurrencyTests {
     func `Logs applied preferences and retained state after failed saves`() async throws {
         let holder = LogHolder(max: nil)
         let transport = PreferenceTransport(explicit: true)
-        let state = makeState(transport, holder: holder)
-        await state.refresh()
+        let state = makeState(transport, defaults: nil, holder: holder)
+        await state.refresh(locale: .current)
         #expect(await state.save(.gbp))
         await transport.rejectUpdates()
         #expect(await state.save(.eur) == false)
@@ -59,7 +59,7 @@ struct TCGCurrencyTests {
         let transport = PreferenceTransport(explicit: true)
         await transport.rejectRates()
         let state = makeState(transport, defaults: defaults, holder: holder)
-        await state.refresh()
+        await state.refresh(locale: .current)
         let logs = await currencyLogs(holder, containing: "cache_status=missing", minimumCount: 3)
         #expect(
             logs.contains { $0.message.contains("event=currency.cache.rejected; cache=rates; reason=decoding_failed") }
@@ -77,14 +77,14 @@ struct TCGCurrencyTests {
     func `Cancelled initialization never logs application success`() async {
         let holder = LogHolder(max: nil)
         let transport = PreferenceTransport(explicit: false)
-        let state = makeState(transport, holder: holder)
+        let state = makeState(transport, defaults: nil, holder: holder)
         await transport.holdUpdates()
         let refresh = Task { await state.refresh(locale: Locale(identifier: "nl_NL")) }
         await transport.waitForUpdate()
         refresh.cancel()
         await transport.releaseUpdate()
         await refresh.value
-        let logs = await currencyLogs(holder, containing: "reason=cancelled")
+        let logs = await currencyLogs(holder, containing: "reason=cancelled", minimumCount: 1)
         #expect(
             logs.contains {
                 $0.level == .debug && $0.message.contains("event=currency.response.discarded; reason=cancelled")
@@ -109,7 +109,7 @@ struct TCGCurrencyTests {
     @Test
     func `Seeds device currency once and saves an explicit preference`() async throws {
         let transport = PreferenceTransport(explicit: false)
-        let state = makeState(transport)
+        let state = makeState(transport, defaults: nil, holder: LogHolder(max: nil))
         await state.refresh(locale: Locale(identifier: "nl_NL"))
         #expect(state.preferredCurrency == .eur)
         #expect(state.rates?.convert(1500, from: .jpy, to: state.preferredCurrency) == 10)
@@ -124,8 +124,8 @@ struct TCGCurrencyTests {
     @Test
     func `Failed save retains the prior preference and sign out clears it`() async {
         let transport = PreferenceTransport(explicit: true)
-        let state = makeState(transport)
-        await state.refresh()
+        let state = makeState(transport, defaults: nil, holder: LogHolder(max: nil))
+        await state.refresh(locale: .current)
         await transport.rejectUpdates()
         #expect(await state.save(.eur) == false)
         #expect(state.preferredCurrency == .usd)
@@ -139,8 +139,8 @@ struct TCGCurrencyTests {
     @Test
     func `A late preference save cannot restore a signed-out account`() async {
         let transport = PreferenceTransport(explicit: true)
-        let state = makeState(transport)
-        await state.refresh()
+        let state = makeState(transport, defaults: nil, holder: LogHolder(max: nil))
+        await state.refresh(locale: .current)
         #expect(state.preferenceLoaded)
         await transport.holdUpdates()
         let saving = Task { await state.save(.eur) }
@@ -156,7 +156,7 @@ struct TCGCurrencyTests {
     func `A late initialization cannot restore a signed-out account`() async {
         let holder = LogHolder(max: nil)
         let transport = PreferenceTransport(explicit: false)
-        let state = makeState(transport, holder: holder)
+        let state = makeState(transport, defaults: nil, holder: holder)
         await transport.holdUpdates()
         let refreshing = Task { await state.refresh(locale: Locale(identifier: "nl_NL")) }
         await transport.waitForUpdate()
@@ -175,13 +175,13 @@ struct TCGCurrencyTests {
         let defaults = try #require(UserDefaults(suiteName: namespace))
         defer { defaults.removePersistentDomain(forName: namespace) }
         let transport = PreferenceTransport(explicit: true)
-        let first = makeState(transport, defaults: defaults)
-        await first.refresh()
+        let first = makeState(transport, defaults: defaults, holder: LogHolder(max: nil))
+        await first.refresh(locale: .current)
         #expect(await first.save(.eur))
         await transport.rejectRates()
         let holder = LogHolder(max: nil)
         let restored = makeState(transport, defaults: defaults, holder: holder)
-        await restored.refresh()
+        await restored.refresh(locale: .current)
         #expect(restored.preferredCurrency == .eur)
         #expect(restored.rates?.convert(1500, from: .jpy, to: restored.preferredCurrency) == 10)
         #expect(restored.rates?.date == "2026-10-16")
@@ -194,8 +194,8 @@ struct TCGCurrencyTests {
 
     private func makeState(
         _ transport: PreferenceTransport,
-        defaults: UserDefaults? = nil,
-        holder: LogHolder = LogHolder(max: nil)
+        defaults: UserDefaults?,
+        holder: LogHolder
     ) -> TCGCurrency {
         let credentials = Credentials(
             authToken: "auth",
@@ -227,7 +227,7 @@ struct TCGCurrencyTests {
     }
 }
 
-private func currencyLogs(_ holder: LogHolder, containing marker: String, minimumCount: Int = 1) async -> [HoldedLog] {
+private func currencyLogs(_ holder: LogHolder, containing marker: String, minimumCount: Int) async -> [HoldedLog] {
     let clock = ContinuousClock()
     let deadline = clock.now.advanced(by: .seconds(2))
     while clock.now < deadline {

@@ -56,7 +56,7 @@ integrationTest(
   'reads normalized authentication sessions and persisted verification keys through its adapter',
   async ({ db, storageClient }) => {
     const composed = createNodeApplication({ db, storageClient });
-    const user = await createTestUser(composed.app, db);
+    const user = await createTestUser(composed.app, db, {});
     const auth = composed.dependencies.auth;
 
     const session = await auth.api.getSession({

@@ -33,7 +33,7 @@ describe('CardImageWarmer', () => {
   );
 
   integrationTest('is idle when there is nothing to claim', async ({ imageOrigin: origin, createImageWarmer }) => {
-    const warmer = createImageWarmer();
+    const warmer = createImageWarmer({});
 
     warmer.notifyRegistered(1);
     await warmer.idle();

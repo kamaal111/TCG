@@ -10,11 +10,12 @@ import Testing
 struct TCGCurrencyAmountSnapshotTests {
     @Test
     func `Renders converted prices and missing-rate fallback`() async {
-        await assertScreenSnapshot(testName: #function) {
+        await assertScreenSnapshot(testName: #function, fileID: #fileID, file: #filePath, line: #line, column: #column)
+        {
             VStack(alignment: .leading, spacing: 20) {
-                CurrencyAmount(10.0, currency: .eur)
-                CurrencyAmount(10.0, currency: .eur)
-                CurrencyAmount(12.5, currency: .gbp, conversionUnavailable: true)
+                CurrencyAmount(10.0, currency: .eur, label: nil, conversionUnavailable: false)
+                CurrencyAmount(10.0, currency: .eur, label: nil, conversionUnavailable: false)
+                CurrencyAmount(12.5, currency: .gbp, label: nil, conversionUnavailable: true)
             }
             .padding(24)
         }

@@ -77,7 +77,7 @@ process.exit(99);
 
   const env = Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith('TCG_')));
 
-  const run = (args: string[] = [], overrides: NodeJS.ProcessEnv = {}) => {
+  const run = (args: string[], overrides: NodeJS.ProcessEnv) => {
     return childProcess.spawnSync(
       'just',
       ['--justfile', justfile, 'unreleased-server-commits', '--config-dir', config, ...args],
@@ -102,7 +102,7 @@ process.exit(99);
 // CLI in a child process; use the same budget as the other CLI smoke checks.
 test('inspection works without a terminal or Docker and only requests remote status', { timeout: 10_000 }, async () => {
   const f = await fixture();
-  const result = f.run();
+  const result = f.run([], {});
   expect(result.status).toBe(0);
   expect(result.stdout).toContain(`Commits to release (1):\n${f.selected.slice(0, 7)} feat(app): add search`);
   const log = await fs.readFile(f.log, 'utf8');
@@ -114,7 +114,7 @@ test('inspection works without a terminal or Docker and only requests remote sta
 
 test('explicit older selection reports an empty comparison', async () => {
   const f = await fixture();
-  const result = f.run([f.base]);
+  const result = f.run([f.base], {});
   expect(result.status).toBe(0);
   expect(result.stdout).toContain('No unreleased commits.');
   expect(result.stdout).not.toContain('feat(app): add search');

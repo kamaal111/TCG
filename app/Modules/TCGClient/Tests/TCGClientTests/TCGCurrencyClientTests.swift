@@ -17,7 +17,11 @@ struct TCGCurrencyClientTests {
     func `Logs safe HTTP failure diagnostics`(status: Int, reason: String, level: LogLevels) async throws {
         let holder = LogHolder(max: nil)
         let client = try loggedClient(
-            CurrencyTransport(status: .init(code: status), json: "{\"message\":\"never-log-me\",\"code\":\"ERROR\"}"),
+            CurrencyTransport(
+                status: .init(code: status),
+                json: "{\"message\":\"never-log-me\",\"code\":\"ERROR\"}",
+                failure: nil
+            ),
             holder: holder
         )
         let result = await client.latestRates()
@@ -38,7 +42,11 @@ struct TCGCurrencyClientTests {
     func `Logs the reason invalid rate snapshots were rejected`(rates: String, reason: String) async throws {
         let holder = LogHolder(max: nil)
         let client = try loggedClient(
-            CurrencyTransport(status: .ok, json: "{\"base\":\"EUR\",\"date\":\"2026-10-16\",\"rates\":\(rates)}"),
+            CurrencyTransport(
+                status: .ok,
+                json: "{\"base\":\"EUR\",\"date\":\"2026-10-16\",\"rates\":\(rates)}",
+                failure: nil
+            ),
             holder: holder
         )
         await #expect(throws: CurrencyClientError.unknown) { try await client.latestRates().get() }
@@ -82,9 +90,10 @@ struct TCGCurrencyClientTests {
 
     @Test
     func `Sends and maps the preferred currency update`() async throws {
-        let transport = CurrencyTransport(status: .ok, json: Self.session)
+        let transport = CurrencyTransport(status: .ok, json: Self.session, failure: nil)
         let client = TCGCurrencyClientImpl(
-            client: Client(serverURL: URL(string: "http://localhost:8080")!, transport: transport)
+            client: Client(serverURL: URL(string: "http://localhost:8080")!, transport: transport),
+            logger: KamaalLogger(from: TCGCurrencyClientImpl.self)
         )
         let preference = try await client.update(.init(preferredCurrency: .eur)).get()
         let body = try #require(await transport.body)
@@ -97,9 +106,10 @@ struct TCGCurrencyClientTests {
 
     @Test
     func `Initializes a preference using POST with only the currency payload`() async throws {
-        let transport = CurrencyTransport(status: .ok, json: Self.session)
+        let transport = CurrencyTransport(status: .ok, json: Self.session, failure: nil)
         let client = TCGCurrencyClientImpl(
-            client: Client(serverURL: URL(string: "http://localhost:8080")!, transport: transport)
+            client: Client(serverURL: URL(string: "http://localhost:8080")!, transport: transport),
+            logger: KamaalLogger(from: TCGCurrencyClientImpl.self)
         )
         let preference = try await client.initialize(.init(preferredCurrency: .eur)).get()
         let body = try #require(await transport.body)
@@ -117,10 +127,12 @@ struct TCGCurrencyClientTests {
             status: .unauthorized,
             json: """
                 {"message":"Unauthorized","code":"UNAUTHORIZED"}
-                """
+                """,
+            failure: nil
         )
         let client = TCGCurrencyClientImpl(
-            client: Client(serverURL: URL(string: "http://localhost:8080")!, transport: transport)
+            client: Client(serverURL: URL(string: "http://localhost:8080")!, transport: transport),
+            logger: KamaalLogger(from: TCGCurrencyClientImpl.self)
         )
         await #expect(throws: CurrencyClientError.unauthorized) {
             try await client.initialize(.init(preferredCurrency: .eur)).get()
@@ -133,10 +145,12 @@ struct TCGCurrencyClientTests {
             status: .badRequest,
             json: """
                 {"message":"Invalid payload","code":"INVALID_PAYLOAD","context":{"validations":[{"code":"invalid_value","path":["preferred_currency"],"message":"Unsupported currency"}]}}
-                """
+                """,
+            failure: nil
         )
         let client = TCGCurrencyClientImpl(
-            client: Client(serverURL: URL(string: "http://localhost:8080")!, transport: transport)
+            client: Client(serverURL: URL(string: "http://localhost:8080")!, transport: transport),
+            logger: KamaalLogger(from: TCGCurrencyClientImpl.self)
         )
         await #expect(
             throws: CurrencyClientError.badRequest(validations: [
@@ -153,10 +167,12 @@ struct TCGCurrencyClientTests {
             status: .ok,
             json: """
                 {"base":"EUR","date":"2026-10-16","rates":{"EUR":1,"USD":1.25,"JPY":150}}
-                """
+                """,
+            failure: nil
         )
         let client = TCGCurrencyClientImpl(
-            client: Client(serverURL: URL(string: "http://localhost:8080")!, transport: transport)
+            client: Client(serverURL: URL(string: "http://localhost:8080")!, transport: transport),
+            logger: KamaalLogger(from: TCGCurrencyClientImpl.self)
         )
         let rates = try await client.latestRates().get()
         #expect(rates.convert(12.5, from: .usd, to: .eur) == 10)
@@ -169,10 +185,12 @@ struct TCGCurrencyClientTests {
             status: .serviceUnavailable,
             json: """
                 {"code":"EXCHANGE_RATES_UNAVAILABLE","message":"No exchange rates available"}
-                """
+                """,
+            failure: nil
         )
         let client = TCGCurrencyClientImpl(
-            client: Client(serverURL: URL(string: "http://localhost:8080")!, transport: transport)
+            client: Client(serverURL: URL(string: "http://localhost:8080")!, transport: transport),
+            logger: KamaalLogger(from: TCGCurrencyClientImpl.self)
         )
         await #expect(throws: CurrencyClientError.unavailable) { try await client.latestRates().get() }
     }
@@ -183,10 +201,12 @@ struct TCGCurrencyClientTests {
             status: .unauthorized,
             json: """
                 {"message":"Unauthorized","code":"UNAUTHORIZED"}
-                """
+                """,
+            failure: nil
         )
         let client = TCGCurrencyClientImpl(
-            client: Client(serverURL: URL(string: "http://localhost:8080")!, transport: transport)
+            client: Client(serverURL: URL(string: "http://localhost:8080")!, transport: transport),
+            logger: KamaalLogger(from: TCGCurrencyClientImpl.self)
         )
         await #expect(throws: CurrencyClientError.unauthorized) {
             try await client.update(.init(preferredCurrency: .eur)).get()
@@ -199,10 +219,12 @@ struct TCGCurrencyClientTests {
             status: .ok,
             json: """
                 {"base":"EUR","date":"2026-10-16","rates":{"EUR":1,"USD":0,"JPY":150}}
-                """
+                """,
+            failure: nil
         )
         let client = TCGCurrencyClientImpl(
-            client: Client(serverURL: URL(string: "http://localhost:8080")!, transport: transport)
+            client: Client(serverURL: URL(string: "http://localhost:8080")!, transport: transport),
+            logger: KamaalLogger(from: TCGCurrencyClientImpl.self)
         )
         await #expect(throws: CurrencyClientError.unknown) { try await client.latestRates().get() }
     }
@@ -221,7 +243,7 @@ private actor CurrencyTransport: ClientTransport {
     private let json: String
     private let failure: URLError.Code?
 
-    init(status: HTTPResponse.Status, json: String, failure: URLError.Code? = nil) {
+    init(status: HTTPResponse.Status, json: String, failure: URLError.Code?) {
         self.status = status
         self.json = json
         self.failure = failure

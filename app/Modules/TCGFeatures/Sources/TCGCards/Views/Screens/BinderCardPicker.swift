@@ -115,6 +115,7 @@ struct BinderCardPicker: View {
             TCGCollectionPaginationFooter(
                 isLoading: content.isLoadingNextPage,
                 errorDescription: content.nextPageError?.errorDescription,
+                failureTitle: nil,
                 retry: { actions.retryNext?() }
             )
         } else if content.hasMore {

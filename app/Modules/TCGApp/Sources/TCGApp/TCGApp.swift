@@ -15,13 +15,21 @@ import TCGSearch
 
 public struct TCGScene: Scene {
     @State private var auth: KamaalAuth
-    @State private var currencyState = TCGCurrency()
-    @State private var pricePrivacy = TCGPricePrivacy()
+    @State private var currencyState = TCGCurrency(client: .default(), defaults: .standard)
+    @State private var pricePrivacy = TCGPricePrivacy(defaults: .standard)
     @State private var cards = TCGCards.default()
     @State private var collections = TCGCollections(client: .default(), defaults: .standard)
     @State private var wishlist: TCGWishlist?
     @State private var search = TCGSearch.default()
-    @State private var offline = OfflineCollection(client: .default(), defaults: .standard)
+    @State private var offline = OfflineCollection(
+        client: .default(),
+        defaults: .standard,
+        store: .init(
+            root: URL.applicationSupportDirectory.appending(path: "OfflineCollection")
+        ),
+        grant: OfflineCollectionGrant(namespace: "local"),
+        hasFreshAuthToken: nil
+    )
 
     public init() {
         let auth = KamaalAuth(

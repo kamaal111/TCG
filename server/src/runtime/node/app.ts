@@ -37,7 +37,7 @@ class NodeApp {
   private readonly lifecycle: Lifecycle | undefined;
   private readonly disposeResources: () => Promise<void>;
 
-  constructor(overrides: AppOverrides = {}) {
+  constructor(overrides: AppOverrides) {
     const created = createNodeApplication(overrides);
     this.app = created.app;
     this.lifecycle = created.lifecycle;
@@ -93,7 +93,7 @@ function assertObjectStorageIsConfigured() {
   });
 }
 
-export function createNodeApplication(overrides: AppOverrides = {}) {
+export function createNodeApplication(overrides: AppOverrides) {
   initializeNodeLogging();
   const config = overrides.config ?? ApplicationConfigSchema.parse(env);
 
@@ -107,7 +107,7 @@ export function createNodeApplication(overrides: AppOverrides = {}) {
 
   const auth = createAuth(db, config, env.BETTER_AUTH_SECRET);
   const persistence = createPostgresPersistence(db, config.PRICING_LOCK_TIMEOUT_MS, config);
-  const forexClient = overrides.forexClient ?? new EcbForexClient();
+  const forexClient = overrides.forexClient ?? new EcbForexClient({});
   const pricingClient = overrides.pricingClient ?? createPricingClient(config);
   const storageClient = overrides.storageClient ?? createConfiguredObjectStorage(env);
 
@@ -148,7 +148,7 @@ export function createNodeApplication(overrides: AppOverrides = {}) {
   const app = createApp(dependencies);
 
   const lifecycle: Lifecycle | undefined = config.CARD_IMAGE_WORKER_ENABLED
-    ? { start: () => cardImageWarmer.start(), stop: () => cardImageWarmer.stop() }
+    ? { start: () => cardImageWarmer.start({}), stop: () => cardImageWarmer.stop() }
     : undefined;
 
   return {

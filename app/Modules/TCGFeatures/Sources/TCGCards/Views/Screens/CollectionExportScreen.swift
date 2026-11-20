@@ -29,7 +29,9 @@ struct CollectionExportScreen: View {
         .formStyle(.grouped)
         .tcgSheet(
             Text("Export collections", bundle: .module),
-            closeLabel: Text("Cancel", bundle: .module)
+            closeLabel: Text("Cancel", bundle: .module),
+            closeDisabled: false,
+            onClose: nil
         ) {
             Button {
                 Task { await export() }

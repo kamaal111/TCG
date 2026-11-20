@@ -7,7 +7,7 @@ struct TCGSearchHelpView: View {
     private let document: Result<String, TCGSearchHelpDocument.LoadError>
 
     init(game: ClientCardGame) {
-        document = TCGSearchHelpDocument.load(game: game)
+        document = TCGSearchHelpDocument.load(game: game, bundle: .module)
     }
 
     @ViewBuilder
@@ -19,7 +19,9 @@ struct TCGSearchHelpView: View {
             content
                 .tcgSheet(
                     Text("How to search", bundle: .module),
-                    closeLabel: Text("Done", bundle: .module)
+                    closeLabel: Text("Done", bundle: .module),
+                    closeDisabled: false,
+                    onClose: nil
                 )
         #endif
     }

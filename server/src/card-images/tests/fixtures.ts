@@ -1,4 +1,5 @@
 import { GatedImageOriginClient, imageRecord } from './utils.ts';
+import { DEFAULT_IMAGE_POLICY } from '../../config.ts';
 import { cardImage } from '../../db/schema/card-images.ts';
 import { PostgresCardImageRepository } from '../../persistence/postgres/card-images.ts';
 import { CardImageWarmer } from '../../runtime/node/warmer.ts';
@@ -6,7 +7,7 @@ import { integrationTest as baseIntegrationTest } from '../../tests/fixtures.ts'
 import { CardImageMaterializer } from '../materializer.ts';
 
 export const integrationTest = baseIntegrationTest
-  .extend('imageRepository', ({ db }) => new PostgresCardImageRepository(db))
+  .extend('imageRepository', ({ db }) => new PostgresCardImageRepository(db, DEFAULT_IMAGE_POLICY))
   .extend('imageOrigin', ({ task: _task }, { onCleanup }) => {
     const origin = new GatedImageOriginClient();
     onCleanup(() => origin.release());
@@ -17,17 +18,20 @@ export const integrationTest = baseIntegrationTest
     return new CardImageMaterializer({ repository: imageRepository, storageClient, imageOriginClient: imageOrigin });
   })
   .extend('createImage', ({ db }) => {
-    return async (overrides: Partial<typeof cardImage.$inferInsert> = {}) => {
+    return async (overrides: Partial<typeof cardImage.$inferInsert>) => {
       await db.insert(cardImage).values(imageRecord(overrides));
     };
   })
   .extend('createImageWarmer', ({ imageRepository, imageMaterializer, imageOrigin }, { onCleanup }) => {
-    return (options: Pick<ConstructorParameters<typeof CardImageWarmer>[0], 'concurrency'> = {}) => {
-      const warmer = new CardImageWarmer({
-        repository: imageRepository,
-        materializer: imageMaterializer,
-        ...options,
-      });
+    return (options: Pick<ConstructorParameters<typeof CardImageWarmer>[0], 'concurrency'>) => {
+      const warmer = new CardImageWarmer(
+        {
+          repository: imageRepository,
+          materializer: imageMaterializer,
+          ...options,
+        },
+        DEFAULT_IMAGE_POLICY,
+      );
 
       onCleanup(async () => {
         imageOrigin.release();

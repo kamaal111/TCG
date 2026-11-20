@@ -158,7 +158,7 @@ describe('Scrydex search through the authenticated pricing API', () => {
         expect(url.pathname).toBe('/onepiece/v1/cards/OP01-025');
 
         return Response.json({ data: { ...zoro, variants } });
-      });
+      }, {});
 
       const app = createApp({ pricingClient });
       const path = `${SEARCH_PRICING_ROUTE_PATH}?game=one_piece&query=OP01-025&search_by=card`;
@@ -250,7 +250,7 @@ describe('Scrydex search through the authenticated pricing API', () => {
         return Response.json({ data: cards.slice(start, start + size), total_count: cards.length });
       });
 
-      const app = createApp({ pricingClient: createTestScrydexClient(transport) });
+      const app = createApp({ pricingClient: createTestScrydexClient(transport, {}) });
       const headers = sessionHeaders(user.sessionToken);
       const url = `${SEARCH_PRICING_ROUTE_PATH}?game=pokemon&query=Pikachu&search_by=card`;
 
@@ -294,13 +294,14 @@ describe('Scrydex search through the authenticated pricing API', () => {
       };
 
       const search = createSearchApp({
+        game: 'pokemon',
         createApp,
         user,
         expectedQuery: '!printed_number:"259/193"',
         cards: [alternate, CHI_YU],
       });
 
-      const results = PricingSearchResponseSchema.parse(await (await search.request('259/193')).json());
+      const results = PricingSearchResponseSchema.parse(await (await search.request('259/193', '')).json());
       const expectedImage = proxyURLForOriginURL(CHI_YU_IMAGE, 'http://localhost:8080');
       const selected = results.entries.find(match => match.image_url === expectedImage);
       assert(selected != null);
@@ -364,7 +365,13 @@ describe('Scrydex search through the authenticated pricing API', () => {
   );
 
   integrationTest('recovers an existing unlinked card after a number-only search', async ({ createApp, user, db }) => {
-    const search = createSearchApp({ createApp, user, expectedQuery: '!printed_number:"259/193"', cards: [CHI_YU] });
+    const search = createSearchApp({
+      game: 'pokemon',
+      createApp,
+      user,
+      expectedQuery: '!printed_number:"259/193"',
+      cards: [CHI_YU],
+    });
 
     const [saved] = await db
       .insert(card)
@@ -382,7 +389,7 @@ describe('Scrydex search through the authenticated pricing API', () => {
     const firstPrice = await requestOwnedPrices(search.app, sessionHeaders(user.sessionToken), [saved.id]);
     expect(OwnedCardPricesSchema.parse(await firstPrice.json()).prices[0]?.price.status).toBe('no_match');
 
-    const results = PricingSearchResponseSchema.parse(await (await search.request('259/193')).json());
+    const results = PricingSearchResponseSchema.parse(await (await search.request('259/193', '')).json());
     expect(results.entries).toHaveLength(1);
     const list = await requestOwnedPrices(search.app, sessionHeaders(user.sessionToken), [saved.id]);
     expect(OwnedCardPricesSchema.parse(await list.json()).prices).toMatchObject([
@@ -403,13 +410,14 @@ describe('Scrydex search through the authenticated pricing API', () => {
         const nameQuery = `name:"${providerCard.name}"`;
 
         const search = createSearchApp({
+          game: 'pokemon',
           createApp,
           user,
           expectedQuery: [nameQuery, expectedQuery],
           cards: [providerCard],
         });
 
-        const first = await search.request(providerCard.name);
+        const first = await search.request(providerCard.name, '');
 
         expect(first.status).toBe(200);
         const searched = PricingSearchResponseSchema.parse(await first.json());
@@ -461,7 +469,7 @@ describe('Scrydex search through the authenticated pricing API', () => {
       `recovers an unlinked ${providerCard.printed_number} collection entry despite a v3 empty cache`,
       async ({ createApp, user, db }) => {
         const expectedQuery = `name:"${providerCard.name}" AND !printed_number:"${providerCard.printed_number}"`;
-        const search = createSearchApp({ createApp, user, expectedQuery, cards: [providerCard] });
+        const search = createSearchApp({ game: 'pokemon', createApp, user, expectedQuery, cards: [providerCard] });
 
         const [owned] = await db
           .insert(card)
@@ -526,6 +534,7 @@ describe('Scrydex search through the authenticated pricing API', () => {
         });
 
         const search = createSearchApp({
+          game: 'pokemon',
           createApp,
           user,
           expectedQuery,
@@ -544,13 +553,14 @@ describe('Scrydex search through the authenticated pricing API', () => {
 
   integrationTest('keeps prefixed printed denominators exact', async ({ createApp, user }) => {
     const search = createSearchApp({
+      game: 'pokemon',
       createApp,
       user,
       expectedQuery: '!printed_number:"GG69/GG70"',
       cards: [PRINTED_NUMBER_CASES[0].providerCard],
     });
 
-    const response = await search.request('GG69/GG71');
+    const response = await search.request('GG69/GG71', '');
     expect(response.status).toBe(200);
     expect(PricingSearchResponseSchema.parse(await response.json())).toEqual({ entries: [], next_cursor: null });
     expect(search.transport.queries).toEqual(['!printed_number:"GG69/GG71"']);
@@ -571,7 +581,7 @@ describe('Scrydex search through the authenticated pricing API', () => {
           cards: [LUFFY_PROMO],
         });
 
-        const response = await search.request(query);
+        const response = await search.request(query, '');
 
         expect(response.status).toBe(200);
 
@@ -609,7 +619,7 @@ describe('Scrydex search through the authenticated pricing API', () => {
         cards: [LUFFY_PROMO],
       });
 
-      const first = await search.request('p-110');
+      const first = await search.request('p-110', '');
 
       expect(first.status).toBe(200);
 
@@ -643,7 +653,7 @@ describe('Scrydex search through the authenticated pricing API', () => {
       cards: [],
     });
 
-    const response = await search.request('p-110');
+    const response = await search.request('p-110', '');
 
     expect(response.status).toBe(200);
     expect(PricingSearchResponseSchema.parse(await response.json())).toEqual({ entries: [], next_cursor: null });
@@ -669,7 +679,7 @@ describe('Scrydex search through the authenticated pricing API', () => {
           pricedOn: todayUTC(),
           pricingCardIds: [],
         });
-        const search = createSearchApp({ createApp, user, expectedQuery, cards: [TORCHIC_PROMO] });
+        const search = createSearchApp({ game: 'pokemon', createApp, user, expectedQuery, cards: [TORCHIC_PROMO] });
         const first = await search.request('mep 056', languages);
 
         expect(first.status).toBe(200);
@@ -706,7 +716,7 @@ describe('Scrydex search through the authenticated pricing API', () => {
   integrationTest('applies the English filter before requesting provider results', async ({ createApp, user, db }) => {
     const card = { id: 'sv5-163', name: 'Shiftry', number: '163', language_code: 'EN' };
     const expectedQuery = '(name:"Shiftry") AND (!language_code:EN)';
-    const search = createSearchApp({ createApp, user, expectedQuery, cards: [card] });
+    const search = createSearchApp({ game: 'pokemon', createApp, user, expectedQuery, cards: [card] });
 
     const response = await search.request('Shiftry', 'en');
 
@@ -723,7 +733,7 @@ describe('Scrydex search through the authenticated pricing API', () => {
   integrationTest('applies the Japanese filter before requesting provider results', async ({ createApp, user, db }) => {
     const card = SHIFTRY;
     const expectedQuery = '(name:"Shiftry") AND (!language_code:JA)';
-    const search = createSearchApp({ createApp, user, expectedQuery, cards: [card] });
+    const search = createSearchApp({ game: 'pokemon', createApp, user, expectedQuery, cards: [card] });
 
     const response = await search.request('Shiftry', 'ja');
 
@@ -741,13 +751,14 @@ describe('Scrydex search through the authenticated pricing API', () => {
     'finds Japanese Shiftry by set code and printed number and persists its identity',
     async ({ createApp, user, db }) => {
       const search = createSearchApp({
+        game: 'pokemon',
         createApp,
         user,
         expectedQuery: SET_AND_PRINTED_NUMBER,
         cards: [SHIFTRY],
       });
 
-      const response = await search.request('sv5m 072/071');
+      const response = await search.request('sv5m 072/071', '');
 
       expect(response.status).toBe(200);
       expect(PricingSearchResponseSchema.parse(await response.json()).entries).toMatchObject([
@@ -783,13 +794,14 @@ describe('Scrydex search through the authenticated pricing API', () => {
 
   integrationTest('finds a Japanese card by explicit expansion ID and unpadded number', async ({ createApp, user }) => {
     const search = createSearchApp({
+      game: 'pokemon',
       createApp,
       user,
       expectedQuery: '!expansion.id:sv5m_ja AND !number:72',
       cards: [SHIFTRY],
     });
 
-    const response = await search.request('  SV5M_JA   072  ');
+    const response = await search.request('  SV5M_JA   072  ', '');
 
     expect(response.status).toBe(200);
     expect(PricingSearchResponseSchema.parse(await response.json()).entries).toMatchObject([
@@ -802,13 +814,14 @@ describe('Scrydex search through the authenticated pricing API', () => {
     'matches Japanese cards through their English translated name using the provider name index',
     async ({ createApp, user }) => {
       const search = createSearchApp({
+        game: 'pokemon',
         createApp,
         user,
         expectedQuery: 'name:"Shiftry" AND !printed_number:"072/071"',
         cards: [SHIFTRY],
       });
 
-      const response = await search.request('Shiftry 072/071');
+      const response = await search.request('Shiftry 072/071', '');
 
       expect(response.status).toBe(200);
       expect(PricingSearchResponseSchema.parse(await response.json()).entries).toMatchObject([
@@ -825,13 +838,14 @@ describe('Scrydex search through the authenticated pricing API', () => {
       const nativeCard = { id: 'sv5m_ja-72', name: 'ダーテング', number: '72', printed_number: '072/071' };
 
       const search = createSearchApp({
+        game: 'pokemon',
         createApp,
         user,
         expectedQuery: 'name:"ダーテング"',
         cards: [nativeCard],
       });
 
-      const response = await search.request('ダーテング');
+      const response = await search.request('ダーテング', '');
 
       expect(response.status).toBe(200);
       const body = PricingSearchResponseSchema.parse(await response.json());
@@ -853,13 +867,14 @@ describe('Scrydex search through the authenticated pricing API', () => {
       };
 
       const search = createSearchApp({
+        game: 'pokemon',
         createApp,
         user,
         expectedQuery: 'name:"Shiftry"',
         cards: [englishCard, SHIFTRY],
       });
 
-      const response = await search.request('Shiftry');
+      const response = await search.request('Shiftry', '');
 
       expect(response.status).toBe(200);
       expect(PricingSearchResponseSchema.parse(await response.json()).entries).toMatchObject([
@@ -874,13 +889,14 @@ describe('Scrydex search through the authenticated pricing API', () => {
 
   integrationTest('returns no matches when the printed denominator differs', async ({ createApp, user, db }) => {
     const search = createSearchApp({
+      game: 'pokemon',
       createApp,
       user,
       expectedQuery: SET_AND_PRINTED_NUMBER,
       cards: [SHIFTRY],
     });
 
-    const response = await search.request('sv5m 072/070');
+    const response = await search.request('sv5m 072/070', '');
 
     expect(response.status).toBe(200);
     expect(PricingSearchResponseSchema.parse(await response.json())).toEqual({ entries: [], next_cursor: null });
@@ -894,18 +910,19 @@ describe('Scrydex search through the authenticated pricing API', () => {
     'reuses persisted search results without another provider request',
     async ({ createApp, user, db }) => {
       const search = createSearchApp({
+        game: 'pokemon',
         createApp,
         user,
         expectedQuery: SET_AND_PRINTED_NUMBER,
         cards: [SHIFTRY],
       });
 
-      const first = await search.request('sv5m 072/071');
+      const first = await search.request('sv5m 072/071', '');
       expect(first.status).toBe(200);
       const firstBody = PricingSearchResponseSchema.parse(await first.json());
       expect(firstBody.entries[0]).toHaveProperty('set_name', 'Wild Force');
 
-      const second = await search.request(' SV5M   072/071 ');
+      const second = await search.request(' SV5M   072/071 ', '');
 
       expect(second.status).toBe(200);
       expect(PricingSearchResponseSchema.parse(await second.json())).toEqual(firstBody);
@@ -928,6 +945,7 @@ describe('Scrydex search through the authenticated pricing API', () => {
       const expectedQuery = '(!printed_number:"265/S-P" OR (!expansion.id:swshp_ja AND !number:265))';
 
       const search = createSearchApp({
+        game: 'pokemon',
         createApp,
         user,
         expectedQuery,
@@ -944,7 +962,7 @@ describe('Scrydex search through the authenticated pricing API', () => {
         ],
       });
 
-      const response = await search.request('265/S-P');
+      const response = await search.request('265/S-P', '');
 
       expect(response.status).toBe(200);
       expect(PricingSearchResponseSchema.parse(await response.json()).entries).toMatchObject([
@@ -969,13 +987,14 @@ describe('Scrydex search through the authenticated pricing API', () => {
       });
 
       const search = createSearchApp({
+        game: 'pokemon',
         createApp,
         user,
         expectedQuery: SET_AND_PRINTED_NUMBER,
         cards: [SHIFTRY],
       });
 
-      const response = await search.request('sv5m 072/071');
+      const response = await search.request('sv5m 072/071', '');
 
       expect(response.status).toBe(200);
       expect(PricingSearchResponseSchema.parse(await response.json()).entries).toHaveLength(1);
@@ -986,14 +1005,14 @@ describe('Scrydex search through the authenticated pricing API', () => {
 });
 
 interface SearchAppOptions {
-  game?: CardGame;
-  createApp: (overrides?: ConstructorParameters<typeof App>[0]) => App['app'];
+  game: CardGame;
+  createApp: (overrides: ConstructorParameters<typeof App>[0]) => App['app'];
   user: Awaited<ReturnType<typeof createTestUser>>;
   expectedQuery: string | string[];
   cards: ScrydexRawCard[];
 }
 
-function createSearchApp({ createApp, user, expectedQuery, cards, game = 'pokemon' }: SearchAppOptions) {
+function createSearchApp({ createApp, user, expectedQuery, cards, game }: SearchAppOptions) {
   const transport = new ScrydexSearchTransport(
     Array.isArray(expectedQuery) ? expectedQuery : [expectedQuery],
     cards,
@@ -1008,7 +1027,7 @@ function createSearchApp({ createApp, user, expectedQuery, cards, game = 'pokemo
     app,
     user,
     transport,
-    request: (query: string, languages = '') => {
+    request: (query: string, languages: string) => {
       return app.request(
         `${SEARCH_PRICING_ROUTE_PATH}?${new URLSearchParams({ game, query, languages, search_by: 'card' })}`,
         {

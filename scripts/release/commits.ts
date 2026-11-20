@@ -15,7 +15,7 @@ export async function selectRelease(command: Command, revision: string, main: st
 
     return sha;
   } catch {
-    throw new InfraFailure('Cannot select release. Choose a commit already merged into origin/main.');
+    throw new InfraFailure('Cannot select release. Choose a commit already merged into origin/main.', 1);
   }
 }
 
@@ -39,6 +39,7 @@ export async function commitSummary(command: Command, deployed: string | null, s
   } catch {
     throw new InfraFailure(
       'Commit comparison unavailable. Check Git history and fetch the deployed revision before retrying.',
+      1,
     );
   }
 }
@@ -86,6 +87,7 @@ export async function pendingCommits(command: Command, deployed: string | null, 
   } catch {
     throw new InfraFailure(
       'Commit comparison unavailable. Check Git history and fetch the deployed revision before retrying.',
+      1,
     );
   }
 }

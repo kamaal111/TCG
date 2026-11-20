@@ -25,7 +25,9 @@ struct CSVCardEditor: View {
         }
         .tcgSheet(
             Text("Edit Import Card", bundle: .module),
-            closeLabel: Text("Cancel", bundle: .module)
+            closeLabel: Text("Cancel", bundle: .module),
+            closeDisabled: false,
+            onClose: nil
         )
         #if os(macOS)
             .frame(width: 600, height: 650)

@@ -37,7 +37,12 @@ struct CSVPrintingPicker: View {
             }
             .padding()
         }
-        .tcgSheet(Text("Choose Printing", bundle: .module), closeLabel: Text("Cancel", bundle: .module))
+        .tcgSheet(
+            Text("Choose Printing", bundle: .module),
+            closeLabel: Text("Cancel", bundle: .module),
+            closeDisabled: false,
+            onClose: nil
+        )
         #if os(macOS)
             .frame(minWidth: 380, minHeight: 300)
         #endif

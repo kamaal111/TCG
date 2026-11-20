@@ -21,9 +21,9 @@ struct TCGSearchScreenModelTests {
     @Test
     func `Missing and repeated artwork does not reduce the variant count`() throws {
         let cards = [
-            SearchVariantFixtures.variant(0, hasArtwork: false),
-            SearchVariantFixtures.variant(1),
-            SearchVariantFixtures.variant(2, image: 1),
+            SearchVariantFixtures.variant(0, image: nil, hasArtwork: false, price: nil),
+            SearchVariantFixtures.variant(1, image: nil, hasArtwork: true, price: nil),
+            SearchVariantFixtures.variant(2, image: 1, hasArtwork: true, price: nil),
         ]
         let group = try #require(SearchResultGroup.group(cards).first)
         let imageURL = try #require(cards[1].imageURL)
@@ -35,31 +35,56 @@ struct TCGSearchScreenModelTests {
     func `Groups One Piece variants across pages without grouping Pokémon by number`() throws {
         let base = PricedCard(
             id: "zoro-foil",
+            printingKey: nil,
+            isWishlisted: nil,
             game: .onePiece,
             name: "Roronoa Zoro",
             cardNumber: "OP01-025",
+            setName: nil,
+            rarity: nil,
             illustrator: nil,
             variantName: "foil",
+            imageURL: nil,
+            headline: nil,
+            market: nil,
+            display: nil,
             pricedOn: .now,
             fetchedAt: .now
         )
         let alternate = PricedCard(
             id: "zoro-alt",
+            printingKey: nil,
+            isWishlisted: nil,
             game: .onePiece,
             name: "Roronoa Zoro",
             cardNumber: " op01-025 ",
+            setName: nil,
+            rarity: nil,
             illustrator: nil,
             variantName: "altArt",
+            imageURL: nil,
+            headline: nil,
+            market: nil,
+            display: nil,
             pricedOn: .now,
             fetchedAt: .now
         )
         let pokemon = ["pikachu-one", "pikachu-two"].map { id in
             PricedCard(
                 id: id,
+                printingKey: nil,
+                isWishlisted: nil,
                 game: .pokemon,
                 name: "Pikachu",
                 cardNumber: "25",
+                setName: nil,
+                rarity: nil,
                 illustrator: nil,
+                variantName: nil,
+                imageURL: nil,
+                headline: nil,
+                market: nil,
+                display: nil,
                 pricedOn: .now,
                 fetchedAt: .now
             )
@@ -78,13 +103,13 @@ struct TCGSearchScreenModelTests {
         let model = TCGSearchScreenModel(preferences: nil, debounce: .seconds(60))
         model.query = "Akira Egawa"
         let first = Task { await model.performSearch(using: feature) }
-        await transport.waitUntilStarted()
+        await transport.waitUntilStarted(count: 1)
         model.updateMode(.illustrator, using: feature)
         let second = Task { await model.performSearch(using: feature) }
         await transport.waitUntilStarted(count: 2)
         await transport.resume(count: 2)
         await second.value
-        await transport.resume()
+        await transport.resume(count: 1)
         await first.value
         #expect(feature.completedSearch?.mode == .illustrator)
         #expect(feature.history.entries.map(\.mode) == [.illustrator])
@@ -93,7 +118,10 @@ struct TCGSearchScreenModelTests {
 
     @Test
     func `Replays illustrator searches and resets mode when switching to One Piece`() async throws {
-        let feature = TCGSearch(client: .preview(pricingOutcome: .success), history: TCGSearchHistoryStore())
+        let feature = TCGSearch(
+            client: .preview(pricingOutcome: .success),
+            history: TCGSearchHistoryStore(defaults: nil, now: Date.init)
+        )
         let model = TCGSearchScreenModel(preferences: nil, debounce: .seconds(60))
         let entry = TCGSearchHistoryEntry(
             id: UUID(),
@@ -115,10 +143,10 @@ struct TCGSearchScreenModelTests {
 
     @Test
     func `Multiple sets filter returned cards locally and all sets restores unknown sets`() async {
-        let transport = HistoryPricingTransport()
+        let transport = HistoryPricingTransport(suspended: false)
         await transport.setOutcome(.sets, for: 1)
         let feature = makeFeature(transport: transport)
-        let model = TCGSearchScreenModel(preferences: nil)
+        let model = TCGSearchScreenModel(preferences: nil, debounce: ModuleConfig.searchDebounce)
         model.query = "Giratina"
         await model.performSearch(using: feature)
         let results = feature.results
@@ -140,7 +168,10 @@ struct TCGSearchScreenModelTests {
 
     @Test
     func `Effective query game and language changes immediately reset selected sets`() async {
-        let feature = TCGSearch(client: .preview(pricingOutcome: .success), history: TCGSearchHistoryStore())
+        let feature = TCGSearch(
+            client: .preview(pricingOutcome: .success),
+            history: TCGSearchHistoryStore(defaults: nil, now: Date.init)
+        )
         let model = TCGSearchScreenModel(preferences: nil, debounce: .seconds(60))
         model.query = "Giratina"
         await model.performSearch(using: feature)
@@ -162,8 +193,11 @@ struct TCGSearchScreenModelTests {
 
     @Test
     func `Unchanged inputs refreshing and returning preserve selected sets`() async {
-        let feature = TCGSearch(client: .preview(pricingOutcome: .success), history: TCGSearchHistoryStore())
-        let model = TCGSearchScreenModel(preferences: nil)
+        let feature = TCGSearch(
+            client: .preview(pricingOutcome: .success),
+            history: TCGSearchHistoryStore(defaults: nil, now: Date.init)
+        )
+        let model = TCGSearchScreenModel(preferences: nil, debounce: ModuleConfig.searchDebounce)
         model.query = "Giratina"
         await model.performSearch(using: feature)
         model.setNames = ["Crown Zenith"]
@@ -181,7 +215,7 @@ struct TCGSearchScreenModelTests {
 
     @Test
     func `History selection resets sets only when effective query or game changes`() async throws {
-        let history = TCGSearchHistoryStore()
+        let history = TCGSearchHistoryStore(defaults: nil, now: Date.init)
         history.record(query: "Giratina", game: .pokemon, mode: .card)
         let same = try #require(history.entries.first)
         history.record(query: "Pikachu", game: .pokemon, mode: .card)
@@ -189,7 +223,7 @@ struct TCGSearchScreenModelTests {
         history.record(query: "Pikachu", game: .onePiece, mode: .card)
         let otherGame = try #require(history.entries.first)
         let feature = TCGSearch(client: .preview(pricingOutcome: .success), history: history)
-        let model = TCGSearchScreenModel(preferences: nil)
+        let model = TCGSearchScreenModel(preferences: nil, debounce: ModuleConfig.searchDebounce)
         model.query = " Giratina "
         model.setNames = ["Crown Zenith"]
         await model.selectHistory(same, using: feature)
@@ -204,10 +238,10 @@ struct TCGSearchScreenModelTests {
 
     @Test
     func `A selected set missing after refresh remains available and can be cleared`() async {
-        let transport = HistoryPricingTransport()
+        let transport = HistoryPricingTransport(suspended: false)
         await transport.setOutcome(.sets, for: 1)
         let feature = makeFeature(transport: transport)
-        let model = TCGSearchScreenModel(preferences: nil)
+        let model = TCGSearchScreenModel(preferences: nil, debounce: ModuleConfig.searchDebounce)
         model.query = "Giratina"
         await model.performSearch(using: feature)
         model.setNames = ["Crown Zenith"]
@@ -226,10 +260,10 @@ struct TCGSearchScreenModelTests {
         let feature = makeFeature(transport: transport)
         let model = TCGSearchScreenModel(preferences: nil, debounce: .zero)
         model.updateQuery("Giratina", using: feature)
-        await transport.waitUntilStarted()
+        await transport.waitUntilStarted(count: 1)
         model.updateQuery("  Giratina  ", using: feature)
         #expect(feature.isSearching)
-        await transport.resume()
+        await transport.resume(count: 1)
         await waitForResults(feature)
         let cards = feature.results
 
@@ -249,7 +283,7 @@ struct TCGSearchScreenModelTests {
     func `Refreshing the same search retains cards until their replacement arrives`() async {
         let transport = HistoryPricingTransport(suspended: true)
         let feature = makeFeature(transport: transport)
-        let model = TCGSearchScreenModel(preferences: nil)
+        let model = TCGSearchScreenModel(preferences: nil, debounce: ModuleConfig.searchDebounce)
         model.query = "Giratina"
         await completeSearch(model: model, feature: feature, transport: transport)
         let cards = feature.results
@@ -274,7 +308,7 @@ struct TCGSearchScreenModelTests {
     func `An empty refresh clears retained cards after the response arrives`() async {
         let transport = HistoryPricingTransport(suspended: true)
         let feature = makeFeature(transport: transport)
-        let model = TCGSearchScreenModel(preferences: nil)
+        let model = TCGSearchScreenModel(preferences: nil, debounce: ModuleConfig.searchDebounce)
         model.query = "Giratina"
         await completeSearch(model: model, feature: feature, transport: transport)
         let entries = feature.history.entries
@@ -294,7 +328,7 @@ struct TCGSearchScreenModelTests {
     func `A failed refresh retains matching cards without updating history`() async {
         let transport = HistoryPricingTransport(suspended: true)
         let feature = makeFeature(transport: transport)
-        let model = TCGSearchScreenModel(preferences: nil)
+        let model = TCGSearchScreenModel(preferences: nil, debounce: ModuleConfig.searchDebounce)
         model.query = "Giratina"
         await completeSearch(model: model, feature: feature, transport: transport)
         let cards = feature.results
@@ -314,7 +348,10 @@ struct TCGSearchScreenModelTests {
 
     @Test
     func `Changed query game and language inputs clear cards immediately`() async {
-        let feature = TCGSearch(client: .preview(pricingOutcome: .success), history: TCGSearchHistoryStore())
+        let feature = TCGSearch(
+            client: .preview(pricingOutcome: .success),
+            history: TCGSearchHistoryStore(defaults: nil, now: Date.init)
+        )
         let model = TCGSearchScreenModel(preferences: nil, debounce: .seconds(60))
         model.query = "Giratina"
         await model.performSearch(using: feature)
@@ -339,19 +376,19 @@ struct TCGSearchScreenModelTests {
         transport: HistoryPricingTransport
     ) async {
         let task = Task { await model.performSearch(using: feature) }
-        await transport.waitUntilStarted()
-        await transport.resume()
+        await transport.waitUntilStarted(count: 1)
+        await transport.resume(count: 1)
         await task.value
         #expect(!feature.results.isEmpty)
     }
 
     @Test
     func `Reusing history retains the current language filter`() async throws {
-        let history = TCGSearchHistoryStore()
+        let history = TCGSearchHistoryStore(defaults: nil, now: Date.init)
         history.record(query: "Giratina", game: .pokemon, mode: .card)
         let entry = try #require(history.entries.first)
         let feature = TCGSearch(client: .preview(pricingOutcome: .success), history: history)
-        let model = TCGSearchScreenModel(preferences: nil)
+        let model = TCGSearchScreenModel(preferences: nil, debounce: ModuleConfig.searchDebounce)
         model.languages = [.japanese]
 
         await model.selectHistory(entry, using: feature)
@@ -372,21 +409,24 @@ struct TCGSearchScreenModelTests {
         let suiteName = "TCGSearchTests.\(UUID().uuidString)"
         let preferences = try #require(UserDefaults(suiteName: suiteName))
         defer { preferences.removePersistentDomain(forName: suiteName) }
-        let feature = TCGSearch(client: .preview(pricingOutcome: .success), history: TCGSearchHistoryStore())
-        let model = TCGSearchScreenModel(preferences: preferences)
+        let feature = TCGSearch(
+            client: .preview(pricingOutcome: .success),
+            history: TCGSearchHistoryStore(defaults: nil, now: Date.init)
+        )
+        let model = TCGSearchScreenModel(preferences: preferences, debounce: ModuleConfig.searchDebounce)
         #expect(model.game == .pokemon)
         model.languages = [.english, .japanese]
         model.updateGame(.onePiece, using: feature)
         #expect(model.languages.isEmpty)
         model.languages = [.english]
 
-        let restored = TCGSearchScreenModel(preferences: preferences)
+        let restored = TCGSearchScreenModel(preferences: preferences, debounce: ModuleConfig.searchDebounce)
         #expect(restored.game == .onePiece)
         #expect(restored.languages == [.english])
         #expect(!feature.hasSearched)
 
         restored.updateGame(.pokemon, using: feature)
-        let switchedBack = TCGSearchScreenModel(preferences: preferences)
+        let switchedBack = TCGSearchScreenModel(preferences: preferences, debounce: ModuleConfig.searchDebounce)
         #expect(switchedBack.game == .pokemon)
         #expect(switchedBack.languages == [.english, .japanese])
     }
@@ -399,7 +439,7 @@ struct TCGSearchScreenModelTests {
         preferences.set("unknown", forKey: "TCGSearch.game")
         preferences.set(["ja"], forKey: "TCGSearch.languages.pokemon")
 
-        let model = TCGSearchScreenModel(preferences: preferences)
+        let model = TCGSearchScreenModel(preferences: preferences, debounce: ModuleConfig.searchDebounce)
 
         #expect(model.game == .pokemon)
         #expect(model.languages == [.japanese])
@@ -410,15 +450,15 @@ struct TCGSearchScreenModelTests {
         let suiteName = "TCGSearchTests.\(UUID().uuidString)"
         let preferences = try #require(UserDefaults(suiteName: suiteName))
         defer { preferences.removePersistentDomain(forName: suiteName) }
-        let history = TCGSearchHistoryStore()
+        let history = TCGSearchHistoryStore(defaults: nil, now: Date.init)
         history.record(query: "Luffy", game: .onePiece, mode: .card)
         let entry = try #require(history.entries.first)
         let feature = TCGSearch(client: .preview(pricingOutcome: .success), history: history)
-        let model = TCGSearchScreenModel(preferences: preferences)
+        let model = TCGSearchScreenModel(preferences: preferences, debounce: ModuleConfig.searchDebounce)
 
         await model.selectHistory(entry, using: feature)
 
-        #expect(TCGSearchScreenModel(preferences: preferences).game == .onePiece)
+        #expect(TCGSearchScreenModel(preferences: preferences, debounce: ModuleConfig.searchDebounce).game == .onePiece)
     }
 
     @Test(arguments: [["invalid"], ["ja", "invalid"]])
@@ -427,7 +467,7 @@ struct TCGSearchScreenModelTests {
         let preferences = try #require(UserDefaults(suiteName: suiteName))
         defer { preferences.removePersistentDomain(forName: suiteName) }
         preferences.set(codes, forKey: "TCGSearch.languages.pokemon")
-        let model = TCGSearchScreenModel(preferences: preferences)
+        let model = TCGSearchScreenModel(preferences: preferences, debounce: ModuleConfig.searchDebounce)
 
         #expect(model.languages.isEmpty)
     }
@@ -438,7 +478,7 @@ struct TCGSearchScreenModelTests {
         let preferences = try #require(UserDefaults(suiteName: suiteName))
         defer { preferences.removePersistentDomain(forName: suiteName) }
         preferences.set(["ja"], forKey: "TCGSearch.languages.one_piece")
-        let model = TCGSearchScreenModel(preferences: preferences)
+        let model = TCGSearchScreenModel(preferences: preferences, debounce: ModuleConfig.searchDebounce)
         model.game = .onePiece
 
         #expect(model.languages.isEmpty)
@@ -446,8 +486,11 @@ struct TCGSearchScreenModelTests {
 
     @Test
     func `Submitting forwards the current language filter`() async {
-        let feature = TCGSearch(client: .preview(pricingOutcome: .success), history: TCGSearchHistoryStore())
-        let model = TCGSearchScreenModel(preferences: nil)
+        let feature = TCGSearch(
+            client: .preview(pricingOutcome: .success),
+            history: TCGSearchHistoryStore(defaults: nil, now: Date.init)
+        )
+        let model = TCGSearchScreenModel(preferences: nil, debounce: ModuleConfig.searchDebounce)
         model.query = "Giratina"
         model.languages = [.japanese]
         await model.performSearch(using: feature)
@@ -461,10 +504,13 @@ struct TCGSearchScreenModelTests {
 
     @Test
     func `Short queries clear results even with a language filter`() async throws {
-        let feature = TCGSearch(client: .preview(pricingOutcome: .success), history: TCGSearchHistoryStore())
+        let feature = TCGSearch(
+            client: .preview(pricingOutcome: .success),
+            history: TCGSearchHistoryStore(defaults: nil, now: Date.init)
+        )
         try await feature.search(.init(game: .pokemon, query: "Giratina", languages: [], mode: .card, cursor: nil))
             .get()
-        let model = TCGSearchScreenModel(preferences: nil)
+        let model = TCGSearchScreenModel(preferences: nil, debounce: ModuleConfig.searchDebounce)
         model.query = "x"
         model.languages = [.japanese]
         model.scheduleSearch(using: feature)
@@ -475,8 +521,11 @@ struct TCGSearchScreenModelTests {
 
     @Test
     func `Explicit submission saves a trimmed query only after matching cards arrive`() async {
-        let feature = TCGSearch(client: .preview(pricingOutcome: .success), history: TCGSearchHistoryStore())
-        let model = TCGSearchScreenModel(preferences: nil)
+        let feature = TCGSearch(
+            client: .preview(pricingOutcome: .success),
+            history: TCGSearchHistoryStore(defaults: nil, now: Date.init)
+        )
+        let model = TCGSearchScreenModel(preferences: nil, debounce: ModuleConfig.searchDebounce)
         model.query = "  Giratina  "
         await model.performSearch(using: feature)
 
@@ -488,9 +537,15 @@ struct TCGSearchScreenModelTests {
 
     @Test
     func `Empty results errors and short terms never enter history`() async {
-        let empty = TCGSearch(client: .preview(pricingOutcome: .noResults), history: TCGSearchHistoryStore())
-        let failure = TCGSearch(client: .preview(pricingOutcome: .serverUnavailable), history: TCGSearchHistoryStore())
-        let model = TCGSearchScreenModel(preferences: nil)
+        let empty = TCGSearch(
+            client: .preview(pricingOutcome: .noResults),
+            history: TCGSearchHistoryStore(defaults: nil, now: Date.init)
+        )
+        let failure = TCGSearch(
+            client: .preview(pricingOutcome: .serverUnavailable),
+            history: TCGSearchHistoryStore(defaults: nil, now: Date.init)
+        )
+        let model = TCGSearchScreenModel(preferences: nil, debounce: ModuleConfig.searchDebounce)
         model.query = "Missing card"
         await model.performSearch(using: empty)
         model.finishEditing(using: empty)
@@ -506,7 +561,10 @@ struct TCGSearchScreenModelTests {
 
     @Test
     func `Automatic results save only the final query when clearing the field`() async {
-        let feature = TCGSearch(client: .preview(pricingOutcome: .success), history: TCGSearchHistoryStore())
+        let feature = TCGSearch(
+            client: .preview(pricingOutcome: .success),
+            history: TCGSearchHistoryStore(defaults: nil, now: Date.init)
+        )
         let model = TCGSearchScreenModel(preferences: nil, debounce: .zero)
         model.updateQuery("Gira", using: feature)
         await waitForResults(feature)
@@ -521,7 +579,7 @@ struct TCGSearchScreenModelTests {
 
     @Test
     func `Editing invalidates a previous matching query when the final query has no results`() async {
-        let history = TCGSearchHistoryStore()
+        let history = TCGSearchHistoryStore(defaults: nil, now: Date.init)
         let matches = TCGSearch(client: .preview(pricingOutcome: .success), history: history)
         let empty = TCGSearch(client: .preview(pricingOutcome: .noResults), history: history)
         let model = TCGSearchScreenModel(preferences: nil, debounce: .zero)
@@ -536,7 +594,10 @@ struct TCGSearchScreenModelTests {
 
     @Test
     func `Changing games records the old game and leaving records the new game`() async {
-        let feature = TCGSearch(client: .preview(pricingOutcome: .success), history: TCGSearchHistoryStore())
+        let feature = TCGSearch(
+            client: .preview(pricingOutcome: .success),
+            history: TCGSearchHistoryStore(defaults: nil, now: Date.init)
+        )
         let model = TCGSearchScreenModel(preferences: nil, debounce: .zero)
         model.updateQuery("Giratina", using: feature)
         await waitForResults(feature)
@@ -551,7 +612,10 @@ struct TCGSearchScreenModelTests {
 
     @Test
     func `Clearing history discards a pending candidate so leaving does not restore it`() async {
-        let feature = TCGSearch(client: .preview(pricingOutcome: .success), history: TCGSearchHistoryStore())
+        let feature = TCGSearch(
+            client: .preview(pricingOutcome: .success),
+            history: TCGSearchHistoryStore(defaults: nil, now: Date.init)
+        )
         let model = TCGSearchScreenModel(preferences: nil, debounce: .zero)
         model.updateQuery("Giratina", using: feature)
         await waitForResults(feature)
@@ -570,9 +634,9 @@ struct TCGSearchScreenModelTests {
         let model = TCGSearchScreenModel(preferences: nil, debounce: .seconds(30))
         model.isSearchFocused = true
         let selection = Task { await model.selectHistory(entry, using: feature) }
-        await transport.waitUntilStarted()
+        await transport.waitUntilStarted(count: 1)
         model.resumeSearchIfNeeded(using: feature)
-        await transport.resume()
+        await transport.resume(count: 1)
         await selection.value
 
         #expect(model.query == "Giratina")
@@ -587,12 +651,12 @@ struct TCGSearchScreenModelTests {
     func `Leaving while a response is in flight prevents it from populating results or history`() async {
         let transport = HistoryPricingTransport(suspended: true)
         let feature = makeFeature(transport: transport)
-        let model = TCGSearchScreenModel(preferences: nil)
+        let model = TCGSearchScreenModel(preferences: nil, debounce: ModuleConfig.searchDebounce)
         model.query = "Giratina"
         let task = Task { await model.performSearch(using: feature) }
-        await transport.waitUntilStarted()
+        await transport.waitUntilStarted(count: 1)
         model.finishEditing(using: feature)
-        await transport.resume()
+        await transport.resume(count: 1)
         await task.value
 
         #expect(feature.results.isEmpty)
@@ -604,16 +668,16 @@ struct TCGSearchScreenModelTests {
     func `A superseded response cannot replace or record the newer query`() async {
         let transport = HistoryPricingTransport(suspended: true)
         let feature = makeFeature(transport: transport)
-        let model = TCGSearchScreenModel(preferences: nil)
+        let model = TCGSearchScreenModel(preferences: nil, debounce: ModuleConfig.searchDebounce)
         model.query = "Old query"
         let first = Task { await model.performSearch(using: feature) }
-        await transport.waitUntilStarted()
+        await transport.waitUntilStarted(count: 1)
         model.query = "New query"
         let second = Task { await model.performSearch(using: feature) }
         await transport.waitUntilStarted(count: 2)
         await transport.resume(count: 2)
         await second.value
-        await transport.resume()
+        await transport.resume(count: 1)
         await first.value
 
         #expect(feature.history.entries.map(\.query) == ["New query"])
@@ -625,12 +689,12 @@ struct TCGSearchScreenModelTests {
     func `A cancelled request never records a successful response`() async {
         let transport = HistoryPricingTransport(suspended: true)
         let feature = makeFeature(transport: transport)
-        let model = TCGSearchScreenModel(preferences: nil)
+        let model = TCGSearchScreenModel(preferences: nil, debounce: ModuleConfig.searchDebounce)
         model.query = "Giratina"
         let task = Task { await model.performSearch(using: feature) }
-        await transport.waitUntilStarted()
+        await transport.waitUntilStarted(count: 1)
         task.cancel()
-        await transport.resume()
+        await transport.resume(count: 1)
         await task.value
 
         #expect(feature.history.entries.isEmpty)
@@ -640,7 +704,10 @@ struct TCGSearchScreenModelTests {
 
     @Test
     func `Returning to search resumes an unfinished query`() async {
-        let feature = TCGSearch(client: .preview(pricingOutcome: .success), history: TCGSearchHistoryStore())
+        let feature = TCGSearch(
+            client: .preview(pricingOutcome: .success),
+            history: TCGSearchHistoryStore(defaults: nil, now: Date.init)
+        )
         let model = TCGSearchScreenModel(preferences: nil, debounce: .zero)
         model.updateQuery("Giratina", using: feature)
         model.finishEditing(using: feature)
@@ -654,7 +721,10 @@ struct TCGSearchScreenModelTests {
 
     @Test
     func `Removing a different history entry preserves the final matching query`() async throws {
-        let feature = TCGSearch(client: .preview(pricingOutcome: .success), history: TCGSearchHistoryStore())
+        let feature = TCGSearch(
+            client: .preview(pricingOutcome: .success),
+            history: TCGSearchHistoryStore(defaults: nil, now: Date.init)
+        )
         feature.history.record(query: "Pikachu", game: .pokemon, mode: .card)
         let entry = try #require(feature.history.entries.first)
         let model = TCGSearchScreenModel(preferences: nil, debounce: .zero)
@@ -679,7 +749,7 @@ struct TCGSearchScreenModelTests {
                 credentialsKeychainKey: "history-test-credentials",
                 credentialsStore: InMemoryCredentialsStore()
             ),
-            history: TCGSearchHistoryStore()
+            history: TCGSearchHistoryStore(defaults: nil, now: Date.init)
         )
     }
 }
@@ -697,14 +767,14 @@ actor HistoryPricingTransport: ClientTransport {
     private var continuations: [Int: CheckedContinuation<Void, Never>] = [:]
     private var started: [Int: CheckedContinuation<Void, Never>] = [:]
 
-    init(suspended: Bool = false) { self.suspended = suspended }
+    init(suspended: Bool) { self.suspended = suspended }
 
-    func waitUntilStarted(count: Int = 1) async {
+    func waitUntilStarted(count: Int) async {
         if requestCount >= count { return }
         await withCheckedContinuation { started[count] = $0 }
     }
 
-    func resume(count: Int = 1) {
+    func resume(count: Int) {
         continuations.removeValue(forKey: count)?.resume()
     }
 

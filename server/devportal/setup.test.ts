@@ -93,7 +93,7 @@ async function fixture() {
         commands.push([program, ...args]);
 
         if (state.failServe) {
-          throw new InfraFailure('Tailscale needs administrator approval. Rerun just setup-devportal.');
+          throw new InfraFailure('Tailscale needs administrator approval. Rerun just setup-devportal.', 1);
         }
 
         const port = args.find(arg => arg.startsWith('--https='))?.split('=')[1];

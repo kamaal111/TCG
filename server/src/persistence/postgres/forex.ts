@@ -44,7 +44,7 @@ export class PostgresForexRepository implements ForexRepository {
       });
   }
 
-  storeSnapshot(snapshot: ForexSnapshot, collectedAt = new Date()): ResultAsync<boolean, ForexError> {
+  storeSnapshot(snapshot: ForexSnapshot, collectedAt: Date): ResultAsync<boolean, ForexError> {
     return tryCatch(async () => {
       const inserted = await this.db
         .insert(exchangeRate)

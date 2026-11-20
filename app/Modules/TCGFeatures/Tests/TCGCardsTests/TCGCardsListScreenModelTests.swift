@@ -12,7 +12,7 @@ struct TCGCardsListScreenModelTests {
     func `Edit opens the saved card directly in the form`() {
         let model = TCGCardsListScreenModel(preferences: nil)
         let card = PreviewTCGCardsClient.sampleCards[1]
-        let priced = CardWithPrice(card: card, price: PreviewTCGCardsClient.price(for: card))
+        let priced = CardWithPrice(card: card, price: PreviewTCGCardsClient.price(for: card), imageURL: nil)
 
         model.showEdit(for: priced)
 
@@ -62,7 +62,7 @@ struct TCGCardsListScreenModelTests {
         )
         let cards = TCGCards(client: client)
         let model = TCGCardsListScreenModel(preferences: nil)
-        let destination = CollectionTestFixtures.collection().summary
+        let destination = CollectionTestFixtures.collection(columns: 3, rows: 3, pages: []).summary
         await model.load(using: cards)
         let before = try #require(cards.cards.first { $0.card.id == card.id }).card
 

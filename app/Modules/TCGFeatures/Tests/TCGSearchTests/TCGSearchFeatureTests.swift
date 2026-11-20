@@ -25,13 +25,13 @@ struct TCGSearchFeatureTests {
             credentialsKeychainKey: "currency-search",
             credentialsStore: InMemoryCredentialsStore()
         )
-        let feature = TCGSearch(client: client, history: TCGSearchHistoryStore())
-        let currency = TCGCurrency(client: .preview(), defaults: nil)
+        let feature = TCGSearch(client: client, history: TCGSearchHistoryStore(defaults: nil, now: Date.init))
+        let currency = TCGCurrency(client: .preview(hasValidCredentials: false), defaults: nil)
         await feature.refreshDisplayPrices(for: currency.displayIdentity)
         let original = Task {
             await feature.search(.init(game: .pokemon, query: "Giratina", languages: [], mode: .card, cursor: nil))
         }
-        await transport.waitUntilStarted()
+        await transport.waitUntilStarted(count: 1)
         #expect(await currency.save(.eur))
         let refresh = Task { await feature.refreshDisplayPrices(for: currency.displayIdentity) }
         await transport.waitUntilStarted(count: 2)
@@ -39,7 +39,7 @@ struct TCGSearchFeatureTests {
         await transport.resume(count: 2)
         await refresh.value
         #expect(feature.results.first?.headline?.amount == 20)
-        await transport.resume()
+        await transport.resume(count: 1)
         try await original.value.get()
         #expect(feature.results.first?.headline?.amount == 20)
         #expect(feature.displayRefreshError == nil)
@@ -47,15 +47,15 @@ struct TCGSearchFeatureTests {
 
     @Test
     func `A failed currency refresh leaves no old search prices`() async throws {
-        let transport = HistoryPricingTransport()
+        let transport = HistoryPricingTransport(suspended: false)
         await transport.setOutcome(.unavailable, for: 2)
         let client = TCGClient.default(
             transport: transport,
             credentialsKeychainKey: "failed-currency-search",
             credentialsStore: InMemoryCredentialsStore()
         )
-        let feature = TCGSearch(client: client, history: TCGSearchHistoryStore())
-        let currency = TCGCurrency(client: .preview(), defaults: nil)
+        let feature = TCGSearch(client: client, history: TCGSearchHistoryStore(defaults: nil, now: Date.init))
+        let currency = TCGCurrency(client: .preview(hasValidCredentials: false), defaults: nil)
         await feature.refreshDisplayPrices(for: currency.displayIdentity)
         try await feature.search(.init(game: .pokemon, query: "Giratina", languages: [], mode: .card, cursor: nil))
             .get()
@@ -68,7 +68,10 @@ struct TCGSearchFeatureTests {
 
     @Test
     func `Completed search identity is normalized retained on cancellation and reset on clearing`() async throws {
-        let feature = TCGSearch(client: .preview(pricingOutcome: .success), history: TCGSearchHistoryStore())
+        let feature = TCGSearch(
+            client: .preview(pricingOutcome: .success),
+            history: TCGSearchHistoryStore(defaults: nil, now: Date.init)
+        )
         try await feature.search(
             .init(game: .pokemon, query: "  Giratina  ", languages: [.english, .japanese], mode: .card, cursor: nil)
         )
@@ -95,8 +98,8 @@ struct TCGSearchFeatureTests {
         let first = Task {
             await feature.search(.init(game: .pokemon, query: "Giratina", languages: [], mode: .card, cursor: nil))
         }
-        await transport.waitUntilStarted()
-        await transport.resume()
+        await transport.waitUntilStarted(count: 1)
+        await transport.resume(count: 1)
         try await first.value.get()
         let cursor = try #require(feature.nextCursor)
 
@@ -117,7 +120,7 @@ struct TCGSearchFeatureTests {
 
     @Test
     func `Retry preserves loaded cards and requests the same cursor after a failure`() async throws {
-        let transport = HistoryPricingTransport()
+        let transport = HistoryPricingTransport(suspended: false)
         await transport.setOutcome(.firstPage, for: 1)
         await transport.setOutcome(.unavailable, for: 2)
         let feature = makePaginationFeature(transport)
@@ -150,8 +153,8 @@ struct TCGSearchFeatureTests {
         let first = Task {
             await feature.search(.init(game: .pokemon, query: "Giratina", languages: [], mode: .card, cursor: nil))
         }
-        await transport.waitUntilStarted()
-        await transport.resume()
+        await transport.waitUntilStarted(count: 1)
+        await transport.resume(count: 1)
         try await first.value.get()
         let cursor = try #require(feature.nextCursor)
         let next = Task { await feature.loadNextPage(cursor, retry: false) }
@@ -179,13 +182,16 @@ struct TCGSearchFeatureTests {
                 credentialsKeychainKey: "pagination-search",
                 credentialsStore: InMemoryCredentialsStore()
             ),
-            history: TCGSearchHistoryStore()
+            history: TCGSearchHistoryStore(defaults: nil, now: Date.init)
         )
     }
 
     @Test
     func `Search populates matching priced cards`() async throws {
-        let feature = TCGSearch(client: .preview(pricingOutcome: .success), history: TCGSearchHistoryStore())
+        let feature = TCGSearch(
+            client: .preview(pricingOutcome: .success),
+            history: TCGSearchHistoryStore(defaults: nil, now: Date.init)
+        )
 
         try await feature.search(.init(game: .pokemon, query: "Giratina", languages: [], mode: .card, cursor: nil))
             .get()
@@ -196,7 +202,10 @@ struct TCGSearchFeatureTests {
 
     @Test
     func `No results clears matches and records that a search happened`() async throws {
-        let feature = TCGSearch(client: .preview(pricingOutcome: .noResults), history: TCGSearchHistoryStore())
+        let feature = TCGSearch(
+            client: .preview(pricingOutcome: .noResults),
+            history: TCGSearchHistoryStore(defaults: nil, now: Date.init)
+        )
 
         try await feature.search(.init(game: .onePiece, query: "Missing", languages: [], mode: .card, cursor: nil))
             .get()
@@ -207,7 +216,10 @@ struct TCGSearchFeatureTests {
 
     @Test
     func `Server unavailable maps to a feature error`() async {
-        let feature = TCGSearch(client: .preview(pricingOutcome: .serverUnavailable), history: TCGSearchHistoryStore())
+        let feature = TCGSearch(
+            client: .preview(pricingOutcome: .serverUnavailable),
+            history: TCGSearchHistoryStore(defaults: nil, now: Date.init)
+        )
 
         await #expect(throws: TCGSearchOperationError.serverUnavailable) {
             try await feature.search(.init(game: .pokemon, query: "Giratina", languages: [], mode: .card, cursor: nil))
@@ -223,7 +235,7 @@ struct TCGSearchFeatureTests {
             credentialsKeychainKey: "language-pricing-test-credentials",
             credentialsStore: InMemoryCredentialsStore()
         )
-        let feature = TCGSearch(client: client, history: TCGSearchHistoryStore())
+        let feature = TCGSearch(client: client, history: TCGSearchHistoryStore(defaults: nil, now: Date.init))
         let first = Task {
             await feature.search(
                 .init(game: .pokemon, query: "Shiftry", languages: [.japanese], mode: .card, cursor: nil)
@@ -262,7 +274,7 @@ struct TCGSearchFeatureTests {
             credentialsKeychainKey: "cancelled-pricing-test-credentials",
             credentialsStore: InMemoryCredentialsStore()
         )
-        let feature = TCGSearch(client: client, history: TCGSearchHistoryStore())
+        let feature = TCGSearch(client: client, history: TCGSearchHistoryStore(defaults: nil, now: Date.init))
         let task = Task {
             await feature.search(.init(game: .pokemon, query: "Pikachu", languages: [], mode: .card, cursor: nil))
         }

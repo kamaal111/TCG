@@ -16,6 +16,7 @@ import {
   expectValidationIssueForFields,
 } from '../../tests/auth.ts';
 import { integrationTest } from '../../tests/fixtures.ts';
+import { createTestRequestId } from '../../tests/logs.ts';
 import { SIGN_IN_ROUTE_PATH } from '../constants.ts';
 
 describe('Sign-in integration', () => {
@@ -31,7 +32,7 @@ describe('Sign-in integration', () => {
         password: createdUser.password,
       });
 
-      const { headers, requestId } = withRequestId({ 'Content-Type': MIME_TYPES.JSON });
+      const { headers, requestId } = withRequestId({ 'Content-Type': MIME_TYPES.JSON }, createTestRequestId());
       const response = await sendSignInRequest(app, payload, headers);
 
       const { body, headers: responseHeaders } = await expectAuthSuccessResponse(response, CONTENTFUL_STATUS_CODES.OK);
@@ -73,7 +74,7 @@ describe('Sign-in integration', () => {
   );
 
   integrationTest('rejects unknown credentials', async ({ app }) => {
-    const response = await sendSignInRequest(app, createValidSignInPayload());
+    const response = await sendSignInRequest(app, createValidSignInPayload({}));
 
     const body = await expectErrorResponse(response, CONTENTFUL_STATUS_CODES.UNAUTHORIZED);
 
@@ -151,7 +152,7 @@ describe('Sign-in integration', () => {
 
     integrationTest('rejects an invalid email', async ({ app }) => {
       const response = await sendSignInRequest(app, {
-        ...createValidSignInPayload(),
+        ...createValidSignInPayload({}),
         email: 'invalid-email',
       });
 
@@ -160,7 +161,7 @@ describe('Sign-in integration', () => {
 
     integrationTest('rejects a seven-character password', async ({ app }) => {
       const response = await sendSignInRequest(app, {
-        ...createValidSignInPayload(),
+        ...createValidSignInPayload({}),
         password: '1234567',
       });
 
@@ -169,7 +170,7 @@ describe('Sign-in integration', () => {
 
     integrationTest('rejects a 129-character password', async ({ app }) => {
       const response = await sendSignInRequest(app, {
-        ...createValidSignInPayload(),
+        ...createValidSignInPayload({}),
         password: 'a'.repeat(129),
       });
 
@@ -178,7 +179,7 @@ describe('Sign-in integration', () => {
 
     integrationTest('rejects an invalid callback URL', async ({ app }) => {
       const response = await sendSignInRequest(app, {
-        ...createValidSignInPayload(),
+        ...createValidSignInPayload({}),
         callbackURL: 'not-a-url',
       });
 
@@ -193,7 +194,7 @@ interface SignInPayload {
   password?: string;
 }
 
-function createValidSignInPayload(overrides: SignInPayload = {}) {
+function createValidSignInPayload(overrides: SignInPayload) {
   return {
     email: `test_${crypto.randomUUID()}@example.com`,
     password: 'password123',

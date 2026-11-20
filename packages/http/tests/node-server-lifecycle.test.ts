@@ -5,7 +5,7 @@ const lifecycle = new URL('../src/node-server-lifecycle.ts', import.meta.url).hr
 const logging = new URL('../src/logging.ts', import.meta.url).href;
 const nodeLogging = new URL('../src/node-logging.ts', import.meta.url).href;
 
-async function fixture(mode = 'normal') {
+async function fixture(mode: string) {
   const child = childProcess.spawn(
     process.execPath,
     [
@@ -64,7 +64,7 @@ async function fixture(mode = 'normal') {
 test.each(['SIGINT', 'SIGTERM'] as const)(
   'drains requests before cleanup on %s, including repeated signals',
   async signal => {
-    const f = await fixture();
+    const f = await fixture('normal');
     const requested = events.once(f.child, 'message');
     const response = fetch(`http://127.0.0.1:${f.port}`);
     await requested;

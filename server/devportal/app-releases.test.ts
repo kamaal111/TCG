@@ -73,7 +73,7 @@ async function fixture(t: TestContext) {
   await sessions.initialize();
   const app = createDevportalApp(sessions, [operator]);
 
-  const request = (route: string, body?: Record<string, string | boolean>, identity: string = operator) => {
+  const request = (route: string, body: Record<string, string | boolean> | undefined, identity: string) => {
     return app.request(route, {
       method: body ? 'POST' : 'GET',
       headers: { 'Content-Type': 'application/json', 'Tailscale-User-Login': identity },
@@ -97,19 +97,23 @@ test('app routes reject missing and disallowed identities and invalid platforms'
   const f = await fixture(t);
   expect((await f.request('/v1/apps/ios', undefined, '')).status).toBe(401);
   expect((await f.request('/v1/apps/macos', undefined, 'stranger@example.com')).status).toBe(403);
-  expect((await f.request('/v1/apps/watchos')).status).toBe(400);
+  expect((await f.request('/v1/apps/watchos', undefined, operator)).status).toBe(400);
   expect(f.inspectApp).not.toHaveBeenCalled();
   expect(f.runApp).not.toHaveBeenCalled();
 });
 
 test('starts without additional approvals, reconnects and keeps platform history separate', async t => {
   const f = await fixture(t);
-  const release = ReleaseSchema.parse(await (await f.request('/v1/app-releases', f.input)).json());
+  const release = ReleaseSchema.parse(await (await f.request('/v1/app-releases', f.input, operator)).json());
   await vi.waitFor(() => expect(f.sessions.get(release.id).stage).toBe('archive'));
-  expect((await f.request('/v1/app-releases', f.input)).status).toBe(202);
-  expect((await f.request('/v1/app-releases', { ...f.input, platform: 'macos' })).status).toBe(409);
+  expect((await f.request('/v1/app-releases', f.input, operator)).status).toBe(202);
+  expect((await f.request('/v1/app-releases', { ...f.input, platform: 'macos' }, operator)).status).toBe(409);
   expect(f.runApp).toHaveBeenCalledOnce();
-  const recovered = ReleaseSchema.parse(await (await f.request(`/v1/releases/${release.id}`)).json());
+
+  const recovered = ReleaseSchema.parse(
+    await (await f.request(`/v1/releases/${release.id}`, undefined, operator)).json(),
+  );
+
   expect(recovered.approval).toBeNull();
   expect(recovered.state).toBe('running');
   expect(f.upload).not.toHaveBeenCalled();
@@ -119,7 +123,9 @@ test('starts without additional approvals, reconnects and keeps platform history
   expect(f.upload).toHaveBeenCalledOnce();
   expect((await f.sessions.appStatus('ios', 0)).latestRelease).toBe(release.id);
   expect((await f.sessions.appStatus('macos', 0)).latestRelease).toBeNull();
-  expect((await f.request('/v1/app-releases', { ...f.input, requestId: crypto.randomUUID() })).status).toBe(409);
+  expect((await f.request('/v1/app-releases', { ...f.input, requestId: crypto.randomUUID() }, operator)).status).toBe(
+    409,
+  );
   const restored = new ReleaseSessions(f.dependencies);
   await restored.initialize();
   expect(restored.get(release.id).target).toBe('ios');
@@ -128,15 +134,15 @@ test('starts without additional approvals, reconnects and keeps platform history
 
 test('stale review and setup blockers stop before starting work', async t => {
   const f = await fixture(t);
-  expect((await f.request('/v1/app-releases', { ...f.input, fingerprint: 'c'.repeat(64) })).status).toBe(409);
+  expect((await f.request('/v1/app-releases', { ...f.input, fingerprint: 'c'.repeat(64) }, operator)).status).toBe(409);
   f.inspectApp.mockResolvedValue({ ...status, blocker: 'Run just setup-app-release on the release Mac.' });
-  expect((await f.request('/v1/app-releases', f.input)).status).toBe(409);
+  expect((await f.request('/v1/app-releases', f.input, operator)).status).toBe(409);
   expect(f.runApp).not.toHaveBeenCalled();
 });
 
 test('service restart interrupts an app release without retrying an upload', async t => {
   const f = await fixture(t);
-  const release = ReleaseSchema.parse(await (await f.request('/v1/app-releases', f.input)).json());
+  const release = ReleaseSchema.parse(await (await f.request('/v1/app-releases', f.input, operator)).json());
   await vi.waitFor(() => expect(f.sessions.get(release.id).stage).toBe('archive'));
   const restored = new ReleaseSessions(f.dependencies);
   await restored.initialize();
@@ -149,7 +155,7 @@ test('service restart interrupts an app release without retrying an upload', asy
 
 test('graceful service shutdown cancels the running app pipeline and retains an interrupted session', async t => {
   const f = await fixture(t);
-  const release = ReleaseSchema.parse(await (await f.request('/v1/app-releases', f.input)).json());
+  const release = ReleaseSchema.parse(await (await f.request('/v1/app-releases', f.input, operator)).json());
   await vi.waitFor(() => expect(f.sessions.get(release.id).stage).toBe('archive'));
   await f.shutdown();
   expect(f.sessions.get(release.id).state).toBe('interrupted');
@@ -159,8 +165,8 @@ test('graceful service shutdown cancels the running app pipeline and retains an 
 
 test('reports source preparation failures before signing or upload', async t => {
   const f = await fixture(t);
-  f.runApp.mockRejectedValueOnce(new InfraFailure('private diagnostic at /private/release.log'));
-  const release = ReleaseSchema.parse(await (await f.request('/v1/app-releases', f.input)).json());
+  f.runApp.mockRejectedValueOnce(new InfraFailure('private diagnostic at /private/release.log', 1));
+  const release = ReleaseSchema.parse(await (await f.request('/v1/app-releases', f.input, operator)).json());
   await vi.waitFor(() => expect(f.sessions.get(release.id).state).toBe('failed'));
   expect(f.sessions.get(release.id).failure).toContain('source preparation failed before signing or upload');
   expect(f.sessions.get(release.id).failure).not.toContain('/private/release.log');
@@ -181,7 +187,7 @@ test('persists live app milestones and elapsed updates while keeping host output
     work.resolve(true);
     await f.shutdown();
   });
-  const release = ReleaseSchema.parse(await (await f.request('/v1/app-releases', f.input)).json());
+  const release = ReleaseSchema.parse(await (await f.request('/v1/app-releases', f.input, operator)).json());
   await vi.waitFor(() => expect(f.sessions.get(release.id).events).toHaveLength(3));
   expect(f.sessions.get(release.id).state).toBe('running');
   expect(f.sessions.get(release.id).events.map(event => event.message)).toEqual([

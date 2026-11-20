@@ -14,6 +14,7 @@ import { createNodeApplication } from '../../runtime/node/app.ts';
 import { deferred } from '../../tests/async.ts';
 import { expectErrorResponse, expectValidationIssueForField, sessionHeaders } from '../../tests/auth.ts';
 import { integrationTest } from '../../tests/fixtures.ts';
+import { createTestRequestId } from '../../tests/logs.ts';
 import { PRICING_CLIENT_ERROR_REASONS, type PricingClient } from '../client.ts';
 import { SEARCH_PRICING_ROUTE_PATH } from '../routes/search-pricing.ts';
 import { PricingSearchResponseSchema } from '../schemas/responses.ts';
@@ -38,7 +39,7 @@ describe('Card pricing integration', () => {
       await composed.dependencies.persistence.close();
 
       try {
-        const { headers, requestId } = withRequestId(authenticatedHeaders);
+        const { headers, requestId } = withRequestId(authenticatedHeaders, createTestRequestId());
         const listed = await composed.app.request(LIST_CARDS_ROUTE_PATH, { headers });
 
         expect(listed.status).toBe(200);
@@ -85,7 +86,7 @@ describe('Card pricing integration', () => {
   integrationTest(
     'separates filtered caches and reuses equivalent unrestricted selections',
     async ({ db, createApp, authenticatedHeaders: headers }) => {
-      const pricingClient = new CountingPricingClient();
+      const pricingClient = new CountingPricingClient('scrydex_static');
       const app = createApp({ pricingClient });
 
       const path = `${SEARCH_PRICING_ROUTE_PATH}?search_by=card&game=pokemon&query=Giratina`;
@@ -264,7 +265,7 @@ describe('Card pricing integration', () => {
   integrationTest(
     'relinks an owned card when the active pricing source changes',
     async ({ db, createApp, user, authenticatedHeaders }) => {
-      const staticClient = new CountingPricingClient();
+      const staticClient = new CountingPricingClient('scrydex_static');
       const staticApp = createApp({ pricingClient: staticClient });
 
       const created = await createCardRequest(staticApp, user.sessionToken, {
@@ -296,7 +297,7 @@ describe('Card pricing integration', () => {
   integrationTest(
     'logs one redacted lock-completion event',
     async ({ app, getLogsForRequestId, withRequestId, authenticatedHeaders }) => {
-      const { headers, requestId } = withRequestId(authenticatedHeaders);
+      const { headers, requestId } = withRequestId(authenticatedHeaders, createTestRequestId());
 
       const response = await app.request(
         `${SEARCH_PRICING_ROUTE_PATH}?search_by=card&game=pokemon&query=Sensitive%20Search%20Term`,
@@ -329,7 +330,7 @@ describe('Card pricing integration', () => {
       const firstApp = createApp({ pricingClient });
       const secondApp = createApp({ pricingClient });
 
-      const secondUser = await createUser();
+      const secondUser = await createUser({});
       const path = `${SEARCH_PRICING_ROUTE_PATH}?search_by=card&game=pokemon&query=Charizard%20ex%20199`;
 
       const firstRequest = firstApp.request(path, { headers: authenticatedHeaders });
@@ -349,7 +350,7 @@ describe('Card pricing integration', () => {
   integrationTest(
     'returns a retryable 503 when the pricing lock times out',
     async ({ connectionString, createApp, authenticatedHeaders }) => {
-      const pricingClient = new CountingPricingClient();
+      const pricingClient = new CountingPricingClient('scrydex_static');
       const app = createApp({ pricingClient });
 
       const query = 'Charizard ex 199';
@@ -384,11 +385,11 @@ describe('Card pricing integration', () => {
   integrationTest(
     'releases the lock after an upstream failure',
     async ({ createApp, createUser, authenticatedHeaders }) => {
-      const pricingClient = new FailOncePricingClient();
+      const pricingClient = new FailOncePricingClient('scrydex_static');
       const firstApp = createApp({ pricingClient });
       const secondApp = createApp({ pricingClient });
 
-      const secondUser = await createUser();
+      const secondUser = await createUser({});
       const path = `${SEARCH_PRICING_ROUTE_PATH}?search_by=card&game=pokemon&query=Giratina%20VSTAR%20GG69`;
 
       const first = await firstApp.request(path, { headers: authenticatedHeaders });
@@ -406,7 +407,7 @@ describe('Card pricing integration', () => {
       const pricingClient = new UnavailablePricingClient();
       const app = createApp({ pricingClient });
 
-      const { headers, requestId } = withRequestId(authenticatedHeaders);
+      const { headers, requestId } = withRequestId(authenticatedHeaders, createTestRequestId());
 
       const response = await app.request(
         `${SEARCH_PRICING_ROUTE_PATH}?search_by=card&game=pokemon&query=Giratina%20VSTAR%20GG69`,
@@ -438,11 +439,11 @@ describe('Card pricing integration', () => {
   integrationTest(
     'allows different pricing keys to proceed concurrently',
     async ({ createApp, createUser, authenticatedHeaders }) => {
-      const pricingClient = new TwoCallBarrierPricingClient();
+      const pricingClient = new TwoCallBarrierPricingClient('scrydex_static');
       const firstApp = createApp({ pricingClient });
       const secondApp = createApp({ pricingClient });
 
-      const secondUser = await createUser();
+      const secondUser = await createUser({});
 
       const firstRequest = firstApp.request(
         `${SEARCH_PRICING_ROUTE_PATH}?search_by=card&game=pokemon&query=Charizard%20ex%20199`,
@@ -475,7 +476,7 @@ class CountingPricingClient implements PricingClient {
   getByIdCallCount = 0;
   private readonly client = new StaticScrydexClient();
 
-  constructor(source: PricingClient['source'] = 'scrydex_static') {
+  constructor(source: PricingClient['source']) {
     this.source = source;
   }
 
@@ -525,7 +526,7 @@ class BlockingPricingClient extends CountingPricingClient {
   readonly started = this.startedGate.promise;
 
   constructor(private readonly method: 'card' | 'search') {
-    super();
+    super('scrydex_static');
   }
 
   override async searchCards(game: Parameters<PricingClient['searchCards']>[0], query: string) {

@@ -49,7 +49,7 @@ type CardPolicy = Pick<
   'CARD_IMPORT_BATCH_SIZE' | 'CARD_IMPORT_PURCHASE_BATCH_SIZE' | 'COLLECTION_MAX_PAGES'
 >;
 
-const DEFAULT_CARD_POLICY = {
+export const DEFAULT_CARD_POLICY = {
   ...DEFAULT_IMPORT_POLICY,
   COLLECTION_MAX_PAGES: DEFAULT_COLLECTION_POLICY.COLLECTION_MAX_PAGES,
 };
@@ -61,12 +61,7 @@ export class PostgresCardRepository implements CardRepository {
   private readonly diagnostics: RepositoryDiagnostics;
   private readonly config: CardPolicy;
 
-  constructor(
-    db: Database,
-    identity: AuthenticatedIdentity,
-    diagnostics: RepositoryDiagnostics,
-    config: CardPolicy = DEFAULT_CARD_POLICY,
-  ) {
+  constructor(db: Database, identity: AuthenticatedIdentity, diagnostics: RepositoryDiagnostics, config: CardPolicy) {
     this.db = db;
     this.metadata = new PostgresCardMetadataRepository(db, identity);
     this.identity = identity;

@@ -22,23 +22,44 @@ struct TCGSettingsScreenSnapshotTests {
         privacy.hidePrices = hidden
         let auth = KamaalAuth(client: PreviewKamaalAuthClient(), configuration: .init(appName: "Mintomo"))
         #expect(privacy.hidePrices == hidden)
-        await assertScreenSnapshot(testName: "Price privacy settings \(hidden)") {
-            NavigationStack { TCGSettingsScreen(version: AppVersion(marketing: "1.0", build: "1")) }
-                .environment(auth)
-                .environment(\.tcgPricePrivacy, privacy)
+        await assertScreenSnapshot(
+            testName: "Price privacy settings \(hidden)",
+            fileID: #fileID,
+            file: #filePath,
+            line: #line,
+            column: #column
+        ) {
+            NavigationStack {
+                TCGSettingsScreen(
+                    version: AppVersion(marketing: "1.0", build: "1"),
+                    onExport: nil,
+                    onDownloadTemplate: nil,
+                    onImport: nil
+                )
+            }
+            .environment(auth)
+            .environment(\.tcgPricePrivacy, privacy)
         }
     }
 
     @Test
     func `Renders preferred currency settings`() async {
         let auth = KamaalAuth(client: PreviewKamaalAuthClient(), configuration: .init(appName: "Mintomo"))
-        let currency = TCGCurrency(client: .preview(), defaults: nil)
-        await currency.refresh()
+        let currency = TCGCurrency(client: .preview(hasValidCredentials: false), defaults: nil)
+        await currency.refresh(locale: .current)
         #expect(await currency.save(.eur))
-        await assertScreenSnapshot(testName: #function) {
-            NavigationStack { TCGSettingsScreen(version: AppVersion(marketing: "1.0", build: "1")) }
-                .environment(auth)
-                .environment(\.tcgCurrency, currency)
+        await assertScreenSnapshot(testName: #function, fileID: #fileID, file: #filePath, line: #line, column: #column)
+        {
+            NavigationStack {
+                TCGSettingsScreen(
+                    version: AppVersion(marketing: "1.0", build: "1"),
+                    onExport: nil,
+                    onDownloadTemplate: nil,
+                    onImport: nil
+                )
+            }
+            .environment(auth)
+            .environment(\.tcgCurrency, currency)
         }
     }
 
@@ -46,7 +67,8 @@ struct TCGSettingsScreenSnapshotTests {
     func `Renders card data actions`() async {
         let auth = KamaalAuth(client: PreviewKamaalAuthClient(), configuration: .init(appName: "Mintomo"))
         #expect(!auth.isLoggedIn)
-        await assertScreenSnapshot(testName: #function) {
+        await assertScreenSnapshot(testName: #function, fileID: #fileID, file: #filePath, line: #line, column: #column)
+        {
             NavigationStack {
                 TCGSettingsScreen(
                     version: AppVersion(marketing: "1.0", build: "1"),
@@ -63,16 +85,25 @@ struct TCGSettingsScreenSnapshotTests {
     func `Renders template download before file selection`() async {
         let screen = TCGCSVImportIntroduction(onDownloadTemplate: {}, onChooseFile: {}, onClose: {})
         #expect(AppVersion(marketing: "1.0", build: "1").displayText != nil)
-        await assertScreenSnapshot(testName: #function) { screen }
+        await assertScreenSnapshot(testName: #function, fileID: #fileID, file: #filePath, line: #line, column: #column)
+        { screen }
     }
 
     @Test
     func `Renders sign out and version`() async {
         let auth = KamaalAuth(client: PreviewKamaalAuthClient(), configuration: .init(appName: "Mintomo"))
 
-        await assertScreenSnapshot(testName: #function) {
-            NavigationStack { TCGSettingsScreen(version: AppVersion(marketing: "1.0", build: "1")) }
-                .environment(auth)
+        await assertScreenSnapshot(testName: #function, fileID: #fileID, file: #filePath, line: #line, column: #column)
+        {
+            NavigationStack {
+                TCGSettingsScreen(
+                    version: AppVersion(marketing: "1.0", build: "1"),
+                    onExport: nil,
+                    onDownloadTemplate: nil,
+                    onImport: nil
+                )
+            }
+            .environment(auth)
         }
     }
 }

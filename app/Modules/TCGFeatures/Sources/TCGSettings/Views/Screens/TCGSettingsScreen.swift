@@ -40,9 +40,9 @@ public struct TCGSettingsScreen: View {
     private let version: AppVersion
 
     public init(
-        onExport: (@MainActor () async -> Result<URL, CardsExportError>)? = nil,
-        onDownloadTemplate: (@MainActor () -> Result<URL, CardsExportError>)? = nil,
-        onImport: (@MainActor (URL) -> Void)? = nil
+        onExport: (@MainActor () async -> Result<URL, CardsExportError>)?,
+        onDownloadTemplate: (@MainActor () -> Result<URL, CardsExportError>)?,
+        onImport: (@MainActor (URL) -> Void)?
     ) {
         version = .main
         exportAction = onExport
@@ -52,9 +52,9 @@ public struct TCGSettingsScreen: View {
 
     init(
         version: AppVersion,
-        onExport: (@MainActor () async -> Result<URL, CardsExportError>)? = nil,
-        onDownloadTemplate: (@MainActor () -> Result<URL, CardsExportError>)? = nil,
-        onImport: (@MainActor (URL) -> Void)? = nil
+        onExport: (@MainActor () async -> Result<URL, CardsExportError>)?,
+        onDownloadTemplate: (@MainActor () -> Result<URL, CardsExportError>)?,
+        onImport: (@MainActor (URL) -> Void)?
     ) {
         self.version = version
         exportAction = onExport

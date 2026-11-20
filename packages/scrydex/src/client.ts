@@ -26,7 +26,7 @@ export class ScrydexClient {
   private readonly requestTimeoutMs: number;
   private readonly teamId: string | undefined;
 
-  constructor(options: ScrydexClientOptions = {}) {
+  constructor(options: ScrydexClientOptions) {
     this.apiKey = options.apiKey;
     this.baseURL = options.baseURL ?? 'https://api.scrydex.com';
     this.fetchImplementation = options.fetch ?? fetch;

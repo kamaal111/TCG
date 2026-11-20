@@ -22,7 +22,7 @@ struct TCGSearchDetailView<AddForm: View>: View {
 
     init(
         card: PricedCard,
-        variants: [PricedCard] = [],
+        variants: [PricedCard],
         isWishlistEntry: Bool,
         onWishlistRemoval: (() -> Void)?,
         addForm: @escaping (PricedCard, @escaping () -> Void) -> AddForm

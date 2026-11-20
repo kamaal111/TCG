@@ -6,7 +6,7 @@ import Testing
 struct PreviewTCGCurrencyClientTests {
     @Test
     func `Preview factory provides currency preferences and fixed exchange rates`() async throws {
-        let client = TCGClient.preview().currency
+        let client = TCGClient.preview(hasValidCredentials: false).currency
         let initialized = try await client.initialize(.init(preferredCurrency: .jpy)).get()
         #expect(initialized.currency == .jpy)
         let updated = try await client.update(.init(preferredCurrency: .eur)).get()

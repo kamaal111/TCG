@@ -33,6 +33,7 @@ describe('RealScrydexClient', () => {
       const client = makeClient(async input => {
         return jsonResponse(
           new URL(stringifyRequestURL(input)).pathname.endsWith('/cards') ? { data: [card] } : { data: card },
+          200,
         );
       });
 
@@ -55,9 +56,12 @@ describe('RealScrydexClient', () => {
     const client = makeClient(async input => {
       requestedURLs.push(stringifyRequestURL(input));
 
-      return jsonResponse({
-        data: [{ id: 'P-110', name: 'Monkey.D.Luffy', number: '110', printed_number: 'P-110' }],
-      });
+      return jsonResponse(
+        {
+          data: [{ id: 'P-110', name: 'Monkey.D.Luffy', number: '110', printed_number: 'P-110' }],
+        },
+        200,
+      );
     });
 
     const result = await client.searchCards('one_piece', 'p-110', { languages: [], searchBy: 'card' }, 1);
@@ -78,13 +82,16 @@ describe('RealScrydexClient', () => {
     const client = makeClient(async (input, init) => {
       requests.push({ url: stringifyRequestURL(input), headers: new Headers(init?.headers) });
 
-      return jsonResponse({
-        status: 'success',
-        data: [onePieceCard()],
-        page: 1,
-        pageSize: 20,
-        totalCount: 1,
-      });
+      return jsonResponse(
+        {
+          status: 'success',
+          data: [onePieceCard()],
+          page: 1,
+          pageSize: 20,
+          totalCount: 1,
+        },
+        200,
+      );
     });
 
     const result = await client.searchCards('one_piece', 'OP14-069', { languages: [], searchBy: 'card' }, 1);
@@ -122,6 +129,7 @@ describe('RealScrydexClient', () => {
       const client = makeClient(async input => {
         return jsonResponse(
           new URL(stringifyRequestURL(input)).pathname.endsWith('/cards') ? { data: [card] } : { data: card },
+          200,
         );
       });
 
@@ -139,7 +147,7 @@ describe('RealScrydexClient', () => {
   );
 
   it('treats an empty Scrydex envelope as a successful search', async () => {
-    const client = makeClient(async () => jsonResponse({ status: 'success', data: [], totalCount: 0 }));
+    const client = makeClient(async () => jsonResponse({ status: 'success', data: [], totalCount: 0 }, 200));
 
     const result = await client.searchCards('one_piece', 'OP99-999', { languages: [], searchBy: 'card' }, 1);
     assert(result.isOk());
@@ -159,7 +167,7 @@ describe('RealScrydexClient', () => {
     const client = makeClient(async input => {
       requestedURLs.push(stringifyRequestURL(input));
 
-      return jsonResponse({ data: [], total_count: 0 });
+      return jsonResponse({ data: [], total_count: 0 }, 200);
     });
 
     const result = await client.searchCards('pokemon', 'Charizard ex 199', { languages: [], searchBy: 'card' }, 1);
@@ -176,7 +184,10 @@ describe('RealScrydexClient', () => {
     const client = makeClient(async input => {
       requestedURLs.push(stringifyRequestURL(input));
 
-      return jsonResponse({ data: { id: 'sv5m_ja-72', name: 'ダーテング', number: '72', printed_number: '072/071' } });
+      return jsonResponse(
+        { data: { id: 'sv5m_ja-72', name: 'ダーテング', number: '72', printed_number: '072/071' } },
+        200,
+      );
     });
 
     const result = await client.getCardById('pokemon', 'sv5m_ja-72');
@@ -187,7 +198,7 @@ describe('RealScrydexClient', () => {
   });
 
   it.each(['pokemon', 'one_piece'] as const)('decodes wrapped lookup pricing for %s', async game => {
-    const client = makeClient(async () => jsonResponse({ status: 'success', data: onePieceCard() }));
+    const client = makeClient(async () => jsonResponse({ status: 'success', data: onePieceCard() }, 200));
     const result = await client.getCardById(game, 'OP14-069');
     assert(result.isOk());
     expect(result.value?.card.pricing.market).toMatchObject({ currency: 'USD', low: 12.45, market: 14.2 });
@@ -202,7 +213,7 @@ describe('RealScrydexClient', () => {
     { data: { id: 'card', name: 'Card' } },
     onePieceCard(),
   ])('rejects unusable lookup envelopes: %j', async body => {
-    const client = makeClient(async () => jsonResponse(body));
+    const client = makeClient(async () => jsonResponse(body, 200));
     const result = await client.getCardById('pokemon', 'card');
     assert(result.isErr());
     expect(result.error).toMatchObject({ reason: 'invalid_response', statusCode: 200, isRetryable: false });
@@ -233,7 +244,7 @@ describe('RealScrydexClient', () => {
   });
 
   it('reports malformed successful responses', async () => {
-    const client = makeClient(async () => jsonResponse({ data: 'not-an-array' }));
+    const client = makeClient(async () => jsonResponse({ data: 'not-an-array' }, 200));
 
     const result = await client.searchCards('pokemon', 'Charizard', { languages: [], searchBy: 'card' }, 1);
     assert(result.isErr());
@@ -243,7 +254,7 @@ describe('RealScrydexClient', () => {
 
   it('combines schema and normalization rejections while counting accepted cards without base variants', async () => {
     const withoutBaseVariant = { id: 'alt', name: 'Alternate', number: '2', variants: [{ name: 'mangaAltArt' }] };
-    const client = makeClient(async () => jsonResponse({ data: [onePieceCard(), null, {}, withoutBaseVariant] }));
+    const client = makeClient(async () => jsonResponse({ data: [onePieceCard(), null, {}, withoutBaseVariant] }, 200));
     const result = await client.searchCards('one_piece', 'query', { languages: [], searchBy: 'card' }, 1);
     assert(result.isOk());
     expect(result.value).toMatchObject({ providerResultCount: 4, rejectedCount: 2, missingBaseVariantCount: 1 });
@@ -278,7 +289,7 @@ describe('RealScrydexClient', () => {
     const client = new RealScrydexClient({
       apiKey: 'test-api-key',
       baseURL: 'https://api.scrydex.test',
-      fetch: async () => jsonResponse({ data: [] }),
+      fetch: async () => jsonResponse({ data: [] }, 200),
       requestTimeoutMs: 100,
     });
 
@@ -289,7 +300,7 @@ describe('RealScrydexClient', () => {
   });
 });
 
-function jsonResponse(body: z.input<typeof JsonValueSchema>, status = 200): Response {
+function jsonResponse(body: z.input<typeof JsonValueSchema>, status: number): Response {
   return new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
 }
 

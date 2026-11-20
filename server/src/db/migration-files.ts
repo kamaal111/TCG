@@ -69,7 +69,7 @@ function timestampFor(name: string): number {
   return timestamp;
 }
 
-export function migrationMeta(migration: Migration, sql = migration.sql): MigrationMeta {
+export function migrationMeta(migration: Migration, sql: string): MigrationMeta {
   return {
     name: migration.name,
     hash: migration.hash,
@@ -162,7 +162,7 @@ async function readCatalog(folder: string): Promise<MigrationCatalog> {
 
   validateOrder(active);
   const catalog = { revision: '', active, archive, known, replacements };
-  const leaves = active.flatMap(migration => migrationLeaves(catalog, migration));
+  const leaves = active.flatMap(migration => migrationLeaves(catalog, migration, []));
   validateOrder(leaves);
   const reachable = new Set<string>();
 
@@ -215,7 +215,7 @@ function validateOrder(migrations: readonly Migration[]): void {
 export function migrationLeaves(
   catalog: MigrationCatalog,
   migration: Migration,
-  ancestors: readonly string[] = [],
+  ancestors: readonly string[],
 ): readonly Migration[] {
   if (ancestors.includes(migration.name)) {
     migrationFailure(`Cyclic squash history: ${migration.name}`);

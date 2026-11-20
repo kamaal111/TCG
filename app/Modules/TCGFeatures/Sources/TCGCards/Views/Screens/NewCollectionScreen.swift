@@ -24,7 +24,8 @@ struct NewCollectionScreen: View {
         .tcgSheet(
             Text("New collection", bundle: .module),
             closeLabel: Text("Cancel", bundle: .module),
-            closeDisabled: isCreating
+            closeDisabled: isCreating,
+            onClose: nil
         ) {
             Button {
                 Task { await createCollection() }

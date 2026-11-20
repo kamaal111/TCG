@@ -67,7 +67,7 @@ printf '{"message":"PONG"}'
     root,
     log: () => fs.readFile(log, 'utf8'),
     release: () => fs.readFile(path.join(root, 'release.env'), 'utf8'),
-    run: (args: string[], extra: NodeJS.ProcessEnv = {}) => {
+    run: (args: string[], extra: NodeJS.ProcessEnv) => {
       return childProcess.spawnSync('bash', [release, ...args], {
         env: {
           ...process.env,
@@ -85,7 +85,7 @@ printf '{"message":"PONG"}'
 
 test('rejects public deployment without a domain before pulling images or migrating', async t => {
   const f = await fixture(t);
-  const result = f.run(['release', runtime, migration, 'public', 'false']);
+  const result = f.run(['release', runtime, migration, 'public', 'false'], {});
   expect(result.status).toBe(1);
   expect(result.stderr).toContain('requires a configured API hostname');
   expect(await f.log()).toBe('');
@@ -94,7 +94,7 @@ test('rejects public deployment without a domain before pulling images or migrat
 
 test('refuses a mutable tag or an image outside the configured registry repository', async t => {
   const f = await fixture(t);
-  const result = f.run(['release', 'ghcr.io/attacker/server:latest', migration, 'private', 'false']);
+  const result = f.run(['release', 'ghcr.io/attacker/server:latest', migration, 'private', 'false'], {});
   expect(result.status).toBe(1);
   expect(await f.log()).toBe('');
 });
@@ -125,8 +125,8 @@ test('pending migrations do not stop or replace the running server', async t => 
 
 test('a private deployment records immutable images and can be repeated', async t => {
   const f = await fixture(t);
-  expect(f.run(['release', runtime, migration, 'private', 'false']).status).toBe(0);
-  expect(f.run(['release', runtime, migration, 'private', 'false']).status).toBe(0);
+  expect(f.run(['release', runtime, migration, 'private', 'false'], {}).status).toBe(0);
+  expect(f.run(['release', runtime, migration, 'private', 'false'], {}).status).toBe(0);
   expect(await f.release()).toBe(`TCG_RUNTIME_IMAGE=${runtime}\nTCG_MIGRATION_IMAGE=${migration}\n`);
   expect(await fs.readdir(f.root)).not.toContain('.deployment-lock');
   expect(await f.log()).not.toContain('scripts/migrate.ts');
@@ -135,7 +135,7 @@ test('a private deployment records immutable images and can be repeated', async 
 test('migrations run only through the explicit operation without restarting the application', async t => {
   const f = await fixture(t);
 
-  expect(f.run(['migrate', migration]).status).toBe(0);
+  expect(f.run(['migrate', migration], {}).status).toBe(0);
   expect(await f.log()).toContain('scripts/migrate.ts');
   expect(await f.log()).not.toContain('"up"');
   expect(await f.release()).toBe(oldRelease);
@@ -145,7 +145,7 @@ test('migrations run only through the explicit operation without restarting the 
 test('the migration operation refuses images outside the allowed immutable repository', async t => {
   const f = await fixture(t);
 
-  expect(f.run(['migrate', 'ghcr.io/attacker/migration:latest']).status).toBe(1);
+  expect(f.run(['migrate', 'ghcr.io/attacker/migration:latest'], {}).status).toBe(1);
   expect(await f.log()).toBe('');
 });
 
@@ -160,7 +160,7 @@ test('does not roll back after migration unless compatibility was explicitly con
 test('refuses to run alongside host configuration or another release', async t => {
   const f = await fixture(t);
   await fs.mkdir(path.join(f.root, '.deployment-lock'));
-  expect(f.run(['release', runtime, migration, 'private', 'false']).status).toBe(1);
+  expect(f.run(['release', runtime, migration, 'private', 'false'], {}).status).toBe(1);
   expect(await f.log()).toBe('');
 });
 
@@ -223,7 +223,7 @@ test('status reports the actual running image and busy state without taking the 
     `TCG_RUNTIME_IMAGE=${runtime}\nTCG_MIGRATION_IMAGE=${migration}\n`,
   );
   await fs.mkdir(path.join(f.root, '.deployment-lock'));
-  const result = f.run(['status']);
+  const result = f.run(['status'], {});
   expect(result.status).toBe(0);
   expect(JSON.parse(result.stdout)).toMatchObject({
     protocol: 1,
@@ -236,9 +236,9 @@ test('status reports the actual running image and busy state without taking the 
 
 test('a checked deployment rejects changed host settings before pulling or replacing images', async t => {
   const f = await fixture(t);
-  const before = JSON.parse(f.run(['status']).stdout);
+  const before = JSON.parse(f.run(['status'], {}).stdout);
   await fs.writeFile(path.join(f.root, 'server.env'), 'BETTER_AUTH_URL=http://changed.example.com\n');
-  const result = f.run(['release-checked', runtime, migration, 'private', 'false', before.fingerprint]);
+  const result = f.run(['release-checked', runtime, migration, 'private', 'false', before.fingerprint], {});
   expect(result.status).toBe(65);
   expect(result.stderr).toContain('host changed since approval');
   expect(await f.release()).toBe(oldRelease);
@@ -247,7 +247,7 @@ test('a checked deployment rejects changed host settings before pulling or repla
 
 test('a checked migration rejects a changed running image without applying SQL', async t => {
   const f = await fixture(t);
-  const before = JSON.parse(f.run(['status']).stdout);
+  const before = JSON.parse(f.run(['status'], {}).stdout);
   const result = f.run(['migrate-checked', migration, before.fingerprint], { RUNNING_RUNTIME: runtime });
   expect(result.status).toBe(65);
   expect(await f.log()).not.toContain('scripts/migrate.ts');
@@ -255,15 +255,15 @@ test('a checked migration rejects a changed running image without applying SQL',
 
 test('a checked deployment accepts an unchanged reviewed host while holding the lock', async t => {
   const f = await fixture(t);
-  const before = JSON.parse(f.run(['status']).stdout);
-  const result = f.run(['release-checked', runtime, migration, 'private', 'false', before.fingerprint]);
+  const before = JSON.parse(f.run(['status'], {}).stdout);
+  const result = f.run(['release-checked', runtime, migration, 'private', 'false', before.fingerprint], {});
   expect(result.status).toBe(0);
   expect(await f.release()).toContain(runtime);
 });
 
 test('migration inspection uses the candidate tools without restarting or migrating', async t => {
   const f = await fixture(t);
-  const result = f.run(['migration-status', migration]);
+  const result = f.run(['migration-status', migration], {});
   expect(result.status).toBe(0);
   expect(JSON.parse(result.stdout)).toEqual({ protocol: 1, status: 'ready', pending: 0 });
   expect(result.stderr).toContain('Digest: sha256:fixture-image-download');

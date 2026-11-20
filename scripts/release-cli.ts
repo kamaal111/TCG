@@ -60,6 +60,7 @@ async function main(): Promise<void> {
     configDirectory,
     revision: options.positionals[0] ?? 'origin/main',
     prompts: terminalPrompts,
+    mode: 'terminal',
   });
 }
 

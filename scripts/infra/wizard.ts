@@ -177,7 +177,7 @@ interface CollectResourcesOptions {
 }
 
 async function collectResources({ store, prompts, request, document, token }: CollectResourcesOptions): Promise<void> {
-  const provider = new DigitalOcean({ token, request });
+  const provider = new DigitalOcean({ token, request: request ?? fetch });
   prompts.note(
     'Looking up existing resources. This makes read-only requests and does not change infrastructure.',
     '7/8 · Resource settings',
@@ -528,7 +528,7 @@ async function setupRelease({ store, prompts }: WizardOptions, infrastructure: E
   const publishing = credentials.find(item => item.id === 'publishing');
 
   if (publishing) {
-    await askCredential({ credential: publishing, prompts, document });
+    await askCredential({ replace: false, credential: publishing, prompts, document });
     prompts.note(credentialNext(publishing, store));
   }
 }
@@ -564,7 +564,7 @@ export async function runSetup(options: WizardOptions): Promise<void> {
   document = await saveFields(store, document, {
     TF_CLOUD_ORGANIZATION: organization,
     TF_WORKSPACE: workspace,
-    ...(await askCredential({ credential: hcp, prompts, document })),
+    ...(await askCredential({ replace: false, credential: hcp, prompts, document })),
   });
 
   for (const id of ['digitalocean', 'spaces']) {
@@ -578,7 +578,11 @@ export async function runSetup(options: WizardOptions): Promise<void> {
       return failure('Credential instructions are unavailable.');
     }
 
-    document = await saveFields(store, document, await askCredential({ credential, prompts, document }));
+    document = await saveFields(
+      store,
+      document,
+      await askCredential({ replace: false, credential, prompts, document }),
+    );
   }
 
   prompts.note(
@@ -625,7 +629,7 @@ export async function runSetup(options: WizardOptions): Promise<void> {
       cwd: repositoryRoot,
       encoding: 'utf8',
     });
-  });
+  }, 'origin');
 
   const repository = remote.stdout.trim().match(/github\.com[:/]([^/]+\/[^/]+?)(?:\.git)?$/)?.[1];
   prompts.note(
@@ -665,7 +669,7 @@ export async function runSetup(options: WizardOptions): Promise<void> {
 
     document = await saveFields(store, document, {
       TCG_REGISTRY_USER: username,
-      ...(await askCredential({ credential: download, prompts, document })),
+      ...(await askCredential({ replace: false, credential: download, prompts, document })),
     });
   } else {
     document = await saveFields(store, document, { TCG_REGISTRY_USER: '', TCG_REGISTRY_TOKEN: '' });
@@ -678,7 +682,11 @@ export async function runSetup(options: WizardOptions): Promise<void> {
     return failure('Tailscale instructions are unavailable.');
   }
 
-  document = await saveFields(store, document, await askCredential({ credential: tailscale, prompts, document }));
+  document = await saveFields(
+    store,
+    document,
+    await askCredential({ replace: false, credential: tailscale, prompts, document }),
+  );
   const scrydex = credentials.find(item => item.id === 'scrydex');
 
   if (!scrydex) {
@@ -688,7 +696,11 @@ export async function runSetup(options: WizardOptions): Promise<void> {
   prompts.note(
     'Production requires live Scrydex pricing and card images. Static mode is limited to development and tests.',
   );
-  document = await saveFields(store, document, await askCredential({ credential: scrydex, prompts, document }));
+  document = await saveFields(
+    store,
+    document,
+    await askCredential({ replace: false, credential: scrydex, prompts, document }),
+  );
 
   const resourcesReady = await setupResources(options, document);
   await setupRelease(options, document);

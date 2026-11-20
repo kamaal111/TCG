@@ -18,8 +18,8 @@ struct URLSessionCardImageLoaderTests {
         }
         let url = try #require(URL(string: "https://images.example.com/binder-card.png"))
 
-        #expect(await makeLoader().image(for: url) != nil)
-        #expect(await makeLoader().image(for: url, policy: .search) != nil)
+        #expect(await makeLoader(now: Date.init, retryDelay: { _, _ in }).image(for: url) != nil)
+        #expect(await makeLoader(now: Date.init, retryDelay: { _, _ in }).image(for: url, policy: .search) != nil)
         #expect(requests.value == 1)
     }
 
@@ -34,7 +34,7 @@ struct URLSessionCardImageLoaderTests {
         let file = root.appending(path: URLSessionCardImageLoader.key(for: url))
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         try corrupt.write(to: file)
-        let loader = makeLoader()
+        let loader = makeLoader(now: Date.init, retryDelay: { _, _ in })
 
         #expect(await loader.image(for: url, policy: .search) == nil)
         #expect(try Data(contentsOf: file) == corrupt)
@@ -54,7 +54,7 @@ struct URLSessionCardImageLoaderTests {
         }
         let first = try #require(URL(string: "https://images.example.com/card.png?variant=1"))
         let second = try #require(URL(string: "https://images.example.com/card.png?variant=2"))
-        let loader = makeLoader()
+        let loader = makeLoader(now: Date.init, retryDelay: { _, _ in })
 
         #expect(try await loader.inventory().isEmpty)
         #expect(await loader.image(for: first, policy: .search) != nil)
@@ -70,7 +70,7 @@ struct URLSessionCardImageLoaderTests {
         #expect(await loader.image(for: first, policy: .search) != nil)
         #expect(requests.value == 3)
 
-        try await loader.delete()
+        try await loader.delete(nil)
         #expect(try await loader.inventory().isEmpty)
         #expect(loader.cachedImage(for: first, policy: .search) == nil)
         #expect(loader.cachedImage(for: second) == nil)
@@ -87,16 +87,19 @@ struct URLSessionCardImageLoaderTests {
             return .http(status: status, headers: [:], body: Self.png)
         }
         let url = try #require(URL(string: "https://images.example.com/in-flight.png"))
-        let loader = makeLoader(retryDelay: { _, _ in
-            started.yield(())
-            var iterator = retryResumed.makeAsyncIterator()
-            _ = await iterator.next()
-        })
+        let loader = makeLoader(
+            now: Date.init,
+            retryDelay: { _, _ in
+                started.yield(())
+                var iterator = retryResumed.makeAsyncIterator()
+                _ = await iterator.next()
+            }
+        )
 
         let load = Task { await loader.image(for: url) }
         var iterator = retryStarted.makeAsyncIterator()
         _ = await iterator.next()
-        try await loader.delete()
+        try await loader.delete(nil)
         resumed.yield(())
         #expect(await load.value != nil)
         #expect(loader.cachedImage(for: url) == nil)
@@ -116,7 +119,7 @@ struct URLSessionCardImageLoaderTests {
         StubURLProtocol.handler = { _ in
             responses[requests.increment() - 1]
         }
-        let loader = makeLoader()
+        let loader = makeLoader(now: Date.init, retryDelay: { _, _ in })
         let url = try #require(URL(string: "https://images.example.com/retry.png"))
 
         let image = await loader.image(for: url)
@@ -135,7 +138,7 @@ struct URLSessionCardImageLoaderTests {
         StubURLProtocol.handler = { _ in
             responses[requests.increment() - 1]
         }
-        let loader = makeLoader()
+        let loader = makeLoader(now: Date.init, retryDelay: { _, _ in })
         let url = try #require(URL(string: "https://images.example.com/rate-limited.png"))
 
         let image = await loader.image(for: url)
@@ -151,7 +154,7 @@ struct URLSessionCardImageLoaderTests {
             _ = requests.increment()
             return .http(status: 404, headers: [:], body: Data())
         }
-        let loader = makeLoader()
+        let loader = makeLoader(now: Date.init, retryDelay: { _, _ in })
         let url = try #require(URL(string: "https://images.example.com/missing.png"))
 
         let image = await loader.image(for: url)
@@ -165,7 +168,7 @@ struct URLSessionCardImageLoaderTests {
         StubURLProtocol.handler = { _ in
             .urlResponse(body: Self.png)
         }
-        let loader = makeLoader()
+        let loader = makeLoader(now: Date.init, retryDelay: { _, _ in })
         let url = try #require(URL(string: "https://images.example.com/non-http.png"))
 
         let image = await loader.image(for: url)
@@ -178,7 +181,7 @@ struct URLSessionCardImageLoaderTests {
         StubURLProtocol.handler = { _ in
             .http(status: 200, headers: ["Content-Type": "image/png"], body: Data("not an image".utf8))
         }
-        let loader = makeLoader()
+        let loader = makeLoader(now: Date.init, retryDelay: { _, _ in })
         let url = try #require(URL(string: "https://images.example.com/invalid.png"))
 
         let image = await loader.image(for: url)
@@ -196,7 +199,7 @@ struct URLSessionCardImageLoaderTests {
         StubURLProtocol.handler = { _ in
             responses[requests.increment() - 1]
         }
-        let loader = makeLoader()
+        let loader = makeLoader(now: Date.init, retryDelay: { _, _ in })
         let url = try #require(URL(string: "https://images.example.com/timed-out.png"))
 
         let image = await loader.image(for: url)
@@ -210,7 +213,7 @@ struct URLSessionCardImageLoaderTests {
         StubURLProtocol.handler = { _ in
             .error(URLError(.cancelled))
         }
-        let loader = makeLoader()
+        let loader = makeLoader(now: Date.init, retryDelay: { _, _ in })
         let url = try #require(URL(string: "https://images.example.com/cancelled.png"))
 
         let image = await loader.image(for: url)
@@ -223,7 +226,7 @@ struct URLSessionCardImageLoaderTests {
         StubURLProtocol.handler = { _ in
             .error(URLError(.notConnectedToInternet))
         }
-        let loader = makeLoader()
+        let loader = makeLoader(now: Date.init, retryDelay: { _, _ in })
         let url = try #require(URL(string: "https://images.example.com/offline.png"))
 
         let image = await loader.image(for: url)
@@ -238,7 +241,7 @@ struct URLSessionCardImageLoaderTests {
             _ = requests.increment()
             return .http(status: 503, headers: [:], body: Data())
         }
-        let loader = makeLoader()
+        let loader = makeLoader(now: Date.init, retryDelay: { _, _ in })
         let url = try #require(URL(string: "https://images.example.com/unavailable.png"))
 
         let image = await loader.image(for: url)
@@ -255,7 +258,7 @@ struct URLSessionCardImageLoaderTests {
             Thread.sleep(forTimeInterval: 0.05)
             return .http(status: 200, headers: ["Content-Type": "image/png"], body: Self.png)
         }
-        let loader = makeLoader()
+        let loader = makeLoader(now: Date.init, retryDelay: { _, _ in })
         let url = try #require(URL(string: "https://images.example.com/shared.png"))
 
         async let first = loader.image(for: url, policy: .search)
@@ -278,13 +281,13 @@ struct URLSessionCardImageLoaderTests {
         let now: @Sendable () -> Date = { clock.now }
         let url = try #require(URL(string: "https://images.example.com/search.png"))
         let file = root.appending(path: URLSessionCardImageLoader.key(for: url))
-        let loader = makeLoader(now: now)
+        let loader = makeLoader(now: now, retryDelay: { _, _ in })
 
         #expect(await loader.image(for: url, policy: .search) != nil)
         let timestamp = try #require(
             file.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate
         )
-        let reopened = makeLoader(now: now)
+        let reopened = makeLoader(now: now, retryDelay: { _, _ in })
         clock.set(timestamp.addingTimeInterval(86_399))
 
         #expect(await reopened.image(for: url, policy: .search) != nil)
@@ -292,7 +295,7 @@ struct URLSessionCardImageLoaderTests {
         clock.set(timestamp.addingTimeInterval(86_400))
 
         #expect(reopened.cachedImage(for: url, policy: .search) == nil)
-        #expect(await makeLoader(now: now).image(for: url, policy: .search) != nil)
+        #expect(await makeLoader(now: now, retryDelay: { _, _ in }).image(for: url, policy: .search) != nil)
         #expect(requests.value == 2)
     }
 
@@ -310,7 +313,7 @@ struct URLSessionCardImageLoaderTests {
         let key = URLSessionCardImageLoader.key(for: url)
         let file = root.appending(path: key)
         let legacyFile = root.appending(path: URLSessionCardImageLoader.key(for: legacy))
-        let loader = makeLoader(now: now)
+        let loader = makeLoader(now: now, retryDelay: { _, _ in })
 
         #expect(await loader.image(for: url, policy: .search) != nil)
         try Self.png.write(to: legacyFile)
@@ -323,13 +326,13 @@ struct URLSessionCardImageLoaderTests {
 
         #expect(!FileManager.default.fileExists(atPath: legacyFile.path))
         #expect(try await loader.inventory().map(\.id) == [key])
-        #expect(await makeLoader(now: now).image(for: url, policy: .search) != nil)
+        #expect(await makeLoader(now: now, retryDelay: { _, _ in }).image(for: url, policy: .search) != nil)
         #expect(requests.value == 1)
     }
 
     private func makeLoader(
-        now: @escaping @Sendable () -> Date = Date.init,
-        retryDelay: @escaping @Sendable (Int, HTTPURLResponse?) async -> Void = { _, _ in }
+        now: @escaping @Sendable () -> Date,
+        retryDelay: @escaping @Sendable (Int, HTTPURLResponse?) async -> Void
     ) -> URLSessionCardImageLoader {
 
         let configuration = URLSessionConfiguration.ephemeral

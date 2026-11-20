@@ -15,7 +15,7 @@ export async function readCollection(app: Hono<HonoEnvironment>, headers: Header
 export async function createTestCollection(
   app: Hono<HonoEnvironment>,
   headers: Headers,
-  payload: z.input<typeof CreateCollectionSchema> = { name: 'Favorites' },
+  payload: z.input<typeof CreateCollectionSchema>,
 ) {
   const response = await app.request('/app-api/collections', {
     method: 'POST',

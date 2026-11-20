@@ -29,14 +29,14 @@ async function fixture(t: Pick<TestContext, 'onTestFinished'>) {
   await fs.mkdir(bin);
   const realJust = childProcess.execFileSync('which', ['just'], { encoding: 'utf8' }).trim();
 
-  const git = (args: string[], cwd = root) => {
+  const git = (args: string[], cwd: string) => {
     return childProcess.execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
   };
 
-  git(['init', '--bare', origin]);
-  git(['init', '-b', 'main']);
-  git(['config', 'user.name', 'Release Test']);
-  git(['config', 'user.email', 'release@example.com']);
+  git(['init', '--bare', origin], root);
+  git(['init', '-b', 'main'], root);
+  git(['config', 'user.name', 'Release Test'], root);
+  git(['config', 'user.email', 'release@example.com'], root);
   await fs.writeFile(path.join(root, '.gitignore'), 'node_modules\ninfra/environments/production/terraform.tfvars\n');
   await fs.writeFile(path.join(root, 'mise.toml'), '[tools]\nnode = "26"\npnpm = "12.11.1"\n');
 
@@ -56,11 +56,11 @@ async function fixture(t: Pick<TestContext, 'onTestFinished'>) {
 
   await fs.mkdir(path.join(root, 'infra/environments/production'), { recursive: true });
   await fs.writeFile(path.join(root, 'infra/environments/production/main.tf'), '# fixture configuration');
-  git(['add', '.']);
-  git(['-c', 'core.hooksPath=/dev/null', 'commit', '-m', 'Initial release fixture']);
-  git(['remote', 'add', 'origin', origin]);
-  git(['push', '-u', 'origin', 'main']);
-  const sha = git(['rev-parse', 'HEAD']);
+  git(['add', '.'], root);
+  git(['-c', 'core.hooksPath=/dev/null', 'commit', '-m', 'Initial release fixture'], root);
+  git(['remote', 'add', 'origin', origin], root);
+  git(['push', '-u', 'origin', 'main'], root);
+  const sha = git(['rev-parse', 'HEAD'], root);
   await fs.symlink(path.join(repository, 'node_modules'), path.join(root, 'node_modules'));
   await fs.writeFile(path.join(configDirectory, 'deploy-key'), 'fixture key', { mode: 0o600 });
   await fs.writeFile(path.join(configDirectory, 'known-hosts'), 'fixture verified host', { mode: 0o600 });
@@ -187,7 +187,7 @@ if (tool === 'ssh') {
     note,
     git,
     releaseFile,
-    run: (revision = 'origin/main', mode: RuntimeOptions['mode'] = 'terminal') => {
+    run: (revision: string, mode: RuntimeOptions['mode']) => {
       return releaseFromTerminal({ root, configDirectory, revision, prompts, mode });
     },
     commands: readLog,
@@ -205,7 +205,7 @@ if (tool === 'ssh') {
 
 test('a release pins main, publishes isolated sources and saves private resumable progress', async t => {
   const f = await fixture(t);
-  await f.run();
+  await f.run('origin/main', 'terminal');
   expect(await f.published()).toHaveLength(2);
   expect(await f.state()).toMatchObject({ runtime, revision: f.sha });
   const directory = path.join(f.configDirectory, 'releases');
@@ -222,8 +222,8 @@ test('a release pins main, publishes isolated sources and saves private resumabl
 
 test('a retry verifies saved images and live state without rebuilding or restarting an installed release', async t => {
   const f = await fixture(t);
-  await f.run();
-  await f.run();
+  await f.run('origin/main', 'terminal');
+  await f.run('origin/main', 'terminal');
   expect(await f.published()).toHaveLength(2);
   expect(await f.deployed()).toHaveLength(1);
 }, 15_000);
@@ -231,13 +231,13 @@ test('a retry verifies saved images and live state without rebuilding or restart
 test('a failed deployment resumes the pinned release even when main has advanced', async t => {
   const f = await fixture(t);
   vi.stubEnv('TCG_TEST_FAIL_DEPLOY', '1');
-  await expect(f.run()).rejects.toThrow('This step failed');
+  await expect(f.run('origin/main', 'terminal')).rejects.toThrow('This step failed');
   await fs.writeFile(path.join(f.root, 'new-change'), 'later application change');
-  f.git(['add', 'new-change']);
-  f.git(['-c', 'core.hooksPath=/dev/null', 'commit', '-m', 'Later fixture commit']);
-  f.git(['push', 'origin', 'main']);
+  f.git(['add', 'new-change'], f.root);
+  f.git(['-c', 'core.hooksPath=/dev/null', 'commit', '-m', 'Later fixture commit'], f.root);
+  f.git(['push', 'origin', 'main'], f.root);
   vi.stubEnv('TCG_TEST_FAIL_DEPLOY', '');
-  await f.run();
+  await f.run('origin/main', 'terminal');
   expect(f.confirm).toHaveBeenCalledWith(`Resume the unfinished release ${f.sha.slice(0, 12)}?`, true);
   expect(f.note).not.toHaveBeenCalledWith(expect.stringContaining('Later fixture commit'));
   expect(f.note).toHaveBeenCalledWith(expect.stringContaining('Initial release fixture'));
@@ -247,21 +247,21 @@ test('a failed deployment resumes the pinned release even when main has advanced
 
 test('changed local settings require fresh review rather than using a previous checkpoint', async t => {
   const f = await fixture(t);
-  await f.run();
+  await f.run('origin/main', 'terminal');
   await fs.appendFile(f.releaseFile, 'UNRELATED_SETTING=changed\n');
-  await f.run();
+  await f.run('origin/main', 'terminal');
   expect(await f.published()).toHaveLength(4);
 }, 15_000);
 
 test('rotated runtime credentials offer server setup even when infrastructure review is skipped and redeploy the same image', async t => {
   const f = await fixture(t);
-  await f.run();
+  await f.run('origin/main', 'terminal');
   await fs.writeFile(
     path.join(f.configDirectory, 'infrastructure.env'),
     'SCRYDEX_CLIENT=real\nSCRYDEX_API_KEY=fixture-rotated-key\nSCRYDEX_TEAM_ID=fixture-team\n',
     { mode: 0o600 },
   );
-  await f.run();
+  await f.run('origin/main', 'terminal');
   expect(f.confirm).toHaveBeenCalledWith('Apply saved settings and update deployment scripts on the server?', false);
   expect((await f.commands()).filter(command => command.tool === 'ansible-playbook')).toHaveLength(1);
   expect(
@@ -272,33 +272,33 @@ test('rotated runtime credentials offer server setup even when infrastructure re
 
 test('a failed settings deployment resumes by recreating the installed image without losing the pending configuration', async t => {
   const f = await fixture(t);
-  await f.run();
+  await f.run('origin/main', 'terminal');
   await fs.writeFile(path.join(f.configDirectory, 'infrastructure.env'), 'SCRYDEX_CLIENT=static\n', { mode: 0o600 });
   vi.stubEnv('TCG_TEST_FAIL_DEPLOY', '1');
-  await expect(f.run()).rejects.toThrow('This step failed');
+  await expect(f.run('origin/main', 'terminal')).rejects.toThrow('This step failed');
   vi.stubEnv('TCG_TEST_FAIL_DEPLOY', '');
-  await f.run();
+  await f.run('origin/main', 'terminal');
   expect(await f.deployed()).toHaveLength(3);
   expect((await f.commands()).filter(command => command.tool === 'ansible-playbook')).toHaveLength(1);
 }, 15_000);
 
 test('a source-label mismatch on resume prevents another deployment', async t => {
   const f = await fixture(t);
-  await f.run();
+  await f.run('origin/main', 'terminal');
   vi.stubEnv('TCG_TEST_LABEL', 'e'.repeat(40));
-  await expect(f.run()).rejects.toThrow('source label differs');
+  await expect(f.run('origin/main', 'terminal')).rejects.toThrow('source label differs');
   expect(await f.deployed()).toHaveLength(1);
 }, 15_000);
 
 test('older application releases still configure the host from the newly fetched main revision', async t => {
   const f = await fixture(t);
   await fs.writeFile(path.join(f.root, 'operations-change'), 'new management revision');
-  f.git(['add', 'operations-change']);
-  f.git(['-c', 'core.hooksPath=/dev/null', 'commit', '-m', 'Update release tooling fixture']);
-  f.git(['push', 'origin', 'main']);
-  const operations = f.git(['rev-parse', 'HEAD']);
+  f.git(['add', 'operations-change'], f.root);
+  f.git(['-c', 'core.hooksPath=/dev/null', 'commit', '-m', 'Update release tooling fixture'], f.root);
+  f.git(['push', 'origin', 'main'], f.root);
+  const operations = f.git(['rev-parse', 'HEAD'], f.root);
   f.confirm.mockResolvedValue(true);
-  await f.run(f.sha);
+  await f.run(f.sha, 'terminal');
   expect(await f.state()).toMatchObject({ revision: f.sha, operationsRevision: operations });
   expect(await f.published()).toHaveLength(2);
   expect((await f.commands()).filter(command => command.tool === 'ansible-playbook')).toEqual([
@@ -314,7 +314,7 @@ test('output-only infrastructure changes require an explicit apply approval', as
       message !== 'Apply saved settings and update deployment scripts on the server?'
     );
   });
-  await f.run();
+  await f.run('origin/main', 'terminal');
   expect(f.confirm).toHaveBeenCalledWith('Apply this infrastructure plan?', false);
   expect(
     (await f.commands()).filter(command => command.tool === 'terraform' && command.args.includes('apply')),
@@ -326,9 +326,9 @@ test('retrying a failed infrastructure apply always creates a new plan', async t
   const f = await fixture(t);
   f.confirm.mockResolvedValue(true);
   vi.stubEnv('TCG_TEST_FAIL_APPLY', '1');
-  await expect(f.run()).rejects.toThrow('This step failed');
+  await expect(f.run('origin/main', 'terminal')).rejects.toThrow('This step failed');
   vi.stubEnv('TCG_TEST_FAIL_APPLY', '');
-  await f.run();
+  await f.run('origin/main', 'terminal');
   expect(
     (await f.commands()).filter(command => command.tool === 'terraform' && command.args.includes('plan')),
   ).toHaveLength(2);
@@ -338,7 +338,7 @@ test('retrying a failed infrastructure apply always creates a new plan', async t
 test('the first guided release upgrades older host tools only after approval', async t => {
   const f = await fixture(t);
   vi.stubEnv('TCG_TEST_OLD_HOST', '1');
-  await f.run();
+  await f.run('origin/main', 'terminal');
   expect(f.confirm).toHaveBeenCalledWith('Apply saved settings and update deployment scripts on the server?', false);
   expect((await f.commands()).filter(command => command.tool === 'ansible-playbook')).toHaveLength(1);
   expect(await f.deployed()).toHaveLength(1);
@@ -353,7 +353,7 @@ test('editing local settings during deployment approval stops the mutation', asy
 
     return message !== 'Review an infrastructure plan?';
   });
-  await expect(f.run()).rejects.toThrow('Local settings changed');
+  await expect(f.run('origin/main', 'terminal')).rejects.toThrow('Local settings changed');
   expect(await f.deployed()).toHaveLength(0);
 }, 15_000);
 
@@ -362,7 +362,7 @@ test('a first-run server update is not offered again after an unchanged infrastr
   vi.stubEnv('TCG_TEST_OLD_HOST', '1');
   vi.stubEnv('TCG_TEST_NO_PLAN_CHANGES', '1');
   f.confirm.mockResolvedValue(true);
-  await f.run();
+  await f.run('origin/main', 'terminal');
   expect((await f.commands()).filter(command => command.tool === 'ansible-playbook')).toHaveLength(1);
   expect(
     f.confirm.mock.calls.filter(
@@ -373,10 +373,10 @@ test('a first-run server update is not offered again after an unchanged infrastr
 
 test('reviewing an unchanged plan after a successful release does not ask to reapply server settings', async t => {
   const f = await fixture(t);
-  await f.run();
+  await f.run('origin/main', 'terminal');
   f.confirm.mockClear().mockResolvedValue(true);
   vi.stubEnv('TCG_TEST_NO_PLAN_CHANGES', '1');
-  await f.run();
+  await f.run('origin/main', 'terminal');
   expect(f.confirm).not.toHaveBeenCalledWith(
     'Apply saved settings and update deployment scripts on the server?',
     false,
@@ -388,7 +388,7 @@ test('new infrastructure applied after the first-run setup still offers to apply
   const f = await fixture(t);
   vi.stubEnv('TCG_TEST_OLD_HOST', '1');
   f.confirm.mockResolvedValue(true);
-  await f.run();
+  await f.run('origin/main', 'terminal');
   expect((await f.commands()).filter(command => command.tool === 'ansible-playbook')).toHaveLength(2);
   expect(
     f.confirm.mock.calls.filter(
@@ -402,7 +402,7 @@ test('applying a resource-only plan does not reapply unchanged server settings a
   vi.stubEnv('TCG_TEST_OLD_HOST', '1');
   vi.stubEnv('TCG_TEST_RESOURCE_ONLY', '1');
   f.confirm.mockResolvedValue(true);
-  await f.run();
+  await f.run('origin/main', 'terminal');
   expect((await f.commands()).filter(command => command.tool === 'ansible-playbook')).toHaveLength(1);
 }, 15_000);
 

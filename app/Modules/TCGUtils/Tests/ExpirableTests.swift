@@ -45,8 +45,8 @@ struct ExpirableTests {
         let justInside = StubExpirable(expiresAt: Date.now.addingTimeInterval(3500))
         let justOutside = StubExpirable(expiresAt: Date.now.addingTimeInterval(3700))
 
-        #expect(justInside.willExpireSoon())
-        #expect(!justOutside.willExpireSoon())
+        #expect(justInside.willExpireSoon(within: 3600))
+        #expect(!justOutside.willExpireSoon(within: 3600))
     }
 }
 

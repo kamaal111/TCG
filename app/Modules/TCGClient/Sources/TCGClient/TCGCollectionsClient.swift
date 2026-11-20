@@ -1,4 +1,5 @@
 import Foundation
+import KamaalLogger
 import OpenAPIRuntime
 
 public enum CollectionsError: LocalizedError, Equatable, Sendable {
@@ -236,7 +237,7 @@ struct TCGCollectionsClientImpl: TCGCollectionsClient {
     }
 
     func save(_ collection: CardBinderCollection) async -> Result<CardBinderCollection, CollectionsError> {
-        await save(SaveBinderLayoutPayload(collection: collection))
+        await save(SaveBinderLayoutPayload(collection: collection, moveFromUnfiledCardID: nil))
     }
 
     func save(_ request: SaveBinderLayoutPayload) async -> Result<CardBinderCollection, CollectionsError> {
@@ -309,7 +310,11 @@ struct TCGCollectionsClientImpl: TCGCollectionsClient {
                 path: .init(collectionId: UUIDCoding.encode(collectionID), pageId: UUIDCoding.encode(pageID))
             )
         } catch {
-            RequestDiagnosticsMiddleware.processingFailure(error, operation: "collections.page")
+            RequestDiagnosticsMiddleware.processingFailure(
+                error,
+                operation: "collections.page",
+                logger: KamaalLogger(from: RequestDiagnosticsMiddleware.self)
+            )
             return .failure(.unavailable)
         }
 
@@ -319,11 +324,18 @@ struct TCGCollectionsClientImpl: TCGCollectionsClient {
                 let value = try response.body.json
                 return CollectionMapper.makeBinderPage(value)
                     .mapError { _ in
-                        RequestDiagnosticsMiddleware.mappingFailure(operation: "collections.page")
+                        RequestDiagnosticsMiddleware.mappingFailure(
+                            operation: "collections.page",
+                            logger: KamaalLogger(from: RequestDiagnosticsMiddleware.self)
+                        )
                         return .unavailable
                     }
             } catch {
-                RequestDiagnosticsMiddleware.processingFailure(error, operation: "collections.page")
+                RequestDiagnosticsMiddleware.processingFailure(
+                    error,
+                    operation: "collections.page",
+                    logger: KamaalLogger(from: RequestDiagnosticsMiddleware.self)
+                )
                 return .failure(.unavailable)
             }
         case .badRequest(let response):

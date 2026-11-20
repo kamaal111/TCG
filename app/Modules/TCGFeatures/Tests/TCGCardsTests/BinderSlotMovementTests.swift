@@ -38,23 +38,27 @@ struct BinderSlotMovementTests {
     func `Moving three copies to an empty slot clears only the source`(destinationPage: UUID) throws {
         let original = binder()
         let destination = position(page: destinationPage, row: 2, column: 2)
-        let updated = try #require(BinderLayout.movingSlot(in: original, from: position(page: first), to: destination))
-        #expect(BinderLayout.slot(in: updated, at: position(page: first)) == nil)
+        let updated = try #require(
+            BinderLayout.movingSlot(in: original, from: position(page: first, row: 1, column: 1), to: destination)
+        )
+        #expect(BinderLayout.slot(in: updated, at: position(page: first, row: 1, column: 1)) == nil)
         #expect(BinderLayout.slot(in: updated, at: destination)?.cardID == luffy)
         #expect(BinderLayout.slot(in: updated, at: destination)?.quantity == 3)
         #expect(updated.allocatedCopies(of: luffy) == original.allocatedCopies(of: luffy))
         #expect(updated.allocatedCopies(of: zoro) == original.allocatedCopies(of: zoro))
         #expect(updated.pages.map(\.id) == original.pages.map(\.id))
-        #expect(BinderLayout.slot(in: original, at: position(page: first))?.quantity == 3)
+        #expect(BinderLayout.slot(in: original, at: position(page: first, row: 1, column: 1))?.quantity == 3)
     }
 
     @Test(arguments: [CardsTestIDs.secondary, CardsTestIDs.third])
     func `Swapping occupied slots preserves both cards and unequal quantities`(destinationPage: UUID) throws {
         let original = binder()
         let destination = position(page: destinationPage, row: 1, column: 2)
-        let updated = try #require(BinderLayout.movingSlot(in: original, from: position(page: first), to: destination))
-        #expect(BinderLayout.slot(in: updated, at: position(page: first))?.cardID == zoro)
-        #expect(BinderLayout.slot(in: updated, at: position(page: first))?.quantity == 2)
+        let updated = try #require(
+            BinderLayout.movingSlot(in: original, from: position(page: first, row: 1, column: 1), to: destination)
+        )
+        #expect(BinderLayout.slot(in: updated, at: position(page: first, row: 1, column: 1))?.cardID == zoro)
+        #expect(BinderLayout.slot(in: updated, at: position(page: first, row: 1, column: 1))?.quantity == 2)
         #expect(BinderLayout.slot(in: updated, at: destination)?.cardID == luffy)
         #expect(BinderLayout.slot(in: updated, at: destination)?.quantity == 3)
         #expect(updated.allocatedCopies(of: luffy) == 3)
@@ -66,27 +70,59 @@ struct BinderSlotMovementTests {
         var original = binder()
         original.pages[1].slots = [.init(row: 1, column: 2, cardID: luffy, quantity: 1)]
         let destination = position(page: second, row: 1, column: 2)
-        let updated = try #require(BinderLayout.movingSlot(in: original, from: position(page: first), to: destination))
-        #expect(BinderLayout.slot(in: updated, at: position(page: first))?.quantity == 1)
+        let updated = try #require(
+            BinderLayout.movingSlot(in: original, from: position(page: first, row: 1, column: 1), to: destination)
+        )
+        #expect(BinderLayout.slot(in: updated, at: position(page: first, row: 1, column: 1))?.quantity == 1)
         #expect(BinderLayout.slot(in: updated, at: destination)?.quantity == 3)
         #expect(updated.allocatedCopies(of: luffy) == 4)
     }
 
     @Test func `Invalid coordinates missing pages empty sources and same position are rejected`() {
         let original = binder()
-        #expect(BinderLayout.movingSlot(in: original, from: position(page: first), to: position(page: first)) == nil)
-        #expect(BinderLayout.movingSlot(in: original, from: position(page: first), to: position(page: UUID())) == nil)
         #expect(
-            BinderLayout.movingSlot(in: original, from: position(page: first), to: position(page: second, row: 0))
+            BinderLayout.movingSlot(
+                in: original,
+                from: position(page: first, row: 1, column: 1),
+                to: position(page: first, row: 1, column: 1)
+            ) == nil
+        )
+        #expect(
+            BinderLayout.movingSlot(
+                in: original,
+                from: position(page: first, row: 1, column: 1),
+                to: position(page: UUID(), row: 1, column: 1)
+            ) == nil
+        )
+        #expect(
+            BinderLayout.movingSlot(
+                in: original,
+                from: position(page: first, row: 1, column: 1),
+                to: position(page: second, row: 0, column: 1)
+            )
                 == nil
         )
         #expect(
-            BinderLayout.movingSlot(in: original, from: position(page: first), to: position(page: second, column: 3))
+            BinderLayout.movingSlot(
+                in: original,
+                from: position(page: first, row: 1, column: 1),
+                to: position(page: second, row: 1, column: 3)
+            )
                 == nil
         )
-        #expect(BinderLayout.movingSlot(in: original, from: position(page: second), to: position(page: first)) == nil)
         #expect(
-            BinderLayout.movingSlot(in: original, from: position(page: first, row: 3), to: position(page: second))
+            BinderLayout.movingSlot(
+                in: original,
+                from: position(page: second, row: 1, column: 1),
+                to: position(page: first, row: 1, column: 1)
+            ) == nil
+        )
+        #expect(
+            BinderLayout.movingSlot(
+                in: original,
+                from: position(page: first, row: 3, column: 1),
+                to: position(page: second, row: 1, column: 1)
+            )
                 == nil
         )
     }
@@ -109,7 +145,7 @@ struct BinderSlotMovementTests {
         )
     }
 
-    private func position(page: UUID, row: Int = 1, column: Int = 1) -> BinderPosition {
+    private func position(page: UUID, row: Int, column: Int) -> BinderPosition {
         .init(pageID: page, row: row, column: column)
     }
 }

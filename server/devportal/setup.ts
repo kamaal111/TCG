@@ -47,8 +47,8 @@ export async function setupDevportal(options: SetupOptions): Promise<void> {
   try {
     await releaseConnection(root, configDirectory, {});
   } catch {
-    if (!(await prompts.confirm('Release credentials need setup. Open the existing credential wizard now?'))) {
-      throw new InfraFailure('Setup paused. Run just setup-devportal again when release credentials are available.');
+    if (!(await prompts.confirm('Release credentials need setup. Open the existing credential wizard now?', true))) {
+      throw new InfraFailure('Setup paused. Run just setup-devportal again when release credentials are available.', 1);
     }
 
     commands.run('just', ['setup-infra', '--config-dir', configDirectory]);
@@ -63,6 +63,7 @@ export async function setupDevportal(options: SetupOptions): Promise<void> {
     if (!z.object({ code: z.literal('ENOENT') }).safeParse(error).success) {
       throw new InfraFailure(
         'Existing devportal.json is invalid or unreadable. Repair it before rerunning setup; it has been preserved.',
+        1,
       );
     }
   }
@@ -113,7 +114,7 @@ export async function setupDevportal(options: SetupOptions): Promise<void> {
 
   try {
     if (portalHTTPSPort(readServe(), identity.hostname, port) !== httpsPort) {
-      throw new InfraFailure('Tailscale listeners changed during review. Rerun setup to review the new endpoint.');
+      throw new InfraFailure('Tailscale listeners changed during review. Rerun setup to review the new endpoint.', 1);
     }
 
     await savePortalSettings(configDirectory, settings);

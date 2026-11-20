@@ -7,7 +7,7 @@ public struct TCGFilterMenu<Content: View>: View {
     private let summary: Text?
     private let content: Content
 
-    public init(gameTitle: Text, summary: Text? = nil, @ViewBuilder content: () -> Content) {
+    public init(gameTitle: Text, summary: Text?, @ViewBuilder content: () -> Content) {
         self.gameTitle = gameTitle
         self.summary = summary
         self.content = content()

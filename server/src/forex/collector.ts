@@ -20,7 +20,7 @@ export class ForexCollector {
     this.client = client;
   }
 
-  async collectLatest(now = new Date()): Promise<Result<ForexCollectionResult, ForexError>> {
+  async collectLatest(now: Date): Promise<Result<ForexCollectionResult, ForexError>> {
     const collection = await this.repository.latestCollection();
 
     if (collection.isErr()) {

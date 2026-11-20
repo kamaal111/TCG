@@ -70,7 +70,7 @@ struct CollectionContentView: View {
         }
     }
 
-    private func cardList(hidesScrollBackground: Bool = false) -> TCGCardsListScreen {
+    private func cardList(hidesScrollBackground: Bool) -> TCGCardsListScreen {
         TCGCardsListScreen(
             model: TCGCardsListScreenModel(preferences: cards.isReadOnly ? nil : .standard),
             hidesScrollBackground: hidesScrollBackground
@@ -88,7 +88,7 @@ struct CollectionContentView: View {
             } else if collections.selectedID != nil {
                 ProgressView()
             } else {
-                cardList()
+                cardList(hidesScrollBackground: false)
             }
         }
     }

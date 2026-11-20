@@ -38,6 +38,7 @@ final class URLSessionCardImageLoader: CardImageLoader {
             ),
             maximumConcurrentLoads: 2,
             maximumDecodedImageCount: 128,
+            now: Date.init,
             retryDelay: Self.waitBeforeRetry
         )
     }
@@ -47,7 +48,7 @@ final class URLSessionCardImageLoader: CardImageLoader {
         root: URL,
         maximumConcurrentLoads: Int,
         maximumDecodedImageCount: Int,
-        now: @escaping @Sendable () -> Date = Date.init,
+        now: @escaping @Sendable () -> Date,
         retryDelay: @escaping @Sendable (Int, HTTPURLResponse?) async -> Void
     ) {
         precondition(maximumConcurrentLoads > 0, "maximumConcurrentLoads must be positive")
@@ -91,7 +92,7 @@ final class URLSessionCardImageLoader: CardImageLoader {
         await storage.thumbnail(for: artwork)
     }
 
-    func delete(_ artwork: CachedCardArtwork? = nil) async throws {
+    func delete(_ artwork: CachedCardArtwork?) async throws {
         try await storage.delete(artwork, loader: self)
     }
 
@@ -107,7 +108,7 @@ final class URLSessionCardImageLoader: CardImageLoader {
         }
     }
 
-    fileprivate func cache(_ image: Image, for key: String, expiresAt: Date? = nil) {
+    fileprivate func cache(_ image: Image, for key: String, expiresAt: Date?) {
         guard maximumDecodedImageCount > 0 else { return }
         memory.withLock { images in
             if images[key] == nil, images.count >= maximumDecodedImageCount,
@@ -131,7 +132,7 @@ final class URLSessionCardImageLoader: CardImageLoader {
 
     fileprivate func download(_ url: URL) async -> DownloadedCardArtwork? {
         await limiter.acquire()
-        let result = await Self.loadImage(from: url, session: session, retryDelay: retryDelay)
+        let result = await Self.loadImage(from: url, session: session, retryDelay: retryDelay, attempt: 1)
         await limiter.release()
         return result
     }
@@ -146,7 +147,7 @@ final class URLSessionCardImageLoader: CardImageLoader {
         from url: URL,
         session: URLSession,
         retryDelay: @Sendable (Int, HTTPURLResponse?) async -> Void,
-        attempt: Int = 1
+        attempt: Int
     ) async -> DownloadedCardArtwork? {
         let maximumAttempts = 10
         var responseData: (Data, URLResponse)
@@ -278,7 +279,7 @@ private actor CardArtworkStorage {
     {
         let collectionFile = file(for: key, policy: .collection)
         if let image = decodeFile(collectionFile) {
-            loader.cache(image, for: key)
+            loader.cache(image, for: key, expiresAt: nil)
             return image
         }
 
@@ -290,7 +291,7 @@ private actor CardArtworkStorage {
         if policy == .collection {
             do {
                 try promote(searchFile, to: collectionFile)
-                loader.cache(image, for: key)
+                loader.cache(image, for: key, expiresAt: nil)
                 notifyObservers()
                 return image
             } catch {

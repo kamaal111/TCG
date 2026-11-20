@@ -66,7 +66,7 @@ public final class TCGCollections {
     public func trackSession(
         _ auth: KamaalAuth,
         cards: TCGCards,
-        offlineSeed: (String) -> (cards: [CardWithPrice], collections: [CardBinderCollection]) = { _ in ([], []) }
+        offlineSeed: (String) -> (cards: [CardWithPrice], collections: [CardBinderCollection])
     ) async {
         error = nil
         var reloadTask: Task<Void, Never>?
@@ -324,7 +324,7 @@ public final class TCGCollections {
     }
 
     func save(_ collection: CardBinderCollection, using cards: TCGCards) async -> Bool {
-        await save(SaveBinderLayoutPayload(collection: collection), using: cards)
+        await save(SaveBinderLayoutPayload(collection: collection, moveFromUnfiledCardID: nil), using: cards)
     }
 
     func save(_ payload: SaveBinderLayoutPayload, using cards: TCGCards) async -> Bool {
@@ -419,7 +419,7 @@ public final class TCGCollections {
         guard let selectedID, let selected else { return .failure(.notFound) }
 
         let scope = CollectionSnapshotCache.Scope(collectionID: selectedID, pageID: pageID, revision: selected.revision)
-        if !force, let fresh = cards.snapshot.freshPage(for: scope, at: cards.now()) {
+        if !force, let fresh = cards.snapshot.freshPage(for: scope, at: cards.now(), force: false) {
             return .success(BinderPageCards(cards: fresh.cards.map(cards.compatibleDisplay)))
         }
 

@@ -3,7 +3,7 @@ import { and, asc, eq, inArray, lt, lte, or, sql } from 'drizzle-orm';
 import type { CardImageRepository } from '../../card-images/repository.ts';
 import type { CardImageRow, ClaimedCardImageRow } from '../../card-images/types.ts';
 import { CARD_IMAGE_STATUSES } from '../../card-images/types.ts';
-import { DEFAULT_IMAGE_POLICY, type ApplicationConfig } from '../../config.ts';
+import type { ApplicationConfig } from '../../config.ts';
 import type { Database } from '../../db/index.ts';
 import { cardImage } from '../../db/schema/card-images.ts';
 
@@ -53,7 +53,7 @@ export class PostgresCardImageRepository implements CardImageRepository {
   private readonly db: Database;
   private readonly policy: ImagePolicy;
 
-  constructor(db: Database, policy: ImagePolicy = DEFAULT_IMAGE_POLICY) {
+  constructor(db: Database, policy: ImagePolicy) {
     this.db = db;
     this.policy = policy;
   }
@@ -70,7 +70,7 @@ export class PostgresCardImageRepository implements CardImageRepository {
     return this.db.insert(cardImage).values(values).onConflictDoNothing({ target: cardImage.imageKey }).returning();
   }
 
-  async claim(imageKey: string, leaseOwner: string, now = new Date()): Promise<CardImageRow | undefined> {
+  async claim(imageKey: string, leaseOwner: string, now: Date): Promise<CardImageRow | undefined> {
     const [claimed] = await this.db
       .update(cardImage)
       .set(claimValues(leaseOwner, now, this.policy))
@@ -88,7 +88,7 @@ export class PostgresCardImageRepository implements CardImageRepository {
    * grouping. Note `LIMIT` applies before rows locked elsewhere are skipped, so a short batch
    * means "nothing more for me right now", not "the queue is empty".
    */
-  async claimBatch(leaseOwner: string, limit: number, now = new Date()): Promise<ClaimedCardImageRow[]> {
+  async claimBatch(leaseOwner: string, limit: number, now: Date): Promise<ClaimedCardImageRow[]> {
     if (limit <= 0) {
       return [];
     }

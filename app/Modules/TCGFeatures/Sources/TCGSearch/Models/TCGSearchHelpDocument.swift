@@ -6,7 +6,9 @@ enum TCGSearchHelpDocument {
         case unavailable
     }
 
-    static func load(game: ClientCardGame, bundle: Bundle = .module) -> Result<String, LoadError> {
+    static var resourceBundle: Bundle { .module }
+
+    static func load(game: ClientCardGame, bundle: Bundle) -> Result<String, LoadError> {
         let name: String
         switch game {
         case .pokemon:

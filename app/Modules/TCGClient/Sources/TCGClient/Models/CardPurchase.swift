@@ -28,13 +28,13 @@ public struct CardPurchase: Codable, Hashable, Sendable {
     public let displayPrice: PurchaseDisplayPrice?
 
     public init(
-        id: UUID? = nil,
+        id: UUID?,
         condition: CardCondition,
         quantity: Int,
-        purchasePrice: Decimal? = nil,
-        currency: Currency? = nil,
-        automaticPriceDate: String? = nil,
-        displayPrice: PurchaseDisplayPrice? = nil
+        purchasePrice: Decimal?,
+        currency: Currency?,
+        automaticPriceDate: String?,
+        displayPrice: PurchaseDisplayPrice?
     ) {
         self.id = id
         self.condition = condition

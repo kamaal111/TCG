@@ -172,7 +172,7 @@ export class DigitalOcean {
   private readonly token: string;
   private readonly request: typeof fetch;
 
-  constructor({ token, request = fetch }: { token: string; request?: typeof fetch }) {
+  constructor({ token, request }: { token: string; request: typeof fetch }) {
     this.token = token;
     this.request = request;
   }

@@ -12,7 +12,8 @@ struct TCGCardsImportReviewSnapshotTests {
     func `Renders a clean editable review`() async {
         let model = await CSVImportTestClient.readyReview(filename: "my-cards.csv", draft: CSVImportTestClient.draft)
         #expect(model.selectedPurchaseCount == 2)
-        await assertScreenSnapshot(testName: #function) {
+        await assertScreenSnapshot(testName: #function, fileID: #fileID, file: #filePath, line: #line, column: #column)
+        {
             TCGCardsImportReviewScreen(model: model).tcgCards(TCGCards(client: .preview(cardsOutcome: .empty)))
         }
     }
@@ -24,7 +25,8 @@ struct TCGCardsImportReviewSnapshotTests {
         draft.rows[0].isIncluded = false
         let model = await CSVImportTestClient.readyReview(filename: "my-cards.csv", draft: draft)
         #expect(model.invalidRowCount == 1)
-        await assertScreenSnapshot(testName: #function) {
+        await assertScreenSnapshot(testName: #function, fileID: #fileID, file: #filePath, line: #line, column: #column)
+        {
             TCGCardsImportReviewScreen(model: model).tcgCards(TCGCards(client: .preview(cardsOutcome: .empty)))
         }
     }
@@ -35,7 +37,8 @@ struct TCGCardsImportReviewSnapshotTests {
         let model = TCGCardsImportReviewModel(filename: "my-cards.csv", cards: [CardsCSVFixtures.draft])
         await model.refreshLookups(using: cards)
         #expect(!model.canImport)
-        await assertScreenSnapshot(testName: #function) {
+        await assertScreenSnapshot(testName: #function, fileID: #fileID, file: #filePath, line: #line, column: #column)
+        {
             TCGCardsImportReviewScreen(model: model).tcgCards(cards)
         }
     }
@@ -53,7 +56,8 @@ struct TCGCardsImportReviewSnapshotTests {
             needsRefresh: false
         )
         #expect(model.completion?.result.importedCount == 1)
-        await assertScreenSnapshot(testName: #function) {
+        await assertScreenSnapshot(testName: #function, fileID: #fileID, file: #filePath, line: #line, column: #column)
+        {
             TCGCardsImportReviewScreen(model: model).tcgCards(TCGCards(client: .preview(cardsOutcome: .empty)))
         }
     }
@@ -69,7 +73,8 @@ struct TCGCardsImportReviewSnapshotTests {
         let model = await CSVImportTestClient.readyReview(filename: "my-cards.csv", draft: CSVImportTestClient.draft)
         await model.submit(using: collection)
         #expect(model.serverIssues.first?.row == 2)
-        await assertScreenSnapshot(testName: #function) {
+        await assertScreenSnapshot(testName: #function, fileID: #fileID, file: #filePath, line: #line, column: #column)
+        {
             TCGCardsImportReviewScreen(model: model).tcgCards(collection)
         }
     }
@@ -81,7 +86,8 @@ struct TCGCardsImportReviewSnapshotTests {
         let model = await CSVImportTestClient.readyReview(filename: "my-cards.csv", draft: CSVImportTestClient.draft)
         await model.submit(using: collection)
         #expect(model.submissionError?.contains("couldn’t accept this import") == true)
-        await assertScreenSnapshot(testName: #function) {
+        await assertScreenSnapshot(testName: #function, fileID: #fileID, file: #filePath, line: #line, column: #column)
+        {
             TCGCardsImportReviewScreen(model: model).tcgCards(collection)
         }
     }
@@ -93,7 +99,8 @@ struct TCGCardsImportReviewSnapshotTests {
         let model = await CSVImportTestClient.readyReview(filename: "my-cards.csv", draft: CSVImportTestClient.draft)
         await model.submit(using: collection)
         #expect(model.submissionError?.contains("couldn’t read the import confirmation") == true)
-        await assertScreenSnapshot(testName: #function) {
+        await assertScreenSnapshot(testName: #function, fileID: #fileID, file: #filePath, line: #line, column: #column)
+        {
             TCGCardsImportReviewScreen(model: model).tcgCards(collection)
         }
     }
@@ -102,7 +109,8 @@ struct TCGCardsImportReviewSnapshotTests {
     func `Renders the draft card editor`() async {
         let model = TCGCardFormScreenModel(mode: .draft, initialValues: .init(card: CardsCSVFixtures.card))
         #expect(model.values.batches.count == 2)
-        await assertScreenSnapshot(testName: #function) {
+        await assertScreenSnapshot(testName: #function, fileID: #fileID, file: #filePath, line: #line, column: #column)
+        {
             NavigationStack {
                 ScrollView { TCGCardFormFields(model: model, onSubmit: {}) }
                     .navigationTitle(Text("Edit Import Card"))

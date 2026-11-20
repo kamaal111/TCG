@@ -66,7 +66,7 @@ public struct TCGClient: Sendable {
     /// A ``TCGClient`` for SwiftUI previews that never performs network requests or touches the Keychain.
     ///
     /// - Parameter hasValidCredentials: Seed the in-memory credentials store so the preview looks signed in.
-    static func preview(hasValidCredentials: Bool = false) -> TCGClient {
+    static func preview(hasValidCredentials: Bool) -> TCGClient {
         preview(
             hasValidCredentials: hasValidCredentials,
             authOutcome: .success,
@@ -207,7 +207,7 @@ public struct TCGClient: Sendable {
             configuration: configuration,
             transport: transport,
             middlewares: [
-                RequestDiagnosticsMiddleware(),
+                RequestDiagnosticsMiddleware(logger: KamaalLogger(from: RequestDiagnosticsMiddleware.self)),
                 AuthorizationMiddleware(tokenProvider: tokenProvider),
                 OfflineManifestETagMiddleware(),
             ]
@@ -220,7 +220,7 @@ public struct TCGClient: Sendable {
         let pricing = TCGPricingClientImpl(client: client)
 
         return TCGClient(
-            currency: TCGCurrencyClientImpl(client: client),
+            currency: TCGCurrencyClientImpl(client: client, logger: KamaalLogger(from: TCGCurrencyClientImpl.self)),
             auth: auth,
             cards: cards,
             collections: TCGCollectionsClientImpl(client: client),

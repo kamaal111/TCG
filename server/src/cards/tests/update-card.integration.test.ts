@@ -8,6 +8,7 @@ import { validCardPayload, createTestCard, ownershipPayload } from './utils.ts';
 import { card, cardConditionQuantity } from '../../db/schema/cards.ts';
 import { expectErrorResponse, sessionHeaders } from '../../tests/auth.ts';
 import { integrationTest } from '../../tests/fixtures.ts';
+import { createTestRequestId } from '../../tests/logs.ts';
 import { CardSchema, CardWithPriceSchema } from '../schemas/responses.ts';
 
 describe('Update card integration', () => {
@@ -32,10 +33,10 @@ describe('Update card integration', () => {
   integrationTest(
     "does not update another user's card and logs the access denial",
     async ({ app, db, getLogsForRequestId, withRequestId, user: owner, createUser }) => {
-      const otherUser = await createUser();
+      const otherUser = await createUser({});
       const original = await createTestCard(app, owner.sessionToken, validCardPayload);
 
-      const { headers, requestId } = withRequestId(sessionHeaders(otherUser.sessionToken));
+      const { headers, requestId } = withRequestId(sessionHeaders(otherUser.sessionToken), createTestRequestId());
 
       const response = await app.request(`/app-api/cards/${original.id}`, {
         method: 'PUT',
@@ -129,7 +130,7 @@ describe('Update card integration', () => {
     'replaces ownership details and logs success',
     async ({ app, db, getLogsForRequestId, withRequestId, user, authenticatedHeaders }) => {
       const original = await createTestCard(app, user.sessionToken, validCardPayload);
-      const { headers, requestId } = withRequestId(authenticatedHeaders);
+      const { headers, requestId } = withRequestId(authenticatedHeaders, createTestRequestId());
 
       const replacement = {
         ...ownershipPayload(validCardPayload),

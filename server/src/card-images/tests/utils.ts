@@ -6,7 +6,7 @@ import type { cardImage } from '../../db/schema/card-images.ts';
 import { deferred } from '../../tests/async.ts';
 import type { CardImageOriginClient, CardImageOriginResult } from '../origin-client.ts';
 
-export function imageRecord(overrides: Partial<typeof cardImage.$inferInsert> = {}): typeof cardImage.$inferInsert {
+export function imageRecord(overrides: Partial<typeof cardImage.$inferInsert>): typeof cardImage.$inferInsert {
   const imageKey = overrides.imageKey ?? crypto.randomBytes(32).toString('hex');
 
   return {

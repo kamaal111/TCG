@@ -9,7 +9,7 @@ import { z } from 'zod';
 import { createTestDatabase } from '../../tests/utils.ts';
 import { readMigrationCatalog } from '../migration-files.ts';
 
-export async function migrationFixture(t: Pick<TestContext, 'onTestFinished'> = { onTestFinished }) {
+export async function migrationFixture(t: Pick<TestContext, 'onTestFinished'>) {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'tcg-migrations-'));
   t.onTestFinished(() => fs.rm(root, { recursive: true, force: true }));
   const folder = path.join(root, 'drizzle');

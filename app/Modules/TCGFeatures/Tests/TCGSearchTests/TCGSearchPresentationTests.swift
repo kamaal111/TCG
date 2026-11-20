@@ -10,11 +10,14 @@ import Testing
 struct TCGSearchPresentationTests {
     @Test
     func `Opening details retains the selected card after clearing search`() async throws {
-        let feature = TCGSearch(client: .preview(pricingOutcome: .success), history: TCGSearchHistoryStore())
+        let feature = TCGSearch(
+            client: .preview(pricingOutcome: .success),
+            history: TCGSearchHistoryStore(defaults: nil, now: Date.init)
+        )
         try await feature.search(.init(game: .pokemon, query: "Giratina", languages: [], mode: .card, cursor: nil))
             .get()
         let card = try #require(feature.results.first)
-        let model = TCGSearchScreenModel(preferences: nil)
+        let model = TCGSearchScreenModel(preferences: nil, debounce: ModuleConfig.searchDebounce)
         model.showDetails(of: .init(card: card, variants: [card]))
         feature.clear()
         #expect(model.presentedDetail?.card == card)
@@ -23,7 +26,7 @@ struct TCGSearchPresentationTests {
 
     @Test
     func `Opening and closing the image preserves the selected detail`() {
-        let model = TCGSearchScreenModel(preferences: nil)
+        let model = TCGSearchScreenModel(preferences: nil, debounce: ModuleConfig.searchDebounce)
         model.showDetails(of: .init(card: card, variants: [card]))
         model.exploreImage(of: .init(card: card, variants: [card]))
         #expect(model.presentedImage?.card == card)
@@ -33,7 +36,7 @@ struct TCGSearchPresentationTests {
 
     @Test
     func `Opening the image directly does not open details`() {
-        let model = TCGSearchScreenModel(preferences: nil)
+        let model = TCGSearchScreenModel(preferences: nil, debounce: ModuleConfig.searchDebounce)
         model.exploreImage(of: .init(card: card, variants: [card]))
         #expect(model.presentedImage?.directArtworkURL == card.imageURL)
         #expect(model.presentedDetail == nil)
@@ -41,13 +44,22 @@ struct TCGSearchPresentationTests {
 
     @Test
     func `Missing artwork does not open exploration`() {
-        let model = TCGSearchScreenModel(preferences: nil)
+        let model = TCGSearchScreenModel(preferences: nil, debounce: ModuleConfig.searchDebounce)
         let card = PricedCard(
             id: "no-image",
+            printingKey: nil,
+            isWishlisted: nil,
             game: .onePiece,
             name: "Nami",
             cardNumber: "OP01-016",
+            setName: nil,
+            rarity: nil,
             illustrator: nil,
+            variantName: nil,
+            imageURL: nil,
+            headline: nil,
+            market: nil,
+            display: nil,
             pricedOn: .distantPast,
             fetchedAt: .distantPast
         )
@@ -58,7 +70,7 @@ struct TCGSearchPresentationTests {
     @Test
     func `Grouped presentation retains every variant and resolves only the selected artwork`() throws {
         let group = try #require(SearchVariantFixtures.groups(count: 5).first)
-        let model = TCGSearchScreenModel(preferences: nil)
+        let model = TCGSearchScreenModel(preferences: nil, debounce: ModuleConfig.searchDebounce)
         model.showDetails(of: group)
         model.exploreImage(of: group)
         let image = try #require(model.presentedImage)
@@ -75,8 +87,8 @@ struct TCGSearchPresentationTests {
 
     @Test
     func `Details hide the alternative artwork picker when the selected variant has an image`() {
-        let foil = SearchVariantFixtures.variant(0)
-        let alternate = SearchVariantFixtures.variant(1)
+        let foil = SearchVariantFixtures.variant(0, image: nil, hasArtwork: true, price: nil)
+        let alternate = SearchVariantFixtures.variant(1, image: nil, hasArtwork: true, price: nil)
         let group = SearchResultGroup(card: alternate, variants: [foil, alternate])
 
         #expect(!group.canExploreAlternativeArtwork)
@@ -84,9 +96,9 @@ struct TCGSearchPresentationTests {
 
     @Test
     func `Details offer the artwork picker only when another variant has artwork`() {
-        let foil = SearchVariantFixtures.variant(0)
-        let alternate = SearchVariantFixtures.variant(1, hasArtwork: false)
-        let other = SearchVariantFixtures.variant(2, hasArtwork: false)
+        let foil = SearchVariantFixtures.variant(0, image: nil, hasArtwork: true, price: nil)
+        let alternate = SearchVariantFixtures.variant(1, image: nil, hasArtwork: false, price: nil)
+        let other = SearchVariantFixtures.variant(2, image: nil, hasArtwork: false, price: nil)
 
         #expect(SearchResultGroup(card: alternate, variants: [foil, alternate]).canExploreAlternativeArtwork)
         #expect(!SearchResultGroup(card: alternate, variants: [alternate, other]).canExploreAlternativeArtwork)
@@ -95,9 +107,9 @@ struct TCGSearchPresentationTests {
 
     @Test
     func `Details keep the chosen variant and use its latest result for Add`() {
-        let foil = SearchVariantFixtures.variant(0)
-        let alternate = SearchVariantFixtures.variant(1)
-        let refreshed = SearchVariantFixtures.variant(1, price: 250)
+        let foil = SearchVariantFixtures.variant(0, image: nil, hasArtwork: true, price: nil)
+        let alternate = SearchVariantFixtures.variant(1, image: nil, hasArtwork: true, price: nil)
+        let refreshed = SearchVariantFixtures.variant(1, image: nil, hasArtwork: true, price: 250)
         let group = SearchResultGroup(card: foil, variants: [foil, alternate])
         #expect(group.destinationCard(selected: nil) == nil)
         #expect(SearchResultGroup(card: foil, variants: [foil]).destinationCard(selected: nil) == foil)
@@ -146,7 +158,14 @@ struct TCGSearchPresentationTests {
             game: .onePiece,
             name: "Monkey.D.Luffy",
             cardNumber: "OP05-119",
+            setName: nil,
+            rarity: nil,
             illustrator: nil,
+            variantName: nil,
+            imageURL: nil,
+            headline: nil,
+            market: nil,
+            display: nil,
             pricedOn: .distantPast,
             fetchedAt: .distantPast
         )
@@ -155,11 +174,19 @@ struct TCGSearchPresentationTests {
     private var card: PricedCard {
         PricedCard(
             id: "artwork",
+            printingKey: nil,
+            isWishlisted: nil,
             game: .pokemon,
             name: "Giratina",
             cardNumber: "186/196",
+            setName: nil,
+            rarity: nil,
             illustrator: nil,
+            variantName: nil,
             imageURL: URL(string: "https://images.example.com/card.png")!,
+            headline: nil,
+            market: nil,
+            display: nil,
             pricedOn: .distantPast,
             fetchedAt: .distantPast
         )
@@ -168,20 +195,25 @@ struct TCGSearchPresentationTests {
 
 enum SearchVariantFixtures {
     static func groups(count: Int) -> [SearchResultGroup] {
-        SearchResultGroup.group((0..<count).map { variant($0) })
+        SearchResultGroup.group((0..<count).map { variant($0, image: nil, hasArtwork: true, price: nil) })
     }
 
-    static func variant(_ index: Int, image: Int? = nil, hasArtwork: Bool = true, price: Double? = nil) -> PricedCard {
+    static func variant(_ index: Int, image: Int?, hasArtwork: Bool, price: Double?) -> PricedCard {
         PricedCard(
             id: "zoro-\(index)",
+            printingKey: nil,
+            isWishlisted: nil,
             game: .onePiece,
             name: "Roronoa Zoro",
             cardNumber: "OP01-025",
+            setName: nil,
             rarity: "Super Rare",
             illustrator: index == 1 ? "Akira Egawa" : nil,
             variantName: index == 0 ? "foil" : "altArt \(index)",
             imageURL: hasArtwork ? URL(string: "https://images.example.com/zoro-\(image ?? index).png") : nil,
-            headline: .init(amount: price ?? Double(5 + index * 25), currency: .usd),
+            headline: .init(amount: price ?? Double(5 + index * 25), currency: .usd, metric: .lowestNearMint),
+            market: nil,
+            display: nil,
             pricedOn: .distantPast,
             fetchedAt: .distantPast
         )

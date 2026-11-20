@@ -48,12 +48,12 @@ const CommandFailureSchema = z.object({
 const ToolchainSchema = z.object({ Config: z.object({ Labels: z.record(z.string(), z.string()) }) });
 
 interface CommandOptions {
-  cwd?: string;
-  env?: NodeJS.ProcessEnv;
+  cwd: string;
+  env: NodeJS.ProcessEnv;
 }
 
 export interface RuntimeOptions {
-  mode?: 'terminal' | 'application';
+  mode: 'terminal' | 'application';
   reviewedFingerprint?: string;
   stage?: (stage: ReleaseStage) => void;
   root: string;
@@ -77,13 +77,14 @@ export async function runReleaseRuntime({
   configDirectory,
   revision,
   prompts,
-  mode = 'terminal',
+  mode,
   reviewedFingerprint,
   stage,
 }: RuntimeOptions): Promise<void> {
   const { store, release, releaseEnvironment, settings, environment, key, hosts } = await releaseConnection(
     root,
     configDirectory,
+    process.env,
   );
 
   const stateDirectory = path.join(configDirectory, 'releases');
@@ -95,11 +96,7 @@ export async function runReleaseRuntime({
   await fs.writeFile(log, '', { mode: 0o600 });
   prompts.note(`Detailed output is saved privately in ${log}.`);
 
-  async function command(
-    program: string,
-    args: string[],
-    { cwd = root, env = environment }: CommandOptions = {},
-  ): Promise<string> {
+  async function runCommand(program: string, args: string[], { cwd, env }: CommandOptions): Promise<string> {
     const heartbeat = setInterval(() => console.log('Still running. This step can take several minutes.'), 30_000);
 
     await fs.appendFile(log, `\n${program} ${JSON.stringify(args)}\n`);
@@ -127,14 +124,19 @@ export async function runReleaseRuntime({
 
       throw new InfraFailure(
         `This step failed. Read the private release log at ${log}, fix the cause, then rerun just release-server. Completed images can be reused; live state is checked again.`,
+        1,
       );
     } finally {
       clearInterval(heartbeat);
     }
   }
 
-  function readableCommand(program: string, args: string[], options?: CommandOptions): Promise<string> {
-    return command('bash', ['-c', 'umask 022; exec "$@"', '--', program, ...args], options);
+  function command(program: string, args: string[]): Promise<string> {
+    return runCommand(program, args, { cwd: root, env: environment });
+  }
+
+  function readableCommand(program: string, args: string[], options: CommandOptions): Promise<string> {
+    return runCommand('bash', ['-c', 'umask 022; exec "$@"', '--', program, ...args], options);
   }
 
   const checkpointFile = path.join(stateDirectory, `${fingerprint([settings.TCG_DEPLOY_HOST])}.json`);
@@ -143,7 +145,7 @@ export async function runReleaseRuntime({
   let configurationPending = previous.success && !previous.data.complete && previous.data.configurationPending;
 
   prompts.note('Fetching main and selecting the exact application commit.', '1. Select release');
-  await gitFetch(command);
+  await gitFetch(command, {});
   const operations = ShaSchema.parse(await gitRevision(command, 'origin/main'));
 
   const resume =
@@ -190,6 +192,7 @@ export async function runReleaseRuntime({
     if (fingerprint(current) !== fingerprint([release.contents, key, hosts, ...terraform, infrastructureContents])) {
       throw new InfraFailure(
         'Local settings changed during this release. Rerun to review the new settings before making changes.',
+        1,
       );
     }
   }
@@ -228,7 +231,11 @@ export async function runReleaseRuntime({
   async function ops(): Promise<string> {
     if (!worktreeAdded) {
       // The parent stays private; tracked source and installed dependencies must be readable in Docker.
-      await gitAddDetachedWorktree(readableCommand, opsRoot, operations);
+      await gitAddDetachedWorktree(
+        (program, args) => readableCommand(program, args, { cwd: root, env: environment }),
+        opsRoot,
+        operations,
+      );
       worktreeAdded = true;
       await readableCommand(
         'mise',
@@ -269,7 +276,7 @@ export async function runReleaseRuntime({
       }
     }
 
-    await command('bash', ['scripts/infrastructure.sh', action], { cwd: directory, env: infrastructureEnvironment });
+    await runCommand('bash', ['scripts/infrastructure.sh', action], { cwd: directory, env: infrastructureEnvironment });
   }
 
   async function configure(): Promise<void> {
@@ -310,6 +317,7 @@ export async function runReleaseRuntime({
 
       throw new InfraFailure(
         `Cannot inspect the host. Check Tailscale, SSH and the verified host key. Details: ${log}`,
+        1,
       );
     }
   }
@@ -319,7 +327,7 @@ export async function runReleaseRuntime({
   const initial = await host();
 
   if (reviewedFingerprint && initial?.fingerprint !== reviewedFingerprint) {
-    throw new InfraFailure('The server changed. Refresh the release review before starting again.');
+    throw new InfraFailure('The server changed. Refresh the release review before starting again.', 1);
   }
 
   const setupInspection = await inspectServerSetup(command, initial, operations);
@@ -338,7 +346,7 @@ export async function runReleaseRuntime({
       commits: current => commitSummary(command, current.revision, sha),
       configure: async () => {
         if (mode === 'application') {
-          throw new InfraFailure(PORTAL_SETUP_REQUIRED);
+          throw new InfraFailure(PORTAL_SETUP_REQUIRED, 1);
         }
 
         await configure();
@@ -382,7 +390,7 @@ export async function runReleaseRuntime({
           serverInventoryChanged || (!serverConfigured && (savedSettingsChanged || serverSetupChanged));
 
         if (mode === 'application' && (setupNeeded || configurationPending)) {
-          throw new InfraFailure(PORTAL_SETUP_REQUIRED);
+          throw new InfraFailure(PORTAL_SETUP_REQUIRED, 1);
         }
 
         if (!setupNeeded) {
@@ -402,8 +410,9 @@ export async function runReleaseRuntime({
             '3. Build and publish',
           );
           const output = path.join(session, 'artifacts.json');
-          await command('bash', [path.join(root, 'scripts/release-server.sh'), '--prepare', output, sha], {
+          await runCommand('bash', [path.join(root, 'scripts/release-server.sh'), '--prepare', output, sha], {
             cwd: await ops(),
+            env: environment,
           });
           artifacts = ArtifactsSchema.parse(JSON.parse(await fs.readFile(output, 'utf8')));
           await checkpoint(false);
@@ -419,7 +428,7 @@ export async function runReleaseRuntime({
           [images.migration, `${settings.TCG_IMAGE_REPOSITORY}-migrations`],
         ]) {
           if (!image?.startsWith(`${repository}@sha256:`)) {
-            throw new InfraFailure('Saved images do not belong to the configured registry. Start a fresh release.');
+            throw new InfraFailure('Saved images do not belong to the configured registry. Start a fresh release.', 1);
           }
 
           await command('docker', ['pull', '--platform', 'linux/amd64', image]);
@@ -429,7 +438,10 @@ export async function runReleaseRuntime({
             .parse(JSON.parse(await command('docker', ['image', 'inspect', image])));
 
           if (inspected.Config.Labels['org.opencontainers.image.revision'] !== sha) {
-            throw new InfraFailure('An image source label differs from the selected release. Deployment was stopped.');
+            throw new InfraFailure(
+              'An image source label differs from the selected release. Deployment was stopped.',
+              1,
+            );
           }
         }
       },

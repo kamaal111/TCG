@@ -12,16 +12,16 @@ import { InfraFailure } from '../../scripts/infra/errors.ts';
 
 const label = 'io.kamaal.mintomo-devportal';
 const root = url.fileURLToPath(new URL('../../', import.meta.url));
-const configDirectory = process.env.TCG_CONFIG_DIRECTORY ?? path.join(os.homedir(), '.config/tcg');
+export const defaultConfigDirectory = process.env.TCG_CONFIG_DIRECTORY ?? path.join(os.homedir(), '.config/tcg');
 const agentsDirectory = path.join(os.homedir(), 'Library/LaunchAgents');
 const plist = path.join(agentsDirectory, `${label}.plist`);
 const service = `gui/${process.getuid?.()}/${label}`;
 
 export async function readAgentInstallation(requestedDirectory?: string) {
-  const directory = requestedDirectory ?? configDirectory;
+  const directory = requestedDirectory ?? defaultConfigDirectory;
 
   if (!directory.trim()) {
-    throw new InfraFailure('TCG_CONFIG_DIRECTORY must not be empty. Existing settings were preserved.');
+    throw new InfraFailure('TCG_CONFIG_DIRECTORY must not be empty. Existing settings were preserved.', 1);
   }
 
   try {
@@ -33,6 +33,7 @@ export async function readAgentInstallation(requestedDirectory?: string) {
 
     throw new InfraFailure(
       'The existing LaunchAgent could not be read. Check file access before rerunning just install-devportal-agent.',
+      1,
     );
   }
 
@@ -45,6 +46,7 @@ export async function readAgentInstallation(requestedDirectory?: string) {
   if (!savedDirectory) {
     throw new InfraFailure(
       'The installed LaunchAgent has no settings directory. Run just setup-devportal to repair it.',
+      1,
     );
   }
 
@@ -54,6 +56,7 @@ export async function readAgentInstallation(requestedDirectory?: string) {
   ) {
     throw new InfraFailure(
       'The requested configuration directory differs from the installed agent. Remove the override and rerun just install-devportal-agent to reuse the saved settings.',
+      1,
     );
   }
 
@@ -69,9 +72,9 @@ function xml(value: string): string {
     .replaceAll("'", '&apos;');
 }
 
-export async function manageAgent(action: string, settingsDirectory = configDirectory): Promise<void> {
+export async function manageAgent(action: string, settingsDirectory: string): Promise<void> {
   if (process.platform !== 'darwin') {
-    throw new InfraFailure('The Devportal LaunchAgent requires macOS.');
+    throw new InfraFailure('The Devportal LaunchAgent requires macOS.', 1);
   }
 
   if (action === 'status') {
@@ -94,7 +97,7 @@ export async function manageAgent(action: string, settingsDirectory = configDire
   }
 
   if (action !== 'install' && action !== 'preview') {
-    throw new InfraFailure('Expected install, preview, status, or uninstall.');
+    throw new InfraFailure('Expected install, preview, status, or uninstall.', 1);
   }
 
   await readPortalSettings(settingsDirectory);

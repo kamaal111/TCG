@@ -49,7 +49,7 @@ export class PostgresCollectionRepository implements CollectionRepository {
     this.cardRepository = cardRepository;
   }
 
-  private async transaction<T>(action: (tx: Transaction) => Promise<T>, admitted = false) {
+  private async transaction<T>(action: (tx: Transaction) => Promise<T>, admitted: boolean) {
     if (admitted) {
       return runCollectionOperation({ db: this.db, identity: this.identity, policy: this.policy, action });
     }
@@ -136,7 +136,7 @@ export class PostgresCollectionRepository implements CollectionRepository {
       await tx.insert(cardCollection).values({ id, userId: this.identity.requireUserId(), name });
 
       return this.read(tx, id);
-    });
+    }, false);
   }
 
   update(id: string, values: z.infer<typeof UpdateCollectionSchema>) {
@@ -144,7 +144,7 @@ export class PostgresCollectionRepository implements CollectionRepository {
       const owned = await this.owned(tx, id);
 
       if (owned.revision !== values.revision) {
-        throw new LayoutConflict();
+        throw new LayoutConflict('This collection changed. Refresh it and try again.');
       }
 
       if (owned.isUnfiled) {
@@ -157,14 +157,14 @@ export class PostgresCollectionRepository implements CollectionRepository {
         .where(eq(cardCollection.id, owned.id));
 
       return this.read(tx, id);
-    });
+    }, false);
   }
 
   private async writeLayout(tx: Transaction, owned: typeof cardCollection.$inferSelect, values: SaveLayout) {
     const id = owned.id;
 
     if (owned.revision !== values.revision) {
-      throw new LayoutConflict();
+      throw new LayoutConflict('This collection changed. Refresh it and try again.');
     }
 
     const ids = [...new Set(values.pages.flatMap(p => p.slots.map(s => s.card_id)))];
@@ -242,7 +242,7 @@ export class PostgresCollectionRepository implements CollectionRepository {
       const destination = await this.owned(tx, id);
 
       if (destination.revision !== values.revision) {
-        throw new LayoutConflict();
+        throw new LayoutConflict('This collection changed. Refresh it and try again.');
       }
 
       if (values.move_from_unfiled_card_id != null) {
@@ -296,7 +296,7 @@ export class PostgresCollectionRepository implements CollectionRepository {
         .where(and(eq(card.userId, this.identity.requireUserId()), eq(card.collectionId, id)));
       await tx.delete(cardCollection).where(eq(cardCollection.id, id));
       await bumpCollections(tx, this.identity, [null]);
-    });
+    }, false);
   }
 
   page(id: string, pageId: string) {

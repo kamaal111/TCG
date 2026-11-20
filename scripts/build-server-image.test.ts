@@ -80,7 +80,7 @@ process.exit(Number(process.env.DOCKER_EXIT || 0));
       return fs.writeFile(path.join(dockerConfig, 'config.json'), JSON.stringify(value));
     },
     observe: async () => ObservationSchema.parse(JSON.parse(await fs.readFile(observation, 'utf8'))),
-    run: (overrides: NodeJS.ProcessEnv = {}) => {
+    run: (overrides: NodeJS.ProcessEnv) => {
       return childProcess.spawnSync(process.execPath, [script], { env: { ...env, ...overrides }, encoding: 'utf8' });
     },
   };
@@ -103,7 +103,7 @@ test('builds with an isolated editor-free config while preserving credentials an
   await fs.mkdir(path.join(f.dockerConfig, 'contexts'));
   await fs.writeFile(path.join(f.dockerConfig, 'contexts', 'fixture'), 'context-data');
 
-  const result = f.run();
+  const result = f.run({});
   const observed = await f.observe();
 
   expect(result.status).toBe(0);
@@ -136,7 +136,7 @@ test('preserves a normal default helper when removing a registry-specific editor
   const f = await fixture(t);
   await f.write({ credsStore: 'pass', credHelpers: { 'ghcr.io': 'dev-containers-session' } });
 
-  expect(f.run().status).toBe(0);
+  expect(f.run({}).status).toBe(0);
   expect((await f.observe()).config).toEqual({ credsStore: 'pass', credHelpers: {} });
   expect(await fs.readdir(f.temporary)).toEqual([]);
 });
@@ -157,7 +157,7 @@ test('uses normal helper configuration unchanged inside the devcontainer', async
   const config = { credsStore: 'pass', credHelpers: { 'ghcr.io': 'secretservice' } };
   await f.write(config);
 
-  expect(f.run().status).toBe(0);
+  expect(f.run({}).status).toBe(0);
   expect((await f.observe()).directory).toBe(f.dockerConfig);
   expect((await f.observe()).config).toEqual(config);
   expect(await fs.readdir(f.temporary)).toEqual([]);
@@ -166,7 +166,7 @@ test('uses normal helper configuration unchanged inside the devcontainer', async
 test('builds normally when no Docker configuration exists', async t => {
   const f = await fixture(t);
 
-  expect(f.run().status).toBe(0);
+  expect(f.run({}).status).toBe(0);
   expect((await f.observe()).directory).toBe(f.dockerConfig);
   expect((await f.observe()).config).toEqual({});
   expect(await fs.readdir(f.temporary)).toEqual([]);
@@ -199,7 +199,7 @@ test('cleans up temporary configuration when Docker cannot be spawned', async t 
   await f.write({ credsStore: 'dev-containers-session' });
   await fs.unlink(f.executable);
 
-  const result = f.run();
+  const result = f.run({});
 
   expect(result.status).toBe(1);
   expect(result.stderr).toContain('ENOENT');
@@ -210,7 +210,7 @@ test('rejects malformed JSON without printing its credential contents', async t 
   const f = await fixture(t);
   await fs.writeFile(path.join(f.dockerConfig, 'config.json'), '{"auths":"fixture-secret"');
 
-  const result = f.run();
+  const result = f.run({});
 
   expect(result.status).toBe(1);
   expect(result.stderr).toContain('Invalid Docker configuration');

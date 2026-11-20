@@ -164,7 +164,8 @@ final class TCGCardsImportReviewModel {
                 quantity: purchase.quantity,
                 purchasePrice: purchase.purchasePrice,
                 currency: purchase.currency,
-                automaticPriceDate: date
+                automaticPriceDate: date,
+                displayPrice: nil
             )
         }
         let edited = Card(
@@ -177,6 +178,8 @@ final class TCGCardsImportReviewModel {
             createdAt: original.createdAt,
             updatedAt: original.updatedAt,
             purchases: purchases,
+            purchasePriceChangePercent: nil,
+            displayCurrency: nil,
             collectionID: original.collectionID,
             allocationAdjustments: nil,
             illustrator: nil,

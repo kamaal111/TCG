@@ -21,6 +21,7 @@ export function portalCommands(root: string, retry: string): PortalCommands {
       } catch {
         throw new InfraFailure(
           `Could not run ${path.basename(program)} ${args.join(' ')}. Check the installed tool and its required services, then rerun ${retry}.`,
+          1,
         );
       }
     },
@@ -30,6 +31,7 @@ export function portalCommands(root: string, retry: string): PortalCommands {
       if (result.status !== 0) {
         throw new InfraFailure(
           `${path.basename(program)} did not finish. Follow its message above, then rerun ${retry}. Completed settings remain saved.`,
+          1,
         );
       }
     },

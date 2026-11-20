@@ -34,7 +34,8 @@ struct TCGCardsListScreenSnapshotTests {
         await model.load(using: feature)
         #expect(feature.cards.first?.card.purchasePriceChangePercent == 25)
         #expect(feature.cards.first?.card.totalQuantity == 3)
-        await assertScreenSnapshot(testName: #function) {
+        await assertScreenSnapshot(testName: #function, fileID: #fileID, file: #filePath, line: #line, column: #column)
+        {
             makeScreen(feature: feature, model: model).environment(\.tcgPricePrivacy, privacy)
         }
     }
@@ -47,7 +48,8 @@ struct TCGCardsListScreenSnapshotTests {
         let model = TCGCardsListScreenModel(preferences: nil)
         await model.load(using: feature)
         #expect(feature.cards.allSatisfy { $0.price.status == .unavailable })
-        await assertScreenSnapshot(testName: #function) {
+        await assertScreenSnapshot(testName: #function, fileID: #fileID, file: #filePath, line: #line, column: #column)
+        {
             makeScreen(feature: feature, model: model).environment(\.tcgPricePrivacy, privacy)
         }
     }
@@ -60,7 +62,8 @@ struct TCGCardsListScreenSnapshotTests {
         model.filterState.illustrators = ["Mitsuhiro Arita"]
         await model.load(using: feature)
         #expect(feature.cards.count == 1)
-        await assertScreenSnapshot(testName: #function) { makeScreen(feature: feature, model: model) }
+        await assertScreenSnapshot(testName: #function, fileID: #fileID, file: #filePath, line: #line, column: #column)
+        { makeScreen(feature: feature, model: model) }
     }
 
     @Test
@@ -75,22 +78,26 @@ struct TCGCardsListScreenSnapshotTests {
         let model = TCGCardsListScreenModel(preferences: nil)
         await model.load(using: feature)
         #expect(feature.cards.count == 4)
-        await assertScreenSnapshot(testName: #function) { makeScreen(feature: feature, model: model) }
+        await assertScreenSnapshot(testName: #function, fileID: #fileID, file: #filePath, line: #line, column: #column)
+        { makeScreen(feature: feature, model: model) }
     }
 
     @Test
     func `Renders the loading pagination footer`() async {
-        await assertScreenSnapshot(testName: #function) {
-            TCGCollectionPaginationFooter(isLoading: true, errorDescription: nil, retry: {})
+        await assertScreenSnapshot(testName: #function, fileID: #fileID, file: #filePath, line: #line, column: #column)
+        {
+            TCGCollectionPaginationFooter(isLoading: true, errorDescription: nil, failureTitle: nil, retry: {})
         }
     }
 
     @Test
     func `Renders the pagination retry footer`() async {
-        await assertScreenSnapshot(testName: #function) {
+        await assertScreenSnapshot(testName: #function, fileID: #fileID, file: #filePath, line: #line, column: #column)
+        {
             TCGCollectionPaginationFooter(
                 isLoading: false,
                 errorDescription: TCGCardsOperationError.serverUnavailable.errorDescription,
+                failureTitle: nil,
                 retry: {}
             )
         }
@@ -109,6 +116,7 @@ struct TCGCardsListScreenSnapshotTests {
             updatedAt: source.updatedAt,
             purchases: source.purchases,
             purchasePriceChangePercent: change,
+            displayCurrency: nil,
             collectionID: nil,
             allocationAdjustments: nil,
             illustrator: nil,
@@ -123,7 +131,8 @@ struct TCGCardsListScreenSnapshotTests {
         model.filterState.setNames = ["Base Set", "Romance Dawn"]
         await model.load(using: feature)
         #expect(feature.cards.count == 2)
-        await assertScreenSnapshot(testName: #function) { makeScreen(feature: feature, model: model) }
+        await assertScreenSnapshot(testName: #function, fileID: #fileID, file: #filePath, line: #line, column: #column)
+        { makeScreen(feature: feature, model: model) }
     }
 
     @Test
@@ -133,7 +142,8 @@ struct TCGCardsListScreenSnapshotTests {
         model.filterState.setNames = ["Crown Zenith"]
         await model.load(using: feature)
         #expect(feature.cards.isEmpty)
-        await assertScreenSnapshot(testName: #function) { makeScreen(feature: feature, model: model) }
+        await assertScreenSnapshot(testName: #function, fileID: #fileID, file: #filePath, line: #line, column: #column)
+        { makeScreen(feature: feature, model: model) }
     }
 
     #if os(iOS)
@@ -144,7 +154,13 @@ struct TCGCardsListScreenSnapshotTests {
             model.filterState.setNames = ["Base Set", "Romance Dawn"]
             await model.load(using: feature)
             #expect(feature.cards.count == 2)
-            await assertScreenSnapshot(testName: #function) {
+            await assertScreenSnapshot(
+                testName: #function,
+                fileID: #fileID,
+                file: #filePath,
+                line: #line,
+                column: #column
+            ) {
                 makeScreen(feature: feature, model: model).environment(\.dynamicTypeSize, .accessibility3)
             }
         }
@@ -156,7 +172,8 @@ struct TCGCardsListScreenSnapshotTests {
         let model = TCGCardsListScreenModel(preferences: nil)
         await model.load(using: feature)
         #expect(feature.cards.count == 2)
-        await assertScreenSnapshot(testName: #function) { makeScreen(feature: feature, model: model) }
+        await assertScreenSnapshot(testName: #function, fileID: #fileID, file: #filePath, line: #line, column: #column)
+        { makeScreen(feature: feature, model: model) }
     }
 
     @Test
@@ -166,7 +183,8 @@ struct TCGCardsListScreenSnapshotTests {
         await model.load(using: feature)
         #expect(feature.cards.isEmpty)
         #expect(model.toast == nil)
-        await assertScreenSnapshot(testName: #function) { makeScreen(feature: feature, model: model) }
+        await assertScreenSnapshot(testName: #function, fileID: #fileID, file: #filePath, line: #line, column: #column)
+        { makeScreen(feature: feature, model: model) }
     }
 
     @Test
@@ -176,7 +194,8 @@ struct TCGCardsListScreenSnapshotTests {
         model.filterState.game = .onePiece
         await model.load(using: feature)
         #expect(feature.cards.map(\.card.game) == [.onePiece])
-        await assertScreenSnapshot(testName: #function) { makeScreen(feature: feature, model: model) }
+        await assertScreenSnapshot(testName: #function, fileID: #fileID, file: #filePath, line: #line, column: #column)
+        { makeScreen(feature: feature, model: model) }
     }
 
     #if os(iOS)
@@ -186,7 +205,13 @@ struct TCGCardsListScreenSnapshotTests {
             let model = TCGCardsListScreenModel(preferences: nil)
             await model.load(using: feature)
             #expect(feature.cards.count == 2)
-            await assertScreenSnapshot(testName: #function) {
+            await assertScreenSnapshot(
+                testName: #function,
+                fileID: #fileID,
+                file: #filePath,
+                line: #line,
+                column: #column
+            ) {
                 makeScreen(feature: feature, model: model)
                     .environment(\.dynamicTypeSize, .accessibility3)
             }
@@ -199,7 +224,8 @@ struct TCGCardsListScreenSnapshotTests {
         let model = TCGCardsListScreenModel(preferences: nil)
         await model.load(using: feature)
         #expect(feature.cards.map(\.price.status) == [.unavailable, .priced])
-        await assertScreenSnapshot(testName: #function) { makeScreen(feature: feature, model: model) }
+        await assertScreenSnapshot(testName: #function, fileID: #fileID, file: #filePath, line: #line, column: #column)
+        { makeScreen(feature: feature, model: model) }
     }
 
     @Test
@@ -208,15 +234,17 @@ struct TCGCardsListScreenSnapshotTests {
         let model = TCGCardsListScreenModel(preferences: nil)
         await model.load(using: feature)
         #expect(feature.cards.allSatisfy { $0.price.status == .unavailable })
-        await assertScreenSnapshot(testName: #function) { makeScreen(feature: feature, model: model) }
+        await assertScreenSnapshot(testName: #function, fileID: #fileID, file: #filePath, line: #line, column: #column)
+        { makeScreen(feature: feature, model: model) }
     }
 
     @Test func `Renders list editing controls with filters`() async {
-        let feature = TCGCards(client: .preview())
+        let feature = TCGCards(client: .preview(hasValidCredentials: false))
         let model = TCGCardsListScreenModel(preferences: nil)
         await model.load(using: feature)
         #expect(!feature.cards.isEmpty)
-        await assertScreenSnapshot(testName: #function) {
+        await assertScreenSnapshot(testName: #function, fileID: #fileID, file: #filePath, line: #line, column: #column)
+        {
             makeScreen(feature: feature, model: model).environment(\.isEditingCollection, true)
         }
     }
@@ -227,15 +255,16 @@ struct TCGCardsListScreenSnapshotTests {
                 CardWithPrice(
                     card: card,
                     price: allUnavailable || index == 0
-                        ? OwnedCardPrice(cardId: card.id, status: .unavailable)
-                        : PreviewTCGCardsClient.price(for: card)
+                        ? OwnedCardPrice(cardId: card.id, status: .unavailable, price: nil)
+                        : PreviewTCGCardsClient.price(for: card),
+                    imageURL: nil
                 )
             }
         return TCGCards(client: .preview(cardsOutcome: .successWithPrices(cards)))
     }
 
     private func makeScreen(feature: TCGCards, model: TCGCardsListScreenModel) -> some View {
-        NavigationStack { TCGCardsListScreen(model: model) }
+        NavigationStack { TCGCardsListScreen(model: model, hidesScrollBackground: false) }
             .environment(feature)
             .cardImageLoader(PreviewCardImageLoader(outcome: .success))
     }

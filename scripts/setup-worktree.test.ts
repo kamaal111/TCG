@@ -66,10 +66,10 @@ describe('worktreeEnv', () => {
 
 async function fixture() {
   const { root, main, checkout, git } = await worktreeFixture();
-  git(['worktree', 'add', '--detach', checkout]);
+  git(['worktree', 'add', '--detach', checkout], main);
   await fs.writeFile(path.join(main, '.env'), source, { mode: 0o600 });
 
-  const run = (cwd = checkout, env = process.env) => {
+  const run = (cwd: string, env: NodeJS.ProcessEnv) => {
     return childProcess.spawnSync('bash', [script], { cwd, env, encoding: 'utf8' });
   };
 
@@ -100,7 +100,7 @@ function ports(contents: string): number[] {
 
 test('copies main environment into a detached checkout with aligned ports and private permissions', async () => {
   const f = await fixture();
-  const result = f.run();
+  const result = f.run(f.checkout, process.env);
   const contents = await f.read();
   const [app, db, storage] = ports(contents);
 
@@ -121,32 +121,32 @@ test('preserves existing checkout credentials instead of replacing them with mai
   const f = await fixture();
   await fs.writeFile(path.join(f.checkout, '.env'), source.replaceAll('fixture-secret', 'checkout-secret'));
 
-  expect(f.run().status).toBe(0);
+  expect(f.run(f.checkout, process.env).status).toBe(0);
   expect(await f.read()).toContain('BETTER_AUTH_SECRET=checkout-secret');
   expect(await f.read()).not.toContain('fixture-secret');
 });
 
 test('keeps configured ports and legacy Compose identity while services run and branches change', async t => {
   const f = await fixture();
-  expect(f.run().status).toBe(0);
+  expect(f.run(f.checkout, process.env).status).toBe(0);
   const configured = (await f.read()).replace(/COMPOSE_PROJECT_NAME=.*/, 'COMPOSE_PROJECT_NAME=tcg-wt-legacy');
   await fs.writeFile(path.join(f.checkout, '.env'), configured);
   await listen(t, ports(configured)[0] ?? 0);
   f.git(['switch', '-c', 'renamed-branch'], f.checkout);
 
-  expect(f.run().status).toBe(0);
+  expect(f.run(f.checkout, process.env).status).toBe(0);
   expect(await f.read()).toBe(configured);
 });
 
 test('reallocates copied configuration reserved by another registered worktree', async () => {
   const f = await fixture();
-  expect(f.run().status).toBe(0);
+  expect(f.run(f.checkout, process.env).status).toBe(0);
   const original = await f.read();
   const second = path.join(f.root, 'second');
-  f.git(['worktree', 'add', '--detach', second]);
+  f.git(['worktree', 'add', '--detach', second], f.main);
   await fs.writeFile(path.join(second, '.env'), original);
 
-  expect(f.run(second).status).toBe(0);
+  expect(f.run(second, process.env).status).toBe(0);
   const configured = await fs.readFile(path.join(second, '.env'), 'utf8');
   expect(ports(configured).every(port => !ports(original).includes(port))).toBe(true);
   expect(configured.match(/^COMPOSE_PROJECT_NAME=.*$/m)).not.toEqual(original.match(/^COMPOSE_PROJECT_NAME=.*$/m));
@@ -157,14 +157,14 @@ test('skips the first port set when its API port is occupied', async t => {
   const f = await fixture();
   await listen(t, 8100);
 
-  expect(f.run().status).toBe(0);
+  expect(f.run(f.checkout, process.env).status).toBe(0);
   expect(ports(await f.read())).not.toContain(8100);
 });
 
 test('fails without creating environment when neither checkout has a source', async () => {
   const f = await fixture();
   await fs.unlink(path.join(f.main, '.env'));
-  const result = f.run();
+  const result = f.run(f.checkout, process.env);
 
   expect(result.status).toBe(1);
   expect(result.stderr).toContain('No .env');
@@ -178,7 +178,7 @@ test.each([
 ])('rejects %s without modifying environment', async (_name, contents, message) => {
   const f = await fixture();
   await fs.writeFile(path.join(f.checkout, '.env'), contents);
-  const result = f.run();
+  const result = f.run(f.checkout, process.env);
 
   expect(result.status).toBe(1);
   expect(result.stderr).toContain(message);
@@ -189,14 +189,14 @@ test.each([
 test('rejects main checkout setup without modifying its environment', async () => {
   const f = await fixture();
 
-  expect(f.run(f.main).status).toBe(1);
+  expect(f.run(f.main, process.env).status).toBe(1);
   expect(await fs.readFile(path.join(f.main, '.env'), 'utf8')).toBe(source);
 });
 
 test('reports lock contention without removing another setup lock', async () => {
   const f = await fixture();
   await fs.mkdir(f.lock);
-  const result = f.run();
+  const result = f.run(f.checkout, process.env);
 
   expect(result.status).toBe(1);
   expect(result.stderr).toContain('Worktree setup is locked');
@@ -253,7 +253,7 @@ test('accepts local service URLs with default ports when reserving peer checkout
     path.join(f.main, '.env'),
     source.replace(':5432', '').replace(':9000', '').replaceAll(':8080', ''),
   );
-  const result = f.run();
+  const result = f.run(f.checkout, process.env);
 
   expect(result.status).toBe(0);
   const contents = await f.read();
@@ -265,7 +265,7 @@ test('accepts local service URLs with default ports when reserving peer checkout
 test('rejects a checkout environment symlink and removes its own temporary files and lock', async () => {
   const f = await fixture();
   await fs.symlink(path.join(f.main, '.env'), path.join(f.checkout, '.env'));
-  const result = f.run();
+  const result = f.run(f.checkout, process.env);
 
   expect(result.status).toBe(1);
   expect(result.stderr).toContain('.env must be a regular file');

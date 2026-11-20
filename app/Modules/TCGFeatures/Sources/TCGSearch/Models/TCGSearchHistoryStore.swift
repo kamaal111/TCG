@@ -29,7 +29,7 @@ final class TCGSearchHistoryStore {
     private static let storageKey = "TCGSearch.history.v1"
     private static let logger = KamaalLogger(from: TCGSearchHistoryStore.self)
 
-    init(defaults: UserDefaults? = nil, now: @escaping () -> Date = Date.init) {
+    init(defaults: UserDefaults?, now: @escaping () -> Date) {
         self.defaults = defaults
         self.now = now
         guard let data = defaults?.data(forKey: Self.storageKey) else { return }

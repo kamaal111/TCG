@@ -22,7 +22,7 @@ final class TCGWishlistScreenModel {
     private(set) var failedCursor: String?
     private(set) var availableSetNames: Set<String> = []
     private(set) var availableIllustrators: Set<String> = []
-    private var pagination = CursorPagination()
+    private var pagination = CursorPagination(nextCursor: nil, visitedCursors: [], pageCount: 0)
     @ObservationIgnored private var requestID = UUID()
     @ObservationIgnored private var activeFilters: CardListFilters?
     @ObservationIgnored private var context: TCGWishlist.ReadContext?
@@ -68,7 +68,13 @@ final class TCGWishlistScreenModel {
             await refresh(using: wishlist, currency: currency)
             return
         }
-        let pages = failedCursor == nil ? Pages(identity: Self.identity) : currentPages
+        let pages =
+            failedCursor == nil
+            ? Pages(
+                rows: [],
+                pagination: .init(nextCursor: nil, visitedCursors: [], pageCount: 0),
+                identity: Self.identity
+            ) : currentPages
         await load(
             from: pages,
             through: requestedDepth,
@@ -125,7 +131,11 @@ final class TCGWishlistScreenModel {
         }
 
         await load(
-            from: Pages(identity: Self.identity),
+            from: Pages(
+                rows: [],
+                pagination: .init(nextCursor: nil, visitedCursors: [], pageCount: 0),
+                identity: Self.identity
+            ),
             through: max(1, pagination.pageCount),
             using: wishlist,
             context: context,
@@ -141,7 +151,7 @@ final class TCGWishlistScreenModel {
         }
         invalidateRequest()
         entries = []
-        pagination = CursorPagination()
+        pagination = CursorPagination(nextCursor: nil, visitedCursors: [], pageCount: 0)
         checkedAt = nil
         snapshotVersion = nil
         failedCursor = nil

@@ -22,7 +22,7 @@ export const integrationTest = test
 
     const storageClient = await createTestObjectStorage();
 
-    const createApp = (overrides: ConstructorParameters<typeof App>[0] = {}) => {
+    const createApp = (overrides: ConstructorParameters<typeof App>[0]) => {
       const application = new App({ db: setup.db, pricingClient, storageClient, ...overrides });
       applications.push(application);
       registerCardFixtureDatabase(application.app, overrides.db ?? setup.db);
@@ -30,7 +30,7 @@ export const integrationTest = test
       return application.app;
     };
 
-    const app = createApp();
+    const app = createApp({});
 
     return {
       app,
@@ -48,11 +48,11 @@ export const integrationTest = test
   .extend('app', ({ _fixturesSetup }) => _fixturesSetup.app)
   .extend('createApp', ({ _fixturesSetup }) => _fixturesSetup.createApp)
   .extend('createUser', ({ app, db }) => {
-    return (overrides: Parameters<typeof createTestUser>[2] = {}) => {
+    return (overrides: Parameters<typeof createTestUser>[2]) => {
       return createTestUser(app, db, overrides);
     };
   })
-  .extend('user', ({ createUser }) => createUser())
+  .extend('user', ({ createUser }) => createUser({}))
   .extend('authenticatedHeaders', ({ user }) => sessionHeaders(user.sessionToken))
   .extend('connectionString', ({ _fixturesSetup }) => _fixturesSetup.connectionString)
   .extend('storageClient', ({ _fixturesSetup }) => _fixturesSetup.storageClient)

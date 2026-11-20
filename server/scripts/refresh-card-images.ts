@@ -1,6 +1,7 @@
 import z from 'zod';
 
 import type { CardImageRepository } from '../src/card-images/repository.ts';
+import { DEFAULT_IMAGE_POLICY } from '../src/config.ts';
 import { createDatabase } from '../src/db/index.ts';
 import env from '../src/env.ts';
 import { PostgresCardImageRepository } from '../src/persistence/postgres/card-images.ts';
@@ -28,7 +29,7 @@ const ArgsSchema = z.tuple([
  * art, or a change to how images are fetched or stored.
  */
 async function refreshCardImages(target: string) {
-  const repository = new PostgresCardImageRepository(db);
+  const repository = new PostgresCardImageRepository(db, DEFAULT_IMAGE_POLICY);
   const imageKeys = await getImageKeys(target, repository);
 
   if (imageKeys.length === 0) {

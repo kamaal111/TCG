@@ -32,14 +32,14 @@ const SPACED_CLASS = `export class Example {
 
 test('Oxlint rejects a constructor touching fields and a method touching its constructor', async () => {
   const filename = await createLintFixture(COMPACT_CLASS);
-  const result = lintFixture(filename);
+  const result = lintFixture(filename, false);
   expect(result.status).toBe(1);
   expect(result.diagnostics.map(diagnostic => diagnostic.code)).toEqual([RULE_CODE, RULE_CODE]);
 });
 
 test('Oxlint accepts spaced methods while allowing consecutive fields to stay grouped', async () => {
   const filename = await createLintFixture(SPACED_CLASS);
-  const result = lintFixture(filename);
+  const result = lintFixture(filename, false);
   expect(result.status).toBe(0);
   expect(result.diagnostics).toEqual([]);
 });

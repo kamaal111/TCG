@@ -327,7 +327,7 @@ function run(): void {
     (argument, index) => argument !== '-resultBundlePath' && snapshotArgs[index - 1] !== '-resultBundlePath',
   );
 
-  function launch(command: string, args: string[], phase: 'build' | 'boot' | 'test' = 'test'): void {
+  function launch(command: string, args: string[], phase: 'build' | 'boot' | 'test'): void {
     currentPhase = phase;
     waitingForFirstTest = phase === 'test';
 
@@ -413,7 +413,7 @@ function run(): void {
           }, idleTimeoutSeconds * 1000);
         } else {
           log('Simulator boot completed; starting snapshots.');
-          launch('just', ['test-built-snapshots-ios', ...snapshotArgs]);
+          launch('just', ['test-built-snapshots-ios', ...snapshotArgs], 'test');
         }
 
         return;
@@ -447,7 +447,7 @@ function run(): void {
 
     launch('just', ['build-snapshots-ios', ...buildArgs, '-derivedDataPath', derivedDataPath], 'build');
   } else {
-    launch('just', ['test-snapshots-ios', ...snapshotArgs]);
+    launch('just', ['test-snapshots-ios', ...snapshotArgs], 'test');
   }
 }
 

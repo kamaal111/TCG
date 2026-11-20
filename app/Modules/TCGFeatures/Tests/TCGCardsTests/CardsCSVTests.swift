@@ -195,14 +195,21 @@ enum CardsCSVFixtures {
                 quantity: 2,
                 purchasePrice: Decimal(string: "2.50"),
                 currency: .usd,
-                automaticPriceDate: "2026-07-20"
+                automaticPriceDate: "2026-07-20",
+                displayPrice: nil
             ),
             .init(
                 id: UUID(uuid: (85, 14, 132, 0, 226, 155, 65, 212, 167, 22, 68, 102, 85, 68, 0, 2)),
                 condition: .played,
-                quantity: 1
+                quantity: 1,
+                purchasePrice: nil,
+                currency: nil,
+                automaticPriceDate: nil,
+                displayPrice: nil
             ),
         ],
+        purchasePriceChangePercent: nil,
+        displayCurrency: nil,
         collectionID: nil,
         allocationAdjustments: nil,
         illustrator: nil,

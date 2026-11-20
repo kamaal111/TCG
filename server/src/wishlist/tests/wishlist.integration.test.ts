@@ -109,7 +109,7 @@ integrationTest(
     ]);
     expect(lookup).toHaveBeenCalledExactlyOnceWith(saved.game, saved.pricingCardId);
 
-    await seedExchangeRate(db);
+    await seedExchangeRate(db, {});
     expect(await readList()).toMatchObject([
       {
         display: {
@@ -266,7 +266,7 @@ integrationTest(
 integrationTest(
   'isolates the paged list and deletion by account',
   async ({ app, db, user, createUser, authenticatedHeaders }) => {
-    const visitor = await createUser();
+    const visitor = await createUser({});
     const key = printingKey(alternateArt);
 
     const [row] = await db
@@ -350,7 +350,7 @@ integrationTest(
 integrationTest(
   'annotates shared search results with the current account’s wishlist membership',
   async ({ app, createUser, authenticatedHeaders }) => {
-    const visitor = await createUser();
+    const visitor = await createUser({});
     const searchPath = `${SEARCH_PRICING_ROUTE_PATH}?search_by=card&game=pokemon&query=Giratina`;
     const initial = await app.request(searchPath, { headers: authenticatedHeaders });
     expect(initial.status).toBe(200);
@@ -381,7 +381,7 @@ integrationTest(
 integrationTest(
   'finds saved Japanese printings by cached or stored English aliases while retaining their saved names',
   async ({ app, db, createUser, authenticatedHeaders }) => {
-    const visitor = await createUser();
+    const visitor = await createUser({});
 
     const printing = {
       game: CARD_GAME_MAP.POKEMON,
@@ -458,7 +458,7 @@ integrationTest(
 integrationTest(
   'searches all saved printings by literal text within the current account',
   async ({ app, db, user, createUser, authenticatedHeaders }) => {
-    const visitor = await createUser();
+    const visitor = await createUser({});
 
     const [row] = await db
       .insert(cardPrice)
@@ -538,7 +538,7 @@ integrationTest('rejects blank and overlong wishlist queries', async ({ app, aut
 integrationTest(
   'lists complete account and game choices and filters saved Pokémon by catalog or saved illustrator',
   async ({ app, db, user, createUser, authenticatedHeaders }) => {
-    const visitor = await createUser();
+    const visitor = await createUser({});
 
     const [row] = await db
       .insert(cardPrice)

@@ -7,6 +7,7 @@ struct CollectionBackupCodingTests {
     @Test func `Backup results preserve identities purchases and fractional dates`() throws {
         let card = ClientCardFixtures.card(
             id: ClientTestIDs.primary,
+            setName: nil,
             createdAt: Date(timeIntervalSince1970: 1_750_000_000.125)
         )
         let backup = CollectionBackup(version: 1, collections: [], cards: [ImportCardPayload(card: card)])

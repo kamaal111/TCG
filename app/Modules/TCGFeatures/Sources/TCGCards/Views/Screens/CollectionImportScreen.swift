@@ -49,7 +49,8 @@ struct CollectionImportScreen: View {
         .tcgSheet(
             Text("Review backup", bundle: .module),
             closeLabel: Text("Done", bundle: .module),
-            closeDisabled: isWorking
+            closeDisabled: isWorking,
+            onClose: nil
         )
         .interactiveDismissDisabled(isWorking)
         .frame(minWidth: 300, minHeight: 350)

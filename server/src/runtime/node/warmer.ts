@@ -3,7 +3,7 @@ import type { CardImageMaterializer } from '../../card-images/materializer.ts';
 import type { CardImageRepository } from '../../card-images/repository.ts';
 import type { CardImageScheduler } from '../../card-images/scheduler.ts';
 import { CardImageProcessor } from '../../card-images/warmer.ts';
-import { DEFAULT_IMAGE_POLICY, type ApplicationConfig } from '../../config.ts';
+import type { ApplicationConfig } from '../../config.ts';
 
 export class CardImageWarmer implements CardImageScheduler {
   private readonly processor: CardImageProcessor;
@@ -14,10 +14,7 @@ export class CardImageWarmer implements CardImageScheduler {
 
   constructor(
     dependencies: { repository: CardImageRepository; materializer: CardImageMaterializer; concurrency?: number },
-    config: Pick<
-      ApplicationConfig,
-      'CARD_IMAGE_WARM_CONCURRENCY' | 'CARD_IMAGE_WORKER_POLL_INTERVAL_MS'
-    > = DEFAULT_IMAGE_POLICY,
+    config: Pick<ApplicationConfig, 'CARD_IMAGE_WARM_CONCURRENCY' | 'CARD_IMAGE_WORKER_POLL_INTERVAL_MS'>,
   ) {
     this.concurrency = dependencies.concurrency ?? config.CARD_IMAGE_WARM_CONCURRENCY;
     this.pollIntervalMs = config.CARD_IMAGE_WORKER_POLL_INTERVAL_MS;
@@ -36,7 +33,7 @@ export class CardImageWarmer implements CardImageScheduler {
     return this.processor.idle();
   }
 
-  start(options: { keepProcessAlive?: boolean } = {}): void {
+  start(options: { keepProcessAlive?: boolean }): void {
     if (this.started) {
       return;
     }

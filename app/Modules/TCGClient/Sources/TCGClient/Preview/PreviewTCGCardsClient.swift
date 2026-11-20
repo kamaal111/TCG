@@ -85,7 +85,7 @@ struct PreviewTCGCardsClient: TCGCardsClient {
             return existing
         }
 
-        return CardWithPrice(card: card, price: Self.price(for: card))
+        return CardWithPrice(card: card, price: Self.price(for: card), imageURL: nil)
     }
 
     func exportCards() async -> Result<[Card], CardBackupErrors> {
@@ -120,9 +120,12 @@ struct PreviewTCGCardsClient: TCGCardsClient {
                             quantity: purchase.quantity,
                             purchasePrice: purchase.purchasePrice.flatMap { Decimal(string: $0) },
                             currency: purchase.currency,
-                            automaticPriceDate: purchase.automaticPriceDate
+                            automaticPriceDate: purchase.automaticPriceDate,
+                            displayPrice: nil
                         )
                     },
+                    purchasePriceChangePercent: nil,
+                    displayCurrency: nil,
                     collectionID: cards.first(where: { $0.id == input.id })?.collectionID,
                     allocationAdjustments: nil,
                     illustrator: printing.illustrator,
@@ -221,6 +224,8 @@ struct PreviewTCGCardsClient: TCGCardsClient {
             createdAt: Self.fixedDate,
             updatedAt: Self.fixedDate,
             purchases: payload.purchases,
+            purchasePriceChangePercent: nil,
+            displayCurrency: nil,
             collectionID: Self.collectionID(payload.collectionID),
             allocationAdjustments: nil,
             illustrator: printing.illustrator,
@@ -228,7 +233,7 @@ struct PreviewTCGCardsClient: TCGCardsClient {
         )
         state.cards.withLock { $0.append(card) }
         return .success(
-            CardWithPrice(card: card, price: .init(cardId: card.id, status: .priced, price: printing))
+            CardWithPrice(card: card, price: .init(cardId: card.id, status: .priced, price: printing), imageURL: nil)
         )
     }
 
@@ -250,13 +255,15 @@ struct PreviewTCGCardsClient: TCGCardsClient {
                 createdAt: previous.createdAt,
                 updatedAt: Self.fixedDate,
                 purchases: payload.purchases,
+                purchasePriceChangePercent: nil,
+                displayCurrency: nil,
                 collectionID: Self.collectionID(payload.collectionID ?? previous.collectionID),
                 allocationAdjustments: nil,
                 illustrator: previous.illustrator,
                 englishSearchAlias: previous.englishSearchAlias
             )
             cards[index] = card
-            return .success(CardWithPrice(card: card, price: Self.price(for: card)))
+            return .success(CardWithPrice(card: card, price: Self.price(for: card), imageURL: nil))
         }
     }
 
@@ -298,9 +305,27 @@ struct PreviewTCGCardsClient: TCGCardsClient {
             createdAt: fixedDate,
             updatedAt: fixedDate,
             purchases: [
-                .init(condition: .nearMint, quantity: 2),
-                .init(condition: .played, quantity: 1),
+                .init(
+                    id: nil,
+                    condition: .nearMint,
+                    quantity: 2,
+                    purchasePrice: nil,
+                    currency: nil,
+                    automaticPriceDate: nil,
+                    displayPrice: nil
+                ),
+                .init(
+                    id: nil,
+                    condition: .played,
+                    quantity: 1,
+                    purchasePrice: nil,
+                    currency: nil,
+                    automaticPriceDate: nil,
+                    displayPrice: nil
+                ),
             ],
+            purchasePriceChangePercent: nil,
+            displayCurrency: nil,
             collectionID: nil,
             allocationAdjustments: nil,
             illustrator: nil,
@@ -315,7 +340,19 @@ struct PreviewTCGCardsClient: TCGCardsClient {
             notes: "First edition",
             createdAt: fixedDate,
             updatedAt: fixedDate,
-            purchases: [.init(condition: .mint, quantity: 1)],
+            purchases: [
+                .init(
+                    id: nil,
+                    condition: .mint,
+                    quantity: 1,
+                    purchasePrice: nil,
+                    currency: nil,
+                    automaticPriceDate: nil,
+                    displayPrice: nil
+                )
+            ],
+            purchasePriceChangePercent: nil,
+            displayCurrency: nil,
             collectionID: nil,
             allocationAdjustments: nil,
             illustrator: "Mitsuhiro Arita",

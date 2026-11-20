@@ -9,7 +9,7 @@ test.each([
   'schema.nullable({ error: "Invalid value" }).optional()',
 ])('Oxlint rejects %s and recommends .nullish()', async expression => {
   const filename = await createLintFixture(`export const schema = ${expression};`);
-  const result = lintFixture(filename);
+  const result = lintFixture(filename, false);
   expect(result.status).toBe(1);
   expect(result.diagnostics).toEqual([{ code: 'kamaal-zod(prefer-nullish)', message: MESSAGE }]);
 });
@@ -22,7 +22,7 @@ test.each([
   '"schema.nullable().optional()"',
 ])('Oxlint accepts %s', async expression => {
   const filename = await createLintFixture(`export const schema = ${expression};`);
-  const result = lintFixture(filename);
+  const result = lintFixture(filename, false);
   expect(result.status).toBe(0);
   expect(result.diagnostics).toEqual([]);
 });

@@ -16,6 +16,7 @@ import {
   expectValidationIssueForFields,
 } from '../../tests/auth.ts';
 import { integrationTest } from '../../tests/fixtures.ts';
+import { createTestRequestId } from '../../tests/logs.ts';
 import { SIGN_UP_ROUTE_PATH } from '../constants.ts';
 
 describe('Sign-up integration', () => {
@@ -27,7 +28,7 @@ describe('Sign-up integration', () => {
         name: '李 小龙',
       };
 
-      const { headers, requestId } = withRequestId({ 'Content-Type': 'application/json' });
+      const { headers, requestId } = withRequestId({ 'Content-Type': 'application/json' }, createTestRequestId());
       const response = await sendSignUpRequest(app, payload, headers);
 
       const { body, headers: responseHeaders } = await expectAuthSuccessResponse(

@@ -120,8 +120,8 @@ export function definePersistenceContracts(name: string, createFixture: () => Pr
       ]);
 
       const claims = await Promise.all([
-        contract.images.claim('image-1', 'worker-a'),
-        contract.images.claim('image-1', 'worker-b'),
+        contract.images.claim('image-1', 'worker-a', new Date()),
+        contract.images.claim('image-1', 'worker-b', new Date()),
       ]);
 
       const claimed = claims.find(row => row != null);

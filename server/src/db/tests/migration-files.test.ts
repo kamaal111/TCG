@@ -58,7 +58,7 @@ test.each([
   [2, 1],
   [0, 4],
 ] as const)('rejects invalid range %i through %i without changing files', async (first, last) => {
-  const { folder, names } = await migrationFixture();
+  const { folder, names } = await migrationFixture({ onTestFinished });
   const before = await readTree(folder);
   await expect(squashMigrations({ folder, first: String(names[first]), last: String(names[last]) })).rejects.toThrow(
     'ordered range',

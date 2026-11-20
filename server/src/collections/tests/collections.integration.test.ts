@@ -5,6 +5,7 @@ import { CardSchema } from '../../cards/schemas/responses.ts';
 import { createCardRequest, validCardPayload, createTestCard, ownershipPayload } from '../../cards/tests/utils.ts';
 import { sessionHeaders } from '../../tests/auth.ts';
 import { integrationTest } from '../../tests/fixtures.ts';
+import { createTestRequestId } from '../../tests/logs.ts';
 import { BackupSchema, CollectionSchema, CollectionsSchema, CollectionSummarySchema } from '../schemas/responses.ts';
 
 integrationTest(
@@ -175,7 +176,7 @@ integrationTest(
       ).status,
     ).toBe(200);
 
-    const { headers: exportHeaders, requestId } = withRequestId(headers);
+    const { headers: exportHeaders, requestId } = withRequestId(headers, createTestRequestId());
 
     const exported = await app.request('/app-api/collections/export', {
       method: 'POST',
@@ -191,7 +192,7 @@ integrationTest(
 
     expect(backup.collections).toHaveLength(1);
     expect(backup.cards.map(c => c.id)).toEqual([card.id]);
-    const recipient = await createUser();
+    const recipient = await createUser({});
     const recipientHeaders = sessionHeaders(recipient.sessionToken);
 
     const preview = await app.request('/app-api/collections/import-preview', {
@@ -269,7 +270,7 @@ integrationTest(
       notes: 'Traded at a tournament',
     };
 
-    const recipient = await createUser();
+    const recipient = await createUser({});
 
     const restored = await app.request('/app-api/collections/import', {
       method: 'POST',
@@ -306,7 +307,7 @@ integrationTest(
 integrationTest(
   'rejects foreign collection access, invalid coordinates and stale revisions',
   async ({ app, createUser, authenticatedHeaders: headers }) => {
-    const other = await createUser();
+    const other = await createUser({});
 
     const collection = await createTestCollection(app, headers, { name: 'Private' });
 
@@ -486,7 +487,7 @@ integrationTest(
 integrationTest(
   'page identity collisions never overwrite another account layout',
   async ({ app, createUser, authenticatedHeaders: headers }) => {
-    const other = await createUser();
+    const other = await createUser({});
 
     const otherHeaders = sessionHeaders(other.sessionToken);
 

@@ -23,7 +23,9 @@ public struct TCGSearchScreen<AddForm: View>: View {
     private let addForm: (PricedCard, @escaping () -> Void) -> AddForm
 
     public init(@ViewBuilder addForm: @escaping (PricedCard, @escaping () -> Void) -> AddForm) {
-        _model = State(initialValue: TCGSearchScreenModel())
+        _model = State(
+            initialValue: TCGSearchScreenModel(preferences: .standard, debounce: ModuleConfig.searchDebounce)
+        )
         self.addForm = addForm
     }
 
@@ -74,7 +76,7 @@ public struct TCGSearchScreen<AddForm: View>: View {
             } message: {
                 Text("This removes searches for the selected game from this device.", bundle: .module)
             }
-            .toast(model.toast, dismiss: model.dismissToast)
+            .toast(model.toast, type: .error, dismiss: model.dismissToast)
             .onChange(of: search.displayRefreshError) { _, error in
                 if let error { model.show(error) }
             }

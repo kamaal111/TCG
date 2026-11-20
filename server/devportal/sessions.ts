@@ -136,7 +136,7 @@ export class ReleaseSessions {
 
   async appStatus(platform: Platform, page: number): Promise<AppStatus> {
     if (!this.dependencies.inspectApp) {
-      throw new InfraFailure('App releases require an updated service.');
+      throw new InfraFailure('App releases require an updated service.', 1);
     }
 
     const status = await this.dependencies.inspectApp(platform, page);
@@ -307,7 +307,7 @@ export class ReleaseSessions {
     };
 
     const unsupported = async (): Promise<never> => {
-      throw new InfraFailure('This action requires just release-server on the Mac mini.');
+      throw new InfraFailure('This action requires just release-server on the Mac mini.', 1);
     };
 
     const prompts: Prompts = {
@@ -326,7 +326,7 @@ export class ReleaseSessions {
       },
       confirm: async (message, _initial, context) => {
         if (this.shuttingDown && this.get(id).target !== 'server') {
-          throw new InfraFailure('App release interrupted. Check App Store Connect before retrying.');
+          throw new InfraFailure('App release interrupted. Check App Store Connect before retrying.', 1);
         }
 
         const kind = context?.kind;
@@ -360,7 +360,7 @@ export class ReleaseSessions {
 
       if (release.target !== 'server') {
         if (!this.dependencies.runApp) {
-          throw new InfraFailure('App releases require an updated service.');
+          throw new InfraFailure('App releases require an updated service.', 1);
         }
 
         await this.dependencies.runApp({
