@@ -15,10 +15,32 @@ struct CardPriceView: View {
 
     var body: some View {
         if let target = currencyState?.preferredCurrency, let card = price?.price,
-            card.display?.preferredCurrency != target
+            card.display?.preferredCurrency != target,
+            card.conditionValues == nil || card.display != nil
         {
             ProgressView()
-        } else if let headline = price?.price?.displayHeadline, price?.status == .priced {
+        } else if let valuation = price?.valuation {
+            VStack(alignment: .trailing, spacing: 2) {
+                CurrencyAmount(
+                    valuation.amount,
+                    currency: valuation.currency,
+                    label: nil,
+                    conversionUnavailable: valuation.conversionUnavailable
+                )
+                .font(.subheadline.weight(.semibold).monospacedDigit())
+                Group {
+                    if valuation.estimated {
+                        Text("Estimated total", bundle: .module)
+                    } else {
+                        Text("Total", bundle: .module)
+                    }
+                }
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+            }
+        } else if price?.price?.conditionValues == nil, let headline = price?.price?.displayHeadline,
+            price?.status == .priced
+        {
             CurrencyAmount(
                 headline.amount,
                 currency: headline.currency,
@@ -35,6 +57,10 @@ struct CardPriceView: View {
             .font(.subheadline)
             .foregroundStyle(.orange)
             .fixedSize(horizontal: false, vertical: true)
+        } else if price?.status == .priced {
+            Text("Total unavailable", bundle: .module)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
         } else {
             Text(price?.status == .noPrice ? "No price" : "—")
                 .font(.subheadline)

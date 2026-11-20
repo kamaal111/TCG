@@ -59,6 +59,8 @@ struct TCGSearchPresentationTests {
             imageURL: nil,
             headline: nil,
             market: nil,
+            conditionPrices: nil,
+            conditionValues: nil,
             display: nil,
             pricedOn: .distantPast,
             fetchedAt: .distantPast
@@ -165,6 +167,8 @@ struct TCGSearchPresentationTests {
             imageURL: nil,
             headline: nil,
             market: nil,
+            conditionPrices: nil,
+            conditionValues: nil,
             display: nil,
             pricedOn: .distantPast,
             fetchedAt: .distantPast
@@ -186,6 +190,8 @@ struct TCGSearchPresentationTests {
             imageURL: URL(string: "https://images.example.com/card.png")!,
             headline: nil,
             market: nil,
+            conditionPrices: nil,
+            conditionValues: nil,
             display: nil,
             pricedOn: .distantPast,
             fetchedAt: .distantPast
@@ -213,6 +219,8 @@ enum SearchVariantFixtures {
             imageURL: hasArtwork ? URL(string: "https://images.example.com/zoro-\(image ?? index).png") : nil,
             headline: .init(amount: price ?? Double(5 + index * 25), currency: .usd, metric: .lowestNearMint),
             market: nil,
+            conditionPrices: nil,
+            conditionValues: nil,
             display: nil,
             pricedOn: .distantPast,
             fetchedAt: .distantPast

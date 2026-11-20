@@ -138,7 +138,13 @@ struct TCGCardsFeatureTests {
         store.useAccount(account)
         let cached = try #require(PreviewTCGCardsClient.sampleCards.first)
         store.save(
-            [CardWithPrice(card: cached, price: .init(cardId: cached.id, status: .noPrice, price: nil), imageURL: nil)],
+            [
+                CardWithPrice(
+                    card: cached,
+                    price: .init(cardId: cached.id, status: .noPrice, price: nil, valuation: nil),
+                    imageURL: nil
+                )
+            ],
             for: .allCards
         )
 
@@ -162,14 +168,14 @@ struct TCGCardsFeatureTests {
         let deadline = ContinuousClock.now.advanced(by: .seconds(5))
         while feature.isLoadingPrices, ContinuousClock.now < deadline { await Task.yield() }
         #expect(!feature.isLoadingPrices)
-        #expect(feature.cards.first?.price.status == .noPrice)
+        #expect(feature.cards.first?.price?.status == .noPrice)
         #expect(feature.cards.first?.card.name == "Pikachu")
 
         feature.useAccount("other@example.test")
         #expect(feature.cards.isEmpty)
         #expect(feature.snapshot.rows(for: .allCards) == nil)
         feature.useAccount(account)
-        #expect(feature.snapshot.rows(for: .allCards)?.first?.price.status == .noPrice)
+        #expect(feature.snapshot.rows(for: .allCards)?.first?.price?.status == .noPrice)
     }
 
     @Test
@@ -183,7 +189,7 @@ struct TCGCardsFeatureTests {
         let sample = try #require(PreviewTCGCardsClient.sampleCards.first)
         let cached = CardWithPrice(
             card: sample,
-            price: .init(cardId: sample.id, status: .noPrice, price: nil),
+            price: .init(cardId: sample.id, status: .noPrice, price: nil, valuation: nil),
             imageURL: nil
         )
         let path = "/app-api/cards/\(sample.id.uuidString.lowercased())"
@@ -287,7 +293,7 @@ struct TCGCardsFeatureTests {
         let entry = try #require(PreviewTCGCardsClient.sampleCards.first)
         let row = CardWithPrice(
             card: entry,
-            price: .init(cardId: entry.id, status: .pending, price: nil),
+            price: nil,
             imageURL: nil
         )
         let path = "/app-api/cards/prices"
@@ -296,8 +302,8 @@ struct TCGCardsFeatureTests {
         let duplicate = Task { await feature.refreshedPrices(for: [row], currency: nil, retry: false) }
         await transport.completePrice(id: entry.id, updatedAt: entry.updatedAt, status: .noMatch)
         let priced = await first.value
-        try #require(priced.first?.price.status == .noMatch)
-        #expect(await duplicate.value.first?.price.status == .noMatch)
+        try #require(priced.first?.price?.status == .noMatch)
+        #expect(await duplicate.value.first?.price?.status == .noMatch)
         #expect(await transport.requestCount == 1)
 
         let relaunched = makePendingFeature(
@@ -307,7 +313,7 @@ struct TCGCardsFeatureTests {
         )
         relaunched.useAccount("prices@example.test")
         #expect(
-            await relaunched.refreshedPrices(for: [row], currency: nil, retry: false).first?.price.status == .noMatch
+            await relaunched.refreshedPrices(for: [row], currency: nil, retry: false).first?.price?.status == .noMatch
         )
         #expect(await transport.requestCount == 1)
 
@@ -315,7 +321,7 @@ struct TCGCardsFeatureTests {
         let nextDay = Task { await relaunched.refreshedPrices(for: [row], currency: nil, retry: false) }
         await transport.waitForRequest(path)
         await transport.completePrice(id: entry.id, updatedAt: entry.updatedAt, status: .noPrice)
-        #expect(await nextDay.value.first?.price.status == .noPrice)
+        #expect(await nextDay.value.first?.price?.status == .noPrice)
         #expect(await transport.requestCount == 2)
     }
 
@@ -399,7 +405,7 @@ struct TCGCardsFeatureTests {
         )
         let deadline = ContinuousClock.now.advanced(by: .seconds(5))
         while feature.isLoadingPrices, ContinuousClock.now < deadline { await Task.yield() }
-        #expect(feature.cards.map(\.price.status) == [.noPrice, .noPrice])
+        #expect(feature.cards.map(\.price?.status) == [.noPrice, .noPrice])
     }
 
     @Test
@@ -415,14 +421,14 @@ struct TCGCardsFeatureTests {
         let pikachu = try #require(entries.first)
         let eevee = try #require(entries.last)
         let rows = [pikachu, eevee].map {
-            CardWithPrice(card: $0, price: .init(cardId: $0.id, status: .pending, price: nil), imageURL: nil)
+            CardWithPrice(card: $0, price: nil, imageURL: nil)
         }
         let path = "/app-api/cards/prices"
         let first = Task { await feature.refreshedPrices(for: rows, currency: nil, retry: false) }
         await transport.waitForRequest(path)
         await transport.completePrice(id: pikachu.id, updatedAt: pikachu.updatedAt, status: .noPrice)
         let partial = await first.value
-        #expect(partial.map(\.price.status) == [.noPrice, .pending])
+        #expect(partial.map(\.price?.status) == [.noPrice, nil])
 
         clock.now = clock.now.addingTimeInterval(60)
         let retry = Task { await feature.refreshedPrices(for: rows, currency: nil, retry: false) }
@@ -431,7 +437,7 @@ struct TCGCardsFeatureTests {
         #expect(sent.map(Set.init) == [Set([pikachu.id, eevee.id]), Set([eevee.id])])
         await transport.completePrice(id: eevee.id, updatedAt: eevee.updatedAt, status: .noPrice)
         let completed = await retry.value
-        #expect(completed.map(\.price.status) == [.noPrice, .noPrice])
+        #expect(completed.map(\.price?.status) == [.noPrice, .noPrice])
     }
 
     @Test
@@ -489,7 +495,7 @@ struct TCGCardsFeatureTests {
         let entry = try #require(PreviewTCGCardsClient.sampleCards.first)
         let row = CardWithPrice(
             card: entry,
-            price: .init(cardId: entry.id, status: .pending, price: nil),
+            price: nil,
             imageURL: nil
         )
         let path = "/app-api/cards/prices"
@@ -504,7 +510,7 @@ struct TCGCardsFeatureTests {
         let retry = Task { await feature.refreshedPrices(for: [row], currency: nil, retry: true) }
         await transport.waitForRequest(path)
         await transport.completePrice(id: entry.id, updatedAt: entry.updatedAt, status: .noPrice)
-        #expect(await retry.value.first?.price.status == .noPrice)
+        #expect(await retry.value.first?.price?.status == .noPrice)
         #expect(await transport.requestCount == 2)
     }
 
@@ -842,7 +848,9 @@ struct TCGCardsFeatureTests {
         try await feature.load(game: nil, setNames: [], query: nil, illustrators: [])
             .get()
         #expect(feature.cards.map(\.card) == PreviewTCGCardsClient.sampleCards)
-        #expect(feature.cards.map(\.price) == PreviewTCGCardsClient.sampleCards.map(PreviewTCGCardsClient.price))
+        #expect(
+            feature.cards.map(\.price) == PreviewTCGCardsClient.sampleCards.map { PreviewTCGCardsClient.price(for: $0) }
+        )
     }
 
     @Test
@@ -861,7 +869,7 @@ struct TCGCardsFeatureTests {
             .get()
 
         #expect(feature.cards.map(\.card.id) == [CardsTestIDs.secondary])
-        #expect(feature.cards.map(\.price.cardId) == [CardsTestIDs.secondary])
+        #expect(feature.cards.map(\.price?.cardId) == [CardsTestIDs.secondary])
     }
 
     @Test
@@ -931,7 +939,7 @@ struct TCGCardsFeatureTests {
         try await feature.load(game: nil, setNames: [], query: nil, illustrators: [])
             .get()
 
-        #expect(feature.cards.allSatisfy { $0.card.id == $0.price.cardId })
+        #expect(feature.cards.allSatisfy { $0.card.id == $0.price?.cardId })
     }
 
     @Test

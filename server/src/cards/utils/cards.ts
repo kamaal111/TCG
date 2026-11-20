@@ -1,4 +1,4 @@
-import { purchasePriceChangePercent } from './purchase-price.ts';
+import { ownedValuation, purchasePriceChangePercent } from './purchase-price.ts';
 import { proxyURLForOriginURL } from '../../card-images/keys.ts';
 import type { OwnedCardPriceResponse } from '../../card-pricing/schemas/responses.ts';
 import type { HonoContext } from '../../context.ts';
@@ -67,9 +67,13 @@ function serializePriceFields(card: CardWithPurchases, price: OwnedCardPriceResp
       display?.snapshot,
     ),
     price:
-      display != null && price.priced_card != null
-        ? { ...price, priced_card: displayPricedCard(price.priced_card, display) }
-        : price,
+      price.priced_card == null
+        ? price
+        : {
+            ...price,
+            priced_card: display == null ? price.priced_card : displayPricedCard(price.priced_card, display),
+            valuation: ownedValuation(card.purchaseBatches, price.priced_card.condition_values, display),
+          },
   };
 }
 

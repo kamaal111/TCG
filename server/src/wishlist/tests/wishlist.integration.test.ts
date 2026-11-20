@@ -61,7 +61,10 @@ integrationTest(
           cardNumber: saved.cardNumber,
           pricing: {
             ...alternateArt.prices,
-            market: { condition: 'near_mint', currency: 'USD', low: 25, market: 30 },
+            conditionPrices: [
+              { condition: 'near_mint', currency: 'USD', low: 25, market: 30 },
+              { condition: 'good', currency: 'USD', market: 20 },
+            ],
           },
         },
         raw: null,
@@ -100,6 +103,10 @@ integrationTest(
         printing_key: printingKey(saved),
         priced_on: `${todayUTC()}T00:00:00.000Z`,
         headline: { amount: 25, currency: 'USD' },
+        condition_prices: [
+          { condition: 'near_mint', currency: 'USD', low: 25, market: 30 },
+          { condition: 'good', currency: 'USD', market: 20 },
+        ],
         display: {
           preferred_currency: 'EUR',
           conversion_unavailable: true,
@@ -115,6 +122,10 @@ integrationTest(
         display: {
           preferred_currency: 'EUR',
           conversion_unavailable: false,
+          condition_prices: [
+            { condition: 'near_mint', currency: 'EUR', low: 20, market: 24 },
+            { condition: 'good', currency: 'EUR', market: 16 },
+          ],
           headline: { amount: 20, currency: 'EUR' },
           market: { market: 24, currency: 'EUR' },
         },

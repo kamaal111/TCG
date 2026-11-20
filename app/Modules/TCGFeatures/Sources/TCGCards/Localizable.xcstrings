@@ -131,6 +131,9 @@
     "Apply layout" : {
 
     },
+    "Automatic purchase estimate" : {
+
+    },
     "Average near-mint market price changed %@ since purchase" : {
 
     },
@@ -394,6 +397,9 @@
 
     },
     "Enter one_piece or pokemon." : {
+
+    },
+    "Estimated total" : {
 
     },
     "Excluded from import" : {
@@ -773,6 +779,15 @@
     "This purchase ID is repeated. Remove the duplicate row or use a different purchase ID." : {
 
     },
+    "Total" : {
+
+    },
+    "Total market value changed %@ since purchase" : {
+
+    },
+    "Total unavailable" : {
+
+    },
     "Try again" : {
 
     },
@@ -822,6 +837,9 @@
 
     },
     "Your session expired. Sign in again, then retry. Your import edits are still here." : {
+
+    },
+    "vs. purchase" : {
 
     },
     "vs. purchase · NM market" : {

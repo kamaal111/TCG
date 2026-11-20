@@ -249,7 +249,7 @@ final class OfflineCollection {
     private func synchronize(client: TCGOfflineCollectionClient, owner: String, token: UUID) async throws {
         let downloaded = try store.read(.downloaded)
         let pending = try store.read(.pending)
-        let shouldPrepare = downloaded?.cards.contains { $0.price.status == .unavailable } == true
+        let shouldPrepare = downloaded?.cards.contains { $0.price?.status == .unavailable } == true
         let etag = pending == nil && !shouldPrepare ? downloaded?.etag : nil
         let manifest = try await client.manifest(etag: etag)
         try check(token)

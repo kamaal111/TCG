@@ -544,6 +544,8 @@ actor WishlistTestClient: TCGWishlistClient {
         imageURL: nil,
         headline: nil,
         market: nil,
+        conditionPrices: nil,
+        conditionValues: nil,
         display: nil,
         pricedOn: Date(timeIntervalSince1970: 0),
         fetchedAt: Date(timeIntervalSince1970: 0)
@@ -563,6 +565,8 @@ actor WishlistTestClient: TCGWishlistClient {
         imageURL: nil,
         headline: nil,
         market: nil,
+        conditionPrices: nil,
+        conditionValues: nil,
         display: nil,
         pricedOn: Date(timeIntervalSince1970: 0),
         fetchedAt: Date(timeIntervalSince1970: 0)

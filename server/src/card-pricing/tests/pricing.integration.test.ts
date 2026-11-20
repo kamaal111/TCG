@@ -8,6 +8,7 @@ import { Client } from 'pg';
 import { imageKeyForOriginURL } from '../../card-images/keys.ts';
 import { LIST_CARDS_ROUTE_PATH } from '../../cards/routes/list-cards.ts';
 import { createTestCard, requestOwnedPrices, createCardRequest } from '../../cards/tests/utils.ts';
+import { CARD_CONDITION_MAP } from '../../cards/types.ts';
 import { cardImage } from '../../db/schema/card-images.ts';
 import { cardPrice } from '../../db/schema/card-pricing.ts';
 import { createNodeApplication } from '../../runtime/node/app.ts';
@@ -198,6 +199,57 @@ describe('Card pricing integration', () => {
       const body = PricingSearchResponseSchema.parse(await cached.json());
       expect(body.entries).toHaveLength(1);
       expect(body.entries[0]).not.toHaveProperty('set_name');
+    },
+  );
+
+  integrationTest(
+    'recovers condition quotes from the selected variant on a legacy cache hit without a provider call',
+    async ({ app, db, authenticatedHeaders, pricingClient }) => {
+      const providerSearch = vi.spyOn(pricingClient, 'searchCards');
+      const path = `${SEARCH_PRICING_ROUTE_PATH}?search_by=card&game=pokemon&query=Giratina`;
+      const fresh = await app.request(path, { headers: authenticatedHeaders });
+      expect(fresh.status).toBe(200);
+      expect(providerSearch).toHaveBeenCalledTimes(1);
+
+      const cached = await db.query.cardPrice.findFirst();
+      assert(cached != null);
+      const { conditionPrices, ...legacy } = cached.prices;
+      expect(conditionPrices).toHaveLength(1);
+      await db.update(cardPrice).set({
+        prices: legacy,
+        raw: {
+          id: cached.pricingCardId,
+          name: cached.name,
+          number: cached.cardNumber,
+          variants: [
+            { name: 'reverseHolofoil', prices: [{ type: 'raw', condition: 'MP', currency: 'USD', market: 99 }] },
+            {
+              name: 'normal',
+              prices: [
+                { type: 'raw', condition: 'LP', currency: 'USD', market: 20 },
+                { type: 'raw', condition: 'HP', currency: 'USD', market: 12 },
+              ],
+            },
+          ],
+        },
+      });
+
+      const hit = await app.request(path, { headers: authenticatedHeaders });
+      expect(hit.status).toBe(200);
+      const body = PricingSearchResponseSchema.parse(await hit.json());
+      expect(body.entries[0]?.condition_prices?.map(quote => quote.condition)).toEqual([
+        'near_mint',
+        'excellent',
+        'played',
+      ]);
+      expect(
+        body.entries[0]?.condition_values?.find(value => value.condition === CARD_CONDITION_MAP.GOOD),
+      ).toMatchObject({
+        amount: 16,
+        currency: 'USD',
+        basis: 'interpolated',
+      });
+      expect(providerSearch).toHaveBeenCalledTimes(1);
     },
   );
 

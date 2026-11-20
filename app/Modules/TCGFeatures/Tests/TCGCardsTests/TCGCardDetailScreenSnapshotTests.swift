@@ -60,7 +60,7 @@ struct TCGCardDetailScreenSnapshotTests {
         let privacy = TCGPricePrivacy(defaults: nil)
         privacy.hidePrices = true
         let model = makeModel(status: .unavailable)
-        #expect(model.card.price.status == .unavailable)
+        #expect(model.card.price?.status == .unavailable)
         await assertScreenSnapshot(testName: #function, fileID: #fileID, file: #filePath, line: #line, column: #column)
         {
             makeScreen(model, isEditingCollection: false, cards: TCGCards(client: .preview(cardsOutcome: .empty)))
@@ -89,7 +89,11 @@ struct TCGCardDetailScreenSnapshotTests {
             englishSearchAlias: nil
         )
         let model = TCGCardDetailScreenModel(
-            card: .init(card: card, price: .init(cardId: card.id, status: .unavailable, price: nil), imageURL: nil)
+            card: .init(
+                card: card,
+                price: .init(cardId: card.id, status: .unavailable, price: nil, valuation: nil),
+                imageURL: nil
+            )
         )
         #expect(model.card.card.illustrator == "Mitsuhiro Arita")
         await assertScreenSnapshot(testName: #function, fileID: #fileID, file: #filePath, line: #line, column: #column)
@@ -154,7 +158,7 @@ struct TCGCardDetailScreenSnapshotTests {
     @Test
     func `Renders collection details without pricing`() async {
         let model = makeModel(status: .noPrice)
-        #expect(model.card.price.price == nil)
+        #expect(model.card.price?.price == nil)
         await assertScreenSnapshot(testName: #function, fileID: #fileID, file: #filePath, line: #line, column: #column)
         { makeScreen(model, isEditingCollection: false, cards: TCGCards(client: .preview(cardsOutcome: .empty))) }
     }
@@ -162,7 +166,7 @@ struct TCGCardDetailScreenSnapshotTests {
     @Test
     func `Renders unavailable collection pricing`() async {
         let model = makeModel(status: .unavailable)
-        #expect(model.card.price.status == .unavailable)
+        #expect(model.card.price?.status == .unavailable)
         await assertScreenSnapshot(testName: #function, fileID: #fileID, file: #filePath, line: #line, column: #column)
         { makeScreen(model, isEditingCollection: false, cards: TCGCards(client: .preview(cardsOutcome: .empty))) }
     }
@@ -226,11 +230,54 @@ struct TCGCardDetailScreenSnapshotTests {
         }
     #endif
 
+    @Test
+    func `Renders owned condition prices and estimates`() async {
+        let card = PreviewTCGCardsClient.sampleCards[0]
+        let pricedOn = Date(timeIntervalSince1970: 1_750_000_000)
+        let quotes = card.quantities.map { quantity in
+            ConditionValue(
+                condition: quantity.condition,
+                currency: .usd,
+                amount: 18,
+                basis: .adjusted,
+                conversionUnavailable: nil
+            )
+        }
+        let priced = PricedCard(
+            id: "owned-conditions",
+            printingKey: nil,
+            isWishlisted: nil,
+            game: card.game,
+            name: card.name,
+            cardNumber: card.cardNumber,
+            setName: nil,
+            rarity: nil,
+            illustrator: card.illustrator,
+            variantName: nil,
+            imageURL: nil,
+            headline: nil,
+            market: nil,
+            conditionPrices: nil,
+            conditionValues: quotes,
+            display: nil,
+            pricedOn: pricedOn,
+            fetchedAt: pricedOn
+        )
+        let price = OwnedCardPrice(cardId: card.id, status: .priced, price: priced, valuation: nil)
+        let model = TCGCardDetailScreenModel(card: .init(card: card, price: price, imageURL: nil))
+
+        await assertScreenSnapshot(testName: #function, fileID: #fileID, file: #filePath, line: #line, column: #column)
+        {
+            makeScreen(model, isEditingCollection: false, cards: TCGCards(client: .preview(cardsOutcome: .empty)))
+        }
+    }
+
     private func makeModel(status: OwnedCardPriceStatus) -> TCGCardDetailScreenModel {
         let card = PreviewTCGCardsClient.sampleCards[0]
         let price =
             status == .priced
-            ? PreviewTCGCardsClient.price(for: card) : OwnedCardPrice(cardId: card.id, status: status, price: nil)
+            ? PreviewTCGCardsClient.price(for: card)
+            : OwnedCardPrice(cardId: card.id, status: status, price: nil, valuation: nil)
         return .init(card: .init(card: card, price: price, imageURL: nil))
     }
 

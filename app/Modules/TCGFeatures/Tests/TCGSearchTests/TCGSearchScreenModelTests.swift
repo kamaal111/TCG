@@ -47,6 +47,8 @@ struct TCGSearchScreenModelTests {
             imageURL: nil,
             headline: nil,
             market: nil,
+            conditionPrices: nil,
+            conditionValues: nil,
             display: nil,
             pricedOn: .now,
             fetchedAt: .now
@@ -65,6 +67,8 @@ struct TCGSearchScreenModelTests {
             imageURL: nil,
             headline: nil,
             market: nil,
+            conditionPrices: nil,
+            conditionValues: nil,
             display: nil,
             pricedOn: .now,
             fetchedAt: .now
@@ -84,6 +88,8 @@ struct TCGSearchScreenModelTests {
                 imageURL: nil,
                 headline: nil,
                 market: nil,
+                conditionPrices: nil,
+                conditionValues: nil,
                 display: nil,
                 pricedOn: .now,
                 fetchedAt: .now

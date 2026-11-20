@@ -4,6 +4,18 @@ import type { ScrydexRawCard } from './schemas.ts';
 
 export const SCRYDEX_SEARCH_PAGE_SIZE = 100;
 
+export const SCRYDEX_PRICE_TYPE_MAP = {
+  RAW: 'raw',
+} as const;
+
+export const SCRYDEX_RAW_CONDITION_MAP = {
+  NEAR_MINT: 'NM',
+  LIGHTLY_PLAYED: 'LP',
+  MODERATELY_PLAYED: 'MP',
+  HEAVILY_PLAYED: 'HP',
+  DAMAGED: 'DM',
+} as const;
+
 export type ScrydexGame = 'pokemon' | 'one_piece';
 
 export const SCRYDEX_ERROR_REASONS = {

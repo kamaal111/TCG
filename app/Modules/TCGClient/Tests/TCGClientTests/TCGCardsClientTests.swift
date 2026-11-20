@@ -369,7 +369,7 @@ struct TCGCardsClientTests {
             cards == [
                 CardWithPrice(
                     card: expectedCard,
-                    price: .init(cardId: expectedCard.id, status: .pending, price: nil),
+                    price: nil,
                     imageURL: nil
                 )
             ]
@@ -415,7 +415,7 @@ struct TCGCardsClientTests {
             collection.cards == [
                 CardWithPrice(
                     card: expectedCard,
-                    price: .init(cardId: expectedCard.id, status: .pending, price: nil),
+                    price: nil,
                     imageURL: nil
                 )
             ]
@@ -477,7 +477,25 @@ struct TCGCardsClientTests {
         #expect(request.path == "/app-api/cards/00000000-0000-4000-8000-000000000010")
         #expect(request.operationID == "getOwnedCard")
         #expect(card.card == expectedCard)
-        #expect(card.price.status == .pending)
+        #expect(card.price == nil)
+    }
+
+    @Test
+    func `Decodes a cached pending placeholder as a card whose price has not loaded`() throws {
+        struct LegacyEntry: Encodable {
+            let card: Card
+            let price: OwnedCardPrice
+        }
+
+        let cached = LegacyEntry(
+            card: expectedCard,
+            price: OwnedCardPrice(cardId: expectedCard.id, status: .pending, price: nil, valuation: nil)
+        )
+        let data = try JSONEncoder().encode(cached)
+        let entry = try JSONDecoder().decode(CardWithPrice.self, from: data)
+
+        #expect(entry.card == expectedCard)
+        #expect(entry.price == nil)
     }
 
     @Test
@@ -1166,7 +1184,8 @@ private let expectedCard = Card(
 private let expectedPrice = OwnedCardPrice(
     cardId: ClientTestIDs.responseCard,
     status: .noPrice,
-    price: nil
+    price: nil,
+    valuation: nil
 )
 
 private let cardJSON = Data(

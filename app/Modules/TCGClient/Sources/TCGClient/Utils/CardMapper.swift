@@ -188,7 +188,7 @@ enum CardMapper {
         return cardResult.map { card in
             CardWithPrice(
                 card: card,
-                price: .init(cardId: card.id, status: .pending, price: nil),
+                price: nil,
                 imageURL: details.value2.artworkUrl.flatMap(URL.init(string:))
             )
         }
@@ -241,7 +241,8 @@ enum CardMapper {
             condition: makeGeneratedCondition(batch.condition),
             quantity: batch.quantity,
             purchasePrice: batch.purchasePrice.map { NSDecimalNumber(decimal: $0).stringValue },
-            currency: batch.currency.map(PricedCardMapper.generatedNullableCurrency)
+            currency: batch.currency.map(PricedCardMapper.generatedNullableCurrency),
+            automaticPriceDate: batch.id == nil ? batch.automaticPriceDate : nil
         )
     }
 

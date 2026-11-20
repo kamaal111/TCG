@@ -119,8 +119,16 @@ describe('Offline collection integration', () => {
       const payload = RecordsSchema.parse(await records.json());
 
       expect(payload.cards).toMatchObject([
-        { id: owned.id, price: { priced_card: { image_url: expect.any(String) } } },
+        {
+          id: owned.id,
+          price: {
+            priced_card: { image_url: expect.any(String) },
+            valuation: { amount: 38.7518, currency: 'USD', estimated: true },
+          },
+        },
       ]);
+      expect(search).not.toHaveBeenCalled();
+      expect(lookup).not.toHaveBeenCalled();
     },
   );
 

@@ -18,7 +18,7 @@ struct TCGCardDetailScreenModelTests {
         editor.values.notes = "Unsaved draft"
         let refreshed = CardWithPrice(
             card: model.card.card,
-            price: .init(cardId: model.card.card.id, status: .noPrice, price: nil),
+            price: .init(cardId: model.card.card.id, status: .noPrice, price: nil, valuation: nil),
             imageURL: nil
         )
         model.replaceDisplay(with: refreshed)
@@ -183,7 +183,11 @@ struct TCGCardDetailScreenModelTests {
         let model = TCGCardsListScreenModel(preferences: nil)
         let card = PreviewTCGCardsClient.sampleCards[0]
         model.exploreImage(
-            of: .init(card: card, price: .init(cardId: card.id, status: .noMatch, price: nil), imageURL: nil)
+            of: .init(
+                card: card,
+                price: .init(cardId: card.id, status: .noMatch, price: nil, valuation: nil),
+                imageURL: nil
+            )
         )
         #expect(model.presentedImageURL == nil)
         #expect(model.presentedForm == nil)

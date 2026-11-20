@@ -24,7 +24,11 @@ struct TCGCardDetailScreen: View {
             if canEditCard, let editor = model.editor {
                 editorContent(editor)
             } else {
-                CardDetailContent(metadata: .init(ownedCard: displayedCard), price: displayedCard.price.price) {
+                CardDetailContent(
+                    metadata: .init(ownedCard: displayedCard),
+                    price: displayedCard.price?.price,
+                    ownedQuantities: displayedCard.card.quantities
+                ) {
                     collectionDetails(displayedCard)
                 }
             }
@@ -174,7 +178,14 @@ struct TCGCardDetailScreen: View {
             }
             ForEach(Array(displayedCard.card.purchases.enumerated()), id: \.offset) { _, batch in
                 HStack {
-                    Text("\(batch.condition.title) ×\(batch.quantity)", bundle: .module)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("\(batch.condition.title) ×\(batch.quantity)", bundle: .module)
+                        if pricePrivacy?.hidePrices != true, batch.automaticPriceDate != nil {
+                            Text("Automatic purchase estimate", bundle: .module)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
                     Spacer()
                     if pricePrivacy?.hidePrices != true {
                         if let price = batch.displayPrice {
@@ -196,7 +207,7 @@ struct TCGCardDetailScreen: View {
                 Text("Notes", bundle: .module).font(.headline)
                 Text(notes)
             }
-            if pricePrivacy?.hidePrices != true, displayedCard.price.price == nil {
+            if pricePrivacy?.hidePrices != true, displayedCard.price?.price == nil {
                 Text("Pricing", bundle: .module).font(.title2.bold())
                 CardPriceView(price: displayedCard.price)
             }

@@ -137,7 +137,7 @@ struct BinderCardPaginationTests {
         )
         return CardWithPrice(
             card: card,
-            price: OwnedCardPrice(cardId: card.id, status: .pending, price: nil),
+            price: nil,
             imageURL: nil
         )
     }
@@ -215,20 +215,6 @@ private actor BinderPickerTransport: ClientTransport {
         return continuation
     }
 
-    private struct Row: Encodable {
-        let entry: CardWithPrice
-
-        private enum CodingKeys: String, CodingKey {
-            case price
-        }
-
-        func encode(to encoder: Encoder) throws {
-            try entry.card.encode(to: encoder)
-            var container = encoder.container(keyedBy: CodingKeys.self)
-            try container.encode(entry.price, forKey: .price)
-        }
-    }
-
     private struct Page: Encodable {
         let entries: [CardWithPrice]
         let cursor: String?
@@ -242,7 +228,7 @@ private actor BinderPickerTransport: ClientTransport {
 
         func encode(to encoder: Encoder) throws {
             var container = encoder.container(keyedBy: CodingKeys.self)
-            try container.encode(entries.map(Row.init), forKey: .entries)
+            try container.encode(entries.map(\.card), forKey: .entries)
             try container.encode(cursor, forKey: .cursor)
             try container.encode([String](), forKey: .sets)
             try container.encode([String](), forKey: .illustrators)

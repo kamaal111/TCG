@@ -1,5 +1,5 @@
 import type { CardLanguage } from './languages.ts';
-import type { CARD_GAMES } from '../cards/types.ts';
+import { CARD_CONDITION_MAP, type CARD_GAMES, type CardCondition } from '../cards/types.ts';
 import type { Currency } from '../forex/currencies.ts';
 import type { GetRecordValues } from '../utils/type-utils.ts';
 
@@ -40,18 +40,36 @@ export interface PricingSearchOptions {
   searchBy: PricingSearchMode;
 }
 
+export const QUOTED_CONDITIONS = [
+  CARD_CONDITION_MAP.NEAR_MINT,
+  CARD_CONDITION_MAP.EXCELLENT,
+  CARD_CONDITION_MAP.GOOD,
+  CARD_CONDITION_MAP.PLAYED,
+  CARD_CONDITION_MAP.DAMAGED,
+] as const satisfies readonly CardCondition[];
+
+export const CONDITION_VALUE_BASIS_MAP = {
+  MARKET: 'market',
+  LOW: 'low',
+  INTERPOLATED: 'interpolated',
+  ADJUSTED: 'adjusted',
+} as const;
+
+export interface NormalizedConditionPrice {
+  condition: (typeof QUOTED_CONDITIONS)[number];
+  currency: Currency;
+  low?: number;
+  market?: number;
+  trend7d?: PriceMovement;
+  trend30d?: PriceMovement;
+}
+
 export interface NormalizedPricing {
   illustrator?: string;
   variantName?: string;
   setName?: string;
-  market?: {
-    condition: 'near_mint';
-    currency: Currency;
-    low?: number;
-    market?: number;
-    trend7d?: PriceMovement;
-    trend30d?: PriceMovement;
-  };
+  market?: NormalizedConditionPrice & { condition: typeof CARD_CONDITION_MAP.NEAR_MINT };
+  conditionPrices?: NormalizedConditionPrice[];
   image?: string;
   rarity?: string;
 }

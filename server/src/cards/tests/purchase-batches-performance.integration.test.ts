@@ -5,6 +5,8 @@ import { StaticScrydexClient } from '../../card-pricing/scrydex/static-client.ts
 import { cardPurchaseBatch } from '../../db/schema/cards.ts';
 import { appRelations } from '../../db/schema/index.ts';
 import { integrationTest } from '../../tests/fixtures.ts';
+import { OwnedCardPricesSchema } from '../schemas/responses.ts';
+import { CARD_CONDITION_MAP } from '../types.ts';
 
 integrationTest(
   'loads purchase batches in one read and skips cost writes and provider calls on cached collections',
@@ -47,5 +49,22 @@ integrationTest(
     expect(queries.filter(query => query.includes('update "card_purchase_batch"'))).toHaveLength(1);
     expect(search).not.toHaveBeenCalled();
     expect(lookup).not.toHaveBeenCalled();
+
+    const {
+      prices: [first],
+    } = OwnedCardPricesSchema.parse(await refreshed.json());
+
+    const nearMint = first?.purchases.find(batch => batch.condition === CARD_CONDITION_MAP.NEAR_MINT);
+    const played = first?.purchases.find(batch => batch.condition === CARD_CONDITION_MAP.PLAYED);
+
+    expect(nearMint?.purchase_price).toEqual(expect.any(String));
+    expect(played?.purchase_price).toEqual(expect.any(String));
+    expect(Number(played?.purchase_price)).toBeCloseTo(Number(nearMint?.purchase_price) * 0.9 ** 3, 5);
+    expect(first?.price.valuation?.estimated).toBe(true);
+    expect(first?.price.valuation?.amount).toBeCloseTo(
+      Number(nearMint?.purchase_price) * 2 + Number(played?.purchase_price),
+      6,
+    );
+    expect(played?.automatic_price_date).toBe(first?.price.priced_card?.priced_on.slice(0, 10));
   },
 );

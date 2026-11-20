@@ -67,3 +67,28 @@ test('display pricing converts monetary movements while preserving source prices
     },
   });
 });
+
+test('keeps the converted Near Mint headline available when another condition uses an unsupported rate', () => {
+  const result = displayPricedCard(
+    {
+      id: '550e8400-e29b-41d4-a716-446655440000',
+      game: 'pokemon',
+      name: 'Pikachu',
+      card_number: '58',
+      priced_on: '2026-10-16T00:00:00.000Z',
+      fetched_at: '2026-10-16T10:00:00.000Z',
+      headline: { amount: 12.5, currency: 'USD', metric: 'lowest_near_mint' },
+      market: { condition: 'near_mint', currency: 'USD', low: 12.5 },
+      condition_prices: [{ condition: 'good', currency: 'CAD', market: 8 }],
+      condition_values: [{ condition: 'good', currency: 'CAD', amount: 8, basis: 'market' }],
+    },
+    { currency: 'EUR', snapshot },
+  );
+
+  expect(result.display).toMatchObject({
+    conversion_unavailable: false,
+    headline: { amount: 10, currency: 'EUR' },
+    condition_prices: [{ condition: 'good', currency: 'CAD', market: 8 }],
+    condition_values: [{ condition: 'good', currency: 'CAD', amount: 8, conversion_unavailable: true }],
+  });
+});

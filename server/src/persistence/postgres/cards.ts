@@ -18,6 +18,7 @@ import {
 } from './collection-transactions.ts';
 import type { OwnedCardPriceResponse } from '../../card-pricing/schemas/responses.ts';
 import { CARD_GAME_MAP } from '../../card-pricing/types.ts';
+import { conditionValue } from '../../card-pricing/utils/conditions.ts';
 import { CardNotFound, InvalidCatalogPrinting } from '../../cards/exceptions.ts';
 import {
   pricingLinkFields,
@@ -663,10 +664,13 @@ export class PostgresCardRepository implements CardRepository {
           previous?.purchasePrice === (batch.purchase_price != null ? decimalScale(batch.purchase_price) : null) &&
           previous?.currency === batch.currency;
 
-        return {
-          ...purchaseBatchFields(cardId, batch),
-          automaticPriceDate: unchangedPrice ? previous?.automaticPriceDate : null,
-        };
+        const fields = purchaseBatchFields(cardId, batch);
+
+        if (previous == null) {
+          return fields;
+        }
+
+        return { ...fields, automaticPriceDate: unchangedPrice ? previous.automaticPriceDate : null };
       });
 
       const purchaseBatches = await upsertPurchases(tx, purchases).returning();
@@ -707,19 +711,30 @@ export class PostgresCardRepository implements CardRepository {
     const candidates = cards.flatMap(owned => {
       const price = priceById.get(owned.id)?.priced_card;
 
-      if (price?.market?.market == null || !owned.purchaseBatches.some(batch => batch.purchasePrice == null)) {
+      if (price == null) {
         return [];
       }
 
-      const amount = marketPurchaseAmount(price.market.market);
+      return owned.purchaseBatches.flatMap(batch => {
+        const value = batch.purchasePrice == null ? conditionValue(price.condition_values, batch.condition) : undefined;
+        const amount = value != null ? marketPurchaseAmount(value.amount) : null;
 
-      if (amount == null) {
-        return [];
-      }
-
-      return [
-        sql`(${owned.id}, ${owned.game}, ${owned.name}, ${owned.cardNumber}, ${amount}, ${price.market.currency}, ${price.priced_on.slice(0, 10)})`,
-      ];
+        return amount == null || value == null
+          ? []
+          : [
+              {
+                card_id: owned.id,
+                game: owned.game,
+                name: owned.name,
+                card_number: owned.cardNumber,
+                batch_id: batch.id,
+                condition: batch.condition,
+                amount,
+                currency: value.currency,
+                priced_on: price.priced_on.slice(0, 10),
+              },
+            ];
+      });
     });
 
     if (candidates.length === 0) {
@@ -733,18 +748,29 @@ export class PostgresCardRepository implements CardRepository {
           game: sql<string>`input.game`.as('game'),
           name: sql<string>`input.name`.as('name'),
           cardNumber: sql<string>`input.card_number`.as('card_number'),
+          batchId: sql<string>`input.batch_id::uuid`.as('batch_id'),
+          condition: sql<string>`input.condition`.as('condition'),
           amount: sql<string>`input.amount`.as('amount'),
           currency: sql<string>`input.currency`.as('currency'),
           pricedOn: sql<string>`input.priced_on`.as('priced_on'),
         })
         .from(
-          sql`(values ${sql.join(candidates, sql`, `)}) as input(card_id, game, name, card_number, amount, currency, priced_on)`,
+          sql`jsonb_to_recordset(${JSON.stringify(candidates)}::jsonb)
+            as input(card_id text, game text, name text, card_number text, batch_id text,
+                     condition text, amount text, currency text, priced_on text)`,
         ),
     );
 
     const eligible = this.db.$with('eligible_purchase_prices').as(
       this.db
-        .select({ cardId: input.cardId, amount: input.amount, currency: input.currency, pricedOn: input.pricedOn })
+        .select({
+          cardId: input.cardId,
+          batchId: input.batchId,
+          condition: input.condition,
+          amount: input.amount,
+          currency: input.currency,
+          pricedOn: input.pricedOn,
+        })
         .from(input)
         .innerJoin(
           card,
@@ -770,7 +796,14 @@ export class PostgresCardRepository implements CardRepository {
         updatedAt: sql`now()`,
       })
       .from(eligible)
-      .where(and(eq(cardPurchaseBatch.cardId, eligible.cardId), isNull(cardPurchaseBatch.purchasePrice)))
+      .where(
+        and(
+          eq(cardPurchaseBatch.cardId, eligible.cardId),
+          eq(cardPurchaseBatch.id, eligible.batchId),
+          eq(sql`${cardPurchaseBatch.condition}::text`, eligible.condition),
+          isNull(cardPurchaseBatch.purchasePrice),
+        ),
+      )
       .returning({
         id: cardPurchaseBatch.id,
         purchasePrice: cardPurchaseBatch.purchasePrice,

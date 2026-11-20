@@ -19,6 +19,7 @@ struct CardFormValues: Equatable {
     var batches: [PurchaseBatchFormValue] = []
     var preferredCurrency: Currency?
     var exchangeRates: ExchangeRates?
+    var conditionValues: [ConditionValue]?
     var defaultMarketPrice: Decimal?
     var defaultMarketCurrency: Currency?
     var marketPricedOn: Date?
@@ -48,16 +49,18 @@ struct CardFormValues: Equatable {
     }
 
     func applyingMarketDefault(to batch: PurchaseBatchFormValue) -> PurchaseBatchFormValue {
-        let target =
-            batch.currencyWasSelected ? batch.currency : preferredCurrency ?? defaultMarketCurrency ?? .fallback
+        let value = conditionValues?.first { $0.condition == batch.condition }
+        let price = conditionValues == nil ? defaultMarketPrice : value.flatMap { marketDecimal($0.amount) }
+        let source = conditionValues == nil ? defaultMarketCurrency : value?.currency
+        let target = batch.currencyWasSelected ? batch.currency : preferredCurrency ?? source ?? .fallback
         let converted: Decimal?
-        if let price = defaultMarketPrice, let source = defaultMarketCurrency {
+        if let price, let source {
             converted = source == target ? price : exchangeRates?.convert(price, from: source, to: target)
         } else {
             converted = nil
         }
         var updated = batch
-        updated.applyDefaultPrice(converted, currency: target)
+        updated.applyDefaultPrice(converted, currency: target, pricedOn: marketPricedOn)
         return updated
     }
 
@@ -101,13 +104,16 @@ struct CardFormValues: Equatable {
     }
 
     mutating func updateMarketDefault(_ pricedCard: PricedCard) {
-        defaultMarketPrice = pricedCard.market?.market.flatMap {
-            Decimal(string: String(format: "%.6f", $0), locale: TCGLocales.decimal)
-        }
+        conditionValues = pricedCard.conditionValues
+        defaultMarketPrice = pricedCard.market?.market.flatMap(marketDecimal)
         defaultMarketCurrency = pricedCard.market?.currency
         marketPricedOn = pricedCard.pricedOn
         illustrator = pricedCard.illustrator ?? illustrator
         variantName = pricedCard.variantName ?? variantName
+    }
+
+    private func marketDecimal(_ amount: Double) -> Decimal? {
+        Decimal(string: String(format: "%.6f", amount), locale: TCGLocales.decimal)
     }
 
     var payload: UpdateCardPayload {
@@ -134,6 +140,7 @@ struct PurchaseBatchFormValue: Equatable, Identifiable {
     var quantity: Int
     var priceText: String
     var currency: Currency
+    var automaticPriceDate: String?
     var priceWasEdited = false
     var currencyWasSelected = false
 
@@ -168,15 +175,19 @@ struct PurchaseBatchFormValue: Equatable, Identifiable {
             quantity: quantity,
             purchasePrice: amount,
             currency: amount == nil ? nil : currency,
-            automaticPriceDate: nil,
+            automaticPriceDate: amount == nil || priceWasEdited ? nil : automaticPriceDate,
             displayPrice: nil
         )
     }
 
-    mutating func applyDefaultPrice(_ price: Decimal?, currency: Currency?) {
+    mutating func applyDefaultPrice(_ price: Decimal?, currency: Currency?, pricedOn: Date?) {
         guard persistedID == nil else { return }
         guard !priceWasEdited else { return }
         priceText = Self.priceText(for: price)
+        automaticPriceDate =
+            price == nil
+            ? nil
+            : pricedOn?.formatted(.iso8601.year().month().day().dateSeparator(.dash))
         if !currencyWasSelected { self.currency = currency ?? .fallback }
     }
 

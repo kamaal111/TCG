@@ -74,7 +74,11 @@ struct TCGCollectionsTests {
         let cards = TCGCards(client: client)
         let collections = TCGCollections(client: client, defaults: nil)
         let savedCards = PreviewTCGCardsClient.sampleCards.map { card in
-            CardWithPrice(card: card, price: .init(cardId: card.id, status: .unavailable, price: nil), imageURL: nil)
+            CardWithPrice(
+                card: card,
+                price: .init(cardId: card.id, status: .unavailable, price: nil, valuation: nil),
+                imageURL: nil
+            )
         }
         let first = try #require(savedCards.first)
         let page = BinderPage(

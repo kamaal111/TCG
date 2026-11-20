@@ -87,7 +87,8 @@ struct TCGSearchDetailView<AddForm: View>: View {
             }
             CardDetailContent(
                 metadata: .init(card: displayedCard ?? selectedCard),
-                price: displayedCard
+                price: displayedCard,
+                ownedQuantities: nil
             ) {
                 if displayedCard == nil && !isWishlistEntry {
                     if search.isSearching {
@@ -191,7 +192,8 @@ struct TCGSearchDetailView<AddForm: View>: View {
             {
                 return nil
             }
-            return card.display != nil || card.headline != nil || card.market != nil ? card : nil
+            let hasPrice = card.headline != nil || card.market != nil || !card.displayConditionPrices.isEmpty
+            return card.display != nil || hasPrice ? card : nil
         }
         let card = selectedCard
         guard let currencyState else { return card }
