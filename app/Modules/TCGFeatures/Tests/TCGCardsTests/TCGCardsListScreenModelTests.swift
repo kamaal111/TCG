@@ -1,4 +1,5 @@
 import Foundation
+import TCGModels
 import Testing
 
 @testable import TCGCards
@@ -77,16 +78,16 @@ struct TCGCardsListScreenModelTests {
         let preferences = try #require(UserDefaults(suiteName: suiteName))
         defer { preferences.removePersistentDomain(forName: suiteName) }
         let model = TCGCardsListScreenModel(preferences: preferences)
-        model.gameFilter = .pokemon
-        model.illustrators = ["Mitsuhiro Arita"]
+        model.filterState.game = .pokemon
+        model.filterState.illustrators = ["Mitsuhiro Arita"]
         let restored = TCGCardsListScreenModel(preferences: preferences)
-        #expect(restored.illustrators == ["Mitsuhiro Arita"])
+        #expect(restored.filterState.illustrators == ["Mitsuhiro Arita"])
         let feature = TCGCards(client: .preview(cardsOutcome: .success(cards: PreviewTCGCardsClient.sampleCards)))
         await restored.load(using: feature)
         #expect(feature.cards.count == 1)
         #expect(feature.availableIllustrators == ["Mitsuhiro Arita"])
-        restored.gameFilter = .onePiece
-        #expect(restored.illustrators.isEmpty)
+        restored.filterState.game = .onePiece
+        #expect(restored.filterState.illustrators.isEmpty)
     }
 
     @Test
@@ -95,16 +96,16 @@ struct TCGCardsListScreenModelTests {
         let preferences = try #require(UserDefaults(suiteName: suiteName))
         defer { preferences.removePersistentDomain(forName: suiteName) }
         let model = TCGCardsListScreenModel(preferences: preferences)
-        model.gameFilter = .pokemon
-        model.setNames = ["Base Set"]
+        model.filterState.game = .pokemon
+        model.filterState.setNames = ["Base Set"]
         let feature = TCGCards(client: .preview(cardsOutcome: .serverUnavailable))
 
         await model.load(using: feature)
 
         #expect(model.toast != nil)
         let restored = TCGCardsListScreenModel(preferences: preferences)
-        #expect(restored.gameFilter == .pokemon)
-        #expect(restored.setNames == ["Base Set"])
+        #expect(restored.filterState.game == .pokemon)
+        #expect(restored.filterState.setNames == ["Base Set"])
         model.dismissToast()
     }
 
@@ -114,12 +115,12 @@ struct TCGCardsListScreenModelTests {
         let preferences = try #require(UserDefaults(suiteName: suiteName))
         defer { preferences.removePersistentDomain(forName: suiteName) }
         let model = TCGCardsListScreenModel(preferences: preferences)
-        model.gameFilter = .pokemon
-        model.setNames = ["Base Set"]
+        model.filterState.game = .pokemon
+        model.filterState.setNames = ["Base Set"]
 
         let restored = TCGCardsListScreenModel(preferences: preferences)
-        #expect(restored.gameFilter == .pokemon)
-        #expect(restored.setNames == ["Base Set"])
+        #expect(restored.filterState.game == .pokemon)
+        #expect(restored.filterState.setNames == ["Base Set"])
         let feature = TCGCards(client: .preview(cardsOutcome: .success(cards: PreviewTCGCardsClient.sampleCards)))
         await restored.resumeLoadIfNeeded(using: feature)
         #expect(feature.cards.map(\.card.id) == [CardsTestIDs.secondary])
@@ -131,11 +132,11 @@ struct TCGCardsListScreenModelTests {
         let preferences = try #require(UserDefaults(suiteName: suiteName))
         defer { preferences.removePersistentDomain(forName: suiteName) }
         let model = TCGCardsListScreenModel(preferences: preferences)
-        model.setNames = ["Romance Dawn", "Base Set"]
+        model.filterState.setNames = ["Romance Dawn", "Base Set"]
 
         let restored = TCGCardsListScreenModel(preferences: preferences)
-        #expect(restored.gameFilter == nil)
-        #expect(restored.setNames == ["Base Set", "Romance Dawn"])
+        #expect(restored.filterState.game == nil)
+        #expect(restored.filterState.setNames == ["Base Set", "Romance Dawn"])
         #expect(preferences.stringArray(forKey: "TCGCards.filters.setNames") == ["Base Set", "Romance Dawn"])
     }
 
@@ -145,22 +146,22 @@ struct TCGCardsListScreenModelTests {
         let preferences = try #require(UserDefaults(suiteName: suiteName))
         defer { preferences.removePersistentDomain(forName: suiteName) }
         let model = TCGCardsListScreenModel(preferences: preferences)
-        model.gameFilter = .pokemon
-        model.setNames = ["Base Set"]
-        model.gameFilter = .pokemon
-        #expect(TCGCardsListScreenModel(preferences: preferences).setNames == ["Base Set"])
+        model.filterState.game = .pokemon
+        model.filterState.setNames = ["Base Set"]
+        model.filterState.game = .pokemon
+        #expect(TCGCardsListScreenModel(preferences: preferences).filterState.setNames == ["Base Set"])
 
-        model.gameFilter = .onePiece
+        model.filterState.game = .onePiece
         let restored = TCGCardsListScreenModel(preferences: preferences)
-        #expect(restored.gameFilter == .onePiece)
-        #expect(restored.setNames.isEmpty)
+        #expect(restored.filterState.game == .onePiece)
+        #expect(restored.filterState.setNames.isEmpty)
 
-        model.setNames = ["Romance Dawn"]
-        model.gameFilter = nil
+        model.filterState.setNames = ["Romance Dawn"]
+        model.filterState.game = nil
         #expect(preferences.object(forKey: "TCGCards.filters.game") == nil)
         let allGames = TCGCardsListScreenModel(preferences: preferences)
-        #expect(allGames.gameFilter == nil)
-        #expect(allGames.setNames.isEmpty)
+        #expect(allGames.filterState.game == nil)
+        #expect(allGames.filterState.setNames.isEmpty)
     }
 
     @Test
@@ -169,13 +170,13 @@ struct TCGCardsListScreenModelTests {
         let preferences = try #require(UserDefaults(suiteName: suiteName))
         defer { preferences.removePersistentDomain(forName: suiteName) }
         let model = TCGCardsListScreenModel(preferences: preferences)
-        model.gameFilter = .pokemon
-        model.setNames = ["Base Set"]
-        model.setNames = []
+        model.filterState.game = .pokemon
+        model.filterState.setNames = ["Base Set"]
+        model.filterState.setNames = []
 
         let restored = TCGCardsListScreenModel(preferences: preferences)
-        #expect(restored.gameFilter == .pokemon)
-        #expect(restored.setNames.isEmpty)
+        #expect(restored.filterState.game == .pokemon)
+        #expect(restored.filterState.setNames.isEmpty)
     }
 
     @Test
@@ -185,8 +186,8 @@ struct TCGCardsListScreenModelTests {
         defer { preferences.removePersistentDomain(forName: suiteName) }
         let model = TCGCardsListScreenModel(preferences: preferences)
 
-        #expect(model.gameFilter == nil)
-        #expect(model.setNames.isEmpty)
+        #expect(model.filterState.game == nil)
+        #expect(model.filterState.setNames.isEmpty)
         #expect(preferences.object(forKey: "TCGCards.filters.setNames") == nil)
     }
 
@@ -199,8 +200,8 @@ struct TCGCardsListScreenModelTests {
         preferences.set(["Base Set"], forKey: "TCGCards.filters.setNames")
         let model = TCGCardsListScreenModel(preferences: preferences)
 
-        #expect(model.gameFilter == nil)
-        #expect(model.setNames.isEmpty)
+        #expect(model.filterState.game == nil)
+        #expect(model.filterState.setNames.isEmpty)
     }
 
     @Test
@@ -211,14 +212,14 @@ struct TCGCardsListScreenModelTests {
         preferences.set("pokemon", forKey: "TCGCards.filters.game")
         preferences.set(["Base Set", 42], forKey: "TCGCards.filters.setNames")
         let model = TCGCardsListScreenModel(preferences: preferences)
-        #expect(model.gameFilter == .pokemon)
-        #expect(model.setNames.isEmpty)
+        #expect(model.filterState.game == .pokemon)
+        #expect(model.filterState.setNames.isEmpty)
 
         preferences.set(42, forKey: "TCGCards.filters.game")
         preferences.set(["Base Set"], forKey: "TCGCards.filters.setNames")
         let malformedGame = TCGCardsListScreenModel(preferences: preferences)
-        #expect(malformedGame.gameFilter == nil)
-        #expect(malformedGame.setNames.isEmpty)
+        #expect(malformedGame.filterState.game == nil)
+        #expect(malformedGame.filterState.setNames.isEmpty)
     }
 
     @Test
@@ -227,40 +228,40 @@ struct TCGCardsListScreenModelTests {
         let preferences = try #require(UserDefaults(suiteName: suiteName))
         defer { preferences.removePersistentDomain(forName: suiteName) }
         let model = TCGCardsListScreenModel(preferences: preferences)
-        model.gameFilter = .pokemon
-        model.setNames = ["Crown Zenith"]
+        model.filterState.game = .pokemon
+        model.filterState.setNames = ["Crown Zenith"]
         let restored = TCGCardsListScreenModel(preferences: preferences)
         let feature = TCGCards(client: .preview(cardsOutcome: .success(cards: PreviewTCGCardsClient.sampleCards)))
 
         await restored.resumeLoadIfNeeded(using: feature)
 
         #expect(feature.cards.isEmpty)
-        #expect(restored.setNames == ["Crown Zenith"])
-        #expect(restored.availableSetNames(using: feature) == ["Base Set", "Crown Zenith"])
-        #expect(TCGCardsListScreenModel(preferences: preferences).setNames == ["Crown Zenith"])
+        #expect(restored.filterState.setNames == ["Crown Zenith"])
+        #expect(restored.filterState.setChoices(feature.availableSetNames) == ["Base Set", "Crown Zenith"])
+        #expect(TCGCardsListScreenModel(preferences: preferences).filterState.setNames == ["Crown Zenith"])
     }
 
     @Test
     func `Combines game and set selections without narrowing the choices`() async {
         let feature = TCGCards(client: .preview(cardsOutcome: .success(cards: PreviewTCGCardsClient.sampleCards)))
         let model = TCGCardsListScreenModel(preferences: nil)
-        model.setNames = ["Base Set"]
+        model.filterState.setNames = ["Base Set"]
         await model.load(using: feature)
         #expect(feature.cards.map(\.card.id) == [CardsTestIDs.secondary])
-        #expect(model.availableSetNames(using: feature) == ["Base Set", "Romance Dawn"])
+        #expect(model.filterState.setChoices(feature.availableSetNames) == ["Base Set", "Romance Dawn"])
 
-        model.setNames.insert("Romance Dawn")
+        model.filterState.setNames.insert("Romance Dawn")
         await model.load(using: feature)
         #expect(feature.cards.map(\.card) == PreviewTCGCardsClient.sampleCards)
 
-        model.gameFilter = .pokemon
-        #expect(model.setNames.isEmpty)
-        model.setNames = ["Romance Dawn"]
+        model.filterState.game = .pokemon
+        #expect(model.filterState.setNames.isEmpty)
+        model.filterState.setNames = ["Romance Dawn"]
         await model.load(using: feature)
         #expect(feature.cards.isEmpty)
-        #expect(model.availableSetNames(using: feature) == ["Base Set", "Romance Dawn"])
+        #expect(model.filterState.setChoices(feature.availableSetNames) == ["Base Set", "Romance Dawn"])
 
-        model.setNames = []
+        model.filterState.setNames = []
         await model.load(using: feature)
         #expect(feature.cards.map(\.card.id) == [CardsTestIDs.secondary])
     }
@@ -269,16 +270,16 @@ struct TCGCardsListScreenModelTests {
     func `Filtered deletion removes the displayed card and retains its selection`() async throws {
         let feature = TCGCards(client: .preview(cardsOutcome: .success(cards: PreviewTCGCardsClient.sampleCards)))
         let model = TCGCardsListScreenModel(preferences: nil)
-        model.setNames = ["Base Set"]
+        model.filterState.setNames = ["Base Set"]
         await model.load(using: feature)
 
         await model.delete(at: IndexSet(integer: 0), using: feature)
 
         #expect(feature.cards.isEmpty)
         #expect(feature.availableSetNames == ["Romance Dawn"])
-        #expect(model.setNames == ["Base Set"])
-        #expect(model.availableSetNames(using: feature) == ["Base Set", "Romance Dawn"])
-        model.setNames = []
+        #expect(model.filterState.setNames == ["Base Set"])
+        #expect(model.filterState.setChoices(feature.availableSetNames) == ["Base Set", "Romance Dawn"])
+        model.filterState.setNames = []
         await model.load(using: feature)
         #expect(feature.cards.map(\.card.id) == [CardsTestIDs.primary])
     }
@@ -299,8 +300,8 @@ struct TCGCardsListScreenModelTests {
     func `Adding outside the selected set refreshes choices without showing the new card`() async throws {
         let feature = TCGCards(client: .preview(cardsOutcome: .success(cards: PreviewTCGCardsClient.sampleCards)))
         let model = TCGCardsListScreenModel(preferences: nil)
-        model.gameFilter = .pokemon
-        model.setNames = ["Base Set"]
+        model.filterState.game = .pokemon
+        model.filterState.setNames = ["Base Set"]
         await model.load(using: feature)
         let id = try #require(UUID(uuidString: PreviewTCGPricingClient.samplePricedCards[1].id))
         try await feature.addCard(.init(pricedCardID: id, ownership: validValues.payload)).get()
@@ -316,7 +317,7 @@ struct TCGCardsListScreenModelTests {
 
         await model.load(using: feature)
 
-        #expect(model.gameFilter == nil)
+        #expect(model.filterState.game == nil)
         #expect(feature.cards.map(\.card) == PreviewTCGCardsClient.sampleCards)
     }
 
@@ -325,15 +326,15 @@ struct TCGCardsListScreenModelTests {
         let feature = TCGCards(client: .preview(cardsOutcome: .success(cards: PreviewTCGCardsClient.sampleCards)))
         let model = TCGCardsListScreenModel(preferences: nil)
 
-        model.gameFilter = .pokemon
+        model.filterState.game = .pokemon
         await model.load(using: feature)
         #expect(feature.cards.map(\.card.game) == [.pokemon])
 
-        model.gameFilter = .onePiece
+        model.filterState.game = .onePiece
         await model.load(using: feature)
         #expect(feature.cards.map(\.card.game) == [.onePiece])
 
-        model.gameFilter = nil
+        model.filterState.game = nil
         await model.load(using: feature)
         #expect(feature.cards.map(\.card) == PreviewTCGCardsClient.sampleCards)
     }

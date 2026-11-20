@@ -5,18 +5,18 @@ enum CardMapper {
     static func makeListQuery(_ query: ListCardsQuery) -> Operations.GetAppApiCards.Input.Query {
         .init(
             cursor: query.cursor,
-            illustrator: query.illustrators.isEmpty ? nil : query.illustrators.sorted(),
+            illustrator: query.filters.illustratorParameters,
             collectionId: query.collectionID.map(UUIDCoding.encode),
             query: query.query,
             game: query.game.map(Self.makeListGame),
-            setName: query.setNames.isEmpty ? nil : query.setNames.sorted()
+            setName: query.filters.setNameParameters
         )
     }
 
     static func makeCollectionPage(
         _ collection: Components.Schemas.CardsListResponse
     ) -> Result<CardCollectionPage, UUIDCodingError> {
-        makeOwnedDetails(collection.cards)
+        makeOwnedDetails(collection.entries)
             .map { cards in
                 CardCollectionPage(
                     cards: cards,

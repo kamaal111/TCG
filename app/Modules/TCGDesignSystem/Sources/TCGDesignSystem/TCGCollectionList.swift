@@ -65,6 +65,22 @@ public struct TCGCollectionList<Controls: View, Rows: View, EmptyContent: View, 
     }
 }
 
+public struct TCGCollectionNoMatches: View {
+    public init() {}
+
+    public var body: some View {
+        ContentUnavailableView {
+            Label {
+                Text("No matching cards", bundle: .module)
+            } icon: {
+                Image(systemName: "line.3.horizontal.decrease")
+            }
+        } description: {
+            Text("Change your filters to see more cards.", bundle: .module)
+        }
+    }
+}
+
 extension View {
     public func tcgCollectionListRow() -> some View {
         #if os(macOS)

@@ -43,7 +43,7 @@ describe('Card pricing integration', () => {
 
         expect(listed.status).toBe(200);
         expect(await listed.json()).toMatchObject({
-          cards: [{ name: 'Giratina VSTAR' }],
+          entries: [{ name: 'Giratina VSTAR' }],
         });
         const priced = await requestOwnedPrices(composed.app, headers, [created.id]);
         expect(priced.status).toBe(200);
@@ -110,9 +110,9 @@ describe('Card pricing integration', () => {
 
       const englishBody = PricingSearchResponseSchema.parse(await english.json());
 
-      expect(englishBody.matches).toMatchObject([{ name: 'Giratina VSTAR', card_number: 'GG69' }]);
+      expect(englishBody.entries).toMatchObject([{ name: 'Giratina VSTAR', card_number: 'GG69' }]);
       expect(PricingSearchResponseSchema.parse(await englishAgain.json())).toEqual(englishBody);
-      expect(PricingSearchResponseSchema.parse(await japanese.json())).toEqual({ matches: [], next_cursor: null });
+      expect(PricingSearchResponseSchema.parse(await japanese.json())).toEqual({ entries: [], next_cursor: null });
       expect(pricingClient.searchCallCount).toBe(3);
       expect(await db.query.cardPriceSearch.findMany()).toHaveLength(3);
     },
@@ -152,7 +152,7 @@ describe('Card pricing integration', () => {
 
     expect(response.status).toBe(CONTENTFUL_STATUS_CODES.OK);
     const body = PricingSearchResponseSchema.parse(await response.json());
-    expect(body.matches[0]).toMatchObject({
+    expect(body.entries[0]).toMatchObject({
       id: expect.any(String),
       set_name: 'Crown Zenith',
       headline: { amount: 146.69, currency: 'USD', metric: 'lowest_near_mint' },
@@ -162,7 +162,7 @@ describe('Card pricing integration', () => {
         trend_7d: { price_change: 7.36, percent_change: 4.46 },
       },
     });
-    expect(body.matches[0]).not.toHaveProperty('pricing_card_id');
+    expect(body.entries[0]).not.toHaveProperty('pricing_card_id');
   });
 
   integrationTest(
@@ -172,7 +172,7 @@ describe('Card pricing integration', () => {
       const first = await app.request(path, { headers: authenticatedHeaders });
       expect(first.status).toBe(200);
       const firstBody = PricingSearchResponseSchema.parse(await first.json());
-      expect(firstBody.matches[0]).toMatchObject({ game: 'one_piece', set_name: 'Emperors in the New World' });
+      expect(firstBody.entries[0]).toMatchObject({ game: 'one_piece', set_name: 'Emperors in the New World' });
 
       const second = await app.request(path, { headers: authenticatedHeaders });
       expect(second.status).toBe(200);
@@ -195,8 +195,8 @@ describe('Card pricing integration', () => {
       const cached = await app.request(path, { headers: authenticatedHeaders });
       expect(cached.status).toBe(200);
       const body = PricingSearchResponseSchema.parse(await cached.json());
-      expect(body.matches).toHaveLength(1);
-      expect(body.matches[0]).not.toHaveProperty('set_name');
+      expect(body.entries).toHaveLength(1);
+      expect(body.entries[0]).not.toHaveProperty('set_name');
     },
   );
 
@@ -213,7 +213,7 @@ describe('Card pricing integration', () => {
 
       const second = await app.request(path, { headers: authenticatedHeaders });
       expect(second.status).toBe(CONTENTFUL_STATUS_CODES.OK);
-      expect(PricingSearchResponseSchema.parse(await second.json()).matches).toEqual(firstBody.matches);
+      expect(PricingSearchResponseSchema.parse(await second.json()).entries).toEqual(firstBody.entries);
       expect(await db.query.cardImage.findFirst({ where: { imageKey } })).toMatchObject({
         imageKey,
         originUrl: originURL,
@@ -232,7 +232,7 @@ describe('Card pricing integration', () => {
     });
 
     expect(PricingSearchResponseSchema.parse(await noResults.json())).toMatchObject({
-      matches: [],
+      entries: [],
     });
     await expectValidationIssueForField(invalid, 'query');
   });
@@ -251,7 +251,7 @@ describe('Card pricing integration', () => {
       );
 
       expect(response.status).toBe(CONTENTFUL_STATUS_CODES.OK);
-      expect(PricingSearchResponseSchema.parse(await response.json()).matches).toHaveLength(1);
+      expect(PricingSearchResponseSchema.parse(await response.json()).entries).toHaveLength(1);
       expect(
         await db
           .select()

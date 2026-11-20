@@ -21,13 +21,23 @@ running, browse `http://localhost:8080/doc`, `/spec.json`, or `/spec.yaml`.
 | POST   | `/app-api/cards`              | Create an owned card; returns 201 with card and price        |
 | PUT    | `/app-api/cards/{cardId}`     | Fully replace an owned card's editable fields and quantities |
 | DELETE | `/app-api/cards/{cardId}`     | Delete an owned card; returns 204                            |
-| GET    | `/app-api/pricing/search`     | Search by required `game` and `query`; returns `matches`     |
+| GET    | `/app-api/cards/export`       | Export a page of owned cards and purchase history            |
+| GET    | `/app-api/wishlist`           | List a page of saved printings                               |
+| GET    | `/app-api/pricing/search`     | Search by required `game` and `query`                        |
 | GET    | `/app-api/images/{imageKey}`  | Public card image proxy; supports conditional requests       |
 
 Collection and pricing routes require authentication. Collection reads/writes are
 scoped to the authenticated user. Missing and other users' cards both return
 404 with `CARD_NOT_FOUND`. Image URLs are public so image loading does not need
 the app's auth middleware.
+
+## Pagination
+
+Cards, Wishlist, Pricing Search, and Card Export return a page with an
+`entries` array and a `next_cursor` value. Omit `cursor` for the first request.
+For subsequent requests, pass the returned cursor with the same filters and
+search query. A null cursor ends the list. Each endpoint defines its entry type.
+Cards and Wishlist include set and illustrator choices alongside the page.
 
 ## Authentication
 
@@ -80,14 +90,13 @@ the full editable payload and quantity set. Card path IDs must be UUIDs.
 
 Responses include a generated ID, identifying fields, notes, condition quantities,
 timestamps, and a `price` object. Quantities are serialized in the condition order
-listed above. List responses wrap entries in `{"cards":[...]}` and sort newest
-entries first; `?game=pokemon` or `?game=one_piece` filters them. There is currently
-no pagination parameter.
+listed above. The Cards list sorts newest entries first and accepts
+`?game=pokemon` or `?game=one_piece` as a filter.
 
 ## Pricing behavior
 
 `GET /app-api/pricing/search?game=pokemon&query=Charizard&search_by=card` returns
-`{"matches":[...]}`. Queries are trimmed and must be 2–200 characters. Each
+an ordered page of matches. Queries are trimmed and must be 2–200 characters. Each
 priced match includes a UUID for that day's cached price, game, name, card number, pricing date,
 fetch timestamp, and optional rarity, proxy image URL, headline, and market data.
 The priced-card UUID is separate from an owned-card UUID and can change on the

@@ -21,7 +21,7 @@ public struct TCGCardsListScreen: View {
     private let hidesScrollBackground: Bool
 
     public init() {
-        self.init(model: TCGCardsListScreenModel())
+        self.init(model: TCGCardsListScreenModel(preferences: .standard))
     }
 
     init(model: TCGCardsListScreenModel, hidesScrollBackground: Bool = false) {
@@ -95,14 +95,18 @@ public struct TCGCardsListScreen: View {
     }
 
     private var collectionList: some View {
-        @Bindable var model = model
+        @Bindable var filterState = model.filterState
         return TCGCollectionList(
             title: Text(verbatim: collectionTitle),
-            query: $model.query,
+            query: $filterState.query,
             hidesScrollBackground: hidesScrollBackground,
             showsEmptyContent: cardCollection.cards.isEmpty && cardCollection.hasLoadedCurrentCollection
         ) {
-            gameFilterMenu
+            TCGCollectionFilters(
+                state: filterState,
+                availableSets: cardCollection.availableSetNames,
+                availableIllustrators: cardCollection.availableIllustrators
+            )
         } rows: {
             #if os(macOS)
                 cardRows
@@ -128,62 +132,6 @@ public struct TCGCardsListScreen: View {
         Task { _ = await cardCollection.loadNextPage() }
     }
 
-    private var gameFilterBinding: Binding<CardGame?> {
-        Binding(
-            get: { model.gameFilter.map(CardGame.init(client:)) },
-            set: { model.gameFilter = $0?.clientGame }
-        )
-    }
-
-    private var gameFilterMenu: some View {
-        TCGFilterMenu(gameTitle: gameFilterTitle, summary: filterSummary) {
-            Picker(selection: gameFilterBinding) {
-                Text("All games", bundle: .module).tag(CardGame?.none)
-                ForEach(CardGame.allCases, id: \.self) { game in
-                    Text(verbatim: game.title).tag(Optional(game))
-                }
-            } label: {
-                Text("Game", bundle: .module)
-            }
-            if model.gameFilter != .onePiece && !model.availableIllustrators(using: cardCollection).isEmpty {
-                Menu {
-                    ForEach(model.availableIllustrators(using: cardCollection), id: \.self) { name in
-                        Toggle(
-                            isOn: Binding(
-                                get: { model.illustrators.contains(name) },
-                                set: { selected in
-                                    if selected {
-                                        model.illustrators.insert(name)
-                                    } else {
-                                        model.illustrators.remove(name)
-                                    }
-                                }
-                            )
-                        ) { Text(verbatim: name) }
-                    }
-                } label: {
-                    Text("Illustrators", bundle: .module)
-                }
-            }
-            TCGSetFilterSection(
-                availableSetNames: model.availableSetNames(using: cardCollection),
-                selection: $model.setNames,
-                presentation: .submenu
-            )
-        }
-    }
-
-    private var filterSummary: Text {
-        let sets = TCGSetFilterSection.summary(for: model.setNames)
-        guard !model.illustrators.isEmpty else { return sets }
-        return Text("\(sets) · \(model.illustrators.sorted().joined(separator: ", "))", bundle: .module)
-    }
-
-    private var gameFilterTitle: Text {
-        guard let game = model.gameFilter else { return Text("All games", bundle: .module) }
-        return Text(verbatim: CardGame(client: game).title)
-    }
-
     private var cardRows: some DynamicViewContent {
         ForEach(cardCollection.cards, id: \.card.id) { cardWithPrice in
             cardButton(for: cardWithPrice)
@@ -194,18 +142,8 @@ public struct TCGCardsListScreen: View {
 
     @ViewBuilder
     private var emptyCollection: some View {
-        if model.gameFilter != nil || !model.setNames.isEmpty || !model.illustrators.isEmpty
-            || model.filters.searchQuery != nil
-        {
-            ContentUnavailableView {
-                Label {
-                    Text("No matching cards", bundle: .module)
-                } icon: {
-                    Image(systemName: "line.3.horizontal.decrease")
-                }
-            } description: {
-                Text("Change your filters to see more cards.", bundle: .module)
-            }
+        if model.filters.isActive {
+            TCGCollectionNoMatches()
         } else {
             ContentUnavailableView(
                 "No cards",

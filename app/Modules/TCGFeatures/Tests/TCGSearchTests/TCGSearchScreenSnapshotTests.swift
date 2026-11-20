@@ -71,7 +71,7 @@ struct TCGSearchScreenSnapshotTests {
 
     @Test
     func `Renders saved printings in the Wishlist list`() async {
-        let model = await wishlistModel(entries: [detailCard, WishlistTestClient.luffy])
+        let model = await wishlistModel(entries: [detailCard, WishlistTestClient.luffy], query: "")
         await assertScreenSnapshot(testName: #function) {
             NavigationStack {
                 TCGWishlistScreen(isVisible: false, model: model) { _, _ in EmptyView() }
@@ -84,7 +84,7 @@ struct TCGSearchScreenSnapshotTests {
     func `Hides prices in the Wishlist list`() async {
         let privacy = TCGPricePrivacy(defaults: nil)
         privacy.hidePrices = true
-        let model = await wishlistModel(entries: [detailCard, WishlistTestClient.luffy])
+        let model = await wishlistModel(entries: [detailCard, WishlistTestClient.luffy], query: "")
         await assertScreenSnapshot(testName: #function) {
             NavigationStack {
                 TCGWishlistScreen(isVisible: false, model: model) { _, _ in EmptyView() }
@@ -122,15 +122,19 @@ struct TCGSearchScreenSnapshotTests {
         }
     }
 
-    private func wishlistModel(entries: [PricedCard], query: String = "") async -> TCGWishlistScreenModel {
+    private func wishlistModel(entries: [PricedCard], query: String) async -> TCGWishlistScreenModel {
         let wishlist = TCGWishlist(
-            client: WishlistTestClient(responses: [
-                .success(.init(entries: entries, nextCursor: nil))
-            ])
+            client: WishlistTestClient(
+                responses: [
+                    .success(.init(entries: entries, nextCursor: nil, availableSetNames: [], availableIllustrators: []))
+                ],
+                firstRequestGate: nil,
+                saves: []
+            )
         )
-        let model = TCGWishlistScreenModel()
-        model.query = query
-        await model.refresh(using: wishlist)
+        let model = TCGWishlistScreenModel(preferences: nil)
+        model.filterState.query = query
+        await model.refresh(using: wishlist, currency: nil)
         return model
     }
 
@@ -169,7 +173,10 @@ struct TCGSearchScreenSnapshotTests {
                     addForm: { _, _ in EmptyView() }
                 )
                 .tcgSearch(TCGSearch(client: .preview(), history: TCGSearchHistoryStore()))
-                .environment(\.tcgWishlist, TCGWishlist(client: WishlistTestClient()))
+                .environment(
+                    \.tcgWishlist,
+                    TCGWishlist(client: WishlistTestClient(responses: [], firstRequestGate: nil, saves: []))
+                )
                 .environment(\.tcgPricePrivacy, privacy)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(.background)

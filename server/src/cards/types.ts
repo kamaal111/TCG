@@ -1,3 +1,4 @@
+import type { CardListPageInfo } from './list-page.ts';
 import type { Currency } from '../forex/currencies.ts';
 
 export const CARD_GAMES = ['one_piece', 'pokemon'] as const;
@@ -54,9 +55,6 @@ export interface ConditionQuantity {
 
 export type CardWithPurchases = OwnedCard & { purchaseBatches: PurchaseBatch[] };
 
-export interface CardCollection {
+export interface CardCollection extends CardListPageInfo {
   cards: CardWithPurchases[];
-  availableSetNames: string[];
-  availableIllustrators: string[];
-  nextCursor: string | null;
 }

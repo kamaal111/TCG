@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { PricedCardSchema, PrintingKeySchema } from '../../card-pricing/schemas/responses.ts';
+import { cardListPageSchema } from '../../cards/list-page.ts';
 
 export const WishlistCardSchema = PricedCardSchema.pick({
   id: true,
@@ -18,9 +19,9 @@ export const WishlistCardSchema = PricedCardSchema.pick({
   .extend({ printing_key: PrintingKeySchema })
   .meta({ $id: 'WishlistCard' });
 
-export const WishlistPageSchema = z.object({
-  entries: z.array(PricedCardSchema),
-  next_cursor: z.string().nullable(),
+export const WishlistPageSchema = cardListPageSchema(PricedCardSchema, z.string()).partial({
+  available_set_names: true,
+  available_illustrators: true,
 });
 
 export type WishlistCard = z.infer<typeof WishlistCardSchema>;

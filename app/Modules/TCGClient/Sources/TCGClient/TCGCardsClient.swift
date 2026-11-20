@@ -70,7 +70,7 @@ struct TCGCardsClientImpl: TCGCardsClient {
                         guard !next.isEmpty else {
                             return .failure(.unknown(status: HTTPResponse.Status.serviceUnavailable.code))
                         }
-                        guard !page.cards.isEmpty else {
+                        guard !page.entries.isEmpty else {
                             return .failure(.unknown(status: HTTPResponse.Status.serviceUnavailable.code))
                         }
                         guard visitedCursors.insert(next).inserted else {
@@ -78,7 +78,7 @@ struct TCGCardsClientImpl: TCGCardsClient {
                         }
                     }
 
-                    switch CardMapper.makeCards(page.cards) {
+                    switch CardMapper.makeCards(page.entries) {
                     case .success(let mapped):
                         cards.append(contentsOf: mapped.filter { cardIDs.insert($0.id).inserted })
                     case .failure: return .failure(.unknown(status: HTTPResponse.Status.serviceUnavailable.code))
@@ -213,7 +213,7 @@ struct TCGCardsClientImpl: TCGCardsClient {
                             .unknown(status: HTTPResponse.Status.serviceUnavailable.code, payload: nil, cause: nil)
                         )
                     }
-                    guard !collection.cards.isEmpty else {
+                    guard !collection.entries.isEmpty else {
                         return .failure(
                             .unknown(status: HTTPResponse.Status.serviceUnavailable.code, payload: nil, cause: nil)
                         )

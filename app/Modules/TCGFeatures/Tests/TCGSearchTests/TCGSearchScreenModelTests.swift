@@ -725,12 +725,12 @@ actor HistoryPricingTransport: ClientTransport {
         }
         let outcome = outcomes[request] ?? .matches
         if outcome == .unavailable { return (HTTPResponse(status: .serviceUnavailable), HTTPBody("{}")) }
-        if outcome == .empty { return (HTTPResponse(status: .ok), HTTPBody("{\"matches\": []}")) }
+        if outcome == .empty { return (HTTPResponse(status: .ok), HTTPBody(#"{"entries": [], "next_cursor": null}"#)) }
         if outcome == .sets {
             let cards: [(String, String?)] = [
                 ("zenith", "Crown Zenith"), ("origin", "Lost Origin"), ("zenith-2", "Crown Zenith"), ("unknown", nil),
             ]
-            let matches = cards.map { id, setName in
+            let entries = cards.map { id, setName in
                 var card: [String: Any] = [
                     "id": id, "game": "pokemon", "name": "Giratina", "card_number": "GG69",
                     "headline": ["amount": 10, "currency": "USD", "metric": "lowest_near_mint"],
@@ -740,7 +740,7 @@ actor HistoryPricingTransport: ClientTransport {
                 card["set_name"] = setName
                 return card
             }
-            let data = try JSONSerialization.data(withJSONObject: ["matches": matches])
+            let data = try JSONSerialization.data(withJSONObject: ["entries": entries, "next_cursor": NSNull()])
             return (HTTPResponse(status: .ok), HTTPBody(data))
         }
         let amount = outcome == .updated ? 20 : 10
@@ -749,7 +749,7 @@ actor HistoryPricingTransport: ClientTransport {
         let body = """
             {
               "next_cursor": \(nextCursor),
-              "matches": [{
+              "entries": [{
                 "id": "\(id)", "game": "pokemon", "name": "Giratina", "card_number": "GG69",
                 "rarity": "Rare", "headline": {"amount": \(amount), "currency": "USD", "metric": "lowest_near_mint"},
                 "market": {"condition": "near_mint", "currency": "USD", "low": 10, "market": 10},

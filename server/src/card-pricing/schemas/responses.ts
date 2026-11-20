@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { CARD_GAMES } from '../../cards/types.ts';
 import { CurrencySchema } from '../../forex/currencies.ts';
 import { ApiCommonDatetime, UuidSchema } from '../../schemas/common.ts';
+import { paginatedResponseSchema } from '../../schemas/pagination.ts';
 
 export const PRICE_HEADLINE_METRICS = { LOWEST_NEAR_MINT: 'lowest_near_mint' } as const;
 
@@ -137,20 +138,12 @@ export const PricedCardSchema = z
     },
   });
 
-export const PricingSearchResponseSchema = z
-  .object({
-    matches: z.array(PricedCardSchema).meta({ description: 'Ordered matching cards' }),
-    next_cursor: z.string().nullish().meta({ description: 'Cursor for the next page, or null at the end' }),
-  })
-  .meta({
-    $id: 'PricingSearchResponse',
-    title: 'Pricing Search Response',
-    description: 'Card pricing search results',
-    example: {
-      matches: [],
-      next_cursor: null,
-    },
-  });
+export const PricingSearchResponseSchema = paginatedResponseSchema(PricedCardSchema).meta({
+  $id: 'PricingSearchResponse',
+  title: 'Pricing Search Response',
+  description: 'Card pricing search results in match order',
+  example: { entries: [], next_cursor: null },
+});
 
 export const OwnedCardPriceSchema = z
   .object({
@@ -176,7 +169,5 @@ export const OwnedCardPriceSchema = z
   });
 
 export type PricedCardResponse = z.infer<typeof PricedCardSchema>;
-
-export type PricingSearchResponse = z.infer<typeof PricingSearchResponseSchema>;
 
 export type OwnedCardPriceResponse = z.infer<typeof OwnedCardPriceSchema>;

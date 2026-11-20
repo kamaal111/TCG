@@ -72,7 +72,7 @@ integrationTest(
       const binder = await composed.app.request(`/app-api/collections/${collection.id}/pages/${page.id}`, { headers });
 
       expect([list.status, details.status, binder.status]).toEqual([200, 200, 200]);
-      expect(CardsListResponseSchema.parse(await list.json()).cards).toHaveLength(4);
+      expect(CardsListResponseSchema.parse(await list.json()).entries).toHaveLength(4);
       expect(OwnedCardDetailsSchema.parse(await details.json()).id).toBe(id);
       expect(BinderPageCardsSchema.parse(await binder.json()).cards).toHaveLength(4);
 

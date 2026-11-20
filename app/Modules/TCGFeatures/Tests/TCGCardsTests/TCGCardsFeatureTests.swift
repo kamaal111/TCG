@@ -10,6 +10,7 @@ import HTTPTypes
 import KamaalAuth
 import OpenAPIRuntime
 import TCGCurrency
+import TCGModels
 import Testing
 
 @testable import TCGCards
@@ -692,7 +693,7 @@ struct TCGCardsFeatureTests {
         #expect(await transport.requestCount == 1)
         #expect(!feature.isLoading)
 
-        model.setNames = ["Base Set"]
+        model.filterState.setNames = ["Base Set"]
         let changedLoad = Task { await model.resumeLoadIfNeeded(using: feature) }
         await transport.waitForRequest("/app-api/cards?set_name=Base%20Set")
         await transport.complete("/app-api/cards?set_name=Base%20Set", setName: "Base Set")
@@ -1187,7 +1188,7 @@ private actor PendingCollectionTransport: ClientTransport {
     func complete(_ path: String, setName: String) {
         let continuation = takeRequest(path)
         let body = """
-            {"cards": [], "available_illustrators": [], "available_set_names": ["\(setName)"], "next_cursor": null}
+            {"entries": [], "available_illustrators": [], "available_set_names": ["\(setName)"], "next_cursor": null}
             """
         continuation.resume(returning: (HTTPResponse(status: .ok), HTTPBody(body)))
     }
@@ -1248,7 +1249,7 @@ private actor PendingCollectionTransport: ClientTransport {
         let nextCursor = cursor.map { "\"\($0)\"" } ?? "null"
         let body = """
             {
-              "cards": [{
+              "entries": [{
                 "id": "\(id)", "game": "pokemon", "name": "Pikachu",
                 "set_name": "Base Set", "card_number": "58/102", "notes": null,
                 "purchases": [], "purchase_price_change_percent": null,
@@ -1267,7 +1268,7 @@ private actor PendingCollectionTransport: ClientTransport {
         completeJSON(
             path,
             body: """
-                {"cards":[{"id":"\(id)","game":"pokemon","name":"ダーテング","set_name":"Cyber Judge",
+                {"entries":[{"id":"\(id)","game":"pokemon","name":"ダーテング","set_name":"Cyber Judge",
                   "card_number":"072/071","english_search_alias":"Shiftry","notes":null,"purchases":[],
                   "purchase_price_change_percent":null,"created_at":"2026-07-20T10:30:00.000Z",
                   "updated_at":"2026-07-20T10:30:00.000Z",
@@ -1290,7 +1291,7 @@ private actor PendingCollectionTransport: ClientTransport {
     func completeWithCachedCards(_ path: String) {
         let continuation = takeRequest(path)
         let body = """
-            {"cards": [
+            {"entries": [
               {"id": "00000000-0000-4000-8000-000000000060", "game": "pokemon", "name": "Pikachu",
                "set_name": "Base Set", "card_number": "58/102", "notes": null, "purchases": [], "purchase_price_change_percent": null,
                "created_at": "2026-07-20T10:30:00.000Z", "updated_at": "2026-07-20T10:30:00.000Z",

@@ -138,12 +138,12 @@ struct TCGCardsImportReviewModelTests {
             fails: false,
             catalogPages: [
                 """
-                {"matches":[],"next_cursor":"second-page"}
+                {"entries":[],"next_cursor":"second-page"}
                 """,
                 """
-                {"matches":[{"id":"00000000-0000-4000-8000-000000000001","game":"pokemon",
+                {"entries":[{"id":"00000000-0000-4000-8000-000000000001","game":"pokemon",
                 "name":"イブキのカイリュー","set_name":"ポケモンカード★VS","card_number":"049/141",
-                "priced_on":"2026-10-08T00:00:00.000Z","fetched_at":"2026-10-08T10:00:00.000Z"}]}
+                "priced_on":"2026-10-08T00:00:00.000Z","fetched_at":"2026-10-08T10:00:00.000Z"}],"next_cursor":null}
                 """,
             ]
         )
@@ -332,14 +332,14 @@ struct TCGCardsImportReviewModelTests {
     @Test
     func `Ambiguous matches require selection and retain every purchase on retry`() async throws {
         let body = """
-            {"matches":[
+            {"entries":[
             {"id":"00000000-0000-4000-8000-000000000001","printing_key":"foil","game":"one_piece",
             "name":"Monkey D. Luffy","set_name":"Romance Dawn","card_number":"OP01-003","variant_name":"Foil",
             "priced_on":"2026-10-08T00:00:00.000Z","fetched_at":"2026-10-08T10:00:00.000Z"},
             {"id":"00000000-0000-4000-8000-000000000002","printing_key":"alt-art","game":"one_piece",
             "name":"Monkey D. Luffy","set_name":"Romance Dawn","card_number":"OP01-003","variant_name":"Alt Art",
             "priced_on":"2026-10-08T00:00:00.000Z","fetched_at":"2026-10-08T10:00:00.000Z"}
-            ]}
+            ], "next_cursor": null}
             """
         let transport = CSVImportTransport(
             status: .ok,

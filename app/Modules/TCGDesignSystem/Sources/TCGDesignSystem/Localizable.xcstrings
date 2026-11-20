@@ -1,6 +1,16 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "%@ · %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ · %2$@"
+          }
+        }
+      }
+    },
     "%lld sets" : {
 
     },
@@ -17,6 +27,9 @@
 
     },
     "Card images will download again when you view them." : {
+
+    },
+    "Change your filters to see more cards." : {
 
     },
     "Close" : {
@@ -58,6 +71,9 @@
     "Game" : {
 
     },
+    "Illustrators" : {
+
+    },
     "Image could not be loaded." : {
 
     },
@@ -71,6 +87,9 @@
 
     },
     "No image available" : {
+
+    },
+    "No matching cards" : {
 
     },
     "OK" : {

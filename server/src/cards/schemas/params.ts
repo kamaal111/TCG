@@ -1,12 +1,10 @@
 import { z } from 'zod';
 
 import { CardCoreFieldsSchema } from './fields.ts';
+import { CardListFiltersSchema, validateCardListFilters } from './list-filters.ts';
 import { UuidSchema } from '../../schemas/common.ts';
 import { base64UrlCursorPattern, paginationCursor } from '../../utils/pagination.ts';
-import { CARD_GAMES } from '../types.ts';
 import { decodeCardCursor } from '../utils/pagination.ts';
-
-const SetNameFilterSchema = CardCoreFieldsSchema.shape.set_name.nonempty();
 
 export const CardIdParamsSchema = z.object({
   cardId: UuidSchema.meta({
@@ -33,47 +31,15 @@ export const CardsPaginationQuerySchema = z.object({
 export type CardsPaginationQuery = z.infer<typeof CardsPaginationQuerySchema>;
 
 export const CardsListQuerySchema = CardsPaginationQuerySchema.extend({
-  illustrator: z
-    .preprocess(
-      value => {
-        const parsed = z.string().safeParse(value);
-
-        return parsed.success ? [parsed.data] : value;
-      },
-      z.array(z.string().trim().nonempty().max(200)).optional(),
-    )
-    .meta({
-      type: 'array',
-      items: { type: 'string' },
-      description: 'Exact illustrator names; repeat for multiple selections. Pokémon only.',
-    }),
+  illustrator: CardListFiltersSchema.shape.illustrator,
   collection_id: UuidSchema.optional(),
   query: CardCoreFieldsSchema.shape.name.trim().optional().meta({
     description:
       'Case-insensitive literal substring in card name, English search alias, set name, or card number; omitted means all cards.',
     example: 'Luffy',
   }),
-  game: z.enum(CARD_GAMES).optional().meta({ description: 'Optional game filter', example: 'one_piece' }),
-  set_name: z
-    .preprocess(value => {
-      const single = SetNameFilterSchema.safeParse(value);
-
-      return single.success ? [single.data] : value;
-    }, z.array(SetNameFilterSchema).optional())
-    .meta({
-      type: 'array',
-      items: z.toJSONSchema(SetNameFilterSchema),
-      description: 'Optional exact set names. Repeat set_name for multiple sets; omitted means all sets.',
-      example: ['Base Set', 'Crown Zenith'],
-    }),
-}).superRefine(({ game, illustrator }, ctx) => {
-  if (game === 'one_piece' && illustrator != null && illustrator.length > 0) {
-    ctx.addIssue({
-      code: 'custom',
-      path: ['illustrator'],
-      message: 'Illustrator filtering is only supported for Pokémon',
-    });
-  }
-});
+  game: CardListFiltersSchema.shape.game,
+  set_name: CardListFiltersSchema.shape.set_name,
+}).superRefine(validateCardListFilters);
 
 export type CardGame = z.infer<typeof CardsListQuerySchema>['game'];

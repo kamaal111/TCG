@@ -3,8 +3,9 @@ import crypto from 'node:crypto';
 
 import { omit } from '@kamaalio/kamaal/objects';
 import type { CardImportProgress } from '@tcg/http/progress';
-import { and, eq, getColumns, ilike, inArray, isNotNull, isNull, ne, notInArray, or, sql } from 'drizzle-orm';
+import { and, eq, getColumns, inArray, isNotNull, isNull, notInArray, sql } from 'drizzle-orm';
 
+import { cardListChoices, cardListPredicates } from './card-list-filters.ts';
 import { PostgresCardMetadataRepository } from './card-metadata.ts';
 import { placeCardInBinder } from './collection-placement.ts';
 import {
@@ -37,7 +38,6 @@ import { DEFAULT_COLLECTION_POLICY, DEFAULT_IMPORT_POLICY, type ApplicationConfi
 import type { Database } from '../../db/index.ts';
 import { card, cardMetadata, cardConditionQuantity, cardPurchaseBatch } from '../../db/schema/cards.ts';
 import { cursorPage } from '../../utils/pagination.ts';
-import { literalSubstringPattern } from '../../utils/search.ts';
 import type { AuthenticatedIdentity, RepositoryDiagnostics } from '../contracts.ts';
 
 type Transaction = Parameters<Parameters<Database['transaction']>[0]>[0];
@@ -83,8 +83,19 @@ export class PostgresCardRepository implements CardRepository {
    * database snapshot. Set choices do not depend on the set filter or cursor.
    */
   async listCollection(options: Parameters<CardRepository['listCollection']>[0]): Promise<CardCollection> {
-    const { game, setNames, limit, cursor, query } = options;
-    const searchPattern = query != null ? literalSubstringPattern(query) : undefined;
+    const { limit, cursor } = options;
+
+    const filters = cardListPredicates(
+      {
+        game: card.game,
+        setName: card.setName,
+        illustrator: cardMetadata.illustrator,
+        name: card.name,
+        englishSearchAlias: cardMetadata.englishSearchAlias,
+        cardNumber: card.cardNumber,
+      },
+      options,
+    );
 
     const result = await this.db.transaction(
       async tx => {
@@ -95,14 +106,14 @@ export class PostgresCardRepository implements CardRepository {
 
         const ownership = and(
           eq(card.userId, this.userId),
-          game != null ? eq(card.game, game) : undefined,
+          filters.game,
           selectedCollection !== undefined ? membershipFilter(selectedCollection) : undefined,
         );
 
         const sets = await tx
           .selectDistinct({ name: card.setName })
           .from(card)
-          .where(and(ownership, ne(card.setName, '')))
+          .where(and(ownership, filters.setChoice))
           .orderBy(card.setName);
 
         const metadataIdentity = and(
@@ -128,10 +139,8 @@ export class PostgresCardRepository implements CardRepository {
               eq(cardMetadata.pricingCardId, ownedIdentities.pricingCardId),
             ),
           )
-          .where(isNotNull(cardMetadata.illustrator))
+          .where(filters.illustratorChoice(cardMetadata.game))
           .orderBy(cardMetadata.illustrator);
-
-        const selectedIllustrators = [...new Set(options.illustrators.map(name => name.toLowerCase()))];
 
         const rows = await tx
           .select({
@@ -145,21 +154,7 @@ export class PostgresCardRepository implements CardRepository {
           .where(
             and(
               ownership,
-              selectedIllustrators.length > 0
-                ? and(
-                    eq(card.game, CARD_GAME_MAP.POKEMON),
-                    inArray(sql`lower(${cardMetadata.illustrator})`, selectedIllustrators),
-                  )
-                : undefined,
-              searchPattern !== undefined
-                ? or(
-                    ilike(card.name, searchPattern),
-                    ilike(cardMetadata.englishSearchAlias, searchPattern),
-                    ilike(card.setName, searchPattern),
-                    ilike(card.cardNumber, searchPattern),
-                  )
-                : undefined,
-              setNames.length > 0 ? inArray(card.setName, new Set(setNames).values().toArray()) : undefined,
+              filters.matches,
               cursor != null
                 ? sql`(${card.createdAt}, ${card.id}) < (${cursor.createdAt}::timestamp, ${cursor.id})`
                 : undefined,
@@ -211,8 +206,7 @@ export class PostgresCardRepository implements CardRepository {
 
         return {
           cards,
-          availableSetNames: sets.map(set => set.name),
-          availableIllustrators: illustratorRows.flatMap(row => (row.name == null ? [] : [row.name])),
+          ...cardListChoices(sets, illustratorRows),
           nextCursor,
         };
       },

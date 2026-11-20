@@ -7,6 +7,7 @@ import { requireSessionMiddleware } from '../../auth/module.ts';
 import { APP_API_ROUTE_NAME } from '../../constants/common.ts';
 import type { HonoEnvironment } from '../../context.ts';
 import { CARDS_OPENAPI_TAG, CARDS_ROUTE_NAME } from '../constants.ts';
+import { serializeCardListPage } from '../list-page.ts';
 import { cardsLogger } from '../logging.ts';
 import { CardsListQuerySchema } from '../schemas/params.ts';
 import { CardsListResponseSchema } from '../schemas/responses.ts';
@@ -57,7 +58,7 @@ const listCardsRoute = defineOpenAPIRoute<HonoEnvironment, typeof routeConfig>({
 
     const repository = c.get('cardRepository');
 
-    const { cards, availableSetNames, availableIllustrators, nextCursor } = await repository.listCollection({
+    const { cards, ...pageInfo } = await repository.listCollection({
       ...pagination,
       game,
       setNames: set_name ?? [],
@@ -65,15 +66,10 @@ const listCardsRoute = defineOpenAPIRoute<HonoEnvironment, typeof routeConfig>({
       backfillEnglishAliases: true,
     });
 
-    const response = {
-      cards: await serializeOwnedCardDetails(c, cards),
-      available_set_names: availableSetNames,
-      available_illustrators: availableIllustrators,
-      next_cursor: nextCursor,
-    };
+    const response = serializeCardListPage(await serializeOwnedCardDetails(c, cards), pageInfo);
 
     cardsLogger(c).info(
-      { event: 'cards.list', outcome: 'success', result_count: response.cards.length, game },
+      { event: 'cards.list', outcome: 'success', result_count: response.entries.length, game },
       'Retrieved the owned card collection.',
     );
 

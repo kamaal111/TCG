@@ -2,18 +2,15 @@ import Foundation
 import Observation
 import TCGClient
 import TCGListSupport
+import TCGModels
 
 @MainActor
 @Observable
 final class TCGWishlistScreenModel {
     private typealias Pages = CursorPages<PricedCard, String>
 
-    var query = "" {
-        didSet {
-            guard searchQuery != Self.normalized(oldValue) else { return }
-            resetList()
-        }
-    }
+    let filterState: CardListFilterState
+
     var selected: PricedCard?
     var feedback: WishlistFeedback?
     private(set) var entries: [PricedCard] = []
@@ -23,8 +20,11 @@ final class TCGWishlistScreenModel {
     private(set) var error: WishlistError?
     private(set) var loadingCursor: String?
     private(set) var failedCursor: String?
+    private(set) var availableSetNames: Set<String> = []
+    private(set) var availableIllustrators: Set<String> = []
     private var pagination = CursorPagination()
     @ObservationIgnored private var requestID = UUID()
+    @ObservationIgnored private var activeFilters: CardListFilters?
     @ObservationIgnored private var context: TCGWishlist.ReadContext?
     @ObservationIgnored private var checkedAt: Date?
     @ObservationIgnored private var currency: Currency?
@@ -32,30 +32,51 @@ final class TCGWishlistScreenModel {
     @ObservationIgnored private var requestedDepth = 1
 
     var cursor: String? { pagination.nextCursor }
-    var searchQuery: String? { Self.normalized(query) }
 
-    func search(using wishlist: TCGWishlist?, currency: Currency? = nil) async {
+    init(preferences: UserDefaults?) {
+        filterState = CardListFilterState(preferences: preferences, preferenceScope: .wishlist)
+    }
+
+    func search(using wishlist: TCGWishlist?, currency: Currency?) async {
         await reload(using: wishlist, currency: currency, force: false)
     }
 
-    func refresh(using wishlist: TCGWishlist?, currency: Currency? = nil) async {
+    func refresh(using wishlist: TCGWishlist?, currency: Currency?) async {
         await reload(using: wishlist, currency: currency, force: true)
     }
 
     func loadNextPage(using wishlist: TCGWishlist?) async {
         guard let wishlist, cursor != nil, error == nil, !isLoading else { return }
-        guard let context, wishlist.readContext() == context else { return }
-        await load(from: currentPages, through: pagination.pageCount + 1, using: wishlist, context: context)
+        guard let context, wishlist.readContextAfterAccountSync() == context, let activeFilters,
+            activeFilters == filterState.filters
+        else { return }
+        await load(
+            from: currentPages,
+            through: pagination.pageCount + 1,
+            using: wishlist,
+            context: context,
+            filters: activeFilters,
+            debounce: false
+        )
     }
 
     func retry(using wishlist: TCGWishlist?) async {
         guard let wishlist, error != nil, !isLoading else { return }
-        guard let context, wishlist.readContext() == context else {
+        guard let context, wishlist.readContextAfterAccountSync() == context, let activeFilters,
+            activeFilters == filterState.filters
+        else {
             await refresh(using: wishlist, currency: currency)
             return
         }
         let pages = failedCursor == nil ? Pages(identity: Self.identity) : currentPages
-        await load(from: pages, through: requestedDepth, using: wishlist, context: context)
+        await load(
+            from: pages,
+            through: requestedDepth,
+            using: wishlist,
+            context: context,
+            filters: activeFilters,
+            debounce: false
+        )
     }
 
     func didRemove(_ card: PricedCard) {
@@ -69,18 +90,28 @@ final class TCGWishlistScreenModel {
     }
 
     private func reload(using wishlist: TCGWishlist?, currency: Currency?, force: Bool) async {
-        guard let wishlist, let context = wishlist.readContext() else {
-            resetList()
+        guard let wishlist, let context = wishlist.readContextAfterAccountSync() else {
+            resetList(keepingChoices: false)
+            self.context = nil
+            activeFilters = nil
             return
         }
-        if self.context != context { resetList() }
+        let filters = filterState.filters
+        let debounce = !force && filters.query != nil && filters.query != activeFilters?.query
+        if self.context != context || activeFilters != filters {
+            resetList(keepingChoices: self.context == context && activeFilters?.game == filters.game)
+        }
         self.context = context
-        let snapshot = wishlist.snapshot(for: searchQuery)
+        activeFilters = filters
+        let snapshot = wishlist.snapshot(for: filters)
         snapshotVersion = snapshot?.version
         if let snapshot {
             entries = snapshot.entries
             pagination = snapshot.pagination
-            checkedAt = snapshot.currency == currency ? snapshot.checkedAt : nil
+            availableSetNames = snapshot.availableSetNames ?? []
+            availableIllustrators = snapshot.availableIllustrators ?? []
+            let hasChoices = snapshot.availableSetNames != nil && snapshot.availableIllustrators != nil
+            checkedAt = hasChoices && snapshot.currency == currency ? snapshot.checkedAt : nil
             hasLoaded = true
         } else if self.currency != currency {
             checkedAt = nil
@@ -98,11 +129,16 @@ final class TCGWishlistScreenModel {
             through: max(1, pagination.pageCount),
             using: wishlist,
             context: context,
-            debounce: !force && searchQuery != nil
+            filters: filters,
+            debounce: debounce
         )
     }
 
-    private func resetList() {
+    private func resetList(keepingChoices: Bool) {
+        if !keepingChoices {
+            availableSetNames = []
+            availableIllustrators = []
+        }
         invalidateRequest()
         entries = []
         pagination = CursorPagination()
@@ -125,10 +161,10 @@ final class TCGWishlistScreenModel {
         through depth: Int,
         using wishlist: TCGWishlist,
         context: TCGWishlist.ReadContext,
-        debounce: Bool = false
+        filters: CardListFilters,
+        debounce: Bool
     ) async {
         let id = UUID()
-        let query = searchQuery
         requestID = id
         requestedDepth = depth
         isLoading = true
@@ -139,32 +175,39 @@ final class TCGWishlistScreenModel {
             if requestID == id { invalidateRequest() }
         }
 
+        func checkLoadContext() -> Bool {
+            guard requestID == id, !Task.isCancelled, filterState.filters == filters else { return false }
+            return wishlist.readContextAfterAccountSync() == context
+        }
+
         if debounce { try? await Task.sleep(for: .milliseconds(300)) }
-        guard requestID == id, !Task.isCancelled, wishlist.readContext() == context else { return }
+        guard checkLoadContext() else { return }
 
         let result = await CachedListLoad.load(
             initial,
             through: depth,
             pagination: \.pagination,
             fetch: { pages in
-                guard self.requestID == id, !Task.isCancelled, wishlist.readContext() == context else {
+                guard checkLoadContext() else {
                     return Result<Bool, WishlistError>.success(false)
                 }
                 let cursor = pages.pagination.nextCursor
                 self.loadingCursor = cursor
-                let result = await wishlist.page(after: cursor, query: query)
-                guard self.requestID == id, !Task.isCancelled, wishlist.readContext() == context else {
+                let result = await wishlist.page(.init(filters: filters, cursor: cursor))
+                guard checkLoadContext() else {
                     return Result<Bool, WishlistError>.success(false)
                 }
                 switch result {
                 case .failure(let error): return .failure(error)
                 case .success(let page):
                     guard pages.append(page.entries, nextCursor: page.nextCursor) else { return .failure(.unavailable) }
+                    self.availableSetNames = page.availableSetNames
+                    self.availableIllustrators = page.availableIllustrators
                     return .success(true)
                 }
             },
             publish: { pages, _ in
-                guard self.requestID == id, !Task.isCancelled, wishlist.readContext() == context else { return }
+                guard checkLoadContext() else { return }
                 self.entries = pages.rows
                 self.pagination = pages.pagination
                 self.hasLoaded = true
@@ -173,11 +216,17 @@ final class TCGWishlistScreenModel {
                 if pages.pagination.pageCount == 1 { self.checkedAt = wishlist.now() }
 
                 let snapshot = TCGWishlist.Snapshot(
-                    query: query,
+                    query: filters.query,
+                    game: filters.game,
+                    setNames: filters.setNames,
+                    illustrators: filters.illustrators,
+                    availableSetNames: self.availableSetNames,
+                    availableIllustrators: self.availableIllustrators,
                     entries: pages.rows,
                     pagination: pages.pagination,
                     checkedAt: self.checkedAt,
-                    currency: self.currency
+                    currency: self.currency,
+                    version: UUID()
                 )
                 if canPersist {
                     canPersist = wishlist.saveSnapshot(snapshot, replacing: self.snapshotVersion)
@@ -185,10 +234,10 @@ final class TCGWishlistScreenModel {
                 }
             }
         )
-        guard requestID == id, !Task.isCancelled, wishlist.readContext() == context else { return }
+        guard checkLoadContext() else { return }
         if case .failure(let error) = result {
             if error == .unauthorized {
-                resetList()
+                resetList(keepingChoices: false)
                 wishlist.clearSnapshots()
             }
             self.error = error
@@ -198,10 +247,5 @@ final class TCGWishlistScreenModel {
 
     private static func identity(_ card: PricedCard) -> String {
         card.printingKey.map { "printing:\($0)" } ?? "card:\(card.id)"
-    }
-
-    private static func normalized(_ query: String) -> String? {
-        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmed.isEmpty ? nil : trimmed
     }
 }

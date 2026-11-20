@@ -249,7 +249,7 @@ integrationTest(
     const owned = await createTestCard(app, user.sessionToken, { ...validCardPayload, set_name: '' });
     expect(owned.set_name).toBe('');
     const list = await app.request('/app-api/cards', { headers });
-    expect(await list.json()).toMatchObject({ cards: [{ id: owned.id, set_name: '' }], available_set_names: [] });
+    expect(await list.json()).toMatchObject({ entries: [{ id: owned.id, set_name: '' }], available_set_names: [] });
 
     const exported = await app.request('/app-api/collections/export', { method: 'POST', headers, body: '{}' });
     const backup = BackupSchema.parse(await exported.json());
@@ -383,7 +383,7 @@ integrationTest(
     ).toBe(200);
     expect((await readCollection(app, headers, collection.id)).pages).toEqual([{ id: pageId, slots: [] }]);
     const list = await (await app.request(`/app-api/cards?collection_id=${collection.id}`, { headers })).json();
-    expect(list).toMatchObject({ cards: [], available_set_names: [] });
+    expect(list).toMatchObject({ entries: [], available_set_names: [] });
   },
 );
 

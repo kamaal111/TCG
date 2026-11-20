@@ -178,7 +178,7 @@ private actor BinderPickerTransport: ClientTransport {
             var container = encoder.singleValueContainer()
             try container.encode(Date.ISO8601FormatStyle(includingFractionalSeconds: true).format(date))
         }
-        let body = try encoder.encode(Page(cards: cards, cursor: cursor))
+        let body = try encoder.encode(Page(entries: cards, cursor: cursor))
         let continuation = take(index)
         defer { continuation.resume(returning: (HTTPResponse(status: .ok), HTTPBody(body))) }
         let decoder = JSONDecoder()
@@ -215,11 +215,11 @@ private actor BinderPickerTransport: ClientTransport {
     }
 
     private struct Page: Encodable {
-        let cards: [CardWithPrice]
+        let entries: [CardWithPrice]
         let cursor: String?
 
         private enum CodingKeys: String, CodingKey {
-            case cards
+            case entries
             case cursor = "next_cursor"
             case sets = "available_set_names"
             case illustrators = "available_illustrators"
@@ -227,7 +227,7 @@ private actor BinderPickerTransport: ClientTransport {
 
         func encode(to encoder: Encoder) throws {
             var container = encoder.container(keyedBy: CodingKeys.self)
-            try container.encode(cards.map(Row.init), forKey: .cards)
+            try container.encode(entries.map(Row.init), forKey: .entries)
             try container.encode(cursor, forKey: .cursor)
             try container.encode([String](), forKey: .sets)
             try container.encode([String](), forKey: .illustrators)

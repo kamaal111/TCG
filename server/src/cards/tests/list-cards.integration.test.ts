@@ -102,12 +102,12 @@ describe('List cards integration', () => {
 
       const page = await list({ limit: '3' });
 
-      expect(page.cards.map(({ name, english_search_alias }) => [name, english_search_alias])).toEqual([
+      expect(page.entries.map(({ name, english_search_alias }) => [name, english_search_alias])).toEqual([
         ['ダーテング', 'Shiftry'],
         ['ダーテング', 'Shiftry'],
         ['ピカチュウ', 'Pikachu'],
       ]);
-      expect(page.cards[0]?.illustrator).toBe('Known artist');
+      expect(page.entries[0]?.illustrator).toBe('Known artist');
       expect(await db.query.cardMetadata.findFirst({ where: { ...identity, pricingCardId: 'eevee' } })).toBeUndefined();
       const firstStatementCount = logQuery.mock.calls.length;
 
@@ -120,18 +120,18 @@ describe('List cards integration', () => {
 
       const next = await list({ limit: '3', cursor: page.next_cursor ?? '' });
 
-      expect(next.cards.map(({ name, english_search_alias }) => [name, english_search_alias])).toEqual([
+      expect(next.entries.map(({ name, english_search_alias }) => [name, english_search_alias])).toEqual([
         ['イーブイ', 'Eevee'],
         ['コダック', undefined],
       ]);
 
       for (const query of ['sHiFtRy', 'ダーテング', '072/071']) {
-        expect((await list({ query })).cards.map(({ name }) => name)).toEqual(['ダーテング', 'ダーテング']);
+        expect((await list({ query })).entries.map(({ name }) => name)).toEqual(['ダーテング', 'ダーテング']);
       }
 
-      expect((await list({ query: 'Cyber Judge' })).cards).toHaveLength(5);
-      expect((await list({ query: 'Psyduck' })).cards).toEqual([]);
-      expect((await list({ query: '054' })).cards).toMatchObject([{ name: 'コダック' }]);
+      expect((await list({ query: 'Cyber Judge' })).entries).toHaveLength(5);
+      expect((await list({ query: 'Psyduck' })).entries).toEqual([]);
+      expect((await list({ query: '054' })).entries).toMatchObject([{ name: 'コダック' }]);
       expect(search).not.toHaveBeenCalled();
       expect(lookup).not.toHaveBeenCalled();
     },
@@ -162,7 +162,7 @@ describe('List cards integration', () => {
       const first = await app.request(`${LIST_CARDS_ROUTE_PATH}?query=lUfFy&limit=1`, { headers });
       expect(first.status).toBe(200);
       const page = CardsListResponseSchema.parse(await first.json());
-      expect(page.cards.map(card => card.id)).toEqual([filed.id]);
+      expect(page.entries.map(card => card.id)).toEqual([filed.id]);
       expect(page.next_cursor).toEqual(expect.any(String));
 
       const next = await app.request(`${LIST_CARDS_ROUTE_PATH}?query=lUfFy&limit=1&cursor=${page.next_cursor}`, {
@@ -171,18 +171,18 @@ describe('List cards integration', () => {
 
       expect(next.status).toBe(200);
       const last = CardsListResponseSchema.parse(await next.json());
-      expect(last.cards.map(card => card.id)).toEqual([unfiled.id]);
+      expect(last.entries.map(card => card.id)).toEqual([unfiled.id]);
       expect(last.next_cursor).toBeNull();
       const literal = await app.request(`${LIST_CARDS_ROUTE_PATH}?query=${encodeURIComponent('%_')}`, { headers });
       expect(literal.status).toBe(200);
-      expect(CardsListResponseSchema.parse(await literal.json()).cards.map(card => card.id)).toEqual([filed.id]);
+      expect(CardsListResponseSchema.parse(await literal.json()).entries.map(card => card.id)).toEqual([filed.id]);
 
       const scoped = await app.request(`${LIST_CARDS_ROUTE_PATH}?query=dawn&collection_id=${collection.id}`, {
         headers,
       });
 
       expect(scoped.status).toBe(200);
-      expect(CardsListResponseSchema.parse(await scoped.json()).cards.map(card => card.id)).toEqual([filed.id]);
+      expect(CardsListResponseSchema.parse(await scoped.json()).entries.map(card => card.id)).toEqual([filed.id]);
     },
   );
 
@@ -196,8 +196,8 @@ describe('List cards integration', () => {
   integrationTest('returns an empty collection for a fresh user', async ({ app, authenticatedHeaders }) => {
     const response = await app.request(LIST_CARDS_ROUTE_PATH, { headers: authenticatedHeaders });
     expect(response.status).toBe(CONTENTFUL_STATUS_CODES.OK);
-    expect(CardsListResponseSchema.parse(await response.json())).toEqual({
-      cards: [],
+    expect(await response.json()).toEqual({
+      entries: [],
       available_set_names: [],
       available_illustrators: [],
       next_cursor: null,
@@ -225,9 +225,9 @@ describe('List cards integration', () => {
       const response = await app.request(LIST_CARDS_ROUTE_PATH, { headers });
       const body = CardsListResponseSchema.parse(await response.json());
 
-      expect(body.cards.map(card => card.id)).toEqual([second.id, first.id]);
+      expect(body.entries.map(card => card.id)).toEqual([second.id, first.id]);
       expect(
-        body.cards[0]?.purchases.map(({ condition, quantity }) => ({
+        body.entries[0]?.purchases.map(({ condition, quantity }) => ({
           condition,
           quantity,
           purchase_price: null,
@@ -256,7 +256,7 @@ describe('List cards integration', () => {
 
     expect(response.status).toBe(CONTENTFUL_STATUS_CODES.OK);
     const body = CardsListResponseSchema.parse(await response.json());
-    expect(body.cards.map(card => card.id)).toEqual([onePiece.id]);
+    expect(body.entries.map(card => card.id)).toEqual([onePiece.id]);
   });
 
   integrationTest(
@@ -282,9 +282,9 @@ describe('List cards integration', () => {
 
       expect(response.status).toBe(CONTENTFUL_STATUS_CODES.OK);
       const body = CardsListResponseSchema.parse(await response.json());
-      expect(body.cards.map(card => card.id)).toEqual([second.id, first.id]);
+      expect(body.entries.map(card => card.id)).toEqual([second.id, first.id]);
       expect(
-        body.cards.map(card => {
+        body.entries.map(card => {
           return card.purchases.map(({ condition, quantity }) => ({
             condition,
             quantity,
@@ -316,7 +316,7 @@ describe('List cards integration', () => {
 
       expect(response.status).toBe(CONTENTFUL_STATUS_CODES.OK);
       const body = CardsListResponseSchema.parse(await response.json());
-      expect(body.cards.map(card => card.id)).toEqual([second.id, first.id]);
+      expect(body.entries.map(card => card.id)).toEqual([second.id, first.id]);
       expect(body.available_set_names).toEqual(['Other set', 'Romance Dawn']);
     },
   );
@@ -345,7 +345,7 @@ describe('List cards integration', () => {
 
       expect(response.status).toBe(CONTENTFUL_STATUS_CODES.OK);
       expect(CardsListResponseSchema.parse(await response.json())).toEqual({
-        cards: [],
+        entries: [],
         available_set_names: ['Romance Dawn'],
         available_illustrators: [],
         next_cursor: null,
@@ -367,7 +367,7 @@ describe('List cards integration', () => {
 
       expect(response.status).toBe(CONTENTFUL_STATUS_CODES.OK);
       expect(CardsListResponseSchema.parse(await response.json())).toEqual({
-        cards: [],
+        entries: [],
         available_set_names: [],
         available_illustrators: [],
         next_cursor: null,
@@ -409,7 +409,7 @@ describe('List cards integration', () => {
         const body = CardsListResponseSchema.parse(await response.json());
 
         expect(response.status).toBe(CONTENTFUL_STATUS_CODES.OK);
-        expect(body.cards).toEqual([expect.objectContaining({ id: created.id })]);
+        expect(body.entries).toEqual([expect.objectContaining({ id: created.id })]);
       } finally {
         await lockHolder.query('rollback');
         await lockHolder.end();

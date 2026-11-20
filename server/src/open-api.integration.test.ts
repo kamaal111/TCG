@@ -9,11 +9,13 @@ import { SIGN_UP_ROUTE_PATH } from './auth/constants.ts';
 import { ownershipPayload, postCard, validCardPayload } from './cards/tests/utils.ts';
 import { MAX_BINDER_DIMENSION } from './collections/constants.ts';
 import { DEFAULT_COLLECTION_POLICY } from './config.ts';
+import { APP_API_ROUTE_NAME } from './constants/common.ts';
 import type { HonoEnvironment } from './context.ts';
 import { CURRENCY_CODES } from './forex/currencies.ts';
 import { sessionHeaders } from './tests/auth.ts';
 import { expectValidationIssueForFields } from './tests/auth.ts';
 import { integrationTest } from './tests/fixtures.ts';
+import { WISHLIST_ROUTE_NAME } from './wishlist/constants.ts';
 
 const SpecificationDocumentSchema = z
   .object({
@@ -161,6 +163,31 @@ describe('OpenAPI specification integration', () => {
     expect(document.paths['/app-api/cards']?.get).toMatchObject({
       responses: {
         200: { content: { [MIME_TYPES.JSON]: { schema: { $ref: '#/components/schemas/CardsListResponse' } } } },
+      },
+    });
+  });
+
+  integrationTest('documents the same page envelope for every cursor-paginated endpoint', async ({ app }) => {
+    const document = await readSpecification(app);
+
+    const page = {
+      required: expect.arrayContaining(['entries', 'next_cursor']),
+      properties: {
+        entries: { type: 'array' },
+        next_cursor: { type: ['string', 'null'] },
+      },
+    };
+
+    for (const name of ['CardsListResponse', 'ExportCardsResponse', 'PricingSearchResponse']) {
+      const schema = document.components.schemas[name];
+      expect(schema).toMatchObject(page);
+      expect(schema?.properties).not.toHaveProperty('cards');
+      expect(schema?.properties).not.toHaveProperty('matches');
+    }
+
+    expect(document.paths[`${APP_API_ROUTE_NAME}${WISHLIST_ROUTE_NAME}`]?.get).toMatchObject({
+      responses: {
+        [CONTENTFUL_STATUS_CODES.OK]: { content: { [MIME_TYPES.JSON]: { schema: page } } },
       },
     });
   });

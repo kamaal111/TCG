@@ -9,11 +9,20 @@ import TCGListSupport
 public final class TCGWishlist {
     struct Snapshot: Codable {
         let query: String?
+        let game: ClientCardGame?
+        let setNames: Set<String>?
+        let illustrators: Set<String>?
+        let availableSetNames: Set<String>?
+        let availableIllustrators: Set<String>?
         var entries: [PricedCard]
         let pagination: CursorPagination
         var checkedAt: Date?
         let currency: Currency?
-        var version = UUID()
+        var version: UUID
+
+        var filters: CardListFilters {
+            .init(game: game, setNames: setNames ?? [], illustrators: illustrators ?? [], query: query)
+        }
     }
 
     struct ReadContext: Equatable {
@@ -58,19 +67,19 @@ public final class TCGWishlist {
         snapshots = store?.open(account: current) ?? []
     }
 
-    func readContext() -> ReadContext? {
+    func readContextAfterAccountSync() -> ReadContext? {
         updateAccount()
         guard accountID == nil || account != nil else { return nil }
         return ReadContext(session: session, revision: revision)
     }
 
-    func snapshot(for query: String?) -> Snapshot? {
-        snapshots.first { $0.query == query }
+    func snapshot(for filters: CardListFilters) -> Snapshot? {
+        snapshots.first { $0.filters == filters }
     }
 
     func saveSnapshot(_ snapshot: Snapshot, replacing version: UUID?) -> Bool {
-        guard store != nil, self.snapshot(for: snapshot.query)?.version == version else { return false }
-        CachedListLoad.store(snapshot, in: &snapshots, keyedBy: \.query, keeping: nil)
+        guard store != nil, self.snapshot(for: snapshot.filters)?.version == version else { return false }
+        CachedListLoad.store(snapshot, in: &snapshots, keyedBy: \.filters, keeping: .unfiltered)
         store?.write(snapshots)
         return true
     }
@@ -80,22 +89,22 @@ public final class TCGWishlist {
         store?.write(snapshots)
     }
 
-    func page(after cursor: String?, query: String?) async -> Result<WishlistPage, WishlistError> {
-        await client.list(cursor: cursor, query: query)
+    func page(_ request: WishlistListQuery) async -> Result<WishlistPage, WishlistError> {
+        await client.list(request)
     }
 
     func save(pricedCardID: String) async -> Result<Void, WishlistError> {
-        guard let context = readContext() else { return .failure(.unauthorized) }
+        guard let context = readContextAfterAccountSync() else { return .failure(.unauthorized) }
         let result = await client.save(.init(pricedCardID: pricedCardID))
-        guard readContext()?.session == context.session else { return .failure(.unauthorized) }
+        guard readContextAfterAccountSync()?.session == context.session else { return .failure(.unauthorized) }
         if case .success = result { invalidateSnapshots(removedPrinting: nil) }
         return result
     }
 
     func remove(printingKey: String) async -> Result<Void, WishlistError> {
-        guard let context = readContext() else { return .failure(.unauthorized) }
+        guard let context = readContextAfterAccountSync() else { return .failure(.unauthorized) }
         let result = await client.remove(printingKey: printingKey)
-        guard readContext()?.session == context.session else { return .failure(.unauthorized) }
+        guard readContextAfterAccountSync()?.session == context.session else { return .failure(.unauthorized) }
         if case .success = result { invalidateSnapshots(removedPrinting: printingKey) }
         return result
     }

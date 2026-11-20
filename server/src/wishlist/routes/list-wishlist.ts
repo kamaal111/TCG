@@ -2,6 +2,7 @@ import { createRoute, defineOpenAPIRoute } from '@kamaalio/hono-standard-openapi
 import { MIME_TYPES } from '@tcg/http/mime';
 import { CONTENTFUL_STATUS_CODES } from '@tcg/http/status';
 
+import { serializeCardListPage } from '../../cards/list-page.ts';
 import type { HonoEnvironment } from '../../context.ts';
 import { displayPricedCard } from '../../forex/display.ts';
 import { logDisplayPrices } from '../../forex/logging.ts';
@@ -32,13 +33,18 @@ const routeConfig = createRoute({
 const listWishlistRoute = defineOpenAPIRoute<HonoEnvironment, typeof routeConfig>({
   route: routeConfig,
   handler: async c => {
-    const { cursor, query } = c.req.valid('query');
-    const page = await c.get('wishlistRepository').list(cursor, c.get('config').PUBLIC_BASE_URL, query);
-    const prices = await c.get('cardPricingService').priceWishlistEntries(page.entries);
+    const { entries: savedEntries, ...pageInfo } = await c
+      .get('wishlistRepository')
+      .list(c.req.valid('query'), c.get('config').PUBLIC_BASE_URL);
+
+    const prices = await c.get('cardPricingService').priceWishlistEntries(savedEntries);
 
     if (prices.size === 0) {
       return c.json(
-        { entries: page.entries.map(({ card }) => card), next_cursor: page.next_cursor },
+        serializeCardListPage(
+          savedEntries.map(({ card }) => card),
+          pageInfo,
+        ),
         CONTENTFUL_STATUS_CODES.OK,
       );
     }
@@ -49,7 +55,7 @@ const listWishlistRoute = defineOpenAPIRoute<HonoEnvironment, typeof routeConfig
       throw display.error;
     }
 
-    const entries = page.entries.map(({ card }) => {
+    const entries = savedEntries.map(({ card }) => {
       const price = prices.get(card.printing_key);
 
       if (price == null) {
@@ -70,7 +76,7 @@ const listWishlistRoute = defineOpenAPIRoute<HonoEnvironment, typeof routeConfig
 
     logDisplayPrices(c, display.value, entries);
 
-    return c.json({ entries, next_cursor: page.next_cursor }, CONTENTFUL_STATUS_CODES.OK);
+    return c.json(serializeCardListPage(entries, pageInfo), CONTENTFUL_STATUS_CODES.OK);
   },
 });
 

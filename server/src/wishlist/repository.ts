@@ -1,6 +1,7 @@
-import type { CardPriceRow } from '../card-pricing/types.ts';
+import type { WishlistQuery } from './schemas/params.ts';
 import type { WishlistCard } from './schemas/responses.ts';
-import type { WishlistCursor } from './utils/pagination.ts';
+import type { CardPriceRow } from '../card-pricing/types.ts';
+import type { CardListPageInfo } from '../cards/list-page.ts';
 
 export interface WishlistEntry {
   card: WishlistCard;
@@ -8,14 +9,7 @@ export interface WishlistEntry {
 }
 
 export interface WishlistRepository {
-  list(
-    cursor: WishlistCursor | undefined,
-    baseURL: string,
-    query?: string,
-  ): Promise<{
-    entries: WishlistEntry[];
-    next_cursor: string | null;
-  }>;
+  list(query: WishlistQuery, baseURL: string): Promise<CardListPageInfo & { entries: WishlistEntry[] }>;
   savedPrintingKeys(printingKeys: readonly string[]): Promise<ReadonlySet<string>>;
   save(pricedCardId: string): Promise<boolean>;
   remove(printingKey: string): Promise<void>;

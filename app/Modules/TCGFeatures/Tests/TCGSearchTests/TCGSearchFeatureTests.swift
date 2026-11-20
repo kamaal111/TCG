@@ -335,7 +335,7 @@ private actor LanguagePricingTransport: ClientTransport {
             HTTPBody(
                 Data(
                     """
-                    {"matches": []}
+                    {"entries": [], "next_cursor": null}
                     """.utf8
                 )
             )

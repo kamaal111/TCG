@@ -6,6 +6,7 @@ import { CONTENTFUL_STATUS_CODES } from '@tcg/http/status';
 import { requireSessionMiddleware } from '../../auth/module.ts';
 import { APP_API_ROUTE_NAME } from '../../constants/common.ts';
 import type { HonoEnvironment } from '../../context.ts';
+import { serializePage } from '../../schemas/pagination.ts';
 import { CARDS_OPENAPI_TAG, CARDS_ROUTE_NAME } from '../constants.ts';
 import { cardsLogger } from '../logging.ts';
 import { CardsPaginationQuerySchema } from '../schemas/params.ts';
@@ -55,10 +56,10 @@ const exportCardsRoute = defineOpenAPIRoute<HonoEnvironment, typeof routeConfig>
       illustrators: [],
     });
 
-    const response = {
-      cards: cards.map(card => ({ ...serializeCard(card), id: card.importSourceId ?? card.id })),
-      next_cursor: nextCursor,
-    };
+    const response = serializePage(
+      cards.map(card => ({ ...serializeCard(card), id: card.importSourceId ?? card.id })),
+      nextCursor,
+    );
 
     cardsLogger(c).info(
       { event: 'cards.export', outcome: 'success', result_count: cards.length },
