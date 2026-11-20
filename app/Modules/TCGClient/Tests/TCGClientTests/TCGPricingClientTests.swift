@@ -17,9 +17,9 @@ struct TCGPricingClientTests {
     func `Decodes a One Piece alternate art through the generated search client`() async throws {
         let body = Data(
             """
-            {"matches":[{"id":"zoro-alt","game":"one_piece","name":"Roronoa Zoro","card_number":"OP01-025",
+            {"entries":[{"id":"zoro-alt","game":"one_piece","name":"Roronoa Zoro","card_number":"OP01-025",
               "variant_name":"altArt","image_url":"https://images.example.com/zoro-alt.png","is_wishlisted":true,
-              "priced_on":"2026-10-16T00:00:00.000Z","fetched_at":"2026-10-16T10:00:00.000Z"}]}
+              "priced_on":"2026-10-16T00:00:00.000Z","fetched_at":"2026-10-16T10:00:00.000Z"}], "next_cursor": null}
             """.utf8
         )
         let transport = PricingRequestTransport(status: .ok, body: body)
@@ -38,8 +38,8 @@ struct TCGPricingClientTests {
     func `Searches illustrators through the generated client and decodes their names`() async throws {
         let body = Data(
             """
-            {"matches":[{"id":"illustrator-card","game":"pokemon","name":"Giratina VSTAR","card_number":"GG69",
-              "illustrator":"Akira Egawa","priced_on":"2026-10-16T00:00:00.000Z","fetched_at":"2026-10-16T10:00:00.000Z"}]}
+            {"entries":[{"id":"illustrator-card","game":"pokemon","name":"Giratina VSTAR","card_number":"GG69",
+              "illustrator":"Akira Egawa","priced_on":"2026-10-16T00:00:00.000Z","fetched_at":"2026-10-16T10:00:00.000Z"}], "next_cursor": null}
             """.utf8
         )
         let transport = PricingRequestTransport(status: .ok, body: body)
@@ -59,7 +59,7 @@ struct TCGPricingClientTests {
     func `Decodes preferred-currency display prices without replacing source market amounts`() async throws {
         let body = Data(
             """
-            {"matches":[{
+            {"entries":[{
               "id":"display-card","game":"pokemon","name":"Pikachu","card_number":"58",
               "headline":{"amount":12.5,"currency":"USD","metric":"lowest_near_mint"},
               "market":{"condition":"near_mint","currency":"USD","market":25},
@@ -68,7 +68,7 @@ struct TCGPricingClientTests {
                 "market":{"condition":"near_mint","currency":"EUR","market":20,
                   "trend_7d":{"price_change":-2,"percent_change":-10}}},
               "priced_on":"2026-10-16T00:00:00.000Z","fetched_at":"2026-10-16T10:00:00.000Z"
-            }]}
+            }], "next_cursor": null}
             """.utf8
         )
         let transport = PricingRequestTransport(status: .ok, body: body)
@@ -116,7 +116,7 @@ struct TCGPricingClientTests {
     func `Passes the cursor through the generated client and decodes the next cursor`() async throws {
         let body = Data(
             """
-            {"matches": [], "next_cursor": "third-page"}
+            {"entries": [], "next_cursor": "third-page"}
             """.utf8
         )
         let transport = PricingRequestTransport(status: .ok, body: body)
@@ -320,7 +320,8 @@ private let searchJSON = Data(
       "query": "Giratina VSTAR GG69",
       "normalized_query": "Giratina VSTAR GG69",
       "game": "pokemon",
-      "matches": [\(pricedCardJSON)]
+      "entries": [\(pricedCardJSON)],
+      "next_cursor": null
     }
     """.utf8
 )

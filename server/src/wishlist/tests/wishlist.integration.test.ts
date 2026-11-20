@@ -1,3 +1,4 @@
+import { CONTENTFUL_STATUS_CODES } from '@tcg/http/status';
 import { eq } from 'drizzle-orm';
 import { err, ok } from 'neverthrow';
 import { z } from 'zod';
@@ -9,24 +10,26 @@ import { CARD_GAME_MAP, PRICING_SOURCES } from '../../card-pricing/types.ts';
 import { pricedCardMetadata, serializePricedCard } from '../../card-pricing/utils/pricing.ts';
 import { printingKey } from '../../card-pricing/utils/printing-key.ts';
 import { todayUTC } from '../../card-pricing/utils/query.ts';
+import { APP_API_ROUTE_NAME } from '../../constants/common.ts';
 import { cardMetadata, cardPrice, wishlist } from '../../db/schema/index.ts';
 import { seedExchangeRate } from '../../forex/tests/utils.ts';
 import { sessionHeaders, setPreferredCurrency } from '../../tests/auth.ts';
 import { integrationTest } from '../../tests/fixtures.ts';
+import { WISHLIST_ROUTE_NAME } from '../constants.ts';
 import { WishlistCardSchema, WishlistPageSchema } from '../schemas/responses.ts';
 
-const path = '/app-api/wishlist';
+const path = `${APP_API_ROUTE_NAME}${WISHLIST_ROUTE_NAME}`;
 
 const alternateArt = {
   pricingSource: PRICING_SOURCES.SCRYDEX_STATIC,
-  game: 'one_piece',
+  game: CARD_GAME_MAP.ONE_PIECE,
   pricingCardId: 'op05-119:alternate',
   name: 'Monkey.D.Luffy',
   cardNumber: 'OP05-119',
   prices: { variantName: 'Alternate Art', setName: 'Awakening of the New Era' },
 } satisfies Omit<typeof cardPrice.$inferInsert, 'pricedOn'>;
 
-const pageSchema = z.object({ entries: z.array(WishlistCardSchema), next_cursor: z.string().nullable() });
+const pageSchema = WishlistPageSchema.extend({ entries: z.array(WishlistCardSchema) });
 
 integrationTest(
   'fetches the exact saved printing once per day and displays it in the preferred currency',
@@ -78,10 +81,15 @@ integrationTest(
     ).toBe(204);
 
     const readList = async () => {
-      const response = await app.request(path, { headers });
-      expect(response.status).toBe(200);
+      const filters = new URLSearchParams({ game: CARD_GAME_MAP.ONE_PIECE, set_name: alternateArt.prices.setName });
+      const response = await app.request(`${path}?${filters}`, { headers });
+      expect(response.status).toBe(CONTENTFUL_STATUS_CODES.OK);
 
-      return WishlistPageSchema.parse(await response.json()).entries;
+      const page = WishlistPageSchema.parse(await response.json());
+      expect(page.available_set_names).toEqual([alternateArt.prices.setName]);
+      expect(page.available_illustrators).toEqual([]);
+
+      return page.entries;
     };
 
     const [first, concurrent] = await Promise.all([readList(), readList()]);
@@ -124,7 +132,7 @@ integrationTest(
     });
 
     expect(initial.status).toBe(200);
-    const [card] = PricingSearchResponseSchema.parse(await initial.json()).matches;
+    const [card] = PricingSearchResponseSchema.parse(await initial.json()).entries;
     assert(card?.printing_key && card.headline);
     expect(
       (
@@ -288,7 +296,12 @@ integrationTest(
 
     const headers = sessionHeaders(visitor.sessionToken);
     const strangerPage = await app.request(path, { headers });
-    expect(await strangerPage.json()).toEqual({ entries: [], next_cursor: null });
+    expect(await strangerPage.json()).toEqual({
+      entries: [],
+      next_cursor: null,
+      available_set_names: [],
+      available_illustrators: [],
+    });
     expect((await app.request(`${path}/${key}`, { headers, method: 'DELETE' })).status).toBe(204);
 
     const first = await app.request(path, { headers: authenticatedHeaders });
@@ -341,7 +354,7 @@ integrationTest(
     const searchPath = `${SEARCH_PRICING_ROUTE_PATH}?search_by=card&game=pokemon&query=Giratina`;
     const initial = await app.request(searchPath, { headers: authenticatedHeaders });
     expect(initial.status).toBe(200);
-    const [match] = PricingSearchResponseSchema.parse(await initial.json()).matches;
+    const [match] = PricingSearchResponseSchema.parse(await initial.json()).entries;
     assert(match);
     expect(match.is_wishlisted).toBe(false);
 
@@ -360,8 +373,8 @@ integrationTest(
     expect(visitorSearch.status).toBe(200);
     const owner = PricingSearchResponseSchema.parse(await ownerSearch.json());
     const other = PricingSearchResponseSchema.parse(await visitorSearch.json());
-    expect(owner.matches.find(card => card.id === match.id)?.is_wishlisted).toBe(true);
-    expect(other.matches.find(card => card.id === match.id)?.is_wishlisted).toBe(false);
+    expect(owner.entries.find(card => card.id === match.id)?.is_wishlisted).toBe(true);
+    expect(other.entries.find(card => card.id === match.id)?.is_wishlisted).toBe(false);
   },
 );
 
@@ -478,7 +491,9 @@ integrationTest(
     ]);
 
     async function list(query: string, cursor?: string) {
-      const params = new URLSearchParams({ query });
+      const params = new URLSearchParams({ query, game: CARD_GAME_MAP.ONE_PIECE });
+      params.append('set_name', 'Romance Dawn');
+      params.append('set_name', 'Awakening of the New Era');
 
       if (cursor !== undefined) {
         params.set('cursor', cursor);
@@ -496,13 +511,14 @@ integrationTest(
       expect(page.next_cursor).toBeNull();
     }
 
-    expect(await list('Pikachu')).toEqual({ entries: [], next_cursor: null });
+    expect(await list('Pikachu')).toMatchObject({ entries: [], next_cursor: null });
 
     const first = await list('Zoro');
     expect(first.entries).toHaveLength(50);
     assert(first.next_cursor);
     const second = await list('Zoro', first.next_cursor);
     expect(second.next_cursor).toBeNull();
+    expect(second.available_set_names).toEqual(first.available_set_names);
     expect([...first.entries, ...second.entries].map(entry => entry.printing_key)).toEqual(
       newer
         .map(entry => entry.printingKey)
@@ -517,4 +533,120 @@ integrationTest('rejects blank and overlong wishlist queries', async ({ app, aut
     const response = await app.request(`${path}?${new URLSearchParams({ query })}`, { headers: authenticatedHeaders });
     expect(response.status).toBe(400);
   }
+});
+
+integrationTest(
+  'lists complete account and game choices and filters saved Pokémon by catalog or saved illustrator',
+  async ({ app, db, user, createUser, authenticatedHeaders }) => {
+    const visitor = await createUser();
+
+    const [row] = await db
+      .insert(cardPrice)
+      .values({
+        pricingSource: PRICING_SOURCES.SCRYDEX_STATIC,
+        game: CARD_GAME_MAP.POKEMON,
+        pricingCardId: 'wishlist-pikachu',
+        name: 'Pikachu',
+        cardNumber: '160',
+        pricedOn: '2026-11-17',
+        prices: { setName: 'Crown Zenith' },
+      })
+      .returning();
+
+    assert(row);
+    const baseCard = WishlistCardSchema.parse(serializePricedCard(row.game, row, 'https://example.com'));
+
+    await db.insert(cardMetadata).values({
+      game: row.game,
+      pricingSource: row.pricingSource,
+      pricingCardId: row.pricingCardId,
+      illustrator: 'Mitsuhiro Arita',
+    });
+
+    function savedCard(pricingCardId: string, fields: Partial<typeof baseCard>, savedAt: string, userId: string) {
+      const key = printingKey({
+        pricingSource: PRICING_SOURCES.SCRYDEX_STATIC,
+        game: fields.game ?? baseCard.game,
+        pricingCardId,
+      });
+
+      return {
+        userId,
+        printingKey: key,
+        card: { ...baseCard, ...fields, printing_key: key },
+        savedAt: new Date(savedAt),
+      };
+    }
+
+    const old = '2026-11-18T10:00:00.000Z';
+    const recent = '2026-11-19T10:00:00.000Z';
+
+    const fallback = savedCard(
+      'wishlist-existing',
+      {
+        id: '550e8400-e29b-41d4-a716-446655440000',
+        illustrator: 'Mitsuhiro Arita',
+      },
+      old,
+      user.userId,
+    );
+
+    const newer = Array.from({ length: 51 }, (_, index) => {
+      return savedCard(
+        `wishlist-other-${index}`,
+        { id: fallback.card.id, name: 'Eevee', set_name: 'Base Set', illustrator: 'Ken Sugimori' },
+        recent,
+        user.userId,
+      );
+    });
+
+    await db
+      .insert(wishlist)
+      .values([
+        ...newer,
+        savedCard(row.pricingCardId, {}, old, user.userId),
+        fallback,
+        savedCard('wishlist-one-piece', { game: CARD_GAME_MAP.ONE_PIECE, set_name: 'Romance Dawn' }, old, user.userId),
+        savedCard(
+          'wishlist-private',
+          { id: fallback.card.id, set_name: 'Private set', illustrator: 'Private artist' },
+          old,
+          visitor.userId,
+        ),
+      ]);
+
+    const first = await app.request(`${path}?game=${CARD_GAME_MAP.POKEMON}`, { headers: authenticatedHeaders });
+    const firstPage = pageSchema.parse(await first.json());
+    expect(first.status).toBe(CONTENTFUL_STATUS_CODES.OK);
+    expect(firstPage.entries).toHaveLength(50);
+    expect(firstPage.entries.every(entry => entry.set_name === 'Base Set')).toBe(true);
+    expect(firstPage.available_set_names).toEqual(['Base Set', 'Crown Zenith']);
+    expect(firstPage.available_illustrators).toEqual(['Ken Sugimori', 'Mitsuhiro Arita']);
+
+    const criteria = new URLSearchParams({
+      game: CARD_GAME_MAP.POKEMON,
+      query: 'Pikachu',
+      set_name: 'Crown Zenith',
+      illustrator: 'mitsuhiro arita',
+    });
+
+    const filtered = await app.request(`${path}?${criteria}`, { headers: authenticatedHeaders });
+    const filteredPage = pageSchema.parse(await filtered.json());
+
+    expect(filtered.status).toBe(CONTENTFUL_STATUS_CODES.OK);
+    expect(filteredPage.entries.map(entry => entry.printing_key).sort()).toEqual(
+      [baseCard.printing_key, fallback.printingKey].sort(),
+    );
+    expect(filteredPage.entries.every(entry => entry.illustrator === 'Mitsuhiro Arita')).toBe(true);
+    expect(filteredPage.available_set_names).toEqual(firstPage.available_set_names);
+    expect(filteredPage.available_illustrators).toEqual(firstPage.available_illustrators);
+    expect(filteredPage.next_cursor).toBeNull();
+  },
+);
+
+integrationTest('rejects illustrator filtering for One Piece', async ({ app, authenticatedHeaders }) => {
+  const params = new URLSearchParams({ game: CARD_GAME_MAP.ONE_PIECE, illustrator: 'Mitsuhiro Arita' });
+  const response = await app.request(`${path}?${params}`, { headers: authenticatedHeaders });
+  expect(response.status).toBe(CONTENTFUL_STATUS_CODES.BAD_REQUEST);
+  expect(await response.json()).toMatchObject({ code: 'INVALID_PAYLOAD' });
 });

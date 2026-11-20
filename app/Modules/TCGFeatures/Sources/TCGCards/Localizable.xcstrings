@@ -1,16 +1,6 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
-    "%@ · %@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "%1$@ · %2$@"
-          }
-        }
-      }
-    },
     "%@ ×%lld" : {
       "localizations" : {
         "en" : {
@@ -138,9 +128,6 @@
     "All cards" : {
 
     },
-    "All games" : {
-
-    },
     "Apply layout" : {
 
     },
@@ -203,9 +190,6 @@
 
     },
     "Change page dimensions?" : {
-
-    },
-    "Change your filters to see more cards." : {
 
     },
     "Choose %@" : {
@@ -440,9 +424,6 @@
 
     },
     "Illustrator" : {
-
-    },
-    "Illustrators" : {
 
     },
     "Import Cards (%lld)" : {

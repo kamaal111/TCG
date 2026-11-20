@@ -8,11 +8,11 @@ import { APP_API_ROUTE_NAME } from '../../constants/common.ts';
 import type { HonoEnvironment } from '../../context.ts';
 import { displayPricedCard } from '../../forex/display.ts';
 import { logDisplayPrices } from '../../forex/logging.ts';
+import { serializePage } from '../../schemas/pagination.ts';
 import { PRICING_OPENAPI_TAG, PRICING_ROUTE_NAME } from '../constants.ts';
 import { parseCardLanguages } from '../languages.ts';
 import { pricingLogger } from '../logging.ts';
 import { PricingSearchQuerySchema } from '../schemas/params.ts';
-import type { PricingSearchResponse } from '../schemas/responses.ts';
 import { PricingSearchResponseSchema } from '../schemas/responses.ts';
 import { encodeNextSearchCursor } from '../utils/pagination.ts';
 import { queryKey } from '../utils/query.ts';
@@ -68,17 +68,17 @@ const searchPricingRoute = defineOpenAPIRoute<HonoEnvironment, typeof routeConfi
       .get('wishlistRepository')
       .savedPrintingKeys(result.matches.flatMap(card => (card.printing_key != null ? [card.printing_key] : [])));
 
-    const response: PricingSearchResponse = {
-      matches: result.matches.map(card => ({
+    const response = serializePage(
+      result.matches.map(card => ({
         ...displayPricedCard(card, display.value),
         is_wishlisted: card.printing_key != null && savedKeys.has(card.printing_key),
       })),
-      next_cursor: result.hasMore ? encodeNextSearchCursor(queryKey(game, query, options), offset) : null,
-    };
+      result.hasMore ? encodeNextSearchCursor(queryKey(game, query, options), offset) : null,
+    );
 
-    logDisplayPrices(c, display.value, response.matches);
+    logDisplayPrices(c, display.value, response.entries);
     pricingLogger(c).info(
-      { event: 'pricing.search.completed', outcome: 'success', result_count: response.matches.length, game },
+      { event: 'pricing.search.completed', outcome: 'success', result_count: response.entries.length, game },
       'Completed a card pricing search.',
     );
 

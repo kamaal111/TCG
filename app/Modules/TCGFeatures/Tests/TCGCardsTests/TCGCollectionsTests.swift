@@ -1,4 +1,5 @@
 import Foundation
+import TCGModels
 import Testing
 
 @testable import TCGCards
@@ -272,7 +273,7 @@ struct TCGCollectionsTests {
         #expect(context.cards.cards.isEmpty)
         await context.collections.select(.allCards, using: context.cards, loadsList: true)
         let model = TCGCardsListScreenModel(preferences: nil)
-        model.query = "lUfFy"
+        model.filterState.query = "lUfFy"
         await model.load(using: context.cards)
         #expect(!context.cards.cards.isEmpty)
         #expect(context.cards.cards.allSatisfy { $0.card.collectionID == selected.id })

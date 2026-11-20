@@ -9,83 +9,27 @@ import Foundation
 import Observation
 import TCGClient
 import TCGDesignSystem
+import TCGModels
 
 @MainActor
 @Observable
 final class TCGCardsListScreenModel {
     private(set) var toast: Toast?
 
-    var gameFilter: ClientCardGame? {
-        didSet {
-            guard !isRestoringFilters else { return }
-            guard gameFilter != oldValue else { return }
-            setNames = []
-            illustrators = []
-            preferences?.set(gameFilter?.rawValue, forKey: PreferenceKey.game)
-        }
-    }
-    var setNames: Set<String> = [] {
-        didSet {
-            guard !isRestoringFilters else { return }
-            preferences?.set(setNames.sorted(), forKey: PreferenceKey.setNames)
-        }
-    }
-    var illustrators: Set<String> = [] {
-        didSet {
-            guard !isRestoringFilters else { return }
-            preferences?.set(illustrators.sorted(), forKey: PreferenceKey.illustrators)
-        }
-    }
-    var query = ""
+    let filterState: CardListFilterState
+
     var presentedForm: CardFormRoute?
     var presentedImageURL: URL?
     var cardToDelete: Card?
     private(set) var isMutatingCard = false
 
-    @ObservationIgnored private let preferences: UserDefaults?
-    @ObservationIgnored private var isRestoringFilters = true
-
     @ObservationIgnored private var toastTask: Task<Void, Never>?
-    @ObservationIgnored private var loadedFilters: FilterSelection?
+    @ObservationIgnored private var loadedFilters: CardListFilters?
 
-    var filters: FilterSelection {
-        FilterSelection(game: gameFilter, setNames: setNames, query: query, illustrators: illustrators)
-    }
+    var filters: CardListFilters { filterState.filters }
 
-    init(preferences: UserDefaults? = .standard) {
-        self.preferences = preferences
-        let saved = Self.loadFilters(from: preferences)
-        gameFilter = saved.game
-        setNames = saved.setNames
-        illustrators = saved.illustrators
-        isRestoringFilters = false
-    }
-
-    private static func loadFilters(from preferences: UserDefaults?) -> FilterSelection {
-        var game: ClientCardGame?
-        if let storedGame = preferences?.object(forKey: PreferenceKey.game) {
-            guard let rawValue = storedGame as? String else {
-                return FilterSelection(game: nil, setNames: [], query: "", illustrators: [])
-            }
-            guard let parsed = ClientCardGame(rawValue: rawValue) else {
-                return FilterSelection(game: nil, setNames: [], query: "", illustrators: [])
-            }
-            game = parsed
-        }
-        let setNames = preferences?.object(forKey: PreferenceKey.setNames) as? [String] ?? []
-        return FilterSelection(
-            game: game,
-            setNames: Set(setNames),
-            query: "",
-            illustrators: game == .onePiece
-                ? [] : Set(preferences?.stringArray(forKey: PreferenceKey.illustrators) ?? [])
-        )
-    }
-
-    private enum PreferenceKey {
-        static let game = "TCGCards.filters.game"
-        static let illustrators = "TCGCards.filters.illustrators"
-        static let setNames = "TCGCards.filters.setNames"
+    init(preferences: UserDefaults?) {
+        filterState = CardListFilterState(preferences: preferences, preferenceScope: .allCards)
     }
 
     func resumeLoadIfNeeded(using cards: TCGCards) async {
@@ -93,7 +37,7 @@ final class TCGCardsListScreenModel {
             await cards.refresh(force: false)
             return
         }
-        if filters.searchQuery != nil {
+        if filters.query != nil {
             try? await Task.sleep(for: ModuleConfig.searchDebounce)
             guard !Task.isCancelled else { return }
         }
@@ -133,7 +77,7 @@ final class TCGCardsListScreenModel {
         switch await cards.load(
             game: requested.game,
             setNames: requested.setNames,
-            query: requested.searchQuery,
+            query: requested.query,
             illustrators: requested.illustrators
         ) {
         case .success:
@@ -141,14 +85,6 @@ final class TCGCardsListScreenModel {
         case .failure(let error):
             show(error)
         }
-    }
-
-    func availableSetNames(using cards: TCGCards) -> [String] {
-        cards.availableSetNames.union(setNames).sorted()
-    }
-
-    func availableIllustrators(using cards: TCGCards) -> [String] {
-        cards.availableIllustrators.union(illustrators).sorted()
     }
 
     func delete(at offsets: IndexSet, using cards: TCGCards) async {
@@ -208,18 +144,6 @@ final class TCGCardsListScreenModel {
             case .detail(let card): .detail(card.card.id)
             case .edit(let card): .edit(card.card.id)
             }
-        }
-    }
-
-    struct FilterSelection: Hashable {
-        let game: ClientCardGame?
-        let setNames: Set<String>
-        let query: String
-        let illustrators: Set<String>
-
-        var searchQuery: String? {
-            let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
-            return trimmed.isEmpty ? nil : trimmed
         }
     }
 }

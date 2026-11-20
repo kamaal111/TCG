@@ -85,7 +85,7 @@ describe('Illustrator search and owned filtering', () => {
       const illustratorURL = `${SEARCH_PRICING_ROUTE_PATH}?game=pokemon&query=Mitsuhiro%20Arita&search_by=illustrator&languages=en`;
       const first = await app.request(illustratorURL, { headers: authenticatedHeaders });
       expect(first.status).toBe(200);
-      expect(PricingSearchResponseSchema.parse(await first.json()).matches[0]).toMatchObject({
+      expect(PricingSearchResponseSchema.parse(await first.json()).entries[0]).toMatchObject({
         illustrator: 'Mitsuhiro Arita',
         name: 'Charizard',
       });
@@ -252,14 +252,14 @@ describe('Illustrator search and owned filtering', () => {
       const response = await app.request(url, { headers: authenticatedHeaders });
       expect(response.status).toBe(200);
       const page = CardsListResponseSchema.parse(await response.json());
-      expect(page.cards.map(entry => entry.id)).toEqual([second.id]);
-      expect(page.cards[0]).toMatchObject({ illustrator: 'Mitsuhiro Arita' });
+      expect(page.entries.map(entry => entry.id)).toEqual([second.id]);
+      expect(page.entries[0]).toMatchObject({ illustrator: 'Mitsuhiro Arita' });
       expect(page.available_illustrators).toEqual(['Akira Egawa', 'Mitsuhiro Arita']);
       expect(page.next_cursor).toEqual(expect.any(String));
       const next = await app.request(`${url}&cursor=${page.next_cursor}`, { headers: authenticatedHeaders });
       expect(next.status).toBe(200);
       const last = CardsListResponseSchema.parse(await next.json());
-      expect(last.cards.map(entry => entry.id)).toEqual([first.id]);
+      expect(last.entries.map(entry => entry.id)).toEqual([first.id]);
       expect(last.next_cursor).toBeNull();
 
       const combined = await app.request(
@@ -268,7 +268,7 @@ describe('Illustrator search and owned filtering', () => {
       );
 
       expect(combined.status).toBe(200);
-      expect(CardsListResponseSchema.parse(await combined.json()).cards.map(entry => entry.id)).toEqual([third.id]);
+      expect(CardsListResponseSchema.parse(await combined.json()).entries.map(entry => entry.id)).toEqual([third.id]);
 
       const missing = await app.request(`${LIST_CARDS_ROUTE_PATH}?illustrator=Nobody`, {
         headers: authenticatedHeaders,
@@ -276,7 +276,7 @@ describe('Illustrator search and owned filtering', () => {
 
       expect(missing.status).toBe(200);
       expect(CardsListResponseSchema.parse(await missing.json())).toMatchObject({
-        cards: [],
+        entries: [],
         next_cursor: null,
         available_illustrators: ['Akira Egawa', 'Mitsuhiro Arita'],
       });

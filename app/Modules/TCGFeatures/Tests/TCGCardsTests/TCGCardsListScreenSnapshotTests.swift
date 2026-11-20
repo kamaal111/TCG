@@ -9,6 +9,7 @@ import Foundation
 import SwiftUI
 import TCGCurrency
 import TCGDesignSystem
+import TCGModels
 import TCGSnapshotTesting
 import Testing
 
@@ -55,8 +56,8 @@ struct TCGCardsListScreenSnapshotTests {
     func `Renders selected illustrator filter`() async {
         let feature = TCGCards(client: .preview(cardsOutcome: .success(cards: PreviewTCGCardsClient.sampleCards)))
         let model = TCGCardsListScreenModel(preferences: nil)
-        model.gameFilter = .pokemon
-        model.illustrators = ["Mitsuhiro Arita"]
+        model.filterState.game = .pokemon
+        model.filterState.illustrators = ["Mitsuhiro Arita"]
         await model.load(using: feature)
         #expect(feature.cards.count == 1)
         await assertScreenSnapshot(testName: #function) { makeScreen(feature: feature, model: model) }
@@ -119,7 +120,7 @@ struct TCGCardsListScreenSnapshotTests {
     func `Renders multiple selected sets`() async {
         let feature = TCGCards(client: .preview(cardsOutcome: .success(cards: PreviewTCGCardsClient.sampleCards)))
         let model = TCGCardsListScreenModel(preferences: nil)
-        model.setNames = ["Base Set", "Romance Dawn"]
+        model.filterState.setNames = ["Base Set", "Romance Dawn"]
         await model.load(using: feature)
         #expect(feature.cards.count == 2)
         await assertScreenSnapshot(testName: #function) { makeScreen(feature: feature, model: model) }
@@ -129,7 +130,7 @@ struct TCGCardsListScreenSnapshotTests {
     func `Renders no matching sets`() async {
         let feature = TCGCards(client: .preview(cardsOutcome: .success(cards: PreviewTCGCardsClient.sampleCards)))
         let model = TCGCardsListScreenModel(preferences: nil)
-        model.setNames = ["Crown Zenith"]
+        model.filterState.setNames = ["Crown Zenith"]
         await model.load(using: feature)
         #expect(feature.cards.isEmpty)
         await assertScreenSnapshot(testName: #function) { makeScreen(feature: feature, model: model) }
@@ -140,7 +141,7 @@ struct TCGCardsListScreenSnapshotTests {
         func `Renders selected sets with large text`() async {
             let feature = TCGCards(client: .preview(cardsOutcome: .success(cards: PreviewTCGCardsClient.sampleCards)))
             let model = TCGCardsListScreenModel(preferences: nil)
-            model.setNames = ["Base Set", "Romance Dawn"]
+            model.filterState.setNames = ["Base Set", "Romance Dawn"]
             await model.load(using: feature)
             #expect(feature.cards.count == 2)
             await assertScreenSnapshot(testName: #function) {
@@ -172,7 +173,7 @@ struct TCGCardsListScreenSnapshotTests {
     func `Renders a One Piece filter`() async {
         let feature = TCGCards(client: .preview(cardsOutcome: .success(cards: PreviewTCGCardsClient.sampleCards)))
         let model = TCGCardsListScreenModel(preferences: nil)
-        model.gameFilter = .onePiece
+        model.filterState.game = .onePiece
         await model.load(using: feature)
         #expect(feature.cards.map(\.card.game) == [.onePiece])
         await assertScreenSnapshot(testName: #function) { makeScreen(feature: feature, model: model) }

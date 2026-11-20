@@ -44,6 +44,8 @@ struct TCGWishlistClientTests {
                     "priced_on": "2026-11-17T00:00:00.000Z",
                     "fetched_at": "2026-11-17T10:00:00.000Z"
                   }],
+                  "available_set_names": ["Base Set", "Crown Zenith"],
+                  "available_illustrators": ["Mitsuhiro Arita"],
                   "next_cursor": "next"
                 }
                 """
@@ -52,6 +54,8 @@ struct TCGWishlistClientTests {
         #expect(page.entries.map(\.printingKey) == [Self.key])
         #expect(page.entries.map(\.variantName) == ["Alternate Art"])
         #expect(page.nextCursor == "next")
+        #expect(page.availableSetNames == ["Base Set", "Crown Zenith"])
+        #expect(page.availableIllustrators == ["Mitsuhiro Arita"])
         let request = try #require(await transport.request)
         #expect(request.method == .get)
         let path = try #require(request.path)
@@ -64,6 +68,32 @@ struct TCGWishlistClientTests {
             ]
         )
         #expect(await transport.operationID == "get/app-api/wishlist")
+    }
+
+    @Test func `Serializes game and repeated filter parameters`() async throws {
+        let transport = WishlistTransport(status: .ok, response: #"{"entries":[],"next_cursor":null}"#)
+        let filters = CardListFilters(
+            game: .pokemon,
+            setNames: ["Crown Zenith", "Base Set"],
+            illustrators: ["Mitsuhiro Arita", "Ken Sugimori"],
+            query: " Pikachu "
+        )
+        _ = try await makeClient(transport).list(.init(filters: filters, cursor: "previous")).get()
+
+        let request = try #require(await transport.request)
+        let path = try #require(request.path)
+        let url = try #require(URLComponents(string: path))
+        #expect(
+            url.queryItems == [
+                URLQueryItem(name: "illustrator", value: "Ken Sugimori"),
+                URLQueryItem(name: "illustrator", value: "Mitsuhiro Arita"),
+                URLQueryItem(name: "game", value: ClientCardGame.pokemon.rawValue),
+                URLQueryItem(name: "set_name", value: "Base Set"),
+                URLQueryItem(name: "set_name", value: "Crown Zenith"),
+                URLQueryItem(name: "query", value: "Pikachu"),
+                URLQueryItem(name: "cursor", value: "previous"),
+            ]
+        )
     }
 
     @Test func `Omits the search query for an unfiltered page`() async throws {

@@ -17,12 +17,12 @@ integrationTest(
     const provider = vi.spyOn(pricingClient, 'searchCards');
     const path = `${SEARCH_PRICING_ROUTE_PATH}?search_by=card&game=pokemon&query=Giratina`;
     const eurResponse = await app.request(path, { headers: authenticatedHeaders });
-    const eur = PricingSearchResponseSchema.parse(await eurResponse.json()).matches[0];
+    const eur = PricingSearchResponseSchema.parse(await eurResponse.json()).entries[0];
     assert(eur?.headline != null);
     expect(eur.display?.headline?.currency).toBe('EUR');
     expect(eur.display?.headline?.amount).toBeCloseTo(eur.headline.amount / 1.25, 6);
     const jpyResponse = await app.request(path, { headers: sessionHeaders(second.sessionToken) });
-    const jpy = PricingSearchResponseSchema.parse(await jpyResponse.json()).matches[0];
+    const jpy = PricingSearchResponseSchema.parse(await jpyResponse.json()).entries[0];
     assert(jpy?.headline != null);
     expect(jpy.display?.headline?.currency).toBe('JPY');
     expect(jpy.display?.headline?.amount).toBeCloseTo(jpy.headline.amount * 120, 6);
@@ -30,7 +30,7 @@ integrationTest(
     expect(provider).toHaveBeenCalledTimes(1);
     await setPreferredCurrency(app, authenticatedHeaders, 'JPY');
     const changedResponse = await app.request(path, { headers: authenticatedHeaders });
-    const changed = PricingSearchResponseSchema.parse(await changedResponse.json()).matches[0];
+    const changed = PricingSearchResponseSchema.parse(await changedResponse.json()).entries[0];
     expect(changed?.display).toEqual(jpy.display);
     expect(provider).toHaveBeenCalledTimes(1);
     expect(getLogsForRequestId(String(changedResponse.headers.get('tcg-request-id')))).toEqual(
@@ -63,7 +63,7 @@ integrationTest(
     expect(saved).toMatchObject({ purchasePrice: '1500.000000', currency: 'JPY' });
     const exported = await app.request(`${LIST_CARDS_ROUTE_PATH}/export`, { headers });
     expect(await exported.json()).toMatchObject({
-      cards: [
+      entries: [
         expect.objectContaining({
           purchases: [expect.objectContaining({ purchase_price: '1500.000000', currency: 'JPY' })],
         }),
@@ -82,7 +82,7 @@ integrationTest(
     });
 
     expect(response.status).toBe(200);
-    const card = PricingSearchResponseSchema.parse(await response.json()).matches[0];
+    const card = PricingSearchResponseSchema.parse(await response.json()).entries[0];
     assert(card?.headline != null);
     expect(card.display).toMatchObject({
       preferred_currency: 'EUR',

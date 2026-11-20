@@ -165,12 +165,12 @@ describe('Scrydex search through the authenticated pricing API', () => {
       const first = await app.request(path, { headers: authenticatedHeaders });
       expect(first.status).toBe(200);
       const page = PricingSearchResponseSchema.parse(await first.json());
-      const [base, alt, unpriced] = page.matches;
+      const [base, alt, unpriced] = page.entries;
       assert(base != null && alt != null && unpriced != null);
-      expect(page.matches).toHaveLength(3);
+      expect(page.entries).toHaveLength(3);
       expect(page.next_cursor).toBeNull();
-      expect(page.matches.map(match => match.card_number)).toEqual(['OP01-025', 'OP01-025', 'OP01-025']);
-      expect(new Set(page.matches.map(match => match.id)).size).toBe(3);
+      expect(page.entries.map(match => match.card_number)).toEqual(['OP01-025', 'OP01-025', 'OP01-025']);
+      expect(new Set(page.entries.map(match => match.id)).size).toBe(3);
       expect(base).toMatchObject({ variant_name: 'foil', market: { market: 4 } });
       expect(alt).toMatchObject({ variant_name: 'altArt', illustrator: 'Akira Egawa', market: { market: 220 } });
       expect(base.image_url).toEqual(expect.any(String));
@@ -257,14 +257,14 @@ describe('Scrydex search through the authenticated pricing API', () => {
       const first = await app.request(url, { headers });
       expect(first.status).toBe(200);
       const page = PricingSearchResponseSchema.parse(await first.json());
-      expect(page.matches.map(card => card.card_number)).toEqual(cards.slice(0, 100).map(card => card.number));
+      expect(page.entries.map(card => card.card_number)).toEqual(cards.slice(0, 100).map(card => card.number));
       expect(page.next_cursor).toEqual(expect.any(String));
 
       const nextURL = `${url}&cursor=${page.next_cursor}`;
       const second = await app.request(nextURL, { headers });
       expect(second.status).toBe(200);
       const last = PricingSearchResponseSchema.parse(await second.json());
-      expect(last.matches.map(card => card.card_number)).toEqual(cards.slice(100).map(card => card.number));
+      expect(last.entries.map(card => card.card_number)).toEqual(cards.slice(100).map(card => card.number));
       expect(last.next_cursor).toBeNull();
 
       const repeatedFirst = await app.request(url, { headers });
@@ -302,7 +302,7 @@ describe('Scrydex search through the authenticated pricing API', () => {
 
       const results = PricingSearchResponseSchema.parse(await (await search.request('259/193')).json());
       const expectedImage = proxyURLForOriginURL(CHI_YU_IMAGE, 'http://localhost:8080');
-      const selected = results.matches.find(match => match.image_url === expectedImage);
+      const selected = results.entries.find(match => match.image_url === expectedImage);
       assert(selected != null);
 
       const saved = await createTestCard(search.app, user.sessionToken, {
@@ -318,12 +318,12 @@ describe('Scrydex search through the authenticated pricing API', () => {
 
       const headers = sessionHeaders(user.sessionToken);
       const list = await search.app.request(LIST_CARDS_ROUTE_PATH, { headers });
-      expect(CardsListResponseSchema.parse(await list.json()).cards).toMatchObject([
+      expect(CardsListResponseSchema.parse(await list.json()).entries).toMatchObject([
         { id: saved.id, artwork_url: saved.price.priced_card?.image_url },
       ]);
       expect(search.transport.queries).toEqual(['!printed_number:"259/193"']);
 
-      const replacement = results.matches.find(match => match.id !== selected.id);
+      const replacement = results.entries.find(match => match.id !== selected.id);
       assert(replacement != null);
 
       const update = await search.app.request(`${LIST_CARDS_ROUTE_PATH}/${saved.id}`, {
@@ -383,10 +383,10 @@ describe('Scrydex search through the authenticated pricing API', () => {
     expect(OwnedCardPricesSchema.parse(await firstPrice.json()).prices[0]?.price.status).toBe('no_match');
 
     const results = PricingSearchResponseSchema.parse(await (await search.request('259/193')).json());
-    expect(results.matches).toHaveLength(1);
+    expect(results.entries).toHaveLength(1);
     const list = await requestOwnedPrices(search.app, sessionHeaders(user.sessionToken), [saved.id]);
     expect(OwnedCardPricesSchema.parse(await list.json()).prices).toMatchObject([
-      { id: saved.id, price: { status: 'no_price', priced_card: { image_url: results.matches[0]?.image_url } } },
+      { id: saved.id, price: { status: 'no_price', priced_card: { image_url: results.entries[0]?.image_url } } },
     ]);
     expect(await db.query.card.findFirst({ where: { id: saved.id } })).toMatchObject({ pricingCardId: CHI_YU.id });
     expect(search.transport.queries).toEqual([
@@ -413,8 +413,8 @@ describe('Scrydex search through the authenticated pricing API', () => {
 
         expect(first.status).toBe(200);
         const searched = PricingSearchResponseSchema.parse(await first.json());
-        expect(searched.matches).toHaveLength(1);
-        const match = PricedCardSchema.parse(searched.matches[0]);
+        expect(searched.entries).toHaveLength(1);
+        const match = PricedCardSchema.parse(searched.entries[0]);
 
         const created = await createCardRequest(search.app, search.user.sessionToken, {
           game: 'pokemon',
@@ -444,8 +444,8 @@ describe('Scrydex search through the authenticated pricing API', () => {
 
         expect(listed.status).toBe(200);
         const collection = CardsListResponseSchema.parse(await listed.json());
-        expect(collection.cards).toHaveLength(1);
-        expect(collection.cards[0]).toMatchObject({ id: saved.id, artwork_url: saved.price.priced_card?.image_url });
+        expect(collection.entries).toHaveLength(1);
+        expect(collection.entries[0]).toMatchObject({ id: saved.id, artwork_url: saved.price.priced_card?.image_url });
 
         const repeated = await search.app.request(LIST_CARDS_ROUTE_PATH, {
           headers: sessionHeaders(search.user.sessionToken),
@@ -534,7 +534,7 @@ describe('Scrydex search through the authenticated pricing API', () => {
 
         const response = await search.request('gg69/gg70', languages);
         expect(response.status).toBe(200);
-        expect(PricingSearchResponseSchema.parse(await response.json()).matches).toMatchObject([
+        expect(PricingSearchResponseSchema.parse(await response.json()).entries).toMatchObject([
           { name: 'Giratina VSTAR', card_number: 'GG69/GG70', image_url: expect.any(String) },
         ]);
         expect(search.transport.queries).toEqual([expectedQuery]);
@@ -552,7 +552,7 @@ describe('Scrydex search through the authenticated pricing API', () => {
 
     const response = await search.request('GG69/GG71');
     expect(response.status).toBe(200);
-    expect(PricingSearchResponseSchema.parse(await response.json())).toEqual({ matches: [], next_cursor: null });
+    expect(PricingSearchResponseSchema.parse(await response.json())).toEqual({ entries: [], next_cursor: null });
     expect(search.transport.queries).toEqual(['!printed_number:"GG69/GG71"']);
   });
 
@@ -576,14 +576,14 @@ describe('Scrydex search through the authenticated pricing API', () => {
         expect(response.status).toBe(200);
 
         const body = PricingSearchResponseSchema.parse(await response.json());
-        expect(body.matches.map(match => match.variant_name)).toEqual([
+        expect(body.entries.map(match => match.variant_name)).toEqual([
           undefined,
           'fourthAnniversaryStamp',
           'fourthAnniversaryWinnerStamp',
         ]);
-        expect(body.matches.every(match => match.card_number === 'P-110')).toBe(true);
-        expect(body.matches[0]).not.toHaveProperty('market');
-        expect(body.matches[0]).not.toHaveProperty('headline');
+        expect(body.entries.every(match => match.card_number === 'P-110')).toBe(true);
+        expect(body.entries[0]).not.toHaveProperty('market');
+        expect(body.entries[0]).not.toHaveProperty('headline');
         expect(search.transport.paths).toEqual(['/onepiece/v1/cards']);
         expect(search.transport.queries).toEqual([expectedQuery]);
       },
@@ -614,7 +614,7 @@ describe('Scrydex search through the authenticated pricing API', () => {
       expect(first.status).toBe(200);
 
       const body = PricingSearchResponseSchema.parse(await first.json());
-      expect(body.matches).toHaveLength(3);
+      expect(body.entries).toHaveLength(3);
       expect(await db.query.cardPrice.findFirst({ where: { pricingCardId: 'P-110' } })).toMatchObject({
         pricingSource: 'scrydex_real',
         cardNumber: 'P-110',
@@ -646,7 +646,7 @@ describe('Scrydex search through the authenticated pricing API', () => {
     const response = await search.request('p-110');
 
     expect(response.status).toBe(200);
-    expect(PricingSearchResponseSchema.parse(await response.json())).toEqual({ matches: [], next_cursor: null });
+    expect(PricingSearchResponseSchema.parse(await response.json())).toEqual({ entries: [], next_cursor: null });
     expect(search.transport.queries).toEqual(['!id:P-110']);
     expect(await db.query.cardPrice.findMany()).toEqual([]);
   });
@@ -675,7 +675,7 @@ describe('Scrydex search through the authenticated pricing API', () => {
         expect(first.status).toBe(200);
 
         const body = PricingSearchResponseSchema.parse(await first.json());
-        expect(body.matches).toMatchObject([
+        expect(body.entries).toMatchObject([
           { game: 'pokemon', name: 'Torchic', card_number: '056', set_name: 'Mega Evolution Black Star Promos' },
         ]);
         expect(await db.query.cardPrice.findFirst({ where: { pricingCardId: 'mep-56' } })).toMatchObject({
@@ -711,7 +711,7 @@ describe('Scrydex search through the authenticated pricing API', () => {
     const response = await search.request('Shiftry', 'en');
 
     expect(response.status).toBe(200);
-    expect(PricingSearchResponseSchema.parse(await response.json()).matches).toHaveLength(1);
+    expect(PricingSearchResponseSchema.parse(await response.json()).entries).toHaveLength(1);
     expect(search.transport.queries).toEqual([expectedQuery]);
     expect(
       await db.query.cardPriceSearch.findFirst({
@@ -728,7 +728,7 @@ describe('Scrydex search through the authenticated pricing API', () => {
     const response = await search.request('Shiftry', 'ja');
 
     expect(response.status).toBe(200);
-    expect(PricingSearchResponseSchema.parse(await response.json()).matches).toHaveLength(1);
+    expect(PricingSearchResponseSchema.parse(await response.json()).entries).toHaveLength(1);
     expect(search.transport.queries).toEqual([expectedQuery]);
     expect(
       await db.query.cardPriceSearch.findFirst({
@@ -750,7 +750,7 @@ describe('Scrydex search through the authenticated pricing API', () => {
       const response = await search.request('sv5m 072/071');
 
       expect(response.status).toBe(200);
-      expect(PricingSearchResponseSchema.parse(await response.json()).matches).toMatchObject([
+      expect(PricingSearchResponseSchema.parse(await response.json()).entries).toMatchObject([
         {
           game: 'pokemon',
           name: 'ダーテング',
@@ -792,7 +792,7 @@ describe('Scrydex search through the authenticated pricing API', () => {
     const response = await search.request('  SV5M_JA   072  ');
 
     expect(response.status).toBe(200);
-    expect(PricingSearchResponseSchema.parse(await response.json()).matches).toMatchObject([
+    expect(PricingSearchResponseSchema.parse(await response.json()).entries).toMatchObject([
       { name: 'ダーテング', card_number: '072/071' },
     ]);
     expect(search.transport.queries).toEqual(['!expansion.id:sv5m_ja AND !number:72']);
@@ -811,7 +811,7 @@ describe('Scrydex search through the authenticated pricing API', () => {
       const response = await search.request('Shiftry 072/071');
 
       expect(response.status).toBe(200);
-      expect(PricingSearchResponseSchema.parse(await response.json()).matches).toMatchObject([
+      expect(PricingSearchResponseSchema.parse(await response.json()).entries).toMatchObject([
         { name: 'ダーテング', card_number: '072/071' },
       ]);
       expect(search.transport.queries).toEqual(['name:"Shiftry" AND !printed_number:"072/071"']);
@@ -835,8 +835,8 @@ describe('Scrydex search through the authenticated pricing API', () => {
 
       expect(response.status).toBe(200);
       const body = PricingSearchResponseSchema.parse(await response.json());
-      expect(body.matches).toMatchObject([{ name: 'ダーテング', card_number: '072/071' }]);
-      expect(body.matches[0]).not.toHaveProperty('headline');
+      expect(body.entries).toMatchObject([{ name: 'ダーテング', card_number: '072/071' }]);
+      expect(body.entries[0]).not.toHaveProperty('headline');
       expect(search.transport.queries).toEqual(['name:"ダーテング"']);
     },
   );
@@ -862,7 +862,7 @@ describe('Scrydex search through the authenticated pricing API', () => {
       const response = await search.request('Shiftry');
 
       expect(response.status).toBe(200);
-      expect(PricingSearchResponseSchema.parse(await response.json()).matches).toMatchObject([
+      expect(PricingSearchResponseSchema.parse(await response.json()).entries).toMatchObject([
         { name: 'Shiftry', card_number: '163/162' },
         { name: 'ダーテング', card_number: '072/071' },
       ]);
@@ -883,7 +883,7 @@ describe('Scrydex search through the authenticated pricing API', () => {
     const response = await search.request('sv5m 072/070');
 
     expect(response.status).toBe(200);
-    expect(PricingSearchResponseSchema.parse(await response.json())).toEqual({ matches: [], next_cursor: null });
+    expect(PricingSearchResponseSchema.parse(await response.json())).toEqual({ entries: [], next_cursor: null });
     expect(search.transport.queries).toEqual([
       '(!expansion.id:sv5m OR !expansion.id:sv5m_ja) AND !printed_number:"072/070"',
     ]);
@@ -903,7 +903,7 @@ describe('Scrydex search through the authenticated pricing API', () => {
       const first = await search.request('sv5m 072/071');
       expect(first.status).toBe(200);
       const firstBody = PricingSearchResponseSchema.parse(await first.json());
-      expect(firstBody.matches[0]).toHaveProperty('set_name', 'Wild Force');
+      expect(firstBody.entries[0]).toHaveProperty('set_name', 'Wild Force');
 
       const second = await search.request(' SV5M   072/071 ');
 
@@ -947,7 +947,7 @@ describe('Scrydex search through the authenticated pricing API', () => {
       const response = await search.request('265/S-P');
 
       expect(response.status).toBe(200);
-      expect(PricingSearchResponseSchema.parse(await response.json()).matches).toMatchObject([
+      expect(PricingSearchResponseSchema.parse(await response.json()).entries).toMatchObject([
         { name: 'ピカチュウVMAX', card_number: '265', illustrator: 'AKIRA EGAWA' },
       ]);
       expect(search.transport.queries).toEqual([expectedQuery]);
@@ -978,7 +978,7 @@ describe('Scrydex search through the authenticated pricing API', () => {
       const response = await search.request('sv5m 072/071');
 
       expect(response.status).toBe(200);
-      expect(PricingSearchResponseSchema.parse(await response.json()).matches).toHaveLength(1);
+      expect(PricingSearchResponseSchema.parse(await response.json()).entries).toHaveLength(1);
       expect(search.transport.queries).toEqual([SET_AND_PRINTED_NUMBER]);
       expect(await db.query.cardPriceSearch.findMany()).toHaveLength(2);
     },

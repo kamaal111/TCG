@@ -74,7 +74,7 @@ describe('Card CSV import and export integration', () => {
       });
       const exported = await app.request(EXPORT_CARDS_ROUTE_PATH, { headers: authenticatedHeaders });
       expect(exported.status).toBe(CONTENTFUL_STATUS_CODES.OK);
-      expect(ExportCardsResponseSchema.parse(await exported.json()).cards).toEqual([
+      expect(ExportCardsResponseSchema.parse(await exported.json()).entries).toEqual([
         expect.objectContaining({
           ...backupCard,
           purchases: expect.arrayContaining([
@@ -117,7 +117,7 @@ describe('Card CSV import and export integration', () => {
         body: JSON.stringify(
           await csvImportPayload(
             db,
-            original.cards.map(source => ({ ...source, name: 'Recipient copy' })),
+            original.entries.map(source => ({ ...source, name: 'Recipient copy' })),
             'scrydex_static',
           ),
         ),
@@ -252,7 +252,7 @@ describe('Card CSV import and export integration', () => {
       const exported = await isolated.request(EXPORT_CARDS_ROUTE_PATH, { headers: authenticatedHeaders });
       expect(exported.status).toBe(CONTENTFUL_STATUS_CODES.OK);
       const body = ExportCardsResponseSchema.parse(await exported.json());
-      expect(body.cards[0]?.purchases).toEqual(
+      expect(body.entries[0]?.purchases).toEqual(
         expect.arrayContaining([
           expect.objectContaining({
             condition: 'played',
@@ -350,14 +350,14 @@ describe('Card CSV import and export integration', () => {
         await (await app.request(EXPORT_CARDS_ROUTE_PATH, { headers: authenticatedHeaders })).json(),
       );
 
-      const source = original.cards[0];
+      const source = original.entries[0];
       assert(source);
       expect(source).toBeDefined();
 
       const unchanged = await app.request(IMPORT_CARDS_ROUTE_PATH, {
         method: 'POST',
         headers: authenticatedHeaders,
-        body: JSON.stringify(await csvImportPayload(db, original.cards, 'scrydex_static')),
+        body: JSON.stringify(await csvImportPayload(db, original.entries, 'scrydex_static')),
       });
 
       expect(await unchanged.json()).toEqual({ imported_count: 0, updated_count: 0, skipped_count: 1 });
@@ -638,7 +638,7 @@ describe('Card CSV import and export integration', () => {
 
   integrationTest('supports an empty collection and an empty import', async ({ app, authenticatedHeaders }) => {
     expect(await (await app.request(EXPORT_CARDS_ROUTE_PATH, { headers: authenticatedHeaders })).json()).toEqual({
-      cards: [],
+      entries: [],
       next_cursor: null,
     });
     expect(

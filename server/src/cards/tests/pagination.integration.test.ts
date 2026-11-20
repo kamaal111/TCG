@@ -17,9 +17,10 @@ import {
   OwnedCardPricesSchema,
 } from '../schemas/responses.ts';
 
-for (const path of [LIST_CARDS_ROUTE_PATH, EXPORT_CARDS_ROUTE_PATH]) {
-  const schema = path === LIST_CARDS_ROUTE_PATH ? CardsListResponseSchema : ExportCardsResponseSchema;
-
+for (const [path, schema] of [
+  [LIST_CARDS_ROUTE_PATH, CardsListResponseSchema],
+  [EXPORT_CARDS_ROUTE_PATH, ExportCardsResponseSchema],
+] as const) {
   describe(`Card pagination at ${path}`, () => {
     integrationTest(
       'returns bounded pages, preserving timestamp precision and deleted anchors',
@@ -39,7 +40,7 @@ for (const path of [LIST_CARDS_ROUTE_PATH, EXPORT_CARDS_ROUTE_PATH]) {
         const first = await app.request(`${path}?limit=2`, { headers: authenticatedHeaders });
         expect(first.status).toBe(CONTENTFUL_STATUS_CODES.OK);
         const page = schema.parse(await first.json());
-        expect(page.cards.map(entry => entry.id)).toEqual([ids[2], ids[1]]);
+        expect(page.entries.map(entry => entry.id)).toEqual([ids[2], ids[1]]);
         expect(page.next_cursor).toEqual(expect.any(String));
         assert(ids[1] != null);
         assert(page.next_cursor != null);
@@ -50,7 +51,7 @@ for (const path of [LIST_CARDS_ROUTE_PATH, EXPORT_CARDS_ROUTE_PATH]) {
         });
 
         expect(second.status).toBe(CONTENTFUL_STATUS_CODES.OK);
-        expect(schema.parse(await second.json())).toMatchObject({ cards: [{ id: ids[0] }], next_cursor: null });
+        expect(schema.parse(await second.json())).toMatchObject({ entries: [{ id: ids[0] }], next_cursor: null });
       },
     );
 
@@ -83,7 +84,7 @@ for (const path of [LIST_CARDS_ROUTE_PATH, EXPORT_CARDS_ROUTE_PATH]) {
 
           expect(response.status).toBe(CONTENTFUL_STATUS_CODES.OK);
           const page = schema.parse(await response.json());
-          collected.push(...page.cards.map(entry => entry.id));
+          collected.push(...page.entries.map(entry => entry.id));
           cursor = page.next_cursor;
         } while (cursor != null);
 
@@ -111,7 +112,7 @@ for (const path of [LIST_CARDS_ROUTE_PATH, EXPORT_CARDS_ROUTE_PATH]) {
 
     integrationTest('ends empty collections with a null cursor', async ({ app, authenticatedHeaders }) => {
       const response = await app.request(path, { headers: authenticatedHeaders });
-      expect(schema.parse(await response.json())).toMatchObject({ cards: [], next_cursor: null });
+      expect(schema.parse(await response.json())).toMatchObject({ entries: [], next_cursor: null });
     });
   });
 }
@@ -131,7 +132,7 @@ integrationTest(
     );
 
     expect(first.available_set_names).toEqual(['Base Set', 'Crown Zenith']);
-    expect(first.cards).toHaveLength(1);
+    expect(first.entries).toHaveLength(1);
     assert(first.next_cursor != null);
 
     const second = CardsListResponseSchema.parse(
@@ -143,7 +144,7 @@ integrationTest(
     );
 
     expect(second.available_set_names).toEqual(first.available_set_names);
-    expect(second.cards).toHaveLength(1);
+    expect(second.entries).toHaveLength(1);
     expect(second.next_cursor).toBeNull();
   },
 );
@@ -182,14 +183,14 @@ integrationTest(
       await (await app.request(EXPORT_CARDS_ROUTE_PATH, { headers: authenticatedHeaders })).json(),
     );
 
-    expect(defaultExport.cards).toHaveLength(50);
+    expect(defaultExport.entries).toHaveLength(50);
     expect(defaultExport.next_cursor).toEqual(expect.any(String));
 
     const maximum = ExportCardsResponseSchema.parse(
       await (await app.request(`${EXPORT_CARDS_ROUTE_PATH}?limit=100`, { headers: authenticatedHeaders })).json(),
     );
 
-    expect(maximum.cards).toHaveLength(100);
+    expect(maximum.entries).toHaveLength(100);
     assert(maximum.next_cursor != null);
 
     const remainder = ExportCardsResponseSchema.parse(
@@ -200,22 +201,22 @@ integrationTest(
       ).json(),
     );
 
-    expect(remainder.cards).toHaveLength(3);
+    expect(remainder.entries).toHaveLength(3);
     expect(remainder.next_cursor).toBeNull();
-    expect(new Set([...maximum.cards, ...remainder.cards].map(entry => entry.id)).size).toBe(103);
+    expect(new Set([...maximum.entries, ...remainder.entries].map(entry => entry.id)).size).toBe(103);
     expect((await db.select().from(cardPurchaseBatch)).every(batch => batch.purchasePrice == null)).toBe(true);
 
     const listed = CardsListResponseSchema.parse(
       await (await app.request(`${LIST_CARDS_ROUTE_PATH}?limit=50`, { headers: authenticatedHeaders })).json(),
     );
 
-    expect(listed.cards).toHaveLength(50);
+    expect(listed.entries).toHaveLength(50);
     expect((await db.select().from(cardPurchaseBatch)).every(batch => batch.purchasePrice == null)).toBe(true);
 
     const refresh = await requestOwnedPrices(
       app,
       authenticatedHeaders,
-      listed.cards.map(card => card.id),
+      listed.entries.map(card => card.id),
     );
 
     expect(refresh.status).toBe(200);

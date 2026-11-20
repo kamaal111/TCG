@@ -14,7 +14,7 @@ public struct TCGWishlistScreen<AddForm: View>: View {
     private let addForm: (PricedCard, @escaping () -> Void) -> AddForm
 
     public init(isVisible: Bool, @ViewBuilder addForm: @escaping (PricedCard, @escaping () -> Void) -> AddForm) {
-        self.init(isVisible: isVisible, model: TCGWishlistScreenModel(), addForm: addForm)
+        self.init(isVisible: isVisible, model: TCGWishlistScreenModel(preferences: .standard), addForm: addForm)
     }
 
     init(
@@ -46,13 +46,17 @@ public struct TCGWishlistScreen<AddForm: View>: View {
     }
 
     private var wishlistList: some View {
-        @Bindable var model = model
+        @Bindable var filterState = model.filterState
         return TCGCollectionList(
             title: Text("Wishlist", bundle: .module),
-            query: $model.query,
+            query: $filterState.query,
             showsEmptyContent: model.entries.isEmpty && model.hasLoaded && model.cursor == nil && model.error == nil
         ) {
-            EmptyView()
+            TCGCollectionFilters(
+                state: filterState,
+                availableSets: model.availableSetNames,
+                availableIllustrators: model.availableIllustrators
+            )
         } rows: {
             if model.entries.isEmpty && !model.hasLoaded && (model.error == nil || model.isLoading) {
                 ProgressView()
@@ -72,14 +76,18 @@ public struct TCGWishlistScreen<AddForm: View>: View {
     }
 
     private struct LoadIdentity: Equatable {
-        let query: String?
+        let filters: CardListFilters
         let display: TCGCurrency.DisplayIdentity?
         let revision: UUID?
     }
 
     private var loadIdentity: LoadIdentity? {
         guard isVisible, scenePhase == .active else { return nil }
-        return LoadIdentity(query: model.searchQuery, display: currency?.displayIdentity, revision: wishlist?.revision)
+        return LoadIdentity(
+            filters: model.filterState.filters,
+            display: currency?.displayIdentity,
+            revision: wishlist?.revision
+        )
     }
 
     private func paginationCursor(for card: PricedCard) -> String? {
@@ -91,16 +99,8 @@ public struct TCGWishlistScreen<AddForm: View>: View {
 
     @ViewBuilder
     private var emptyWishlist: some View {
-        if model.searchQuery != nil {
-            ContentUnavailableView {
-                Label {
-                    Text("No matching cards", bundle: .module)
-                } icon: {
-                    Image(systemName: "line.3.horizontal.decrease")
-                }
-            } description: {
-                Text("Change your search to see more cards.", bundle: .module)
-            }
+        if model.filterState.filters.isActive {
+            TCGCollectionNoMatches()
         } else {
             ContentUnavailableView {
                 Label {

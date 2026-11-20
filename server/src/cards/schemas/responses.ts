@@ -4,6 +4,8 @@ import { CardPurchaseSchema, CardCoreFieldsSchema } from './fields.ts';
 import { OwnedCardPriceSchema } from '../../card-pricing/schemas/responses.ts';
 import { CurrencySchema } from '../../forex/currencies.ts';
 import { ApiCommonDatetime, ApiCountSchema, UuidSchema } from '../../schemas/common.ts';
+import { paginatedResponseSchema } from '../../schemas/pagination.ts';
+import { cardListPageSchema } from '../list-page.ts';
 
 export const CardSchema = CardCoreFieldsSchema.extend({
   illustrator: z.string().optional(),
@@ -110,28 +112,22 @@ export const OwnedCardPricesSchema = z
 
 export type OwnedCardPriceUpdate = z.infer<typeof OwnedCardPriceUpdateSchema>;
 
-const NextCardsCursorSchema = z.string().nullable().meta({
-  description: 'Opaque cursor for the next page; null when this is the final page',
-  example: null,
-});
+const OwnedCardListPageSchema = cardListPageSchema(OwnedCardDetailsSchema, CardCoreFieldsSchema.shape.set_name);
 
-export const CardsListResponseSchema = z
-  .object({
-    cards: z.array(OwnedCardDetailsSchema).meta({ description: 'Owned card entries, newest first' }),
-    next_cursor: NextCardsCursorSchema,
-    available_illustrators: z.array(z.string()).meta({
-      description: 'Known illustrators in the owned game/collection scope, independent of other filters and pagination',
-    }),
-    available_set_names: z.array(CardCoreFieldsSchema.shape.set_name).meta({
-      description: 'Distinct owned set names in alphabetical order, scoped by game but independent of the set filter',
-    }),
-  })
-  .meta({
-    $id: 'CardsListResponse',
-    title: 'Cards List Response',
-    description: "One page of the authenticated user's card collection with complete game-scoped set choices",
-    example: { cards: [], available_set_names: [], available_illustrators: [], next_cursor: null },
-  });
+export const CardsListResponseSchema = OwnedCardListPageSchema.extend({
+  entries: OwnedCardListPageSchema.shape.entries.meta({ description: 'Owned card entries, newest first' }),
+  available_illustrators: OwnedCardListPageSchema.shape.available_illustrators.meta({
+    description: 'Known illustrators in the owned game/collection scope, independent of other filters and pagination',
+  }),
+  available_set_names: OwnedCardListPageSchema.shape.available_set_names.meta({
+    description: 'Distinct owned set names in alphabetical order, scoped by game but independent of the set filter',
+  }),
+}).meta({
+  $id: 'CardsListResponse',
+  title: 'Cards List Response',
+  description: "One page of the authenticated user's card collection with complete game-scoped set choices",
+  example: { entries: [], available_set_names: [], available_illustrators: [], next_cursor: null },
+});
 
 export type CardResponse = z.infer<typeof CardSchema>;
 
@@ -148,42 +144,37 @@ export const DeleteCardsResponseSchema = z
 
 export type DeleteCardsResponse = z.infer<typeof DeleteCardsResponseSchema>;
 
-export const ExportCardsResponseSchema = z
-  .object({
-    cards: z.array(CardSchema).meta({ description: 'One page of owned cards without refreshed market pricing' }),
-    next_cursor: NextCardsCursorSchema,
-  })
-  .meta({
-    $id: 'ExportCardsResponse',
-    title: 'Export Cards Response',
-    description: "One page of the authenticated user's owned cards and purchase history",
-    example: {
-      next_cursor: null,
-      cards: [
-        {
-          id: '550e8400-e29b-41d4-a716-446655440000',
-          game: 'one_piece',
-          name: 'Monkey D. Luffy',
-          set_name: 'Romance Dawn',
-          card_number: 'OP01-003',
-          notes: 'Alternate art',
-          purchases: [
-            {
-              id: '550e8400-e29b-41d4-a716-446655440001',
-              condition: 'near_mint',
-              quantity: 2,
-              purchase_price: '2.500000',
-              currency: 'USD',
-              automatic_price_date: '2026-07-20',
-            },
-          ],
-          purchase_price_change_percent: null,
-          created_at: '2026-07-20T10:30:00.000Z',
-          updated_at: '2026-07-20T10:30:00.000Z',
-        },
-      ],
-    },
-  });
+export const ExportCardsResponseSchema = paginatedResponseSchema(CardSchema).meta({
+  $id: 'ExportCardsResponse',
+  title: 'Export Cards Response',
+  description: "One page of the authenticated user's owned cards and purchase history",
+  example: {
+    next_cursor: null,
+    entries: [
+      {
+        id: '550e8400-e29b-41d4-a716-446655440000',
+        game: 'one_piece',
+        name: 'Monkey D. Luffy',
+        set_name: 'Romance Dawn',
+        card_number: 'OP01-003',
+        notes: 'Alternate art',
+        purchases: [
+          {
+            id: '550e8400-e29b-41d4-a716-446655440001',
+            condition: 'near_mint',
+            quantity: 2,
+            purchase_price: '2.500000',
+            currency: 'USD',
+            automatic_price_date: '2026-07-20',
+          },
+        ],
+        purchase_price_change_percent: null,
+        created_at: '2026-07-20T10:30:00.000Z',
+        updated_at: '2026-07-20T10:30:00.000Z',
+      },
+    ],
+  },
+});
 
 export const ImportCardsResponseSchema = z
   .object({

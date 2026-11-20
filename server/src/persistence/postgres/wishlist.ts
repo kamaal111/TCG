@@ -1,6 +1,7 @@
-import { and, eq, ilike, inArray, or, sql } from 'drizzle-orm';
+import { and, eq, inArray, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 
+import { cardListChoices, cardListPredicates } from './card-list-filters.ts';
 import { PostgresCardMetadataRepository } from './card-metadata.ts';
 import { proxyURLForOriginURL } from '../../card-images/keys.ts';
 import { CARD_GAME_MAP } from '../../card-pricing/types.ts';
@@ -9,10 +10,10 @@ import { printingKey } from '../../card-pricing/utils/printing-key.ts';
 import type { Database } from '../../db/index.ts';
 import { cardMetadata, cardPrice, wishlist } from '../../db/schema/index.ts';
 import { cursorPage } from '../../utils/pagination.ts';
-import { literalSubstringPattern } from '../../utils/search.ts';
 import type { WishlistRepository } from '../../wishlist/repository.ts';
+import type { WishlistQuery } from '../../wishlist/schemas/params.ts';
 import { WishlistCardSchema } from '../../wishlist/schemas/responses.ts';
-import { encodeWishlistCursor, type WishlistCursor } from '../../wishlist/utils/pagination.ts';
+import { encodeWishlistCursor } from '../../wishlist/utils/pagination.ts';
 import type { AuthenticatedIdentity } from '../contracts.ts';
 
 const PAGE_SIZE = 50;
@@ -29,95 +30,100 @@ export class PostgresWishlistRepository implements WishlistRepository {
     this.identity = identity;
   }
 
-  async list(cursor: WishlistCursor | undefined, baseURL: string, query?: string) {
-    const pattern = query !== undefined ? literalSubstringPattern(query) : undefined;
+  async list({ cursor, game, query, set_name, illustrator }: WishlistQuery, baseURL: string) {
+    const savedGame = sql<string>`${wishlist.card}->>'game'`;
+    const savedSet = sql<string | null>`${wishlist.card}->>'set_name'`;
+    const credit = sql<string | null>`coalesce(${cardMetadata.illustrator}, ${wishlist.card}->>'illustrator')`;
 
-    const list = this.db
-      .select({
-        card: wishlist.card,
-        printingKey: wishlist.printingKey,
-        savedAt: sql<string>`to_char(${wishlist.savedAt}, 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`,
-      })
-      .from(wishlist);
+    const filters = cardListPredicates(
+      {
+        game: savedGame,
+        setName: savedSet,
+        illustrator: credit,
+        name: sql`${wishlist.card}->>'name'`,
+        englishSearchAlias: sql`coalesce(${cardMetadata.englishSearchAlias}, ${this.metadata.cachedEnglishSearchAlias(savedPrice)})`,
+        cardNumber: sql`${wishlist.card}->>'card_number'`,
+      },
+      { game, query, setNames: set_name ?? [], illustrators: illustrator ?? [] },
+    );
 
-    const search =
-      pattern === undefined
-        ? list
-        : list
-            .leftJoin(
-              savedPrice,
-              and(eq(savedPrice.id, sql`${wishlist.card}->>'id'`), eq(savedPrice.game, CARD_GAME_MAP.POKEMON)),
-            )
-            .leftJoin(
-              cardMetadata,
-              and(
-                eq(cardMetadata.pricingSource, savedPrice.pricingSource),
-                eq(cardMetadata.game, savedPrice.game),
-                eq(cardMetadata.pricingCardId, savedPrice.pricingCardId),
-              ),
-            );
+    const ownership = and(eq(wishlist.userId, this.identity.requireUserId()), filters.game);
 
-    const rows = await search
-      .where(
-        and(
-          eq(wishlist.userId, this.identity.requireUserId()),
-          pattern !== undefined
-            ? or(
-                ilike(sql`${wishlist.card}->>'name'`, pattern),
-                ilike(sql`${wishlist.card}->>'set_name'`, pattern),
-                ilike(sql`${wishlist.card}->>'card_number'`, pattern),
-                ilike(
-                  sql`coalesce(${cardMetadata.englishSearchAlias}, ${this.metadata.cachedEnglishSearchAlias(savedPrice)})`,
-                  pattern,
-                ),
-              )
-            : undefined,
-          cursor != null
-            ? sql`(${wishlist.savedAt}, ${wishlist.printingKey}) < (${cursor.savedAt}::timestamp, ${cursor.printingKey})`
-            : undefined,
-        ),
-      )
-      .orderBy(sql`${wishlist.savedAt} desc nulls last`, sql`${wishlist.printingKey} desc nulls last`)
-      .limit(PAGE_SIZE + 1);
+    const savedPriceId = eq(savedPrice.id, sql`${wishlist.card}->>'id'`);
 
-    const { page, nextCursor } = cursorPage(rows, PAGE_SIZE, row => {
-      return encodeWishlistCursor({ savedAt: row.savedAt, printingKey: row.printingKey });
-    });
+    const metadataIdentity = and(
+      eq(savedGame, CARD_GAME_MAP.POKEMON),
+      eq(savedPrice.game, CARD_GAME_MAP.POKEMON),
+      eq(cardMetadata.pricingSource, savedPrice.pricingSource),
+      eq(cardMetadata.game, savedPrice.game),
+      eq(cardMetadata.pricingCardId, savedPrice.pricingCardId),
+    );
 
-    const identities =
-      page.length === 0
-        ? []
-        : await this.db
-            .select({
-              id: cardPrice.id,
-              pricingSource: cardPrice.pricingSource,
-              game: cardPrice.game,
-              pricingCardId: cardPrice.pricingCardId,
-            })
-            .from(cardPrice)
-            .where(
-              inArray(
-                cardPrice.id,
-                page.map(row => row.card.id),
-              ),
-            );
+    return this.db.transaction(
+      async tx => {
+        const sets = await tx
+          .selectDistinct({ name: savedSet })
+          .from(wishlist)
+          .where(and(ownership, filters.setChoice))
+          .orderBy(savedSet);
 
-    const identitiesById = new Map(identities.map(identity => [identity.id, identity]));
+        const illustrators = await tx
+          .selectDistinct({ name: credit })
+          .from(wishlist)
+          .leftJoin(savedPrice, savedPriceId)
+          .leftJoin(cardMetadata, metadataIdentity)
+          .where(and(ownership, filters.illustratorChoice(savedGame)))
+          .orderBy(credit);
 
-    return {
-      entries: page.map(({ card: { originImageURL, ...card } }) => {
-        const identity = identitiesById.get(card.id);
+        const rows = await tx
+          .select({
+            card: wishlist.card,
+            illustrator: credit,
+            pricingIdentity: {
+              pricingSource: savedPrice.pricingSource,
+              game: savedPrice.game,
+              pricingCardId: savedPrice.pricingCardId,
+            },
+            printingKey: wishlist.printingKey,
+            savedAt: sql<string>`to_char(${wishlist.savedAt}, 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`,
+          })
+          .from(wishlist)
+          .leftJoin(savedPrice, savedPriceId)
+          .leftJoin(cardMetadata, metadataIdentity)
+          .where(
+            and(
+              ownership,
+              filters.matches,
+              cursor != null
+                ? sql`(${wishlist.savedAt}, ${wishlist.printingKey}) < (${cursor.savedAt}::timestamp, ${cursor.printingKey})`
+                : undefined,
+            ),
+          )
+          .orderBy(sql`${wishlist.savedAt} desc nulls last`, sql`${wishlist.printingKey} desc nulls last`)
+          .limit(PAGE_SIZE + 1);
+
+        const { page, nextCursor } = cursorPage(rows, PAGE_SIZE, row => {
+          return encodeWishlistCursor({ savedAt: row.savedAt, printingKey: row.printingKey });
+        });
 
         return {
-          card: {
-            ...card,
-            image_url: originImageURL != null ? proxyURLForOriginURL(originImageURL, baseURL) : undefined,
-          },
-          pricingIdentity: identity != null && printingKey(identity) === card.printing_key ? identity : undefined,
+          entries: page.map(({ card: { originImageURL, ...card }, illustrator, pricingIdentity }) => ({
+            card: {
+              ...card,
+              illustrator: illustrator ?? undefined,
+              image_url: originImageURL != null ? proxyURLForOriginURL(originImageURL, baseURL) : undefined,
+            },
+            pricingIdentity:
+              pricingIdentity != null && printingKey(pricingIdentity) === card.printing_key
+                ? pricingIdentity
+                : undefined,
+          })),
+          ...cardListChoices(sets, illustrators),
+          nextCursor,
         };
-      }),
-      next_cursor: nextCursor,
-    };
+      },
+      { isolationLevel: 'repeatable read', accessMode: 'read only' },
+    );
   }
 
   async savedPrintingKeys(printingKeys: readonly string[]): Promise<ReadonlySet<string>> {

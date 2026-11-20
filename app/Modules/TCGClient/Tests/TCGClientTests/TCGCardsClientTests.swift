@@ -19,7 +19,7 @@ struct TCGCardsClientTests {
     func `Decodes an English alias on collection pages and still decodes legacy stored cards`() async throws {
         let body = Data(
             """
-            {"cards":[\(shiftryOwnedCardJSON)],"next_cursor":null,"available_set_names":["Cyber Judge"],
+            {"entries":[\(shiftryOwnedCardJSON)],"next_cursor":null,"available_set_names":["Cyber Judge"],
              "available_illustrators":[]}
             """.utf8
         )
@@ -48,7 +48,7 @@ struct TCGCardsClientTests {
     func `Serializes repeated illustrator filters and decodes complete choices`() async throws {
         let body = Data(
             """
-            {"cards":[],"next_cursor":null,"available_set_names":[],"available_illustrators":["Akira Egawa","Mitsuhiro Arita"]}
+            {"entries":[],"next_cursor":null,"available_set_names":[],"available_illustrators":["Akira Egawa","Mitsuhiro Arita"]}
             """.utf8
         )
         let transport = CardsRequestTransport(status: .ok, body: body)
@@ -144,7 +144,10 @@ struct TCGCardsClientTests {
 
     @Test
     func `Exports every card through the pricing independent operation`() async throws {
-        let transport = CardsRequestTransport(status: .ok, body: cardsListJSON)
+        let transport = CardsRequestTransport(
+            status: .ok,
+            body: pageJSON(id: expectedCard.id, cursor: nil)
+        )
         let cards = try await makeClient(transport: transport).cards.exportCards().get()
         let request = try #require(await transport.request)
         #expect(request.method == .get)
@@ -775,7 +778,10 @@ struct TCGCardsClientTests {
             ),
             .init(
                 status: .ok,
-                body: pageJSON(id: UUID(uuid: (0, 0, 0, 0, 0, 0, 64, 0, 128, 0, 0, 0, 0, 0, 1, 37)), cursor: nil)
+                body: pageJSON(
+                    id: UUID(uuid: (0, 0, 0, 0, 0, 0, 64, 0, 128, 0, 0, 0, 0, 0, 1, 37)),
+                    cursor: nil
+                )
             ),
         ])
         let cards = try await makeClient(transport: transport).cards.exportCards().get()
@@ -814,7 +820,10 @@ struct TCGCardsClientTests {
             ),
             .init(
                 status: .ok,
-                body: pageJSON(id: UUID(uuid: (0, 0, 0, 0, 0, 0, 64, 0, 128, 0, 0, 0, 0, 0, 1, 37)), cursor: "repeated")
+                body: pageJSON(
+                    id: UUID(uuid: (0, 0, 0, 0, 0, 0, 64, 0, 128, 0, 0, 0, 0, 0, 1, 37)),
+                    cursor: "repeated"
+                )
             ),
         ])
         await #expect(throws: CardBackupErrors.unknown(status: 503)) {
@@ -848,7 +857,10 @@ struct TCGCardsClientTests {
         let transport = CardsRequestTransport(responses: [
             .init(
                 status: .ok,
-                body: pageJSON(id: UUID(uuid: (0, 0, 0, 0, 0, 0, 64, 0, 128, 0, 0, 0, 0, 0, 1, 37)), cursor: nil)
+                body: pageJSON(
+                    id: UUID(uuid: (0, 0, 0, 0, 0, 0, 64, 0, 128, 0, 0, 0, 0, 0, 1, 37)),
+                    cursor: nil
+                )
             )
         ])
         let collection = try await makeClient(transport: transport).cards.listPage(
@@ -915,7 +927,7 @@ struct TCGCardsClientTests {
         return Data(
             """
             {
-              "cards": [\(card)],
+              "entries": [\(card)],
               "available_illustrators": [], "available_set_names": ["Base Set", "Crown Zenith"],
               "next_cursor": \(nextCursor)
             }
@@ -1070,7 +1082,7 @@ private let cardDetailsJSON = Data(
 private let cardsListJSON = Data(
     """
     {
-      "cards": [\(String(decoding: cardDetailsJSON, as: UTF8.self))],
+      "entries": [\(String(decoding: cardDetailsJSON, as: UTF8.self))],
       "available_illustrators": [], "available_set_names": ["Base Set", "Crown Zenith"],
       "next_cursor": null
     }

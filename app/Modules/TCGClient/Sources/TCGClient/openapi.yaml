@@ -1980,6 +1980,51 @@ paths:
     get:
       parameters:
         - schema:
+            type: array
+            items:
+              type: string
+            description: >-
+              Exact illustrator names; repeat for multiple selections. Pokémon
+              only.
+          required: false
+          description: >-
+            Exact illustrator names; repeat for multiple selections. Pokémon
+            only.
+          name: illustrator
+          in: query
+        - schema:
+            type: string
+            enum:
+              - one_piece
+              - pokemon
+            description: Optional game filter
+            example: one_piece
+          required: false
+          description: Optional game filter
+          name: game
+          in: query
+        - schema:
+            type: array
+            items:
+              type: string
+              minLength: 1
+              maxLength: 200
+              description: Set name, empty when unavailable
+              example: Romance Dawn
+              $schema: https://json-schema.org/draft/2020-12/schema
+            description: >-
+              Optional exact set names. Repeat set_name for multiple sets;
+              omitted means all sets.
+            example:
+              - Base Set
+              - Crown Zenith
+          required: false
+          description: >-
+            Optional exact set names. Repeat set_name for multiple sets; omitted
+            means all sets.
+          name: set_name
+          in: query
+        - schema:
             type: string
             minLength: 1
             maxLength: 200
@@ -2017,6 +2062,18 @@ paths:
                     type:
                       - string
                       - 'null'
+                    description: >-
+                      Opaque cursor for the next page; null when this is the
+                      final page
+                    example: null
+                  available_set_names:
+                    type: array
+                    items:
+                      type: string
+                  available_illustrators:
+                    type: array
+                    items:
+                      type: string
                 required:
                   - entries
                   - next_cursor
@@ -2420,11 +2477,10 @@ components:
     ExportCardsResponse:
       type: object
       properties:
-        cards:
+        entries:
           type: array
           items:
             $ref: '#/components/schemas/Card'
-          description: One page of owned cards without refreshed market pricing
         next_cursor:
           type:
             - string
@@ -2432,13 +2488,13 @@ components:
           description: Opaque cursor for the next page; null when this is the final page
           example: null
       required:
-        - cards
+        - entries
         - next_cursor
       title: Export Cards Response
       description: One page of the authenticated user's owned cards and purchase history
       example:
         next_cursor: null
-        cards:
+        entries:
           - id: 550e8400-e29b-41d4-a716-446655440000
             game: one_piece
             name: Monkey D. Luffy
@@ -3170,7 +3226,7 @@ components:
     CardsListResponse:
       type: object
       properties:
-        cards:
+        entries:
           type: array
           items:
             $ref: '#/components/schemas/OwnedCardDetails'
@@ -3181,13 +3237,6 @@ components:
             - 'null'
           description: Opaque cursor for the next page; null when this is the final page
           example: null
-        available_illustrators:
-          type: array
-          items:
-            type: string
-          description: >-
-            Known illustrators in the owned game/collection scope, independent
-            of other filters and pagination
         available_set_names:
           type: array
           items:
@@ -3198,17 +3247,24 @@ components:
           description: >-
             Distinct owned set names in alphabetical order, scoped by game but
             independent of the set filter
+        available_illustrators:
+          type: array
+          items:
+            type: string
+          description: >-
+            Known illustrators in the owned game/collection scope, independent
+            of other filters and pagination
       required:
-        - cards
+        - entries
         - next_cursor
-        - available_illustrators
         - available_set_names
+        - available_illustrators
       title: Cards List Response
       description: >-
         One page of the authenticated user's card collection with complete
         game-scoped set choices
       example:
-        cards: []
+        entries: []
         available_set_names: []
         available_illustrators: []
         next_cursor: null
@@ -4114,22 +4170,23 @@ components:
     PricingSearchResponse:
       type: object
       properties:
-        matches:
+        entries:
           type: array
           items:
             $ref: '#/components/schemas/PricedCard'
-          description: Ordered matching cards
         next_cursor:
           type:
             - string
             - 'null'
-          description: Cursor for the next page, or null at the end
+          description: Opaque cursor for the next page; null when this is the final page
+          example: null
       required:
-        - matches
+        - entries
+        - next_cursor
       title: Pricing Search Response
-      description: Card pricing search results
+      description: Card pricing search results in match order
       example:
-        matches: []
+        entries: []
         next_cursor: null
   securitySchemes:
     bearerAuth:
