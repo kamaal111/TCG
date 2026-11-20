@@ -33,7 +33,7 @@ struct TCGSearchFilters: View {
                 Text("Languages", bundle: .module)
             }
             if !availableSetNames.isEmpty {
-                TCGSetFilterSection(availableSetNames: availableSetNames, selection: $setNames)
+                TCGSetFilterSection(availableSetNames: availableSetNames, selection: $setNames, presentation: .section)
             }
         }
     }

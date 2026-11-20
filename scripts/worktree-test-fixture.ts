@@ -11,15 +11,18 @@ export async function worktreeFixture() {
   await fs.mkdir(main);
   const realGit = childProcess.spawnSync('which', ['git'], { encoding: 'utf8' }).stdout.trim();
 
-  const git = (args: string[], cwd = main) => {
+  const git = (args: string[], cwd: string) => {
     const result = childProcess.spawnSync(realGit, args, { cwd, encoding: 'utf8' });
     expect(result.status).toBe(0);
 
     return result.stdout.trim();
   };
 
-  git(['init', '-b', 'main']);
-  git(['-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.com', 'commit', '--allow-empty', '-m', 'Fixture']);
+  git(['init', '-b', 'main'], main);
+  git(
+    ['-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.com', 'commit', '--allow-empty', '-m', 'Fixture'],
+    main,
+  );
 
   return { root, main: await fs.realpath(main), checkout, realGit, git };
 }

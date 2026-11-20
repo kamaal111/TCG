@@ -31,7 +31,7 @@ export function useReleaseActions({ destination, perform, onSuccess, onFailure }
       }
 
       onFailure(result);
-    });
+    }, true);
   }
 
   function start(sha: string, fingerprint: string) {

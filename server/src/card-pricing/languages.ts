@@ -21,7 +21,7 @@ export function parseCardLanguages(value: string | undefined): CardLanguage[] {
   return value.trim() === '' ? [] : z.array(CardLanguageSchema).parse(value.split(',').map(code => code.trim()));
 }
 
-export function normalizeCardLanguages(game: CardGame, languages: readonly CardLanguage[] = []): CardLanguage[] {
+export function normalizeCardLanguages(game: CardGame, languages: readonly CardLanguage[]): CardLanguage[] {
   const selected = [...new Set(languages)].sort();
 
   if (

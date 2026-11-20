@@ -50,7 +50,7 @@ export async function readAppSettings(directory: string): Promise<AppSettings> {
   try {
     return AppSettingsSchema.parse(JSON.parse(await readSettingsFile(path.join(directory, 'app-release.json'))));
   } catch {
-    throw new InfraFailure(APP_SETUP_REQUIRED);
+    throw new InfraFailure(APP_SETUP_REQUIRED, 1);
   }
 }
 

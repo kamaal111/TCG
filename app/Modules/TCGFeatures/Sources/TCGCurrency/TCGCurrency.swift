@@ -31,7 +31,7 @@ public final class TCGCurrency {
         DisplayIdentity(session: generation, currency: preferredCurrency)
     }
 
-    public convenience init(client: TCGClient = .default(), defaults: UserDefaults? = .standard) {
+    public convenience init(client: TCGClient, defaults: UserDefaults?) {
         self.init(client: client, defaults: defaults, logger: KamaalLogger(from: TCGCurrency.self))
     }
 
@@ -101,12 +101,12 @@ public final class TCGCurrency {
             case .unauthenticated: clearSession()
             case .authenticated:
                 restorePreference(account: auth.session?.email)
-                await refresh()
+                await refresh(locale: .current)
             }
         }
     }
 
-    public func refresh(locale: Locale = .current) async {
+    public func refresh(locale: Locale) async {
         guard !isRefreshing else {
             logger.debug("event=currency.refresh.skipped; reason=in_flight")
             return

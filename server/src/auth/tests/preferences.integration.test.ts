@@ -1,5 +1,6 @@
 import { expectValidationIssueForField } from '../../tests/auth.ts';
 import { integrationTest } from '../../tests/fixtures.ts';
+import { createTestRequestId } from '../../tests/logs.ts';
 import { SESSION_ROUTE_PATH } from '../constants.ts';
 import { SessionResponseSchema } from '../schemas/responses.ts';
 
@@ -11,7 +12,7 @@ integrationTest(
       headers,
       body: JSON.stringify({ preferred_currency: 'EUR' }),
     });
-    const initialized = withRequestId(headers);
+    const initialized = withRequestId(headers, createTestRequestId());
 
     const response = await app.request('/app-api/auth/preferences', {
       method: 'POST',
@@ -35,7 +36,7 @@ integrationTest(
     );
     expect(logs.filter(log => log.event === 'request.completed')).toHaveLength(1);
     expect(JSON.stringify(logs)).not.toContain(user.sessionToken);
-    const updated = withRequestId(headers);
+    const updated = withRequestId(headers, createTestRequestId());
     expect(
       (
         await app.request('/app-api/auth/preferences', {
@@ -63,7 +64,7 @@ integrationTest(
 integrationTest(
   'logs rejected preferences without a successful milestone',
   async ({ app, withRequestId, getLogsForRequestId }) => {
-    const { headers, requestId } = withRequestId({ 'Content-Type': 'application/json' });
+    const { headers, requestId } = withRequestId({ 'Content-Type': 'application/json' }, createTestRequestId());
 
     const response = await app.request('/app-api/auth/preferences', {
       method: 'PATCH',
@@ -81,7 +82,7 @@ integrationTest(
 integrationTest(
   'persists preferred currency only for the authenticated account',
   async ({ app, user: first, createUser, authenticatedHeaders: headers }) => {
-    const second = await createUser();
+    const second = await createUser({});
 
     const initial = await app.request(SESSION_ROUTE_PATH, { headers });
     expect(SessionResponseSchema.parse(await initial.json()).user).toMatchObject({
@@ -114,7 +115,7 @@ for (const method of ['POST', 'PATCH']) {
   integrationTest(
     `${method} rejects unsupported preferences and unauthenticated writes`,
     async ({ app, withRequestId, getLogsForRequestId, user, authenticatedHeaders: headers }) => {
-      const validationRequest = withRequestId(headers);
+      const validationRequest = withRequestId(headers, createTestRequestId());
 
       const invalid = await app.request('/app-api/auth/preferences', {
         method,
@@ -207,7 +208,7 @@ integrationTest(
 integrationTest(
   'initialization is authenticated and cannot create preferences for another account',
   async ({ app, user: first, createUser, authenticatedHeaders }) => {
-    const second = await createUser();
+    const second = await createUser({});
     const payload = JSON.stringify({ preferred_currency: 'EUR', user_id: second.userId });
 
     const unauthenticated = await app.request('/app-api/auth/preferences', {

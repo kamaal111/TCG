@@ -24,19 +24,34 @@ struct TCGCardDetailScreenSnapshotTests {
             notes: nil,
             createdAt: source.createdAt,
             updatedAt: source.updatedAt,
-            purchases: [.init(condition: .nearMint, quantity: 3, purchasePrice: 5, currency: .eur)],
+            purchases: [
+                .init(
+                    id: nil,
+                    condition: .nearMint,
+                    quantity: 3,
+                    purchasePrice: 5,
+                    currency: .eur,
+                    automaticPriceDate: nil,
+                    displayPrice: nil
+                )
+            ],
+            purchasePriceChangePercent: nil,
+            displayCurrency: nil,
             collectionID: nil,
             allocationAdjustments: nil,
             illustrator: nil,
             englishSearchAlias: nil
         )
-        let model = TCGCardDetailScreenModel(card: .init(card: card, price: PreviewTCGCardsClient.price(for: card)))
+        let model = TCGCardDetailScreenModel(
+            card: .init(card: card, price: PreviewTCGCardsClient.price(for: card), imageURL: nil)
+        )
         #expect(model.card.card.purchases.first?.purchasePrice == 5)
         #expect(model.card.card.totalQuantity == 3)
-        await assertScreenSnapshot(testName: #function) {
-            makeScreen(model)
+        await assertScreenSnapshot(testName: #function, fileID: #fileID, file: #filePath, line: #line, column: #column)
+        {
+            makeScreen(model, isEditingCollection: false, cards: TCGCards(client: .preview(cardsOutcome: .empty)))
                 .environment(\.tcgPricePrivacy, privacy)
-                .environment(\.tcgCurrency, TCGCurrency(client: .preview(), defaults: nil))
+                .environment(\.tcgCurrency, TCGCurrency(client: .preview(hasValidCredentials: false), defaults: nil))
         }
     }
 
@@ -46,8 +61,10 @@ struct TCGCardDetailScreenSnapshotTests {
         privacy.hidePrices = true
         let model = makeModel(status: .unavailable)
         #expect(model.card.price.status == .unavailable)
-        await assertScreenSnapshot(testName: #function) {
-            makeScreen(model).environment(\.tcgPricePrivacy, privacy)
+        await assertScreenSnapshot(testName: #function, fileID: #fileID, file: #filePath, line: #line, column: #column)
+        {
+            makeScreen(model, isEditingCollection: false, cards: TCGCards(client: .preview(cardsOutcome: .empty)))
+                .environment(\.tcgPricePrivacy, privacy)
         }
     }
 
@@ -63,16 +80,20 @@ struct TCGCardDetailScreenSnapshotTests {
             notes: nil,
             createdAt: source.createdAt,
             updatedAt: source.updatedAt,
+            purchases: [],
+            purchasePriceChangePercent: nil,
+            displayCurrency: nil,
             collectionID: nil,
             allocationAdjustments: nil,
             illustrator: "Mitsuhiro Arita",
             englishSearchAlias: nil
         )
         let model = TCGCardDetailScreenModel(
-            card: .init(card: card, price: .init(cardId: card.id, status: .unavailable))
+            card: .init(card: card, price: .init(cardId: card.id, status: .unavailable, price: nil), imageURL: nil)
         )
         #expect(model.card.card.illustrator == "Mitsuhiro Arita")
-        await assertScreenSnapshot(testName: #function) { makeScreen(model) }
+        await assertScreenSnapshot(testName: #function, fileID: #fileID, file: #filePath, line: #line, column: #column)
+        { makeScreen(model, isEditingCollection: false, cards: TCGCards(client: .preview(cardsOutcome: .empty))) }
     }
 
     @Test
@@ -93,100 +114,130 @@ struct TCGCardDetailScreenSnapshotTests {
                     condition: .nearMint,
                     quantity: 2,
                     purchasePrice: 2,
-                    currency: .usd
+                    currency: .usd,
+                    automaticPriceDate: nil,
+                    displayPrice: nil
                 ),
                 .init(
                     id: UUID(uuid: (0, 0, 0, 0, 0, 0, 64, 0, 128, 0, 0, 0, 0, 0, 1, 2)),
                     condition: .played,
-                    quantity: 1
+                    quantity: 1,
+                    purchasePrice: nil,
+                    currency: nil,
+                    automaticPriceDate: nil,
+                    displayPrice: nil
                 ),
             ],
+            purchasePriceChangePercent: nil,
+            displayCurrency: nil,
             collectionID: nil,
             allocationAdjustments: nil,
             illustrator: nil,
             englishSearchAlias: nil
         )
-        let model = TCGCardDetailScreenModel(card: .init(card: card, price: PreviewTCGCardsClient.price(for: card)))
+        let model = TCGCardDetailScreenModel(
+            card: .init(card: card, price: PreviewTCGCardsClient.price(for: card), imageURL: nil)
+        )
         #expect(model.card.card.purchases.count == 2)
-        await assertScreenSnapshot(testName: #function) { makeScreen(model) }
+        await assertScreenSnapshot(testName: #function, fileID: #fileID, file: #filePath, line: #line, column: #column)
+        { makeScreen(model, isEditingCollection: false, cards: TCGCards(client: .preview(cardsOutcome: .empty))) }
     }
 
     @Test
     func `Renders priced collection details`() async {
-        let model = makeModel()
+        let model = makeModel(status: .priced)
         #expect(model.editor == nil)
-        await assertScreenSnapshot(testName: #function) { makeScreen(model) }
+        await assertScreenSnapshot(testName: #function, fileID: #fileID, file: #filePath, line: #line, column: #column)
+        { makeScreen(model, isEditingCollection: false, cards: TCGCards(client: .preview(cardsOutcome: .empty))) }
     }
 
     @Test
     func `Renders collection details without pricing`() async {
         let model = makeModel(status: .noPrice)
         #expect(model.card.price.price == nil)
-        await assertScreenSnapshot(testName: #function) { makeScreen(model) }
+        await assertScreenSnapshot(testName: #function, fileID: #fileID, file: #filePath, line: #line, column: #column)
+        { makeScreen(model, isEditingCollection: false, cards: TCGCards(client: .preview(cardsOutcome: .empty))) }
     }
 
     @Test
     func `Renders unavailable collection pricing`() async {
         let model = makeModel(status: .unavailable)
         #expect(model.card.price.status == .unavailable)
-        await assertScreenSnapshot(testName: #function) { makeScreen(model) }
+        await assertScreenSnapshot(testName: #function, fileID: #fileID, file: #filePath, line: #line, column: #column)
+        { makeScreen(model, isEditingCollection: false, cards: TCGCards(client: .preview(cardsOutcome: .empty))) }
     }
 
     @Test
     func `Renders editing with both save controls`() async {
-        let model = makeModel()
+        let model = makeModel(status: .priced)
         model.edit()
         #expect(model.editor != nil)
-        await assertScreenSnapshot(testName: #function) { makeScreen(model, isEditingCollection: true) }
+        await assertScreenSnapshot(testName: #function, fileID: #fileID, file: #filePath, line: #line, column: #column)
+        { makeScreen(model, isEditingCollection: true, cards: TCGCards(client: .preview(cardsOutcome: .empty))) }
     }
 
     @Test
     func `Renders edit validation errors`() async throws {
-        let model = makeModel()
+        let model = makeModel(status: .priced)
         model.edit()
         let editor = try #require(model.editor)
         editor.values.batches = []
         await model.save(using: TCGCards(client: .preview(cardsOutcome: .empty)))
         #expect(editor.fieldErrors[.quantities] != nil)
-        await assertScreenSnapshot(testName: #function) { makeScreen(model, isEditingCollection: true) }
+        await assertScreenSnapshot(testName: #function, fileID: #fileID, file: #filePath, line: #line, column: #column)
+        { makeScreen(model, isEditingCollection: true, cards: TCGCards(client: .preview(cardsOutcome: .empty))) }
     }
 
     @Test func `Renders card editing access in collection edit mode`() async {
-        let model = makeModel()
+        let model = makeModel(status: .priced)
         #expect(model.editor == nil)
-        await assertScreenSnapshot(testName: #function) { makeScreen(model, isEditingCollection: true) }
+        await assertScreenSnapshot(testName: #function, fileID: #fileID, file: #filePath, line: #line, column: #column)
+        { makeScreen(model, isEditingCollection: true, cards: TCGCards(client: .preview(cardsOutcome: .empty))) }
     }
 
     #if os(iOS)
         @Test func `Renders direct card editing outside collection edit mode`() async {
-            let model = makeModel()
+            let model = makeModel(status: .priced)
             model.edit()
             #expect(model.editor != nil)
-            await assertScreenSnapshot(testName: #function) { makeScreen(model) }
+            await assertScreenSnapshot(
+                testName: #function,
+                fileID: #fileID,
+                file: #filePath,
+                line: #line,
+                column: #column
+            ) { makeScreen(model, isEditingCollection: false, cards: TCGCards(client: .preview(cardsOutcome: .empty))) }
         }
 
         @Test func `Renders downloaded card details without editing controls`() async {
-            let model = makeModel()
+            let model = makeModel(status: .priced)
             let cards = TCGCards(client: .preview(cardsOutcome: .empty))
             cards.useDownloadedCards([model.card])
             #expect(cards.isReadOnly)
-            await assertScreenSnapshot(testName: #function) {
+            await assertScreenSnapshot(
+                testName: #function,
+                fileID: #fileID,
+                file: #filePath,
+                line: #line,
+                column: #column
+            ) {
                 makeScreen(model, isEditingCollection: true, cards: cards)
             }
         }
     #endif
 
-    private func makeModel(status: OwnedCardPriceStatus = .priced) -> TCGCardDetailScreenModel {
+    private func makeModel(status: OwnedCardPriceStatus) -> TCGCardDetailScreenModel {
         let card = PreviewTCGCardsClient.sampleCards[0]
         let price =
-            status == .priced ? PreviewTCGCardsClient.price(for: card) : OwnedCardPrice(cardId: card.id, status: status)
-        return .init(card: .init(card: card, price: price))
+            status == .priced
+            ? PreviewTCGCardsClient.price(for: card) : OwnedCardPrice(cardId: card.id, status: status, price: nil)
+        return .init(card: .init(card: card, price: price, imageURL: nil))
     }
 
     private func makeScreen(
         _ model: TCGCardDetailScreenModel,
-        isEditingCollection: Bool = false,
-        cards: TCGCards = TCGCards(client: .preview(cardsOutcome: .empty))
+        isEditingCollection: Bool,
+        cards: TCGCards
     ) -> some View {
         TCGCardDetailScreen(model: model)
             .environment(\.isEditingCollection, isEditingCollection)

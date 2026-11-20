@@ -10,8 +10,8 @@ import { integrationTest } from '../../tests/fixtures.ts';
 integrationTest(
   'shared market caches return separate account display currencies and reflect saved preference changes',
   async ({ app, db, pricingClient, getLogsForRequestId, createUser, authenticatedHeaders }) => {
-    const second = await createUser();
-    await seedExchangeRate(db);
+    const second = await createUser({});
+    await seedExchangeRate(db, {});
     await setPreferredCurrency(app, authenticatedHeaders, 'EUR');
     await setPreferredCurrency(app, sessionHeaders(second.sessionToken), 'JPY');
     const provider = vi.spyOn(pricingClient, 'searchCards');
@@ -45,7 +45,7 @@ integrationTest(
   'purchase display conversion preserves travel costs for editing and export',
   async ({ app, db, user, authenticatedHeaders: headers }) => {
     await setPreferredCurrency(app, headers, 'EUR');
-    await seedExchangeRate(db);
+    await seedExchangeRate(db, {});
 
     const response = await createCardRequest(app, user.sessionToken, {
       ...validCardPayload,

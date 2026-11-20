@@ -11,7 +11,7 @@ import { InfraFailure } from '../infra/errors.ts';
 import type { Prompts } from '../infra/prompts.ts';
 import { selectRelease } from '../release/commits.ts';
 
-export type Command = (program: string, args: string[], cwd?: string) => Promise<string>;
+export type Command = (program: string, args: string[], cwd: string) => Promise<string>;
 
 export type AppStage = 'checks' | 'archive' | 'upload';
 
@@ -71,14 +71,14 @@ export async function lastAppUpload(directory: string, platform: Platform) {
 }
 
 export async function inspectAppSource(root: string, revision: string, command: Command) {
-  await gitFetch((program, args) => command(program, args, root));
+  await gitFetch((program, args) => command(program, args, root), {});
   const main = await gitRevision((program, args) => command(program, args, root), 'origin/main');
   const sha = await selectRelease((program, args) => command(program, args, root), revision, main);
   const config = await command('git', ['show', `${sha}:app/Configuration/App.xcconfig`], root);
   const version = /^MARKETING_VERSION\s*=\s*([0-9]+(?:\.[0-9]+){0,2})\s*$/m.exec(config)?.[1];
 
   if (!version) {
-    throw new InfraFailure('The selected commit has no supported marketing version in App.xcconfig.');
+    throw new InfraFailure('The selected commit has no supported marketing version in App.xcconfig.', 1);
   }
 
   return { sha, version };
@@ -146,7 +146,7 @@ export async function runAppRelease(options: AppRuntimeOptions): Promise<void> {
 
   try {
     await new Promise<void>((resolve, reject) => {
-      child.once('error', cause => reject(new InfraFailure(`Could not start app release: ${cause.message}`)));
+      child.once('error', cause => reject(new InfraFailure(`Could not start app release: ${cause.message}`, 1)));
       child.once('close', code => {
         if (code === 0 && !options.signal?.aborted) {
           resolve();

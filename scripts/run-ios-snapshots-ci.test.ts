@@ -17,7 +17,7 @@ const fixtures: string[] = [];
 
 const processes: childProcess.ChildProcess[] = [];
 
-function fixture(mode = 'success', prefix = 'tcg-ios-cancellation-'): string {
+function fixture(mode: string, prefix: string): string {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), prefix));
   fixtures.push(directory);
   fs.writeFileSync(path.join(directory, 'mode'), mode);
@@ -149,26 +149,40 @@ setInterval(() => {}, 1000);
 
 interface StartOptions {
   directory: string;
-  args?: string[];
-  githubActions?: string;
-  idleTimeoutSeconds?: string;
-  startupTimeoutSeconds?: string;
-  destination?: string;
-  cacheHit?: string;
-  summaryPath?: string;
-  formatted?: boolean;
+  args: string[];
+  githubActions: string;
+  idleTimeoutSeconds: string;
+  startupTimeoutSeconds: string;
+  destination: string;
+  cacheHit: string;
+  summaryPath: string;
+  formatted: boolean;
+}
+
+function snapshotTestConfiguration(directory: string): StartOptions {
+  return {
+    directory,
+    args: [],
+    githubActions: 'true',
+    idleTimeoutSeconds: '180',
+    startupTimeoutSeconds: '600',
+    destination: '',
+    cacheHit: 'false',
+    summaryPath: path.join(directory, 'summary.md'),
+    formatted: false,
+  };
 }
 
 function start({
   directory,
-  formatted = false,
-  args = [],
-  githubActions = 'true',
-  idleTimeoutSeconds = '180',
-  startupTimeoutSeconds = '600',
-  destination = '',
-  cacheHit = 'false',
-  summaryPath = path.join(directory, 'summary.md'),
+  formatted,
+  args,
+  githubActions,
+  idleTimeoutSeconds,
+  startupTimeoutSeconds,
+  destination,
+  cacheHit,
+  summaryPath,
 }: StartOptions) {
   const invocation = formatted
     ? [path.resolve('scripts/run-with-xcbeautify.sh'), 'ios-snapshots', process.execPath, supervisor, ...args]
@@ -251,13 +265,13 @@ afterEach(() => {
 
 describe('iOS snapshot CI supervisor', () => {
   it('observes raw test counts before the outer formatter filters output', async () => {
-    const directory = fixture('metrics');
+    const directory = fixture('metrics', 'tcg-ios-cancellation-');
     fs.writeFileSync(
       path.join(directory, 'xcbeautify'),
       `#!${process.execPath}\nprocess.stdin.resume(); process.stdin.on('end', () => console.log('formatted output'));`,
       { mode: 0o755 },
     );
-    const run = start({ directory, formatted: true });
+    const run = start({ ...snapshotTestConfiguration(directory), formatted: true });
 
     expect(await run.exited).toBe(0);
     expect(run.output()).toContain('formatted output');
@@ -271,8 +285,8 @@ describe('iOS snapshot CI supervisor', () => {
   ] as const)(
     'cleans up signal-resistant snapshot descendants when the outer formatter receives %s',
     async (signal, exitCode) => {
-      const directory = fixture('hang');
-      const run = start({ directory, formatted: true });
+      const directory = fixture('hang', 'tcg-ios-cancellation-');
+      const run = start({ ...snapshotTestConfiguration(directory), formatted: true });
       await expect.poll(() => fs.existsSync(path.join(directory, 'worker.pid'))).toBe(true);
       run.child.kill(signal);
 
@@ -284,13 +298,13 @@ describe('iOS snapshot CI supervisor', () => {
   );
 
   it('allows silent startup beyond the execution idle deadline', async () => {
-    const directory = fixture();
+    const directory = fixture('success', 'tcg-ios-cancellation-');
     fs.writeFileSync(
       path.join(directory, 'just'),
       `#!${process.execPath}\nsetTimeout(() => { console.log('◇ Test run started.\\n✔ Test run with 1 test passed after 1 second.'); }, 1600);\n`,
       { mode: 0o755 },
     );
-    const run = start({ directory, idleTimeoutSeconds: '1', startupTimeoutSeconds: '4' });
+    const run = start({ ...snapshotTestConfiguration(directory), idleTimeoutSeconds: '1', startupTimeoutSeconds: '4' });
 
     expect(await run.exited).toBe(0);
     expect(run.output()).not.toContain('failing stalled');
@@ -298,13 +312,13 @@ describe('iOS snapshot CI supervisor', () => {
   });
 
   it.each(['silent', 'progress'])('bounds %s startup without allowing output to extend its deadline', async mode => {
-    const directory = fixture();
+    const directory = fixture('success', 'tcg-ios-cancellation-');
     fs.writeFileSync(
       path.join(directory, 'just'),
       `#!${process.execPath}\nsetInterval(() => { if (${JSON.stringify(mode)} === 'progress') console.log('startup progress'); }, 100);\n`,
       { mode: 0o755 },
     );
-    const run = start({ directory, startupTimeoutSeconds: '1' });
+    const run = start({ ...snapshotTestConfiguration(directory), startupTimeoutSeconds: '1' });
 
     expect(await run.exited).toBe(124);
     expect(run.output()).toContain('Test startup exceeded 1 seconds');
@@ -312,8 +326,8 @@ describe('iOS snapshot CI supervisor', () => {
   });
 
   it.each(['0', '-1', 'invalid', '1.5'])('rejects invalid startup timeout %s before launching work', async value => {
-    const directory = fixture();
-    const run = start({ directory, startupTimeoutSeconds: value });
+    const directory = fixture('success', 'tcg-ios-cancellation-');
+    const run = start({ ...snapshotTestConfiguration(directory), startupTimeoutSeconds: value });
 
     expect(await run.exited).toBe(1);
     expect(run.output()).toContain('TCG_IOS_SNAPSHOT_STARTUP_TIMEOUT_SECONDS must be a positive integer');
@@ -322,17 +336,17 @@ describe('iOS snapshot CI supervisor', () => {
   });
 
   it('rejects exit zero without completed tests', async () => {
-    const directory = fixture();
+    const directory = fixture('success', 'tcg-ios-cancellation-');
     fs.writeFileSync(path.join(directory, 'just'), `#!${process.execPath}\nprocess.exit(0);\n`, { mode: 0o755 });
-    const run = start({ directory });
+    const run = start({ ...snapshotTestConfiguration(directory) });
 
     expect(await run.exited).toBe(1);
     expect(run.output()).toContain('No completed tests were reported');
   });
 
   it('collects package and test metrics across separate build and test processes', async () => {
-    const directory = fixture('metrics');
-    const run = start({ directory, destination: simulatorDestination, cacheHit: 'true' });
+    const directory = fixture('metrics', 'tcg-ios-cancellation-');
+    const run = start({ ...snapshotTestConfiguration(directory), destination: simulatorDestination, cacheHit: 'true' });
 
     expect(await run.exited).toBe(0);
     const summary = fs.readFileSync(path.join(directory, 'summary.md'), 'utf8');
@@ -343,10 +357,10 @@ describe('iOS snapshot CI supervisor', () => {
   });
 
   it('builds first, waits for simulator boot, then tests without rebuilding', async () => {
-    const directory = fixture();
+    const directory = fixture('success', 'tcg-ios-cancellation-');
 
     const run = start({
-      directory,
+      ...snapshotTestConfiguration(directory),
       destination: simulatorDestination,
       args: ['-jobs', '2', '-resultBundlePath', '/tmp/results'],
     });
@@ -404,9 +418,9 @@ describe('iOS snapshot CI supervisor', () => {
       count: 2,
     },
   ])('rejects $name before building or booting', async ({ devices, count }) => {
-    const directory = fixture();
+    const directory = fixture('success', 'tcg-ios-cancellation-');
     fs.writeFileSync(path.join(directory, 'inventory.json'), JSON.stringify({ devices }));
-    const run = start({ directory, destination: simulatorDestination });
+    const run = start({ ...snapshotTestConfiguration(directory), destination: simulatorDestination });
 
     expect(await run.exited).toBe(1);
     expect(run.output()).toContain(`found ${count}`);
@@ -415,10 +429,10 @@ describe('iOS snapshot CI supervisor', () => {
   });
 
   it('rejects a second destination passed through Xcode arguments', async () => {
-    const directory = fixture();
+    const directory = fixture('success', 'tcg-ios-cancellation-');
 
     const run = start({
-      directory,
+      ...snapshotTestConfiguration(directory),
       destination: simulatorDestination,
       args: ['-destination', 'platform=iOS Simulator,OS=27.2,name=iPhone 17'],
     });
@@ -429,8 +443,12 @@ describe('iOS snapshot CI supervisor', () => {
   });
 
   it('rejects an unpinned simulator OS before querying devices', async () => {
-    const directory = fixture();
-    const run = start({ directory, destination: 'platform=iOS Simulator,OS=latest,name=iPhone 17' });
+    const directory = fixture('success', 'tcg-ios-cancellation-');
+
+    const run = start({
+      ...snapshotTestConfiguration(directory),
+      destination: 'platform=iOS Simulator,OS=latest,name=iPhone 17',
+    });
 
     expect(await run.exited).toBe(1);
     expect(run.output()).toContain('Could not resolve snapshot simulator');
@@ -438,8 +456,8 @@ describe('iOS snapshot CI supervisor', () => {
   });
 
   it.each(['missing-manifest', 'ambiguous-manifest'])('rejects %s before booting or testing', async mode => {
-    const directory = fixture(mode);
-    const run = start({ directory, destination: simulatorDestination });
+    const directory = fixture(mode, 'tcg-ios-cancellation-');
+    const run = start({ ...snapshotTestConfiguration(directory), destination: simulatorDestination });
 
     expect(await run.exited).toBe(1);
     expect(run.output()).toContain('Expected one TCG iOS Simulator test manifest');
@@ -450,7 +468,7 @@ describe('iOS snapshot CI supervisor', () => {
 
   it('hands off a fresh manifest when the temporary directory contains spaces', async () => {
     const spacedDirectory = fixture('success', 'tcg ios snapshots-');
-    const run = start({ directory: spacedDirectory, destination: simulatorDestination });
+    const run = start({ ...snapshotTestConfiguration(spacedDirectory), destination: simulatorDestination });
 
     expect(await run.exited).toBe(0);
     const derivedData = fs.readFileSync(path.join(spacedDirectory, 'derived-data.txt'), 'utf8');
@@ -461,8 +479,8 @@ describe('iOS snapshot CI supervisor', () => {
   });
 
   it('preserves build failure without booting the simulator', async () => {
-    const directory = fixture('build-failure');
-    const run = start({ directory, destination: simulatorDestination });
+    const directory = fixture('build-failure', 'tcg-ios-cancellation-');
+    const run = start({ ...snapshotTestConfiguration(directory), destination: simulatorDestination });
 
     expect(await run.exited).toBe(66);
     expect(fs.existsSync(path.join(directory, 'boot.pid'))).toBe(false);
@@ -470,8 +488,8 @@ describe('iOS snapshot CI supervisor', () => {
   });
 
   it('preserves simulator services between boot and tests, then cleans them up', async () => {
-    const directory = fixture('boot-service');
-    const run = start({ directory, destination: simulatorDestination });
+    const directory = fixture('boot-service', 'tcg-ios-cancellation-');
+    const run = start({ ...snapshotTestConfiguration(directory), destination: simulatorDestination });
 
     expect(await run.exited).toBe(0);
     expect(run.output()).toContain('boot service survived until tests');
@@ -479,8 +497,8 @@ describe('iOS snapshot CI supervisor', () => {
   });
 
   it('preserves boot failure and skips tests', async () => {
-    const directory = fixture('boot-failure');
-    const run = start({ directory, destination: simulatorDestination });
+    const directory = fixture('boot-failure', 'tcg-ios-cancellation-');
+    const run = start({ ...snapshotTestConfiguration(directory), destination: simulatorDestination });
 
     expect(await run.exited).toBe(9);
     expect(fs.existsSync(path.join(directory, 'just.pid'))).toBe(false);
@@ -488,8 +506,13 @@ describe('iOS snapshot CI supervisor', () => {
   });
 
   it('bounds boot even when the simulator keeps reporting progress', async () => {
-    const directory = fixture('boot-hang');
-    const run = start({ directory, destination: simulatorDestination, idleTimeoutSeconds: '1' });
+    const directory = fixture('boot-hang', 'tcg-ios-cancellation-');
+
+    const run = start({
+      ...snapshotTestConfiguration(directory),
+      destination: simulatorDestination,
+      idleTimeoutSeconds: '1',
+    });
 
     expect(await run.exited).toBe(124);
     expect(run.output()).toContain('Simulator boot exceeded 1 seconds');
@@ -498,8 +521,8 @@ describe('iOS snapshot CI supervisor', () => {
   });
 
   it('cancels simulator boot without starting tests', async () => {
-    const directory = fixture('boot-hang');
-    const run = start({ directory, destination: simulatorDestination });
+    const directory = fixture('boot-hang', 'tcg-ios-cancellation-');
+    const run = start({ ...snapshotTestConfiguration(directory), destination: simulatorDestination });
     await waitForProcessOutput(run.child, 'boot ready');
     run.child.kill('SIGTERM');
 
@@ -511,7 +534,7 @@ describe('iOS snapshot CI supervisor', () => {
   it.each(['stdout', 'stderr'])(
     'reports milestones and counts from fragmented %s while preserving output',
     async stream => {
-      const directory = fixture();
+      const directory = fixture('success', 'tcg-ios-cancellation-');
       fs.writeFileSync(
         path.join(directory, 'just'),
         `#!${process.execPath}
@@ -524,7 +547,7 @@ setTimeout(() => {
 `,
         { mode: 0o755 },
       );
-      const run = start({ directory, cacheHit: 'true' });
+      const run = start({ ...snapshotTestConfiguration(directory), cacheHit: 'true' });
 
       expect(await run.exited).toBe(0);
       expect(run.output()).toContain('Resolve Package Graph');
@@ -540,8 +563,8 @@ setTimeout(() => {
   );
 
   it('reports unavailable milestones and cache miss on early test failure', async () => {
-    const directory = fixture('failure');
-    const run = start({ directory });
+    const directory = fixture('failure', 'tcg-ios-cancellation-');
+    const run = start({ ...snapshotTestConfiguration(directory) });
 
     expect(await run.exited).toBe(65);
     const summary = fs.readFileSync(path.join(directory, 'summary.md'), 'utf8');
@@ -552,16 +575,16 @@ setTimeout(() => {
   });
 
   it('preserves test failure when the performance summary cannot be written', async () => {
-    const directory = fixture('failure');
-    const run = start({ directory, summaryPath: directory });
+    const directory = fixture('failure', 'tcg-ios-cancellation-');
+    const run = start({ ...snapshotTestConfiguration(directory), summaryPath: directory });
 
     expect(await run.exited).toBe(65);
     expect(run.output()).toContain('Could not write performance summary');
   });
 
   it('fails silent signal-resistant processes with exit 124 and kills their descendants', async () => {
-    const directory = fixture('stubborn');
-    const run = start({ directory, idleTimeoutSeconds: '1' });
+    const directory = fixture('stubborn', 'tcg-ios-cancellation-');
+    const run = start({ ...snapshotTestConfiguration(directory), idleTimeoutSeconds: '1' });
 
     expect(await run.exited).toBe(124);
     expect(run.output()).toContain('No build or test output for 1 seconds');
@@ -572,13 +595,13 @@ setTimeout(() => {
   });
 
   it.each(['stdout', 'stderr'])('extends the idle deadline when %s reports progress', async stream => {
-    const directory = fixture();
+    const directory = fixture('success', 'tcg-ios-cancellation-');
     fs.writeFileSync(
       path.join(directory, 'just'),
       `#!${process.execPath}\nconsole.log('◇ Test run started.');\nconst progress = setInterval(() => process.${stream}.write('progress\\n'), 200);\nsetTimeout(() => { clearInterval(progress); console.log('✔ Test run with 1 test passed after 1 second.'); process.exit(0); }, 2200);\n`,
       { mode: 0o755 },
     );
-    const run = start({ directory, idleTimeoutSeconds: '1', startupTimeoutSeconds: '1' });
+    const run = start({ ...snapshotTestConfiguration(directory), idleTimeoutSeconds: '1', startupTimeoutSeconds: '1' });
 
     expect(await run.exited).toBe(0);
     expect(run.output()).toContain('progress');
@@ -586,8 +609,8 @@ setTimeout(() => {
   });
 
   it.each(['0', '-1', 'invalid', '1.5'])('rejects invalid idle timeout %s before launching tests', async value => {
-    const directory = fixture();
-    const run = start({ directory, idleTimeoutSeconds: value });
+    const directory = fixture('success', 'tcg-ios-cancellation-');
+    const run = start({ ...snapshotTestConfiguration(directory), idleTimeoutSeconds: value });
 
     expect(await run.exited).toBe(1);
     expect(run.output()).toContain('must be a positive integer');
@@ -595,8 +618,12 @@ setTimeout(() => {
   });
 
   it('forwards arguments and output and shuts down simulators after success', async () => {
-    const directory = fixture();
-    const run = start({ directory, args: ['-resultBundlePath', '/tmp/results with spaces.xcresult'] });
+    const directory = fixture('success', 'tcg-ios-cancellation-');
+
+    const run = start({
+      ...snapshotTestConfiguration(directory),
+      args: ['-resultBundlePath', '/tmp/results with spaces.xcresult'],
+    });
 
     expect(await run.exited).toBe(0);
     expect(JSON.parse(fs.readFileSync(path.join(directory, 'args.json'), 'utf8'))).toEqual([
@@ -613,14 +640,14 @@ setTimeout(() => {
   });
 
   it('preserves test failure exit 65', async () => {
-    const run = start({ directory: fixture('failure') });
+    const run = start({ ...snapshotTestConfiguration(fixture('failure', 'tcg-ios-cancellation-')) });
 
     expect(await run.exited).toBe(65);
   });
 
   it('rejects non-CI invocation before launching tests or simulator shutdown', async () => {
-    const directory = fixture();
-    const run = start({ directory, githubActions: '' });
+    const directory = fixture('success', 'tcg-ios-cancellation-');
+    const run = start({ ...snapshotTestConfiguration(directory), githubActions: '' });
 
     expect(await run.exited).toBe(1);
     expect(run.output()).toContain('GitHub Actions');
@@ -629,8 +656,8 @@ setTimeout(() => {
   });
 
   it('forwards SIGINT to the child and grandchild and exits 130', async () => {
-    const directory = fixture('graceful');
-    const run = start({ directory });
+    const directory = fixture('graceful', 'tcg-ios-cancellation-');
+    const run = start({ ...snapshotTestConfiguration(directory) });
     await waitForProcessOutput(run.child, 'worker ready');
     run.child.kill('SIGINT');
 
@@ -641,8 +668,8 @@ setTimeout(() => {
   });
 
   it('kills signal-resistant children within the cleanup budget', async () => {
-    const directory = fixture('stubborn');
-    const run = start({ directory });
+    const directory = fixture('stubborn', 'tcg-ios-cancellation-');
+    const run = start({ ...snapshotTestConfiguration(directory) });
     await waitForProcessOutput(run.child, 'worker ready');
     const started = performance.now();
     run.child.kill('SIGINT');
@@ -655,8 +682,8 @@ setTimeout(() => {
   }, 10000);
 
   it('kills a grandchild even when its parent exits on SIGINT', async () => {
-    const directory = fixture('parent-exit');
-    const run = start({ directory });
+    const directory = fixture('parent-exit', 'tcg-ios-cancellation-');
+    const run = start({ ...snapshotTestConfiguration(directory) });
     await waitForProcessOutput(run.child, 'worker ready');
     run.child.kill('SIGINT');
 
@@ -665,8 +692,8 @@ setTimeout(() => {
   });
 
   it('escalates SIGTERM immediately and exits 143', async () => {
-    const directory = fixture('stubborn');
-    const run = start({ directory });
+    const directory = fixture('stubborn', 'tcg-ios-cancellation-');
+    const run = start({ ...snapshotTestConfiguration(directory) });
     await waitForProcessOutput(run.child, 'worker ready');
     run.child.kill('SIGTERM');
 
@@ -676,8 +703,8 @@ setTimeout(() => {
   });
 
   it('escalates a repeated cancellation immediately', async () => {
-    const directory = fixture('stubborn');
-    const run = start({ directory });
+    const directory = fixture('stubborn', 'tcg-ios-cancellation-');
+    const run = start({ ...snapshotTestConfiguration(directory) });
     await waitForProcessOutput(run.child, 'worker ready');
     run.child.kill('SIGINT');
     await waitForProcessOutput(run.child, 'just received SIGINT');
@@ -689,7 +716,7 @@ setTimeout(() => {
   });
 
   it('bounds a hanging simulator shutdown without changing a successful result', async () => {
-    const directory = fixture('shutdown-hang');
+    const directory = fixture('shutdown-hang', 'tcg-ios-cancellation-');
     fs.rmSync(path.join(directory, 'just'));
     fs.writeFileSync(
       path.join(directory, 'just'),
@@ -697,7 +724,7 @@ setTimeout(() => {
       { mode: 0o755 },
     );
     const started = performance.now();
-    const run = start({ directory });
+    const run = start({ ...snapshotTestConfiguration(directory) });
 
     expect(await run.exited).toBe(0);
     expect(performance.now() - started).toBeLessThan(6000);
@@ -706,13 +733,13 @@ setTimeout(() => {
   }, 10000);
 
   it('handles cancellation during simulator shutdown without waiting for its deadline', async () => {
-    const directory = fixture('shutdown-hang');
+    const directory = fixture('shutdown-hang', 'tcg-ios-cancellation-');
     fs.writeFileSync(
       path.join(directory, 'just'),
       `#!${process.execPath}\nconsole.log('✔ Test run with 1 test passed after 1 second.');\nprocess.exit(0);\n`,
       { mode: 0o755 },
     );
-    const run = start({ directory });
+    const run = start({ ...snapshotTestConfiguration(directory) });
     await waitForProcessOutput(run.child, 'shutdown ready');
     run.child.kill('SIGTERM');
 
@@ -721,22 +748,22 @@ setTimeout(() => {
   });
 
   it('warns on simulator shutdown failure while preserving success', async () => {
-    const directory = fixture('shutdown-failure');
+    const directory = fixture('shutdown-failure', 'tcg-ios-cancellation-');
     fs.writeFileSync(
       path.join(directory, 'just'),
       `#!${process.execPath}\nconsole.log('✔ Test run with 1 test passed after 1 second.');\nprocess.exit(0);\n`,
       { mode: 0o755 },
     );
-    const run = start({ directory });
+    const run = start({ ...snapshotTestConfiguration(directory) });
 
     expect(await run.exited).toBe(0);
     expect(run.output()).toContain('shutdown exited with code 7');
   });
 
   it('reports test spawn failure and still completes cleanup', async () => {
-    const directory = fixture();
+    const directory = fixture('success', 'tcg-ios-cancellation-');
     fs.rmSync(path.join(directory, 'just'));
-    const run = start({ directory });
+    const run = start({ ...snapshotTestConfiguration(directory) });
 
     expect(await run.exited).toBe(1);
     expect(run.output()).toContain('Could not launch iOS snapshots');
@@ -744,9 +771,9 @@ setTimeout(() => {
   });
 
   it('warns on shutdown spawn failure while preserving the test result', async () => {
-    const directory = fixture('failure');
+    const directory = fixture('failure', 'tcg-ios-cancellation-');
     fs.rmSync(path.join(directory, 'xcrun'));
-    const run = start({ directory });
+    const run = start({ ...snapshotTestConfiguration(directory) });
 
     expect(await run.exited).toBe(65);
     expect(run.output()).toContain('Could not launch simulator shutdown');
@@ -755,8 +782,8 @@ setTimeout(() => {
   it('leaves unrelated processes alive when cancelling the test group', async () => {
     const unrelated = childProcess.spawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], { stdio: 'ignore' });
     processes.push(unrelated);
-    const directory = fixture('stubborn');
-    const run = start({ directory });
+    const directory = fixture('stubborn', 'tcg-ios-cancellation-');
+    const run = start({ ...snapshotTestConfiguration(directory) });
     await waitForProcessOutput(run.child, 'worker ready');
     run.child.kill('SIGTERM');
 

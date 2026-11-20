@@ -75,11 +75,12 @@ struct BinderSlotEditor: View {
         .tcgSheet(
             title,
             closeLabel: Text("Cancel", bundle: .module),
-            closeDisabled: model.isSaving
+            closeDisabled: model.isSaving,
+            onClose: nil
         ) {
             if model.screen == .contents {
                 Button {
-                    Task { await save() }
+                    Task { await save(clear: false) }
                 } label: {
                     Text("Save", bundle: .module)
                 }
@@ -132,7 +133,7 @@ struct BinderSlotEditor: View {
                     ? {
                         Task { await model.showCards(unfiled: true, using: cards, collections: collections) }
                     } : nil,
-                loadNext: { Task { await model.loadNextPage(using: cards) } },
+                loadNext: { Task { await model.loadNextPage(retry: false, using: cards) } },
                 retryNext: { Task { await model.loadNextPage(retry: true, using: cards) } },
                 search: { await model.search(using: cards, collections: collections) }
             )
@@ -187,7 +188,7 @@ struct BinderSlotEditor: View {
         .formStyle(.grouped)
     }
 
-    private func save(clear: Bool = false) async {
+    private func save(clear: Bool) async {
         if await model.save(clear: clear, using: cards, collections: collections) { dismiss() }
     }
 }

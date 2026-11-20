@@ -16,7 +16,7 @@ public struct CardImageView: View {
     }
 
     public var body: some View {
-        CardArtworkView(url: url, isThumbnail: true)
+        CardArtworkView(url: url, isThumbnail: true, onLoad: { _ in })
             .frame(width: size.width, height: size.height)
             .background(.quaternary, in: RoundedRectangle(cornerRadius: 6))
             .clipShape(RoundedRectangle(cornerRadius: 6))

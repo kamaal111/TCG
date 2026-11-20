@@ -8,6 +8,7 @@ import type { Hono } from 'hono';
 import type { HonoEnvironment } from '../../context.ts';
 import { expectAuthSuccessResponse, expectErrorResponse } from '../../tests/auth.ts';
 import { integrationTest } from '../../tests/fixtures.ts';
+import { createTestRequestId } from '../../tests/logs.ts';
 import { SESSION_ROUTE_PATH } from '../constants.ts';
 import { SIGN_IN_ROUTE_PATH } from '../constants.ts';
 
@@ -15,10 +16,13 @@ describe('Session integration', () => {
   integrationTest(
     'returns the current user session for a valid session cookie',
     async ({ app, db, getLogsForRequestId, withRequestId, user: createdUser }) => {
-      const { headers, requestId } = withRequestId({
-        Cookie: `better-auth.session_token=${createdUser.sessionToken}`,
-        'User-Agent': 'TCG integration test client',
-      });
+      const { headers, requestId } = withRequestId(
+        {
+          Cookie: `better-auth.session_token=${createdUser.sessionToken}`,
+          'User-Agent': 'TCG integration test client',
+        },
+        createTestRequestId(),
+      );
 
       const response = await sendSessionRequest(app, headers);
 
@@ -74,10 +78,13 @@ describe('Session integration', () => {
 
       const { headers } = await expectAuthSuccessResponse(signInResponse, CONTENTFUL_STATUS_CODES.OK);
 
-      const { headers: requestHeaders, requestId } = withRequestId({
-        Authorization: `Bearer ${headers['set-auth-token']}`,
-        'User-Agent': 'TCG integration test client',
-      });
+      const { headers: requestHeaders, requestId } = withRequestId(
+        {
+          Authorization: `Bearer ${headers['set-auth-token']}`,
+          'User-Agent': 'TCG integration test client',
+        },
+        createTestRequestId(),
+      );
 
       const response = await sendSessionRequest(app, requestHeaders);
 
@@ -120,7 +127,7 @@ describe('Session integration', () => {
   integrationTest(
     'returns an unauthorized error without an authenticated session',
     async ({ app, getLogsForRequestId, withRequestId }) => {
-      const { headers, requestId } = withRequestId();
+      const { headers, requestId } = withRequestId({}, createTestRequestId());
       const response = await sendSessionRequest(app, headers);
 
       const body = await expectErrorResponse(response, CONTENTFUL_STATUS_CODES.UNAUTHORIZED);

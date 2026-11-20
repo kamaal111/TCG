@@ -31,7 +31,7 @@ final class TCGSearchScreenModel {
 
     @ObservationIgnored private let preferences: UserDefaults?
 
-    init(preferences: UserDefaults? = .standard, debounce: Duration = ModuleConfig.searchDebounce) {
+    init(preferences: UserDefaults?, debounce: Duration) {
         self.preferences = preferences
         self.debounce = debounce
         game = preferences?.string(forKey: Self.gamePreferenceKey).flatMap(ClientCardGame.init(rawValue:)) ?? .pokemon

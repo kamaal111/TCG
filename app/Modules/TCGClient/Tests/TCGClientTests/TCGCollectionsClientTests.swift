@@ -221,6 +221,7 @@ struct TCGCollectionsClientTests {
         var card = ImportCardPayload(
             card: ClientCardFixtures.card(
                 id: ClientTestIDs.third,
+                setName: nil,
                 createdAt: Date(timeIntervalSince1970: 1_750_000_000.125)
             )
         )

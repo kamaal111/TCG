@@ -58,7 +58,7 @@ for (const [path, schema] of [
     integrationTest(
       'orders identical timestamps by ID without dropping cards',
       async ({ app, db, user, createUser, authenticatedHeaders }) => {
-        const other = await createUser();
+        const other = await createUser({});
         const ids: string[] = [];
 
         for (let index = 0; index < 3; index += 1) {

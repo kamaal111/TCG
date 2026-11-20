@@ -122,7 +122,7 @@ integrationTest(
 integrationTest(
   'shares global admission across app instances and releases it after export completion',
   async ({ limitedApp, createUser, authenticatedHeaders }) => {
-    const secondUser = await createUser();
+    const secondUser = await createUser({});
     const first = limitedApp({ COLLECTION_CONCURRENCY: 1 });
     const second = limitedApp({ COLLECTION_CONCURRENCY: 1 });
 

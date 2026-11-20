@@ -13,15 +13,17 @@ import Testing
 /// Captures from other suites wait until both appearance assertions finish.
 ///
 /// ```swift
-/// await assertScreenSnapshot(testName: #function) { Text("Example screen") }
+/// await assertScreenSnapshot(testName: #function, fileID: #fileID, file: #filePath, line: #line, column: #column) {
+///     Text("Example screen")
+/// }
 /// ```
 @MainActor
 public func assertScreenSnapshot<Screen: View>(
     testName: String,
-    fileID: StaticString = #fileID,
-    file filePath: StaticString = #filePath,
-    line: UInt = #line,
-    column: UInt = #column,
+    fileID: StaticString,
+    file filePath: StaticString,
+    line: UInt,
+    column: UInt,
     @ViewBuilder screen: () -> Screen
 ) async {
     await ScreenSnapshotQueue.acquire()

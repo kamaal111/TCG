@@ -13,7 +13,7 @@ public struct TCGSetFilterSection: View {
     public init(
         availableSetNames: [String],
         selection: Binding<Set<String>>,
-        presentation: Presentation = .section
+        presentation: Presentation
     ) {
         self.presentation = presentation
         self.availableSetNames = availableSetNames

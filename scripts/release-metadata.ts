@@ -33,7 +33,7 @@ async function readReleaseBuild(directory: string, revision?: string) {
       revision ??
         gitRevision((program, args) => {
           return childProcess.execFileSync(program, args, { encoding: 'utf8', cwd: directory }).trim();
-        }),
+        }, 'HEAD'),
     );
 
   return { sha, node: tools.node, pnpm: tools.pnpm };

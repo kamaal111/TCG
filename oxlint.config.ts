@@ -32,7 +32,9 @@ const vitestGlobalImports = {
 export default defineConfig({
   extends: [kamaalOxlintConfig],
   ignorePatterns: ['**/dist/**', '**/node_modules/**', '**/*.swift'],
+  jsPlugins: [{ name: 'tcg', specifier: './scripts/oxlint-no-default-parameters.mjs' }],
   rules: {
+    'tcg/no-default-parameters': 'error',
     'no-restricted-imports': [importSeverity, { ...sharedImportRestrictions, paths: [vitestGlobalImports] }],
     'vitest/no-standalone-expect': ['error', { additionalTestBlockFunctions: ['integrationTest'] }],
   },

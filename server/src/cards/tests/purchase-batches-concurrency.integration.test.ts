@@ -14,7 +14,7 @@ interface PendingPricingSetup {
   db: Database;
   app: App['app'];
   sessionToken: string;
-  createApp: (overrides?: ConstructorParameters<typeof App>[0]) => App['app'];
+  createApp: (overrides: ConstructorParameters<typeof App>[0]) => App['app'];
 }
 
 async function pendingPricing({ app, db, sessionToken, createApp }: PendingPricingSetup) {
@@ -42,7 +42,7 @@ async function pendingPricing({ app, db, sessionToken, createApp }: PendingPrici
         variants: [{ name: 'normal', prices: [{ condition: 'NM', type: 'raw', currency: 'USD', market: 5 }] }],
       },
     });
-  });
+  }, {});
 
   const pending = requestOwnedPrices(createApp({ pricingClient: provider }), sessionHeaders(sessionToken), [owned.id]);
 

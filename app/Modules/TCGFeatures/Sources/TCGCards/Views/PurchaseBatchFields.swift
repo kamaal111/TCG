@@ -44,7 +44,12 @@ struct PurchaseBatchFields: View {
                 HStack {
                     Text("Batch total", bundle: .module)
                     Spacer()
-                    CurrencyAmount(price * Decimal(batch.quantity), currency: batch.currency)
+                    CurrencyAmount(
+                        price * Decimal(batch.quantity),
+                        currency: batch.currency,
+                        label: nil,
+                        conversionUnavailable: false
+                    )
                 }
                 .font(.caption)
                 .foregroundStyle(.secondary)

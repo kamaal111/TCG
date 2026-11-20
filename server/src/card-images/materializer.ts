@@ -124,7 +124,7 @@ export class CardImageMaterializer {
     options: MaterializationOptions,
   ): Promise<CardImageMaterializationResult> {
     const leaseOwner = crypto.randomUUID();
-    const row = await this.dependencies.repository.claim(imageKey, leaseOwner);
+    const row = await this.dependencies.repository.claim(imageKey, leaseOwner, new Date());
 
     if (row == null) {
       const current = await this.dependencies.repository.getByImageKey(imageKey);

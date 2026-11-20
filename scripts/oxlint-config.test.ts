@@ -6,7 +6,7 @@ test.each(['scripts', 'server/src'])('Oxlint preserves shared Node import restri
     directory,
   );
 
-  const result = lintFixture(filename);
+  const result = lintFixture(filename, false);
   expect(result.status).toBe(1);
   expect(result.diagnostics.map(diagnostic => diagnostic.code)).toContain('eslint(no-restricted-imports)');
 });
@@ -17,7 +17,7 @@ test.each(['scripts', 'server/src'])('Oxlint accepts default Node imports in %s'
     directory,
   );
 
-  const result = lintFixture(filename);
+  const result = lintFixture(filename, false);
   expect(result.status).toBe(0);
   expect(result.diagnostics).toEqual([]);
 });
@@ -25,7 +25,7 @@ test.each(['scripts', 'server/src'])('Oxlint accepts default Node imports in %s'
 test.each(['scripts', 'server/src'])('Oxlint preserves Vitest global import restrictions in %s', async directory => {
   const filename = await createLintFixture("import { expect } from 'vitest';\n\nexport { expect };", directory);
 
-  const result = lintFixture(filename);
+  const result = lintFixture(filename, false);
   expect(result.status).toBe(1);
   expect(result.diagnostics.map(diagnostic => diagnostic.code)).toContain('eslint(no-restricted-imports)');
 });
@@ -36,7 +36,7 @@ test('Oxlint preserves the production restriction on test-only imports', async (
     'server/src',
   );
 
-  const result = lintFixture(filename);
+  const result = lintFixture(filename, false);
   expect(result.status).toBe(1);
   expect(result.diagnostics.map(diagnostic => diagnostic.code)).toContain('eslint(no-restricted-imports)');
 });
@@ -44,7 +44,7 @@ test('Oxlint preserves the production restriction on test-only imports', async (
 test('Oxlint inherits the shared Object.assign restriction', async () => {
   const filename = await createLintFixture('export const result = Object.assign({}, { value: 1 });');
 
-  const result = lintFixture(filename);
+  const result = lintFixture(filename, false);
   expect(result.status).toBe(1);
   expect(result.diagnostics.map(diagnostic => diagnostic.code)).toContain('eslint(no-restricted-properties)');
 });

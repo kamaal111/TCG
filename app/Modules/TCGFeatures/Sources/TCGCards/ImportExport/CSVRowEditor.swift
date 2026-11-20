@@ -43,7 +43,9 @@ struct CSVRowEditor: View {
         .formStyle(.grouped)
         .tcgSheet(
             Text("Correct CSV Row", bundle: .module),
-            closeLabel: Text("Cancel", bundle: .module)
+            closeLabel: Text("Cancel", bundle: .module),
+            closeDisabled: false,
+            onClose: nil
         ) {
             Button {
                 onSave(row)

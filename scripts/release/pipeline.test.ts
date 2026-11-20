@@ -105,7 +105,7 @@ test('declining migrations never deploys or changes the database', async () => {
 
 test('a database inspection error is never interpreted as pending migrations', async () => {
   const options = fixture();
-  options.migrations.mockRejectedValue(new InfraFailure('Database unavailable'));
+  options.migrations.mockRejectedValue(new InfraFailure('Database unavailable', 1));
   await expect(runRelease(options)).rejects.toThrow('Database unavailable');
   expect(options.migrate).not.toHaveBeenCalled();
   expect(options.deploy).not.toHaveBeenCalled();
@@ -114,7 +114,7 @@ test('a database inspection error is never interpreted as pending migrations', a
 test('a failed migration prevents deployment and leaves the release resumable', async () => {
   const options = fixture();
   options.migrations.mockResolvedValue({ status: 'pending', pending: 1 });
-  options.migrate.mockRejectedValue(new InfraFailure('Migration failed'));
+  options.migrate.mockRejectedValue(new InfraFailure('Migration failed', 1));
   await expect(runRelease(options)).rejects.toThrow('Migration failed');
   expect(options.deploy).not.toHaveBeenCalled();
   expect(options.complete).not.toHaveBeenCalled();
@@ -175,7 +175,7 @@ test('older host tools require explicit configuration before inspecting and depl
 
 test('failed image verification stops before migrations or deployment', async () => {
   const options = fixture();
-  options.verify.mockRejectedValue(new InfraFailure('Wrong source label'));
+  options.verify.mockRejectedValue(new InfraFailure('Wrong source label', 1));
   await expect(runRelease(options)).rejects.toThrow('Wrong source label');
   expect(options.migrations).not.toHaveBeenCalled();
   expect(options.deploy).not.toHaveBeenCalled();
@@ -184,7 +184,7 @@ test('failed image verification stops before migrations or deployment', async ()
 test('resuming an unhealthy installed image offers an approved redeployment before verifying again', async () => {
   const options = fixture();
   options.host.mockResolvedValue({ ...installed, runtime: images.runtime, revision: sha });
-  options.check.mockRejectedValueOnce(new InfraFailure('HTTPS unavailable'));
+  options.check.mockRejectedValueOnce(new InfraFailure('HTTPS unavailable', 1));
   await runRelease(options);
   expect(options.deploy).toHaveBeenCalledOnce();
   expect(options.check).toHaveBeenCalledTimes(2);
@@ -209,7 +209,7 @@ test('commit previews precede infrastructure review and deployment approval', as
 
 test('an unavailable comparison stops before building or changing the host', async () => {
   const options = fixture();
-  options.commits.mockRejectedValue(new InfraFailure('Commit comparison unavailable'));
+  options.commits.mockRejectedValue(new InfraFailure('Commit comparison unavailable', 1));
   await expect(runRelease(options)).rejects.toThrow('Commit comparison unavailable');
   expect(options.artifacts).not.toHaveBeenCalled();
   expect(options.deploy).not.toHaveBeenCalled();

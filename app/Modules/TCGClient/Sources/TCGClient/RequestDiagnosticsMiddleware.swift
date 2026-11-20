@@ -6,7 +6,7 @@ import OpenAPIRuntime
 struct RequestDiagnosticsMiddleware: ClientMiddleware {
     private let logger: KamaalLogger
 
-    init(logger: KamaalLogger = KamaalLogger(from: RequestDiagnosticsMiddleware.self)) {
+    init(logger: KamaalLogger) {
         self.logger = logger
     }
 
@@ -40,7 +40,7 @@ struct RequestDiagnosticsMiddleware: ClientMiddleware {
     static func processingFailure(
         _ error: any Error,
         operation: String,
-        logger: KamaalLogger = KamaalLogger(from: RequestDiagnosticsMiddleware.self)
+        logger: KamaalLogger
     ) {
         let wrapped = error as? OpenAPIRuntime.ClientError
         let cause = wrapped?.underlyingError ?? error
@@ -54,7 +54,7 @@ struct RequestDiagnosticsMiddleware: ClientMiddleware {
 
     static func mappingFailure(
         operation: String,
-        logger: KamaalLogger = KamaalLogger(from: RequestDiagnosticsMiddleware.self)
+        logger: KamaalLogger
     ) {
         logger.error(
             "event=api.request.failed; operation=\(operation); reason=model_mapping_failed; status=200"

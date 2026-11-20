@@ -37,6 +37,7 @@ public struct TCGWishlistScreen<AddForm: View>: View {
             .sheet(item: $model.selected) { card in
                 TCGSearchDetailView(
                     card: model.entries.first { $0.printingKey == card.printingKey } ?? card,
+                    variants: [],
                     isWishlistEntry: true,
                     onWishlistRemoval: { model.didRemove(card) },
                     addForm: addForm
@@ -50,6 +51,7 @@ public struct TCGWishlistScreen<AddForm: View>: View {
         return TCGCollectionList(
             title: Text("Wishlist", bundle: .module),
             query: $filterState.query,
+            hidesScrollBackground: false,
             showsEmptyContent: model.entries.isEmpty && model.hasLoaded && model.cursor == nil && model.error == nil
         ) {
             TCGCollectionFilters(

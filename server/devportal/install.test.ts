@@ -16,7 +16,7 @@ async function fixture() {
   const checkout = path.join(directory, 'checkout');
   const configDirectory = path.join(directory, 'private settings');
 
-  const git = (args: string[], cwd = checkout) => {
+  const git = (args: string[], cwd: string) => {
     return childProcess.execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
   };
 
@@ -31,9 +31,9 @@ async function fixture() {
   git(['remote', 'add', 'origin', origin], publisher);
   git(['push', '-u', 'origin', 'main'], publisher);
   git(['clone', '-b', 'main', origin, checkout], directory);
-  git(['config', 'user.name', 'Installer Test']);
-  git(['config', 'user.email', 'installer@example.com']);
-  const previous = git(['rev-parse', 'HEAD']);
+  git(['config', 'user.name', 'Installer Test'], checkout);
+  git(['config', 'user.email', 'installer@example.com'], checkout);
+  const previous = git(['rev-parse', 'HEAD'], checkout);
   await fs.writeFile(path.join(publisher, 'service.txt'), 'updated service');
   git(['add', '.'], publisher);
   git(['-c', 'core.hooksPath=/dev/null', 'commit', '-m', 'Update service'], publisher);
@@ -64,11 +64,11 @@ async function fixture() {
         calls.push([program, ...args]);
 
         if (program === 'git') {
-          git(args);
+          git(args, checkout);
         }
 
         if (args.includes('install-js-modules') && state.failDependencies) {
-          throw new InfraFailure('Dependencies failed. Rerun just install-devportal-agent.');
+          throw new InfraFailure('Dependencies failed. Rerun just install-devportal-agent.', 1);
         }
 
         if (args.includes('server/devportal/agent-service-cli.ts')) {
@@ -84,7 +84,7 @@ async function fixture() {
 test('updates merged main, refreshes dependencies and restarts the fetched installer without setup prompts', async () => {
   const f = await fixture();
   await installDevportalAgent(f.options);
-  expect(f.git(['rev-parse', 'HEAD'])).toBe(f.latest);
+  expect(f.git(['rev-parse', 'HEAD'], f.checkout)).toBe(f.latest);
   expect(await fs.readFile(path.join(f.checkout, 'service.txt'), 'utf8')).toBe('updated service');
   expect(f.calls).toContainEqual(['stop']);
   expect(f.calls.findIndex(call => call[0] === 'stop')).toBeLessThan(f.calls.findIndex(call => call.includes('merge')));
@@ -113,7 +113,7 @@ test('rerunning an up-to-date installation refreshes and restarts it successfull
   const f = await fixture();
   await installDevportalAgent(f.options);
   await installDevportalAgent(f.options);
-  expect(f.git(['rev-parse', 'HEAD'])).toBe(f.latest);
+  expect(f.git(['rev-parse', 'HEAD'], f.checkout)).toBe(f.latest);
   expect(f.calls.filter(call => call.includes('server/devportal/agent-service-cli.ts'))).toHaveLength(2);
 });
 
@@ -123,7 +123,7 @@ test('first installation opens the existing wizard instead of duplicating setup'
   f.options.installed = false;
   await installDevportalAgent(f.options);
   expect(f.calls).toEqual([['just', 'setup-devportal', '--config-dir', f.configDirectory]]);
-  expect(f.git(['rev-parse', 'HEAD'])).toBe(f.previous);
+  expect(f.git(['rev-parse', 'HEAD'], f.checkout)).toBe(f.previous);
 });
 
 test('a running release prevents fetching, stopping or changing the service', async () => {
@@ -132,7 +132,7 @@ test('a running release prevents fetching, stopping or changing the service', as
   onTestFinished(unlock);
   await expect(installDevportalAgent(f.options)).rejects.toThrow('Another release is running');
   expect(f.calls).toEqual([]);
-  expect(f.git(['rev-parse', 'HEAD'])).toBe(f.previous);
+  expect(f.git(['rev-parse', 'HEAD'], f.checkout)).toBe(f.previous);
 });
 
 test('local edits leave the running service and checkout intact', async () => {
@@ -141,26 +141,26 @@ test('local edits leave the running service and checkout intact', async () => {
   await expect(installDevportalAgent(f.options)).rejects.toThrow('local changes');
   expect(f.calls).not.toContainEqual(['stop']);
   expect(await fs.readFile(path.join(f.checkout, 'service.txt'), 'utf8')).toBe('local edit');
-  expect(f.git(['rev-parse', 'HEAD'])).toBe(f.previous);
+  expect(f.git(['rev-parse', 'HEAD'], f.checkout)).toBe(f.previous);
 });
 
 test('an unrelated development branch leaves the running service untouched', async () => {
   const f = await fixture();
-  f.git(['switch', '-c', 'feature/local-work']);
+  f.git(['switch', '-c', 'feature/local-work'], f.checkout);
   await expect(installDevportalAgent(f.options)).rejects.toThrow('persistent main checkout');
   expect(f.calls).not.toContainEqual(['stop']);
-  expect(f.git(['branch', '--show-current'])).toBe('feature/local-work');
+  expect(f.git(['branch', '--show-current'], f.checkout)).toBe('feature/local-work');
 });
 
 test('divergent local commits are preserved and never reset or merged', async () => {
   const f = await fixture();
   await fs.writeFile(path.join(f.checkout, 'local.txt'), 'local work');
-  f.git(['add', '.']);
-  f.git(['-c', 'core.hooksPath=/dev/null', 'commit', '-m', 'Keep local work']);
-  const local = f.git(['rev-parse', 'HEAD']);
+  f.git(['add', '.'], f.checkout);
+  f.git(['-c', 'core.hooksPath=/dev/null', 'commit', '-m', 'Keep local work'], f.checkout);
+  const local = f.git(['rev-parse', 'HEAD'], f.checkout);
   await expect(installDevportalAgent(f.options)).rejects.toThrow('cannot fast-forward');
   expect(f.calls).not.toContainEqual(['stop']);
-  expect(f.git(['rev-parse', 'HEAD'])).toBe(local);
+  expect(f.git(['rev-parse', 'HEAD'], f.checkout)).toBe(local);
 });
 
 test('a failed dependency refresh preserves settings and can be retried with the same command', async () => {
@@ -187,7 +187,7 @@ test('waits for the stopped agent to release its service lease before updating f
 
   await installDevportalAgent(f.options);
   expect(f.state.applied).toBe(true);
-  expect(f.git(['rev-parse', 'HEAD'])).toBe(f.latest);
+  expect(f.git(['rev-parse', 'HEAD'], f.checkout)).toBe(f.latest);
 });
 
 test('concurrent local edits during shutdown are preserved before changing tracked files', async () => {
@@ -197,7 +197,7 @@ test('concurrent local edits during shutdown are preserved before changing track
   };
 
   await expect(installDevportalAgent(f.options)).rejects.toThrow('checkout changed');
-  expect(f.git(['rev-parse', 'HEAD'])).toBe(f.previous);
+  expect(f.git(['rev-parse', 'HEAD'], f.checkout)).toBe(f.previous);
   expect(await fs.readFile(path.join(f.checkout, 'service.txt'), 'utf8')).toBe('concurrent local work');
   expect(f.state.applied).toBe(false);
 });
@@ -207,7 +207,7 @@ test('an agent that fails to stop prevents updating files', { timeout: 20_000 },
   const unlockService = await acquireLocalLease(f.configDirectory, 'devportal');
   onTestFinished(unlockService);
   await expect(installDevportalAgent(f.options)).rejects.toThrow('has not stopped');
-  expect(f.git(['rev-parse', 'HEAD'])).toBe(f.previous);
+  expect(f.git(['rev-parse', 'HEAD'], f.checkout)).toBe(f.previous);
   expect(f.state.applied).toBe(false);
   await expect(fs.access(path.join(f.configDirectory, 'release.lock'))).rejects.toThrow('ENOENT');
 });

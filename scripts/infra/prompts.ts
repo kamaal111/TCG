@@ -34,7 +34,7 @@ export interface Prompts {
   password(message: string): Promise<string>;
   select(question: SelectionQuestion): Promise<string>;
   multiselect(question: Omit<SelectionQuestion, 'initialValue'>): Promise<string[]>;
-  confirm(message: string, initialValue?: boolean, context?: ApprovalContext): Promise<boolean>;
+  confirm(message: string, initialValue: boolean, context?: ApprovalContext): Promise<boolean>;
   note(message: string, title?: string): void;
 }
 
@@ -46,7 +46,7 @@ function answer<T>(schema: z.ZodType<T>, value: string | boolean | string[] | sy
   const parsed = schema.safeParse(value);
 
   if (!parsed.success) {
-    throw new InfraFailure('The terminal returned an invalid answer. Retry the wizard.');
+    throw new InfraFailure('The terminal returned an invalid answer. Retry the wizard.', 1);
   }
 
   return parsed.data;
@@ -59,6 +59,6 @@ export const terminalPrompts: Prompts = {
   password: async message => answer(z.string(), await clack.password({ message, mask: '*' })),
   select: async question => answer(z.string(), await clack.select(question)),
   multiselect: async question => answer(z.array(z.string()), await clack.multiselect({ ...question, required: false })),
-  confirm: async (message, initialValue = true) => answer(z.boolean(), await clack.confirm({ message, initialValue })),
+  confirm: async (message, initialValue) => answer(z.boolean(), await clack.confirm({ message, initialValue })),
   note: (message, title) => clack.note(message, title),
 };

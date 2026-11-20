@@ -192,7 +192,7 @@ integrationTest(
 );
 
 async function createBinder(app: Hono<HonoEnvironment>, headers: Headers, rows: number, columns: number) {
-  const collection = await createTestCollection(app, headers);
+  const collection = await createTestCollection(app, headers, { name: 'Favorites' });
 
   return saveLayout(app, headers, collection.id, { revision: collection.revision, rows, columns, pages: [] });
 }

@@ -16,7 +16,11 @@ struct TCGCardDetailScreenModelTests {
         model.edit()
         let editor = try #require(model.editor)
         editor.values.notes = "Unsaved draft"
-        let refreshed = CardWithPrice(card: model.card.card, price: .init(cardId: model.card.card.id, status: .noPrice))
+        let refreshed = CardWithPrice(
+            card: model.card.card,
+            price: .init(cardId: model.card.card.id, status: .noPrice, price: nil),
+            imageURL: nil
+        )
         model.replaceDisplay(with: refreshed)
         #expect(model.card == refreshed)
         #expect(model.editor === editor)
@@ -178,14 +182,16 @@ struct TCGCardDetailScreenModelTests {
     func `Missing artwork does not open image exploration`() {
         let model = TCGCardsListScreenModel(preferences: nil)
         let card = PreviewTCGCardsClient.sampleCards[0]
-        model.exploreImage(of: .init(card: card, price: .init(cardId: card.id, status: .noMatch)))
+        model.exploreImage(
+            of: .init(card: card, price: .init(cardId: card.id, status: .noMatch, price: nil), imageURL: nil)
+        )
         #expect(model.presentedImageURL == nil)
         #expect(model.presentedForm == nil)
     }
 
     private func makeModel() -> TCGCardDetailScreenModel {
         let card = PreviewTCGCardsClient.sampleCards[0]
-        return .init(card: .init(card: card, price: PreviewTCGCardsClient.price(for: card)))
+        return .init(card: .init(card: card, price: PreviewTCGCardsClient.price(for: card), imageURL: nil))
     }
 }
 

@@ -3,7 +3,7 @@ package struct CursorPagination: Codable {
     package var visitedCursors: Set<String>
     package var pageCount: Int
 
-    package init(nextCursor: String? = nil, visitedCursors: Set<String> = [], pageCount: Int = 0) {
+    package init(nextCursor: String?, visitedCursors: Set<String>, pageCount: Int) {
         self.nextCursor = nextCursor
         self.visitedCursors = visitedCursors
         self.pageCount = pageCount
@@ -16,7 +16,7 @@ package struct CursorPages<Row, ID: Hashable> {
     private let identity: (Row) -> ID
     private var ids: Set<ID>
 
-    package init(rows: [Row] = [], pagination: CursorPagination = .init(), identity: @escaping (Row) -> ID) {
+    package init(rows: [Row], pagination: CursorPagination, identity: @escaping (Row) -> ID) {
         self.rows = rows
         self.pagination = pagination
         self.identity = identity

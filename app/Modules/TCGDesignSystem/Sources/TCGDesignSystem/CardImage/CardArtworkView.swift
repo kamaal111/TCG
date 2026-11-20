@@ -15,12 +15,12 @@ public struct CardArtworkView: View {
     private var onExplore: (() -> Void)?
     private var onSizeChange: (CGSize) -> Void = { _ in }
 
-    public init(url: URL?, onExplore: (() -> Void)? = nil) {
-        self.init(url: url, isThumbnail: false)
+    public init(url: URL?, onExplore: (() -> Void)?) {
+        self.init(url: url, isThumbnail: false, onLoad: { _ in })
         self.onExplore = onExplore
     }
 
-    init(url: URL?, isThumbnail: Bool = false, onLoad: @escaping (Bool) -> Void = { _ in }) {
+    init(url: URL?, isThumbnail: Bool, onLoad: @escaping (Bool) -> Void) {
         self.url = url
         self.isThumbnail = isThumbnail
         self.onLoad = onLoad

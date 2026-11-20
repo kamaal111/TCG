@@ -4,7 +4,7 @@ import { RealScrydexClient } from '../scrydex/real-client.ts';
 
 export function createTestScrydexClient(
   fetchImplementation: typeof fetch,
-  overrides: Omit<ScrydexClientOptions, 'fetch'> = {},
+  overrides: Omit<ScrydexClientOptions, 'fetch'>,
 ) {
   return new RealScrydexClient({
     apiKey: 'test-api-key',

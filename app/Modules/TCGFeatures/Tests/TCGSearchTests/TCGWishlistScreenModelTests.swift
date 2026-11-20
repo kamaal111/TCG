@@ -17,7 +17,7 @@ struct TCGWishlistScreenModelTests {
             firstRequestGate: gate,
             saves: []
         )
-        let wishlist = TCGWishlist(client: client)
+        let wishlist = TCGWishlist(client: client, accountID: nil)
         let model = TCGWishlistScreenModel(preferences: nil)
         model.filterState.query = "  Luffy  "
         let first = Task { await model.refresh(using: wishlist, currency: nil) }
@@ -49,7 +49,7 @@ struct TCGWishlistScreenModelTests {
             firstRequestGate: nil,
             saves: []
         )
-        let wishlist = TCGWishlist(client: client)
+        let wishlist = TCGWishlist(client: client, accountID: nil)
         let model = TCGWishlistScreenModel(preferences: nil)
         model.filterState.query = "Pikachu"
         await model.refresh(using: wishlist, currency: nil)
@@ -77,7 +77,7 @@ struct TCGWishlistScreenModelTests {
             firstRequestGate: nil,
             saves: []
         )
-        let wishlist = TCGWishlist(client: client)
+        let wishlist = TCGWishlist(client: client, accountID: nil)
         let model = TCGWishlistScreenModel(preferences: nil)
         model.filterState.game = .onePiece
         model.filterState.setNames = ["Awakening of the New Era"]
@@ -116,7 +116,7 @@ struct TCGWishlistScreenModelTests {
             firstRequestGate: gate,
             saves: []
         )
-        let wishlist = TCGWishlist(client: client)
+        let wishlist = TCGWishlist(client: client, accountID: nil)
         let model = TCGWishlistScreenModel(preferences: nil)
         let refresh = Task { await model.refresh(using: wishlist, currency: nil) }
         await gate.waitUntilStarted()
@@ -533,12 +533,18 @@ actor WishlistTestClient: TCGWishlistClient {
     static let luffy = PricedCard(
         id: "550e8400-e29b-41d4-a716-446655440000",
         printingKey: String(repeating: "a", count: 64),
+        isWishlisted: nil,
         game: .onePiece,
         name: "Monkey.D.Luffy",
         cardNumber: "OP05-119",
         setName: "Awakening of the New Era",
+        rarity: nil,
         illustrator: nil,
         variantName: "Alternate Art",
+        imageURL: nil,
+        headline: nil,
+        market: nil,
+        display: nil,
         pricedOn: Date(timeIntervalSince1970: 0),
         fetchedAt: Date(timeIntervalSince1970: 0)
     )
@@ -546,12 +552,18 @@ actor WishlistTestClient: TCGWishlistClient {
     static let pikachu = PricedCard(
         id: "550e8400-e29b-41d4-a716-446655440001",
         printingKey: String(repeating: "b", count: 64),
+        isWishlisted: nil,
         game: .pokemon,
         name: "Pikachu",
         cardNumber: "58",
         setName: "Base Set",
+        rarity: nil,
         illustrator: nil,
         variantName: nil,
+        imageURL: nil,
+        headline: nil,
+        market: nil,
+        display: nil,
         pricedOn: Date(timeIntervalSince1970: 0),
         fetchedAt: Date(timeIntervalSince1970: 0)
     )

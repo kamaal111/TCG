@@ -18,7 +18,7 @@ interface SetupOptions {
   root: string;
   directory: string;
   prompts: Prompts;
-  edit?: boolean;
+  edit: boolean;
 }
 
 const execute = util.promisify(childProcess.execFile);
@@ -71,7 +71,7 @@ async function configuredHostname(root: string, directory: string, saved?: strin
   return undefined;
 }
 
-export async function setupAppRelease({ root, directory, prompts, edit = false }: SetupOptions): Promise<void> {
+export async function setupAppRelease({ root, directory, prompts, edit }: SetupOptions): Promise<void> {
   const saved = await readAppSettings(directory).catch(() => undefined);
   const project = await fs.readFile(path.join(root, 'app/Configuration/App.xcconfig'), 'utf8');
   const knownHost = await configuredHostname(root, directory, saved?.apiHost);

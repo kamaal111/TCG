@@ -27,7 +27,7 @@ struct OfflineCollectionTests {
     }
 
     @Test func `A token due for refresh leaves the collection locked until device authentication`() throws {
-        let fixture = try makeFixture()
+        let fixture = try makeFixture(hasFreshAuthToken: false)
         defer { try? fixture.store.remove() }
         fixture.download.setAccount("owner@example.com")
 
@@ -38,7 +38,7 @@ struct OfflineCollectionTests {
     }
 
     @Test func `A restored download opens after device authentication`() async throws {
-        let fixture = try makeFixture()
+        let fixture = try makeFixture(hasFreshAuthToken: false)
         defer { try? fixture.store.remove() }
         let attempt = Task { await fixture.download.open(reason: "Unlock") }
         let unlock = try #require(await fixture.grant.nextUnlock())
@@ -50,7 +50,7 @@ struct OfflineCollectionTests {
     }
 
     @Test func `Closing during authentication discards a late unlock`() async throws {
-        let fixture = try makeFixture()
+        let fixture = try makeFixture(hasFreshAuthToken: false)
         defer { try? fixture.store.remove() }
         let attempt = Task { await fixture.download.open(reason: "Unlock") }
         let unlock = try #require(await fixture.grant.nextUnlock())
@@ -64,7 +64,7 @@ struct OfflineCollectionTests {
     }
 
     @Test func `Switching accounts invalidates a pending unlock and removes the old download`() async throws {
-        let fixture = try makeFixture()
+        let fixture = try makeFixture(hasFreshAuthToken: false)
         defer { try? fixture.store.remove() }
         let attempt = Task { await fixture.download.open(reason: "Unlock") }
         let unlock = try #require(await fixture.grant.nextUnlock())
@@ -79,7 +79,7 @@ struct OfflineCollectionTests {
     }
 
     @Test func `Removing the download on sign-out closes the unlocked copy`() async throws {
-        let fixture = try makeFixture()
+        let fixture = try makeFixture(hasFreshAuthToken: false)
         defer { try? fixture.store.remove() }
         let attempt = Task { await fixture.download.open(reason: "Unlock") }
         let unlock = try #require(await fixture.grant.nextUnlock())
@@ -94,7 +94,7 @@ struct OfflineCollectionTests {
         #expect(fixture.grant.removed)
     }
 
-    private func makeFixture(hasFreshAuthToken: Bool = false) throws -> (
+    private func makeFixture(hasFreshAuthToken: Bool) throws -> (
         download: OfflineCollection, store: OfflineCollectionStore, grant: ControlledOfflineAccess, identity: String
     ) {
         let identifier = UUID().uuidString

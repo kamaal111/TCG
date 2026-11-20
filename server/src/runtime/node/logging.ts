@@ -39,7 +39,7 @@ export function createMemoryLogDestination(logs: string[]) {
   });
 }
 
-function createServerLogger(options: CreateLoggerOptions = {}): Logger {
+function createServerLogger(options: CreateLoggerOptions): Logger {
   const env = LoggingEnvSchema.parse(process.env);
 
   return createNodeLogger({

@@ -60,7 +60,9 @@ struct BinderLayoutEditor: View {
         .formStyle(.grouped)
         .tcgSheet(
             Text("Page dimensions", bundle: .module),
-            closeLabel: Text("Cancel", bundle: .module)
+            closeLabel: Text("Cancel", bundle: .module),
+            closeDisabled: false,
+            onClose: nil
         )
         .confirmationDialog(
             Text("Change page dimensions?", bundle: .module),

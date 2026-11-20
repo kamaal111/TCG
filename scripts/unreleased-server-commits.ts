@@ -39,7 +39,7 @@ async function main(): Promise<void> {
 
   const root = url.fileURLToPath(new URL('../', import.meta.url));
   const configDirectory = homePath(options.values['config-dir'] ?? path.join(os.homedir(), '.config/tcg'));
-  const { environment, settings } = await releaseConnection(root, configDirectory);
+  const { environment, settings } = await releaseConnection(root, configDirectory, process.env);
 
   const command = async (program: string, args: string[]): Promise<string> => {
     const result = await execute(program, args, { cwd: root, env: environment, maxBuffer: 64 * 1024 * 1024 });
@@ -47,7 +47,7 @@ async function main(): Promise<void> {
     return result.stdout.trim();
   };
 
-  await gitFetch(command);
+  await gitFetch(command, {});
   const main = ShaSchema.parse(await gitRevision(command, 'origin/main'));
   const selected = await selectRelease(command, options.positionals[0] ?? 'origin/main', main);
 
@@ -56,7 +56,7 @@ async function main(): Promise<void> {
   );
 
   if (host.repository !== settings.TCG_IMAGE_REPOSITORY) {
-    throw new InfraFailure('The host registry differs from release.env. Check setup before continuing.');
+    throw new InfraFailure('The host registry differs from release.env. Check setup before continuing.', 1);
   }
 
   console.log(

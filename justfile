@@ -520,7 +520,7 @@ app-destinations:
 quality: check-spec check-versions format-check lint typecheck
 
 # Run quality checks for app
-quality-app: format-check-app
+quality-app: format-check-app test-swift-lint
 
 # Quality checks for server
 [parallel]
@@ -547,9 +547,14 @@ typecheck-scripts:
 # Lint the project
 lint: lint-js lint-app
 
-# Check Swift member spacing, multiline call chains, and view body declarations
+# Check Swift syntax rules
 lint-app:
     {{ PNX }} kqc swift-lint app
+    swift run --package-path app/Tools/DefaultArgumentLint DefaultArgumentLint app
+
+# Test the Swift default-argument rule
+test-swift-lint:
+    swift test --package-path app/Tools/DefaultArgumentLint
 
 # Lint js code
 lint-js:

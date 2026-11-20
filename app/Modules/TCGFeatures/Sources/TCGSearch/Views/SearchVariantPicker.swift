@@ -38,7 +38,9 @@ struct SearchVariantPicker: View {
         }
         .tcgSheet(
             Text("Choose a variant", bundle: .module),
-            closeLabel: Text("Cancel", bundle: .module)
+            closeLabel: Text("Cancel", bundle: .module),
+            closeDisabled: false,
+            onClose: nil
         )
         #if os(macOS)
             .frame(minWidth: 420, minHeight: 340)
@@ -76,10 +78,16 @@ struct SearchVariantPicker: View {
             CurrencyAmount(
                 headline.amount,
                 currency: headline.currency,
+                label: nil,
                 conversionUnavailable: variant.conversionUnavailable
             )
         } else if let market = variant.displayMarket, let amount = market.market {
-            CurrencyAmount(amount, currency: market.currency, conversionUnavailable: variant.conversionUnavailable)
+            CurrencyAmount(
+                amount,
+                currency: market.currency,
+                label: nil,
+                conversionUnavailable: variant.conversionUnavailable
+            )
         } else {
             Text("No price", bundle: .module).foregroundStyle(.secondary)
         }

@@ -7,14 +7,14 @@ public struct CurrencyAmount: View {
     private let label: String?
     private let conversionUnavailable: Bool
 
-    public init(_ amount: Decimal, currency: Currency, label: String? = nil, conversionUnavailable: Bool = false) {
+    public init(_ amount: Decimal, currency: Currency, label: String?, conversionUnavailable: Bool) {
         self.amount = amount
         source = currency
         self.label = label
         self.conversionUnavailable = conversionUnavailable
     }
 
-    public init(_ amount: Double, currency: Currency, label: String? = nil, conversionUnavailable: Bool = false) {
+    public init(_ amount: Double, currency: Currency, label: String?, conversionUnavailable: Bool) {
         self.init(Decimal(amount), currency: currency, label: label, conversionUnavailable: conversionUnavailable)
     }
 

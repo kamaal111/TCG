@@ -7,7 +7,7 @@ import { z } from 'zod';
 
 const fixtures: string[] = [];
 
-function invoke(recipe: string, manifest = '') {
+function invoke(recipe: string, manifest: string) {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'tcg snapshot recipes-'));
   fixtures.push(directory);
   fs.mkdirSync(path.join(directory, 'app'));
@@ -90,7 +90,7 @@ describe('iOS snapshot recipes', () => {
   it.each(['test-snapshots-ios', 'build-snapshots-ios', 'test-built-snapshots-ios'])(
     'retains project and package arguments for %s without a manifest',
     recipe => {
-      const { result, output } = invoke(recipe);
+      const { result, output } = invoke(recipe, '');
 
       expect(result.status).toBe(0);
       expect(argumentsFrom(output).slice(0, 6)).toEqual([

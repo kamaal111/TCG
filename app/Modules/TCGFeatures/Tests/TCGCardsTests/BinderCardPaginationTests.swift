@@ -17,7 +17,7 @@ struct BinderCardPaginationTests {
         #expect(context.model.availableCards == [Self.entries[0]])
         try #require(context.model.hasMoreCards)
         #expect(await context.transport.paths.count == 1)
-        let oldPage = Task { await context.model.loadNextPage(using: context.cards) }
+        let oldPage = Task { await context.model.loadNextPage(retry: false, using: context.cards) }
         await context.transport.waitForRequests(2)
         context.model.setQuery("Pikachu")
         let search = Task { await context.model.search(using: context.cards, collections: context.collections) }
@@ -44,13 +44,13 @@ struct BinderCardPaginationTests {
         try await context.transport.complete(0, cards: [Self.entries[0]], cursor: "next")
         await initial.value
         try #require(context.model.hasMoreCards)
-        let next = Task { await context.model.loadNextPage(using: context.cards) }
+        let next = Task { await context.model.loadNextPage(retry: false, using: context.cards) }
         await context.transport.waitForRequests(2)
         await context.transport.fail(1)
         await next.value
         #expect(context.model.availableCards == [Self.entries[0]])
         #expect(context.model.nextPageError == .serverUnavailable)
-        await context.model.loadNextPage(using: context.cards)
+        await context.model.loadNextPage(retry: false, using: context.cards)
         #expect(await context.transport.paths.count == 2)
         let retry = Task { await context.model.loadNextPage(retry: true, using: context.cards) }
         await context.transport.waitForRequests(3)
@@ -68,13 +68,13 @@ struct BinderCardPaginationTests {
         try await context.transport.complete(0, cards: [Self.entries[0]], cursor: "next")
         await initial.value
         try #require(context.model.hasMoreCards)
-        let next = Task { await context.model.loadNextPage(using: context.cards) }
+        let next = Task { await context.model.loadNextPage(retry: false, using: context.cards) }
         await context.transport.waitForRequests(2)
         try await context.transport.complete(1, cards: [Self.entries[0]], cursor: "next")
         await next.value
         #expect(context.model.availableCards == [Self.entries[0]])
         #expect(context.model.nextPageError == .serverUnavailable)
-        await context.model.loadNextPage(using: context.cards)
+        await context.model.loadNextPage(retry: false, using: context.cards)
         #expect(await context.transport.paths.count == 2)
     }
 
@@ -104,7 +104,7 @@ struct BinderCardPaginationTests {
         await context.model.load(using: context.cards, collections: context.collections)
         #expect(await context.transport.paths.isEmpty)
         #expect(!context.model.canSave)
-        #expect(await context.model.save(using: context.cards, collections: context.collections) == false)
+        #expect(await context.model.save(clear: false, using: context.cards, collections: context.collections) == false)
     }
 
     private static let entries: [CardWithPrice] = PreviewTCGCardsClient.sampleCards.map { source in
@@ -118,14 +118,28 @@ struct BinderCardPaginationTests {
             createdAt: source.createdAt,
             updatedAt: source.updatedAt,
             purchases: source.purchases.map {
-                CardPurchase(id: UUID(), condition: $0.condition, quantity: $0.quantity)
+                CardPurchase(
+                    id: UUID(),
+                    condition: $0.condition,
+                    quantity: $0.quantity,
+                    purchasePrice: nil,
+                    currency: nil,
+                    automaticPriceDate: nil,
+                    displayPrice: nil
+                )
             },
+            purchasePriceChangePercent: nil,
+            displayCurrency: nil,
             collectionID: nil,
             allocationAdjustments: nil,
             illustrator: source.illustrator,
             englishSearchAlias: source.englishSearchAlias
         )
-        return CardWithPrice(card: card, price: OwnedCardPrice(cardId: card.id, status: .pending))
+        return CardWithPrice(
+            card: card,
+            price: OwnedCardPrice(cardId: card.id, status: .pending, price: nil),
+            imageURL: nil
+        )
     }
 
     private func makeContext() async throws -> Context {
@@ -135,7 +149,8 @@ struct BinderCardPaginationTests {
         let collection = CollectionTestFixtures.binder(columns: 3, rows: 3)
         let model = BinderSlotEditorModel(
             collection: collection,
-            position: .init(pageID: CollectionTestFixtures.emptyPage.id, row: 1, column: 1)
+            position: .init(pageID: CollectionTestFixtures.emptyPage.id, row: 1, column: 1),
+            card: nil
         )
         return Context(model: model, cards: cards, collections: loaded.collections, transport: transport)
     }

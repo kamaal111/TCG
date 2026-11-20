@@ -66,6 +66,7 @@ public struct CardArtworkCacheSettings: View {
         .tcgSheet(
             Text("Cached card images", bundle: .module),
             closeLabel: Text("Done", bundle: .module),
+            closeDisabled: false,
             onClose: { isShowingGallery = false }
         )
         .confirmationDialog(

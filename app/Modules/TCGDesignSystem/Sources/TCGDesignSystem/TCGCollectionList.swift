@@ -13,7 +13,7 @@ public struct TCGCollectionList<Controls: View, Rows: View, EmptyContent: View, 
     public init(
         title: Text,
         query: Binding<String>,
-        hidesScrollBackground: Bool = false,
+        hidesScrollBackground: Bool,
         showsEmptyContent: Bool,
         @ViewBuilder controls: () -> Controls,
         @ViewBuilder rows: () -> Rows,

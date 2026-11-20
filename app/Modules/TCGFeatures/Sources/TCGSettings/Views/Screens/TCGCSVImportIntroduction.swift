@@ -39,6 +39,7 @@ struct TCGCSVImportIntroduction: View {
         .tcgSheet(
             Text("Import Cards", bundle: .module),
             closeLabel: Text("Close", bundle: .module),
+            closeDisabled: false,
             onClose: onClose
         )
         #if os(macOS)

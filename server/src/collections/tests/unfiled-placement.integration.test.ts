@@ -17,7 +17,7 @@ integrationTest(
       purchases: [{ condition: 'near_mint', quantity: 4, purchase_price: null, currency: null }],
     });
 
-    const destination = await createTestCollection(app, headers);
+    const destination = await createTestCollection(app, headers, { name: 'Favorites' });
     const pageId = crypto.randomUUID();
 
     const layout = await saveLayout(app, headers, destination.id, {
@@ -53,7 +53,7 @@ integrationTest(
   'rolls back membership and source placements when the requested quantity exceeds ownership',
   async ({ app, user, authenticatedHeaders: headers }) => {
     const entry = await createTestCard(app, user.sessionToken, validCardPayload);
-    const destination = await createTestCollection(app, headers);
+    const destination = await createTestCollection(app, headers, { name: 'Favorites' });
     const listed = CollectionsSchema.parse(await (await app.request('/app-api/collections', { headers })).json());
     const unfiled = CollectionSummarySchema.parse(listed.collections.find(collection => collection.is_unfiled));
     const before = await readCollection(app, headers, unfiled.id);
@@ -79,7 +79,7 @@ integrationTest(
   'rejects stale layout saves before moving an unfiled entry',
   async ({ app, user, authenticatedHeaders: headers, db }) => {
     const entry = await createTestCard(app, user.sessionToken, validCardPayload);
-    const destination = await createTestCollection(app, headers);
+    const destination = await createTestCollection(app, headers, { name: 'Favorites' });
     const latest = await saveLayout(app, headers, destination.id, { ...destination, pages: [] });
 
     const response = await app.request(`/app-api/collections/${destination.id}/layout`, {
@@ -103,10 +103,10 @@ integrationTest(
 integrationTest(
   'does not steal an entry that already belongs to a named collection',
   async ({ app, user, authenticatedHeaders: headers }) => {
-    const source = await createTestCollection(app, headers);
+    const source = await createTestCollection(app, headers, { name: 'Favorites' });
     const entry = await createTestCard(app, user.sessionToken, { ...validCardPayload, collection_id: source.id });
     const before = await readCollection(app, headers, source.id);
-    const destination = await createTestCollection(app, headers);
+    const destination = await createTestCollection(app, headers, { name: 'Favorites' });
 
     const response = await app.request(`/app-api/collections/${destination.id}/layout`, {
       method: 'PUT',
@@ -128,9 +128,9 @@ integrationTest(
 integrationTest(
   'rejects another account card without changing either collection',
   async ({ app, createUser, authenticatedHeaders: headers }) => {
-    const other = await createUser();
+    const other = await createUser({});
     const entry = await createTestCard(app, other.sessionToken, validCardPayload);
-    const destination = await createTestCollection(app, headers);
+    const destination = await createTestCollection(app, headers, { name: 'Favorites' });
 
     const response = await app.request(`/app-api/collections/${destination.id}/layout`, {
       method: 'PUT',
@@ -151,7 +151,7 @@ integrationTest(
 integrationTest(
   'requires the moved card to occupy a slot and validates its identifier',
   async ({ app, authenticatedHeaders: headers }) => {
-    const destination = await createTestCollection(app, headers);
+    const destination = await createTestCollection(app, headers, { name: 'Favorites' });
 
     const missingSlot = await app.request(`/app-api/collections/${destination.id}/layout`, {
       method: 'PUT',
@@ -181,7 +181,7 @@ integrationTest(
   'requires authentication for an unfiled placement',
   async ({ app, user, authenticatedHeaders: headers }) => {
     const entry = await createTestCard(app, user.sessionToken, validCardPayload);
-    const destination = await createTestCollection(app, headers);
+    const destination = await createTestCollection(app, headers, { name: 'Favorites' });
 
     const response = await app.request(`/app-api/collections/${destination.id}/layout`, {
       method: 'PUT',

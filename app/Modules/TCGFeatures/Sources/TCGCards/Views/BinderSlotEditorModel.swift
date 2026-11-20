@@ -14,7 +14,10 @@ final class BinderSlotEditorModel {
     private(set) var collection: CardBinderCollection
     private let position: BinderPosition
     private(set) var screen: Screen = .collectionCards
-    private var pages = CardCollectionPages()
+    private var pages = CardCollectionPages(
+        cards: [],
+        pagination: .init(nextCursor: nil, visitedCursors: [], pageCount: 0)
+    )
     private var sourceCollectionID: UUID?
     private var requestRevision = 0
     private var requestedQuery: String?
@@ -34,7 +37,7 @@ final class BinderSlotEditorModel {
     private(set) var error: String?
     var quantity = 1
 
-    init(collection: CardBinderCollection, position: BinderPosition, card: CardWithPrice? = nil) {
+    init(collection: CardBinderCollection, position: BinderPosition, card: CardWithPrice?) {
         self.collection = collection
         self.position = position
         screen = existing == nil ? .collectionCards : .contents
@@ -68,7 +71,7 @@ final class BinderSlotEditorModel {
         isLoadingNextPage = false
         error = nil
         nextPageError = nil
-        pages = CardCollectionPages()
+        pages = CardCollectionPages(cards: [], pagination: .init(nextCursor: nil, visitedCursors: [], pageCount: 0))
         requestedQuery = searchQuery
 
         if screen == .contents {
@@ -115,7 +118,7 @@ final class BinderSlotEditorModel {
         guard searchQuery != previous else { return }
         requestRevision += 1
         requestedQuery = nil
-        pages = CardCollectionPages()
+        pages = CardCollectionPages(cards: [], pagination: .init(nextCursor: nil, visitedCursors: [], pageCount: 0))
         isLoading = true
         isLoadingNextPage = false
         nextPageError = nil
@@ -128,7 +131,7 @@ final class BinderSlotEditorModel {
         await load(using: cards, collections: collections)
     }
 
-    func loadNextPage(retry: Bool = false, using cards: TCGCards) async {
+    func loadNextPage(retry: Bool, using cards: TCGCards) async {
         guard screen != .contents else { return }
         guard !isLoading, !isLoadingNextPage, !isSaving else { return }
         guard retry || nextPageError == nil else { return }
@@ -199,7 +202,7 @@ final class BinderSlotEditorModel {
         await load(using: cards, collections: collections)
     }
 
-    func save(clear: Bool = false, using cards: TCGCards, collections: TCGCollections) async -> Bool {
+    func save(clear: Bool, using cards: TCGCards, collections: TCGCollections) async -> Bool {
         guard !cards.isReadOnly, !isSaving, !collections.isWorking, !needsReload else { return false }
         guard clear ? existing != nil : canSave else { return false }
         guard cards.selectedCollection?.id == collection.id else { return false }

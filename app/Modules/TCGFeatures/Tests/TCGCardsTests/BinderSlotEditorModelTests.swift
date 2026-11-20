@@ -11,7 +11,8 @@ struct BinderSlotEditorModelTests {
         let collection = CollectionTestFixtures.binder(columns: 3, rows: 3)
         let model = BinderSlotEditorModel(
             collection: collection,
-            position: .init(pageID: CollectionTestFixtures.emptyPage.id, row: 1, column: 2)
+            position: .init(pageID: CollectionTestFixtures.emptyPage.id, row: 1, column: 2),
+            card: nil
         )
         #expect(model.screen == .collectionCards)
         #expect(!model.canSave)
@@ -24,7 +25,8 @@ struct BinderSlotEditorModelTests {
         let saved = try #require(context.collections.selected)
         let model = BinderSlotEditorModel(
             collection: saved,
-            position: .init(pageID: CollectionTestFixtures.emptyPage.id, row: 1, column: 2)
+            position: .init(pageID: CollectionTestFixtures.emptyPage.id, row: 1, column: 2),
+            card: nil
         )
         await model.load(using: context.cards, collections: context.collections)
         #expect(model.availableCards.isEmpty)
@@ -36,7 +38,7 @@ struct BinderSlotEditorModelTests {
         #expect(context.cards.cards.isEmpty)
         #expect(context.collections.selected == saved)
         model.quantity = 1
-        #expect(await model.save(using: context.cards, collections: context.collections))
+        #expect(await model.save(clear: false, using: context.cards, collections: context.collections))
         let result = try #require(context.collections.selected)
         #expect(result.pages.first?.slots == [.init(row: 1, column: 2, cardID: selected.card.id, quantity: 1)])
         #expect(context.cards.cards.first?.card.collectionID == result.id)
@@ -68,17 +70,18 @@ struct BinderSlotEditorModelTests {
         let saved = try #require(context.collections.selected)
         let model = BinderSlotEditorModel(
             collection: saved,
-            position: .init(pageID: CollectionTestFixtures.emptyPage.id, row: 1, column: 2)
+            position: .init(pageID: CollectionTestFixtures.emptyPage.id, row: 1, column: 2),
+            card: nil
         )
         await model.showCards(unfiled: true, using: context.cards, collections: context.collections)
         let selected = try #require(model.availableCards.first)
         model.choose(selected)
         #expect(await context.collections.save(saved, using: context.cards))
-        #expect(await model.save(using: context.cards, collections: context.collections) == false)
+        #expect(await model.save(clear: false, using: context.cards, collections: context.collections) == false)
         #expect(model.needsReload)
         #expect(model.selectedCard == selected)
         #expect(!model.canSave)
-        #expect(await model.save(using: context.cards, collections: context.collections) == false)
+        #expect(await model.save(clear: false, using: context.cards, collections: context.collections) == false)
         await model.reload(using: context.cards, collections: context.collections)
         #expect(!model.needsReload)
         #expect(model.selectedCard == nil)
@@ -98,6 +101,8 @@ struct BinderSlotEditorModelTests {
                 createdAt: source.createdAt,
                 updatedAt: source.updatedAt,
                 purchases: source.purchases,
+                purchasePriceChangePercent: nil,
+                displayCurrency: nil,
                 collectionID: nil,
                 allocationAdjustments: nil,
                 illustrator: nil,
@@ -115,7 +120,8 @@ struct BinderSlotEditorModelTests {
         _ = try await cards.updateCard(id: entries[0].id, values: values).get()
         let model = BinderSlotEditorModel(
             collection: collection,
-            position: .init(pageID: CardsTestIDs.secondary, row: 1, column: 1)
+            position: .init(pageID: CardsTestIDs.secondary, row: 1, column: 1),
+            card: nil
         )
         await model.showCards(unfiled: true, using: cards, collections: collections)
         #expect(model.availableCards.count == 50)
@@ -128,11 +134,11 @@ struct BinderSlotEditorModelTests {
         model.setQuery("")
         await model.search(using: cards, collections: collections)
         #expect(model.availableCards.count == 50)
-        await model.loadNextPage(using: cards)
+        await model.loadNextPage(retry: false, using: cards)
         #expect(model.availableCards.count == 51)
         #expect(!model.hasMoreCards)
         #expect(Set(model.availableCards.map(\.card.id)) == Set(entries.dropFirst().map(\.id)))
-        await model.loadNextPage(using: cards)
+        await model.loadNextPage(retry: false, using: cards)
         #expect(model.availableCards.count == 51)
         #expect(collections.selectedID == collection.id)
         #expect(cards.selectedCollection?.id == collection.id)
@@ -143,14 +149,15 @@ struct BinderSlotEditorModelTests {
         let collection = try #require(context.collections.selected)
         let model = BinderSlotEditorModel(
             collection: collection,
-            position: .init(pageID: CardsTestIDs.secondary, row: 1, column: 1)
+            position: .init(pageID: CardsTestIDs.secondary, row: 1, column: 1),
+            card: nil
         )
         await model.showCards(unfiled: true, using: context.cards, collections: context.collections)
         let card = try #require(model.availableCards.first)
         model.choose(card)
         model.quantity = 0
         #expect(!model.canSave)
-        #expect(await model.save(using: context.cards, collections: context.collections) == false)
+        #expect(await model.save(clear: false, using: context.cards, collections: context.collections) == false)
         model.quantity = model.maximum + 1
         #expect(!model.canSave)
         await model.showCards(unfiled: false, using: context.cards, collections: context.collections)
@@ -170,13 +177,14 @@ struct BinderSlotEditorModelTests {
         let saved = try #require(context.collections.selected)
         let model = BinderSlotEditorModel(
             collection: saved,
-            position: .init(pageID: CollectionTestFixtures.emptyPage.id, row: 1, column: 2)
+            position: .init(pageID: CollectionTestFixtures.emptyPage.id, row: 1, column: 2),
+            card: nil
         )
         await model.showCards(unfiled: true, using: context.cards, collections: context.collections)
         let selected = try #require(model.availableCards.first)
         model.choose(selected)
-        async let first = model.save(using: context.cards, collections: context.collections)
-        async let second = model.save(using: context.cards, collections: context.collections)
+        async let first = model.save(clear: false, using: context.cards, collections: context.collections)
+        async let second = model.save(clear: false, using: context.cards, collections: context.collections)
         let results = await [first, second]
         #expect(results.filter { $0 }.count == 1)
         #expect(context.collections.selected?.revision == saved.revision + 1)
@@ -190,7 +198,8 @@ struct BinderSlotEditorModelTests {
         let collection = CollectionTestFixtures.binder(columns: 3, rows: 3)
         let model = BinderSlotEditorModel(
             collection: collection,
-            position: .init(pageID: CollectionTestFixtures.emptyPage.id, row: 1, column: 2)
+            position: .init(pageID: CollectionTestFixtures.emptyPage.id, row: 1, column: 2),
+            card: nil
         )
         await model.load(using: cards, collections: collections)
         #expect(model.error != nil)

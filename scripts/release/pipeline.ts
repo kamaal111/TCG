@@ -28,15 +28,15 @@ interface Pipeline {
 
 function available(host: Host | undefined, repository: string): Host {
   if (!host) {
-    throw new InfraFailure('The host needs updated release tools. Rerun and choose to configure the host.');
+    throw new InfraFailure('The host needs updated release tools. Rerun and choose to configure the host.', 1);
   }
 
   if (host.busy) {
-    throw new InfraFailure('Another host configuration or release is running. Wait for it to finish, then rerun.');
+    throw new InfraFailure('Another host configuration or release is running. Wait for it to finish, then rerun.', 1);
   }
 
   if (host.repository !== repository) {
-    throw new InfraFailure('The host registry differs from release.env. Check setup before continuing.');
+    throw new InfraFailure('The host registry differs from release.env. Check setup before continuing.', 1);
   }
 
   return host;
@@ -87,7 +87,7 @@ export async function runRelease(options: Pipeline): Promise<void> {
   let serverConfigured = false;
 
   if (!host && options.mode === 'application') {
-    throw new InfraFailure(PORTAL_SETUP_REQUIRED);
+    throw new InfraFailure(PORTAL_SETUP_REQUIRED, 1);
   }
 
   if (!host) {
@@ -139,7 +139,7 @@ export async function runRelease(options: Pipeline): Promise<void> {
   }
 
   if (readiness.status !== 'ready') {
-    throw new InfraFailure('Migrations are still pending. Deployment was stopped.');
+    throw new InfraFailure('Migrations are still pending. Deployment was stopped.', 1);
   }
 
   const current = available(await options.host(), options.repository);

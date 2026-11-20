@@ -145,8 +145,13 @@ public struct CardDetailContent<Supplemental: View>: View {
 
     private func price(_ title: LocalizedStringKey, amount: Double, currency: Currency) -> some View {
         LabeledContent {
-            CurrencyAmount(amount, currency: currency, conversionUnavailable: card?.conversionUnavailable ?? false)
-                .monospacedDigit()
+            CurrencyAmount(
+                amount,
+                currency: currency,
+                label: nil,
+                conversionUnavailable: card?.conversionUnavailable ?? false
+            )
+            .monospacedDigit()
         } label: {
             Text(title, bundle: .module)
         }
@@ -158,6 +163,7 @@ public struct CardDetailContent<Supplemental: View>: View {
                 CurrencyAmount(
                     movement.priceChange,
                     currency: currency,
+                    label: nil,
                     conversionUnavailable: card?.conversionUnavailable ?? false
                 )
                 Text(movement.percentChange / 100, format: .percent.precision(.fractionLength(1)))

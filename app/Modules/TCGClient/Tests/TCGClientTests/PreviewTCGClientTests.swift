@@ -15,7 +15,7 @@ import Testing
 struct PreviewTCGClientTests {
     @Test
     func `Should report no valid credentials by default`() {
-        let client = TCGClient.preview()
+        let client = TCGClient.preview(hasValidCredentials: false)
 
         #expect(client.hasValidCredentials == false)
     }
@@ -29,7 +29,7 @@ struct PreviewTCGClientTests {
 
     @Test
     func `Should return the fully static session when no credentials are stored`() async throws {
-        let client = TCGClient.preview()
+        let client = TCGClient.preview(hasValidCredentials: false)
 
         let session = try await client.auth.session().get()
 

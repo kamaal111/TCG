@@ -5,6 +5,7 @@ import { createCardRequest, ownershipPayload, postCard, seedCatalogPrinting, val
 import { card, cardConditionQuantity } from '../../db/schema/cards.ts';
 import { expectErrorResponse, expectValidationIssueForField } from '../../tests/auth.ts';
 import { integrationTest } from '../../tests/fixtures.ts';
+import { createTestRequestId } from '../../tests/logs.ts';
 import { CREATE_CARD_ROUTE_PATH } from '../routes/create-card.ts';
 import { CardSchema } from '../schemas/responses.ts';
 
@@ -119,7 +120,7 @@ describe('Create card integration', () => {
   integrationTest(
     'round-trips notes and multiple conditions and logs success',
     async ({ app, db, getLogsForRequestId, withRequestId, authenticatedHeaders }) => {
-      const { headers, requestId } = withRequestId(authenticatedHeaders);
+      const { headers, requestId } = withRequestId(authenticatedHeaders, createTestRequestId());
 
       const selected = await seedCatalogPrinting(db, validCardPayload, 'scrydex_static');
 

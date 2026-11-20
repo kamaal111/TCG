@@ -35,7 +35,7 @@ export class CollectionNotFound extends NotFound {
 }
 
 export class LayoutConflict extends Conflict {
-  constructor(message = 'This collection changed. Refresh it and try again.') {
+  constructor(message: string) {
     super({ code: 'COLLECTION_CONFLICT', message });
   }
 }

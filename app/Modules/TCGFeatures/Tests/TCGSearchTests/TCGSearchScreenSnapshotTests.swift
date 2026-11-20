@@ -24,7 +24,8 @@ struct TCGSearchScreenSnapshotTests {
     @Test
     func `Renders the variant chooser before search details`() async throws {
         let group = try #require(SearchVariantFixtures.groups(count: 3).first)
-        await assertScreenSnapshot(testName: #function) {
+        await assertScreenSnapshot(testName: #function, fileID: #fileID, file: #filePath, line: #line, column: #column)
+        {
             SearchVariantDestination(group: group, purpose: .details) { card in
                 Text(card.name)
             }
@@ -35,7 +36,8 @@ struct TCGSearchScreenSnapshotTests {
     @Test
     func `Renders a grouped One Piece result with four artwork tiles`() async throws {
         let group = try #require(SearchVariantFixtures.groups(count: 5).first)
-        await assertScreenSnapshot(testName: #function) {
+        await assertScreenSnapshot(testName: #function, fileID: #fileID, file: #filePath, line: #line, column: #column)
+        {
             VStack {
                 PricedCardRow(group: group, actions: .init(add: {}, showDetails: {}, exploreImage: {}))
                 Spacer()
@@ -48,7 +50,8 @@ struct TCGSearchScreenSnapshotTests {
     @Test
     func `Renders the artwork chooser before zoom`() async throws {
         let group = try #require(SearchVariantFixtures.groups(count: 3).first)
-        await assertScreenSnapshot(testName: #function) {
+        await assertScreenSnapshot(testName: #function, fileID: #fileID, file: #filePath, line: #line, column: #column)
+        {
             SearchVariantPicker(variants: group.variants, purpose: .artwork, selectedID: group.card.id) { _ in }
                 .cardImageLoader(PreviewCardImageLoader(outcome: .success))
         }
@@ -58,13 +61,17 @@ struct TCGSearchScreenSnapshotTests {
     func `Hides prices percentages and trends in search results`() async throws {
         let privacy = TCGPricePrivacy(defaults: nil)
         privacy.hidePrices = true
-        let feature = TCGSearch(client: .preview(pricingOutcome: .success), history: TCGSearchHistoryStore())
-        let model = TCGSearchScreenModel(preferences: nil)
+        let feature = TCGSearch(
+            client: .preview(pricingOutcome: .success),
+            history: TCGSearchHistoryStore(defaults: nil, now: Date.init)
+        )
+        let model = TCGSearchScreenModel(preferences: nil, debounce: ModuleConfig.searchDebounce)
         model.query = "Giratina"
         try await feature.search(.init(game: model.game, query: model.query, languages: [], mode: .card, cursor: nil))
             .get()
         #expect(!feature.results.isEmpty)
-        await assertScreenSnapshot(testName: #function) {
+        await assertScreenSnapshot(testName: #function, fileID: #fileID, file: #filePath, line: #line, column: #column)
+        {
             makeScreen(feature: feature, model: model).environment(\.tcgPricePrivacy, privacy)
         }
     }
@@ -72,7 +79,8 @@ struct TCGSearchScreenSnapshotTests {
     @Test
     func `Renders saved printings in the Wishlist list`() async {
         let model = await wishlistModel(entries: [detailCard, WishlistTestClient.luffy], query: "")
-        await assertScreenSnapshot(testName: #function) {
+        await assertScreenSnapshot(testName: #function, fileID: #fileID, file: #filePath, line: #line, column: #column)
+        {
             NavigationStack {
                 TCGWishlistScreen(isVisible: false, model: model) { _, _ in EmptyView() }
             }
@@ -85,7 +93,8 @@ struct TCGSearchScreenSnapshotTests {
         let privacy = TCGPricePrivacy(defaults: nil)
         privacy.hidePrices = true
         let model = await wishlistModel(entries: [detailCard, WishlistTestClient.luffy], query: "")
-        await assertScreenSnapshot(testName: #function) {
+        await assertScreenSnapshot(testName: #function, fileID: #fileID, file: #filePath, line: #line, column: #column)
+        {
             NavigationStack {
                 TCGWishlistScreen(isVisible: false, model: model) { _, _ in EmptyView() }
             }
@@ -96,11 +105,16 @@ struct TCGSearchScreenSnapshotTests {
 
     @Test
     func `Renders Wishlist pricing without search results`() async {
-        let search = TCGSearch(client: .preview(), history: TCGSearchHistoryStore())
+        let search = TCGSearch(
+            client: .preview(hasValidCredentials: false),
+            history: TCGSearchHistoryStore(defaults: nil, now: Date.init)
+        )
         #expect(search.results.isEmpty)
-        await assertScreenSnapshot(testName: #function) {
+        await assertScreenSnapshot(testName: #function, fileID: #fileID, file: #filePath, line: #line, column: #column)
+        {
             TCGSearchDetailView(
                 card: detailCard,
+                variants: [],
                 isWishlistEntry: true,
                 onWishlistRemoval: nil,
                 addForm: { _, _ in EmptyView() }
@@ -117,7 +131,8 @@ struct TCGSearchScreenSnapshotTests {
     func `Renders no matching Wishlist printings`() async {
         let model = await wishlistModel(entries: [], query: "Pikachu")
         // Capture the results state independently of the system search field's clear button.
-        await assertScreenSnapshot(testName: #function) {
+        await assertScreenSnapshot(testName: #function, fileID: #fileID, file: #filePath, line: #line, column: #column)
+        {
             TCGWishlistScreen(isVisible: false, model: model) { _, _ in EmptyView() }
         }
     }
@@ -130,7 +145,8 @@ struct TCGSearchScreenSnapshotTests {
                 ],
                 firstRequestGate: nil,
                 saves: []
-            )
+            ),
+            accountID: nil
         )
         let model = TCGWishlistScreenModel(preferences: nil)
         model.filterState.query = query
@@ -160,22 +176,42 @@ struct TCGSearchScreenSnapshotTests {
                 name: "Monkey.D.Luffy",
                 cardNumber: "OP05-119",
                 setName: "Awakening of the New Era",
+                rarity: nil,
                 illustrator: nil,
                 variantName: "Alternate Art",
+                imageURL: nil,
+                headline: nil,
+                market: nil,
+                display: nil,
                 pricedOn: Date(timeIntervalSince1970: 0),
                 fetchedAt: Date(timeIntervalSince1970: 0)
             )
-            await assertScreenSnapshot(testName: testName, line: #line) {
+            await assertScreenSnapshot(
+                testName: testName,
+                fileID: #fileID,
+                file: #filePath,
+                line: #line,
+                column: #column
+            ) {
                 TCGSearchDetailView(
                     card: card,
+                    variants: [],
                     isWishlistEntry: false,
                     onWishlistRemoval: nil,
                     addForm: { _, _ in EmptyView() }
                 )
-                .tcgSearch(TCGSearch(client: .preview(), history: TCGSearchHistoryStore()))
+                .tcgSearch(
+                    TCGSearch(
+                        client: .preview(hasValidCredentials: false),
+                        history: TCGSearchHistoryStore(defaults: nil, now: Date.init)
+                    )
+                )
                 .environment(
                     \.tcgWishlist,
-                    TCGWishlist(client: WishlistTestClient(responses: [], firstRequestGate: nil, saves: []))
+                    TCGWishlist(
+                        client: WishlistTestClient(responses: [], firstRequestGate: nil, saves: []),
+                        accountID: nil
+                    )
                 )
                 .environment(\.tcgPricePrivacy, privacy)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -189,14 +225,21 @@ struct TCGSearchScreenSnapshotTests {
         let privacy = TCGPricePrivacy(defaults: nil)
         privacy.hidePrices = true
         #expect(detailCard.headline?.amount == 420)
-        await assertScreenSnapshot(testName: #function) {
+        await assertScreenSnapshot(testName: #function, fileID: #fileID, file: #filePath, line: #line, column: #column)
+        {
             TCGSearchDetailView(
                 card: detailCard,
+                variants: [],
                 isWishlistEntry: false,
                 onWishlistRemoval: nil,
                 addForm: { _, _ in EmptyView() }
             )
-            .tcgSearch(TCGSearch(client: .preview(), history: TCGSearchHistoryStore()))
+            .tcgSearch(
+                TCGSearch(
+                    client: .preview(hasValidCredentials: false),
+                    history: TCGSearchHistoryStore(defaults: nil, now: Date.init)
+                )
+            )
             .environment(\.tcgPricePrivacy, privacy)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(.background)
@@ -211,10 +254,15 @@ struct TCGSearchScreenSnapshotTests {
         let source = detailCard
         let card = PricedCard(
             id: source.id,
+            printingKey: nil,
+            isWishlisted: nil,
             game: source.game,
             name: source.name,
             cardNumber: source.cardNumber,
+            setName: nil,
+            rarity: nil,
             illustrator: source.illustrator,
+            variantName: nil,
             imageURL: source.imageURL,
             headline: source.headline,
             market: source.market,
@@ -223,14 +271,21 @@ struct TCGSearchScreenSnapshotTests {
             fetchedAt: source.fetchedAt
         )
         #expect(card.conversionUnavailable)
-        await assertScreenSnapshot(testName: #function) {
+        await assertScreenSnapshot(testName: #function, fileID: #fileID, file: #filePath, line: #line, column: #column)
+        {
             TCGSearchDetailView(
                 card: card,
+                variants: [],
                 isWishlistEntry: false,
                 onWishlistRemoval: nil,
                 addForm: { _, _ in EmptyView() }
             )
-            .tcgSearch(TCGSearch(client: .preview(), history: TCGSearchHistoryStore()))
+            .tcgSearch(
+                TCGSearch(
+                    client: .preview(hasValidCredentials: false),
+                    history: TCGSearchHistoryStore(defaults: nil, now: Date.init)
+                )
+            )
             .environment(\.tcgPricePrivacy, privacy)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(.background)
@@ -240,13 +295,17 @@ struct TCGSearchScreenSnapshotTests {
 
     @Test
     func `Renders illustrator search results`() async {
-        let feature = TCGSearch(client: .preview(pricingOutcome: .success), history: TCGSearchHistoryStore())
-        let model = TCGSearchScreenModel(preferences: nil)
+        let feature = TCGSearch(
+            client: .preview(pricingOutcome: .success),
+            history: TCGSearchHistoryStore(defaults: nil, now: Date.init)
+        )
+        let model = TCGSearchScreenModel(preferences: nil, debounce: ModuleConfig.searchDebounce)
         model.mode = .illustrator
         model.query = "Akira Egawa"
         await model.performSearch(using: feature)
         #expect(feature.results.first?.illustrator == "Akira Egawa")
-        await assertScreenSnapshot(testName: #function) { makeScreen(feature: feature, model: model) }
+        await assertScreenSnapshot(testName: #function, fileID: #fileID, file: #filePath, line: #line, column: #column)
+        { makeScreen(feature: feature, model: model) }
     }
 
     @Test
@@ -257,7 +316,8 @@ struct TCGSearchScreenSnapshotTests {
         let dark = await makeRefreshingState(transport: darkTransport)
         var states = [light, dark]
 
-        await assertScreenSnapshot(testName: #function) {
+        await assertScreenSnapshot(testName: #function, fileID: #fileID, file: #filePath, line: #line, column: #column)
+        {
             let state = states.removeFirst()
             #expect(state.feature.isSearching)
             #expect(state.feature.results.count == 1)
@@ -279,13 +339,13 @@ struct TCGSearchScreenSnapshotTests {
                 credentialsKeychainKey: "refresh-snapshot-credentials",
                 credentialsStore: InMemoryCredentialsStore()
             ),
-            history: TCGSearchHistoryStore()
+            history: TCGSearchHistoryStore(defaults: nil, now: Date.init)
         )
-        let model = TCGSearchScreenModel(preferences: nil)
+        let model = TCGSearchScreenModel(preferences: nil, debounce: ModuleConfig.searchDebounce)
         model.query = "Giratina"
         let initial = Task { await model.performSearch(using: feature) }
-        await transport.waitUntilStarted()
-        await transport.resume()
+        await transport.waitUntilStarted(count: 1)
+        await transport.resume(count: 1)
         await initial.value
         let refresh = Task { await model.performSearch(using: feature) }
         await transport.waitUntilStarted(count: 2)
@@ -294,8 +354,11 @@ struct TCGSearchScreenSnapshotTests {
 
     @Test
     func `Renders pricing results`() async throws {
-        let feature = TCGSearch(client: .preview(pricingOutcome: .success), history: TCGSearchHistoryStore())
-        let model = TCGSearchScreenModel(preferences: nil)
+        let feature = TCGSearch(
+            client: .preview(pricingOutcome: .success),
+            history: TCGSearchHistoryStore(defaults: nil, now: Date.init)
+        )
+        let model = TCGSearchScreenModel(preferences: nil, debounce: ModuleConfig.searchDebounce)
         model.query = "Giratina"
         model.game = .pokemon
         try await feature.search(.init(game: model.game, query: model.query, languages: [], mode: .card, cursor: nil))
@@ -305,7 +368,8 @@ struct TCGSearchScreenSnapshotTests {
             let animationsWereEnabled = UIView.areAnimationsEnabled
         #endif
 
-        await assertScreenSnapshot(testName: #function) { makeScreen(feature: feature, model: model) }
+        await assertScreenSnapshot(testName: #function, fileID: #fileID, file: #filePath, line: #line, column: #column)
+        { makeScreen(feature: feature, model: model) }
 
         #if os(iOS)
             #expect(UIView.areAnimationsEnabled == animationsWereEnabled)
@@ -316,7 +380,8 @@ struct TCGSearchScreenSnapshotTests {
     func `Renders multiple selected search sets`() async {
         let state = await makeSetFilteredState(setNames: ["Crown Zenith", "Lost Origin"], nextOutcome: .matches)
         #expect(state.model.filteredResults(using: state.feature).count == 3)
-        await assertScreenSnapshot(testName: #function) { makeScreen(feature: state.feature, model: state.model) }
+        await assertScreenSnapshot(testName: #function, fileID: #fileID, file: #filePath, line: #line, column: #column)
+        { makeScreen(feature: state.feature, model: state.model) }
     }
 
     @Test
@@ -325,7 +390,8 @@ struct TCGSearchScreenSnapshotTests {
         await state.model.performSearch(using: state.feature)
         #expect(state.model.filteredResults(using: state.feature).isEmpty)
         #expect(state.feature.results.count == 1)
-        await assertScreenSnapshot(testName: #function) { makeScreen(feature: state.feature, model: state.model) }
+        await assertScreenSnapshot(testName: #function, fileID: #fileID, file: #filePath, line: #line, column: #column)
+        { makeScreen(feature: state.feature, model: state.model) }
     }
 
     @Test
@@ -334,7 +400,8 @@ struct TCGSearchScreenSnapshotTests {
         await state.model.performSearch(using: state.feature)
         #expect(state.model.filteredResults(using: state.feature).isEmpty)
         #expect(state.feature.nextCursor == "continue-search")
-        await assertScreenSnapshot(testName: #function) { makeScreen(feature: state.feature, model: state.model) }
+        await assertScreenSnapshot(testName: #function, fileID: #fileID, file: #filePath, line: #line, column: #column)
+        { makeScreen(feature: state.feature, model: state.model) }
     }
 
     #if os(iOS)
@@ -342,7 +409,13 @@ struct TCGSearchScreenSnapshotTests {
         func `Renders selected search sets with large text`() async {
             let state = await makeSetFilteredState(setNames: ["Crown Zenith", "Lost Origin"], nextOutcome: .matches)
             #expect(state.model.setNames.count == 2)
-            await assertScreenSnapshot(testName: #function) {
+            await assertScreenSnapshot(
+                testName: #function,
+                fileID: #fileID,
+                file: #filePath,
+                line: #line,
+                column: #column
+            ) {
                 makeScreen(feature: state.feature, model: state.model)
                     .environment(\.dynamicTypeSize, .accessibility3)
             }
@@ -355,7 +428,7 @@ struct TCGSearchScreenSnapshotTests {
     ) async -> (
         feature: TCGSearch, model: TCGSearchScreenModel
     ) {
-        let transport = HistoryPricingTransport()
+        let transport = HistoryPricingTransport(suspended: false)
         await transport.setOutcome(.sets, for: 1)
         await transport.setOutcome(nextOutcome, for: 2)
         let feature = TCGSearch(
@@ -364,9 +437,9 @@ struct TCGSearchScreenSnapshotTests {
                 credentialsKeychainKey: "set-filter-snapshot-credentials",
                 credentialsStore: InMemoryCredentialsStore()
             ),
-            history: TCGSearchHistoryStore()
+            history: TCGSearchHistoryStore(defaults: nil, now: Date.init)
         )
-        let model = TCGSearchScreenModel(preferences: nil)
+        let model = TCGSearchScreenModel(preferences: nil, debounce: ModuleConfig.searchDebounce)
         model.query = "Giratina"
         await model.performSearch(using: feature)
         model.setNames = setNames
@@ -375,75 +448,107 @@ struct TCGSearchScreenSnapshotTests {
 
     @Test
     func `Renders an empty search`() async {
-        let feature = TCGSearch(client: .preview(pricingOutcome: .empty), history: TCGSearchHistoryStore())
+        let feature = TCGSearch(
+            client: .preview(pricingOutcome: .empty),
+            history: TCGSearchHistoryStore(defaults: nil, now: Date.init)
+        )
 
-        await assertScreenSnapshot(testName: #function) {
-            makeScreen(feature: feature, model: TCGSearchScreenModel(preferences: nil))
+        await assertScreenSnapshot(testName: #function, fileID: #fileID, file: #filePath, line: #line, column: #column)
+        {
+            makeScreen(
+                feature: feature,
+                model: TCGSearchScreenModel(preferences: nil, debounce: ModuleConfig.searchDebounce)
+            )
         }
     }
 
     @Test
     func `Renders an empty One Piece search`() async {
-        let feature = TCGSearch(client: .preview(pricingOutcome: .empty), history: TCGSearchHistoryStore())
-        let model = TCGSearchScreenModel(preferences: nil)
+        let feature = TCGSearch(
+            client: .preview(pricingOutcome: .empty),
+            history: TCGSearchHistoryStore(defaults: nil, now: Date.init)
+        )
+        let model = TCGSearchScreenModel(preferences: nil, debounce: ModuleConfig.searchDebounce)
         model.game = .onePiece
 
-        await assertScreenSnapshot(testName: #function) { makeScreen(feature: feature, model: model) }
+        await assertScreenSnapshot(testName: #function, fileID: #fileID, file: #filePath, line: #line, column: #column)
+        { makeScreen(feature: feature, model: model) }
     }
 
     @Test
     func `Renders no results guidance`() async throws {
-        let feature = TCGSearch(client: .preview(pricingOutcome: .noResults), history: TCGSearchHistoryStore())
-        let model = TCGSearchScreenModel(preferences: nil)
+        let feature = TCGSearch(
+            client: .preview(pricingOutcome: .noResults),
+            history: TCGSearchHistoryStore(defaults: nil, now: Date.init)
+        )
+        let model = TCGSearchScreenModel(preferences: nil, debounce: ModuleConfig.searchDebounce)
         model.query = "Missing card"
         try await feature.search(.init(game: model.game, query: model.query, languages: [], mode: .card, cursor: nil))
             .get()
 
-        await assertScreenSnapshot(testName: #function) { makeScreen(feature: feature, model: model) }
+        await assertScreenSnapshot(testName: #function, fileID: #fileID, file: #filePath, line: #line, column: #column)
+        { makeScreen(feature: feature, model: model) }
     }
 
     @Test
     func `Renders One Piece no results guidance`() async throws {
-        let feature = TCGSearch(client: .preview(pricingOutcome: .noResults), history: TCGSearchHistoryStore())
-        let model = TCGSearchScreenModel(preferences: nil)
+        let feature = TCGSearch(
+            client: .preview(pricingOutcome: .noResults),
+            history: TCGSearchHistoryStore(defaults: nil, now: Date.init)
+        )
+        let model = TCGSearchScreenModel(preferences: nil, debounce: ModuleConfig.searchDebounce)
         model.game = .onePiece
         model.query = "OP99-999"
         try await feature.search(.init(game: model.game, query: model.query, languages: [], mode: .card, cursor: nil))
             .get()
 
-        await assertScreenSnapshot(testName: #function) { makeScreen(feature: feature, model: model) }
+        await assertScreenSnapshot(testName: #function, fileID: #fileID, file: #filePath, line: #line, column: #column)
+        { makeScreen(feature: feature, model: model) }
     }
 
     @Test
     func `Renders a Japanese language filter`() async {
-        let feature = TCGSearch(client: .preview(pricingOutcome: .empty), history: TCGSearchHistoryStore())
-        let model = TCGSearchScreenModel(preferences: nil)
+        let feature = TCGSearch(
+            client: .preview(pricingOutcome: .empty),
+            history: TCGSearchHistoryStore(defaults: nil, now: Date.init)
+        )
+        let model = TCGSearchScreenModel(preferences: nil, debounce: ModuleConfig.searchDebounce)
         model.languages = [.japanese]
 
         #expect(model.languages == [.japanese])
-        await assertScreenSnapshot(testName: #function) { makeScreen(feature: feature, model: model) }
+        await assertScreenSnapshot(testName: #function, fileID: #fileID, file: #filePath, line: #line, column: #column)
+        { makeScreen(feature: feature, model: model) }
     }
 
     @Test
     func `Explains Pokemon names and set numbers`() async {
-        await assertScreenSnapshot(testName: #function) { makeHelp(game: .pokemon) }
+        await assertScreenSnapshot(testName: #function, fileID: #fileID, file: #filePath, line: #line, column: #column)
+        { makeHelp(game: .pokemon) }
     }
 
     @Test
     func `Explains One Piece names and card numbers`() async {
-        await assertScreenSnapshot(testName: #function) { makeHelp(game: .onePiece) }
+        await assertScreenSnapshot(testName: #function, fileID: #fileID, file: #filePath, line: #line, column: #column)
+        { makeHelp(game: .onePiece) }
     }
 
     @Test
     func `Renders complete card details`() async {
-        await assertScreenSnapshot(testName: #function) {
+        await assertScreenSnapshot(testName: #function, fileID: #fileID, file: #filePath, line: #line, column: #column)
+        {
             TCGSearchDetailView(
                 card: detailCard,
+                variants: [],
                 isWishlistEntry: false,
                 onWishlistRemoval: nil,
                 addForm: { _, _ in EmptyView() }
             )
-            .tcgSearch(TCGSearch(client: .preview(), history: TCGSearchHistoryStore()))
+            .tcgSearch(
+                TCGSearch(
+                    client: .preview(hasValidCredentials: false),
+                    history: TCGSearchHistoryStore(defaults: nil, now: Date.init)
+                )
+            )
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(.background)
             .environment(\.timeZone, TimeZone(secondsFromGMT: 0)!)
@@ -455,21 +560,37 @@ struct TCGSearchScreenSnapshotTests {
     func `Renders card details without pricing or artwork`() async {
         let card = PricedCard(
             id: "missing-price",
+            printingKey: nil,
+            isWishlisted: nil,
             game: .onePiece,
             name: "Nami",
             cardNumber: "OP01-016",
+            setName: nil,
+            rarity: nil,
             illustrator: nil,
+            variantName: nil,
+            imageURL: nil,
+            headline: nil,
+            market: nil,
+            display: nil,
             pricedOn: Date(timeIntervalSince1970: 1_750_000_000),
             fetchedAt: Date(timeIntervalSince1970: 1_750_000_000)
         )
-        await assertScreenSnapshot(testName: #function) {
+        await assertScreenSnapshot(testName: #function, fileID: #fileID, file: #filePath, line: #line, column: #column)
+        {
             TCGSearchDetailView(
                 card: card,
+                variants: [],
                 isWishlistEntry: false,
                 onWishlistRemoval: nil,
                 addForm: { _, _ in EmptyView() }
             )
-            .tcgSearch(TCGSearch(client: .preview(), history: TCGSearchHistoryStore()))
+            .tcgSearch(
+                TCGSearch(
+                    client: .preview(hasValidCredentials: false),
+                    history: TCGSearchHistoryStore(defaults: nil, now: Date.init)
+                )
+            )
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(.background)
             .environment(\.timeZone, TimeZone(secondsFromGMT: 0)!)
@@ -478,7 +599,8 @@ struct TCGSearchScreenSnapshotTests {
 
     @Test
     func `Renders fitted image exploration`() async {
-        await assertScreenSnapshot(testName: #function) {
+        await assertScreenSnapshot(testName: #function, fileID: #fileID, file: #filePath, line: #line, column: #column)
+        {
             CardImageExplorer(url: detailCard.imageURL)
                 .cardImageLoader(PreviewCardImageLoader(outcome: .success))
         }
@@ -486,7 +608,8 @@ struct TCGSearchScreenSnapshotTests {
 
     @Test
     func `Renders failed image exploration with retry`() async {
-        await assertScreenSnapshot(testName: #function) {
+        await assertScreenSnapshot(testName: #function, fileID: #fileID, file: #filePath, line: #line, column: #column)
+        {
             CardImageExplorer(url: detailCard.imageURL)
                 .cardImageLoader(PreviewCardImageLoader(outcome: .failure))
         }
@@ -494,7 +617,8 @@ struct TCGSearchScreenSnapshotTests {
 
     @Test
     func `Renders image exploration while loading`() async {
-        await assertScreenSnapshot(testName: #function) {
+        await assertScreenSnapshot(testName: #function, fileID: #fileID, file: #filePath, line: #line, column: #column)
+        {
             CardImageExplorer(url: detailCard.imageURL)
                 .cardImageLoader(SuspendedImageLoader())
         }
@@ -503,20 +627,26 @@ struct TCGSearchScreenSnapshotTests {
     private var detailCard: PricedCard {
         PricedCard(
             id: "details",
+            printingKey: nil,
+            isWishlisted: nil,
             game: .pokemon,
             name: "Giratina V",
             cardNumber: "186/196",
+            setName: nil,
             rarity: "Special Art Rare",
             illustrator: "Shinji Kanda",
+            variantName: nil,
             imageURL: URL(string: "https://images.example.com/giratina.png")!,
-            headline: PriceHeadline(amount: 420, currency: .usd),
+            headline: PriceHeadline(amount: 420, currency: .usd, metric: .lowestNearMint),
             market: MarketPrice(
+                condition: .nearMint,
                 currency: .usd,
                 low: 420,
                 market: 450,
                 trend7d: PriceMovement(priceChange: 12, percentChange: 2.7),
                 trend30d: PriceMovement(priceChange: -20, percentChange: -4.3)
             ),
+            display: nil,
             pricedOn: Date(timeIntervalSince1970: 1_750_000_000),
             fetchedAt: Date(timeIntervalSince1970: 1_750_000_000)
         )
@@ -536,49 +666,63 @@ struct TCGSearchScreenSnapshotTests {
     func `Renders recent searches`() async {
         let feature = makeHistoryFeature()
         #expect(feature.history.entries(for: .pokemon).count == 6)
-        await assertScreenSnapshot(testName: #function) {
-            makeScreen(feature: feature, model: TCGSearchScreenModel(preferences: nil))
+        await assertScreenSnapshot(testName: #function, fileID: #fileID, file: #filePath, line: #line, column: #column)
+        {
+            makeScreen(
+                feature: feature,
+                model: TCGSearchScreenModel(preferences: nil, debounce: ModuleConfig.searchDebounce)
+            )
         }
     }
 
     @Test
     func `Renders matching history suggestions`() async throws {
         let feature = makeHistoryFeature()
-        let model = TCGSearchScreenModel(preferences: nil)
+        let model = TCGSearchScreenModel(preferences: nil, debounce: ModuleConfig.searchDebounce)
         model.query = "Gira"
         model.isSearchFocused = true
         try await feature.search(.init(game: .pokemon, query: model.query, languages: [], mode: .card, cursor: nil))
             .get()
         #expect(feature.history.suggestions(for: model.query, game: model.game, mode: .card).count == 2)
-        await assertScreenSnapshot(testName: #function) { makeScreen(feature: feature, model: model) }
+        await assertScreenSnapshot(testName: #function, fileID: #fileID, file: #filePath, line: #line, column: #column)
+        { makeScreen(feature: feature, model: model) }
     }
 
     @Test
     func `Renders full search history`() async {
         let feature = makeHistoryFeature()
         #expect(feature.history.entries(for: .pokemon).count == 6)
-        await assertScreenSnapshot(testName: #function) { makeHistoryScreen(feature: feature) }
+        await assertScreenSnapshot(testName: #function, fileID: #fileID, file: #filePath, line: #line, column: #column)
+        { makeHistoryScreen(feature: feature) }
     }
 
     @Test
     func `Renders empty search history`() async {
-        let feature = TCGSearch(client: .preview(pricingOutcome: .empty), history: TCGSearchHistoryStore())
+        let feature = TCGSearch(
+            client: .preview(pricingOutcome: .empty),
+            history: TCGSearchHistoryStore(defaults: nil, now: Date.init)
+        )
         #expect(feature.history.entries.isEmpty)
-        await assertScreenSnapshot(testName: #function) { makeHistoryScreen(feature: feature) }
+        await assertScreenSnapshot(testName: #function, fileID: #fileID, file: #filePath, line: #line, column: #column)
+        { makeHistoryScreen(feature: feature) }
     }
 
     @Test
     func `Renders recent searches with large text`() async {
         let feature = makeHistoryFeature()
         #expect(feature.history.entries(for: .pokemon).count == 6)
-        await assertScreenSnapshot(testName: #function) {
-            makeScreen(feature: feature, model: TCGSearchScreenModel(preferences: nil))
-                .environment(\.dynamicTypeSize, .accessibility3)
+        await assertScreenSnapshot(testName: #function, fileID: #fileID, file: #filePath, line: #line, column: #column)
+        {
+            makeScreen(
+                feature: feature,
+                model: TCGSearchScreenModel(preferences: nil, debounce: ModuleConfig.searchDebounce)
+            )
+            .environment(\.dynamicTypeSize, .accessibility3)
         }
     }
 
     private func makeHistoryFeature() -> TCGSearch {
-        let history = TCGSearchHistoryStore(now: { Date(timeIntervalSince1970: 1_753_267_800) })
+        let history = TCGSearchHistoryStore(defaults: nil, now: { Date(timeIntervalSince1970: 1_753_267_800) })
         for query in ["sv5m 072/071", "Charizard ex 199", "Pikachu", "Giratina VSTAR GG69", "Giratina", "Eevee"] {
             history.record(query: query, game: .pokemon, mode: .card)
         }

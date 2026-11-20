@@ -45,11 +45,9 @@ final class OfflineCollection {
     init(
         client: TCGClient,
         defaults: UserDefaults,
-        store: OfflineCollectionStore = .init(
-            root: URL.applicationSupportDirectory.appending(path: "OfflineCollection")
-        ),
-        grant: any OfflineCollectionAccess = OfflineCollectionGrant(namespace: "local"),
-        hasFreshAuthToken: (() -> Bool)? = nil
+        store: OfflineCollectionStore,
+        grant: any OfflineCollectionAccess,
+        hasFreshAuthToken: (() -> Bool)?
     ) {
         self.client = client.offlineCollection
         self.hasFreshAuthToken = hasFreshAuthToken ?? { client.hasFreshAuthToken }

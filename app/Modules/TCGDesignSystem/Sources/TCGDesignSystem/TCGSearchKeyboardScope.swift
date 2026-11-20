@@ -16,7 +16,7 @@ public struct TCGSearchKeyboardScope<Content: View>: View {
     private let content: (FocusState<Bool>.Binding) -> Content
 
     public init(
-        focus: FocusState<Bool>.Binding? = nil,
+        focus: FocusState<Bool>.Binding?,
         @ViewBuilder content: @escaping (FocusState<Bool>.Binding) -> Content
     ) {
         externalFocus = focus

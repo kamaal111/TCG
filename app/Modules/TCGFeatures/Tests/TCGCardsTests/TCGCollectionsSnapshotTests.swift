@@ -80,7 +80,8 @@ struct TCGCollectionsSnapshotTests {
         let collection = try #require(context.collections.selected)
         let model = BinderSlotEditorModel(
             collection: collection,
-            position: .init(pageID: CardsTestIDs.secondary, row: 1, column: 2)
+            position: .init(pageID: CardsTestIDs.secondary, row: 1, column: 2),
+            card: nil
         )
         await model.load(using: context.cards, collections: context.collections)
         #expect(model.screen == .collectionCards)
@@ -95,7 +96,8 @@ struct TCGCollectionsSnapshotTests {
         let collection = try #require(context.collections.selected)
         let model = BinderSlotEditorModel(
             collection: collection,
-            position: .init(pageID: CardsTestIDs.secondary, row: 1, column: 2)
+            position: .init(pageID: CardsTestIDs.secondary, row: 1, column: 2),
+            card: nil
         )
         await model.showCards(unfiled: true, using: context.cards, collections: context.collections)
         #expect(model.availableCards.count == 2)
@@ -110,7 +112,8 @@ struct TCGCollectionsSnapshotTests {
         let collection = try #require(context.collections.selected)
         let model = BinderSlotEditorModel(
             collection: collection,
-            position: .init(pageID: CardsTestIDs.secondary, row: 1, column: 2)
+            position: .init(pageID: CardsTestIDs.secondary, row: 1, column: 2),
+            card: nil
         )
         await model.showCards(unfiled: true, using: context.cards, collections: context.collections)
         let card = try #require(model.availableCards.first)
@@ -129,7 +132,8 @@ struct TCGCollectionsSnapshotTests {
         let collection = CollectionTestFixtures.binder(columns: 3, rows: 3)
         let model = BinderSlotEditorModel(
             collection: collection,
-            position: .init(pageID: CardsTestIDs.secondary, row: 1, column: 2)
+            position: .init(pageID: CardsTestIDs.secondary, row: 1, column: 2),
+            card: nil
         )
         await model.load(using: cards, collections: collections)
         #expect(model.error != nil)
@@ -197,10 +201,13 @@ struct TCGCollectionsSnapshotTests {
     #endif
 
     @Test func `Renders page creation in a binder without pages while browsing`() async {
-        let collection = CollectionTestFixtures.collection()
+        let collection = CollectionTestFixtures.collection(columns: 3, rows: 3, pages: [])
         #expect(collection.pages.isEmpty)
         await assertCollectionSnapshot(testName: #function) {
-            NavigationStack { TCGBinderScreen(collection: collection) }.environment(TCGCards(client: .preview()))
+            NavigationStack { TCGBinderScreen(collection: collection) }
+                .environment(
+                    TCGCards(client: .preview(hasValidCredentials: false))
+                )
         }
     }
 
@@ -212,7 +219,10 @@ struct TCGCollectionsSnapshotTests {
         )
         #expect(collection.pages.count == 2)
         await assertCollectionSnapshot(testName: #function) {
-            NavigationStack { TCGBinderScreen(collection: collection) }.environment(TCGCards(client: .preview()))
+            NavigationStack { TCGBinderScreen(collection: collection) }
+                .environment(
+                    TCGCards(client: .preview(hasValidCredentials: false))
+                )
         }
     }
 
@@ -220,7 +230,10 @@ struct TCGCollectionsSnapshotTests {
         let collection = CollectionTestFixtures.binder(columns: 1, rows: 4)
         #expect(collection.columns * collection.rows == 4)
         await assertCollectionSnapshot(testName: #function) {
-            NavigationStack { TCGBinderScreen(collection: collection) }.environment(TCGCards(client: .preview()))
+            NavigationStack { TCGBinderScreen(collection: collection) }
+                .environment(
+                    TCGCards(client: .preview(hasValidCredentials: false))
+                )
         }
     }
 
@@ -228,7 +241,10 @@ struct TCGCollectionsSnapshotTests {
         let collection = CollectionTestFixtures.binder(columns: 4, rows: 1)
         #expect(collection.pages.count == 1)
         await assertCollectionSnapshot(testName: #function) {
-            NavigationStack { TCGBinderScreen(collection: collection) }.environment(TCGCards(client: .preview()))
+            NavigationStack { TCGBinderScreen(collection: collection) }
+                .environment(
+                    TCGCards(client: .preview(hasValidCredentials: false))
+                )
         }
     }
 
@@ -237,14 +253,14 @@ struct TCGCollectionsSnapshotTests {
         #expect(collection.pages.count == 1)
         await assertCollectionSnapshot(testName: #function) {
             NavigationStack { TCGBinderScreen(collection: collection) }
-                .environment(TCGCards(client: .preview()))
+                .environment(TCGCards(client: .preview(hasValidCredentials: false)))
                 .environment(\.isEditingCollection, true)
         }
     }
 
     @Test func `Renders read only binder pages without mutation controls`() async {
         let collection = CollectionTestFixtures.binder(columns: 2, rows: 2)
-        let cards = TCGCards(client: .preview())
+        let cards = TCGCards(client: .preview(hasValidCredentials: false))
         cards.useDownloadedCards([])
         #expect(cards.isReadOnly)
         await assertCollectionSnapshot(testName: #function) {
@@ -284,7 +300,7 @@ struct TCGCollectionsSnapshotTests {
     }
 
     @Test func `Renders page dimension inputs and shortcuts`() async {
-        let client = TCGClient.preview()
+        let client = TCGClient.preview(hasValidCredentials: false)
         let collection = CollectionTestFixtures.collection(columns: 1, rows: 4, pages: [])
         #expect(collection.rows == 4)
         await assertCollectionSnapshot(testName: #function) {
@@ -329,7 +345,7 @@ struct TCGCollectionsSnapshotTests {
     }
 
     @Test func `Renders complete backup review`() async {
-        let client = TCGClient.preview()
+        let client = TCGClient.preview(hasValidCredentials: false)
         let collection = CollectionTestFixtures.collection(
             columns: 1,
             rows: 4,
@@ -349,7 +365,7 @@ struct TCGCollectionsSnapshotTests {
     }
 
     private func assertCollectionSnapshot<Screen: View>(testName: String, @ViewBuilder screen: () -> Screen) async {
-        await assertScreenSnapshot(testName: testName) {
+        await assertScreenSnapshot(testName: testName, fileID: #fileID, file: #filePath, line: #line, column: #column) {
             screen().cardImageLoader(PreviewCardImageLoader(outcome: .success)).tint(.blue)
         }
     }

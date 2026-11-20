@@ -28,7 +28,7 @@ export function planMigrations(catalog: MigrationCatalog, applied: ReadonlySet<s
       migrationFailure(`Unknown applied migration: ${name}`);
     }
 
-    for (const leaf of migrationLeaves(catalog, migration)) {
+    for (const leaf of migrationLeaves(catalog, migration, [])) {
       if (covered.has(leaf.name)) {
         migrationFailure(`Overlapping applied migration history: ${name}`);
       }
@@ -39,7 +39,7 @@ export function planMigrations(catalog: MigrationCatalog, applied: ReadonlySet<s
 
   let missing = false;
 
-  for (const leaf of catalog.active.flatMap(migration => migrationLeaves(catalog, migration))) {
+  for (const leaf of catalog.active.flatMap(migration => migrationLeaves(catalog, migration, []))) {
     if (!covered.has(leaf.name)) {
       missing = true;
     } else if (missing) {
@@ -52,10 +52,10 @@ export function planMigrations(catalog: MigrationCatalog, applied: ReadonlySet<s
       return [];
     }
 
-    const leaves = migrationLeaves(catalog, migration);
+    const leaves = migrationLeaves(catalog, migration, []);
 
     if (leaves.every(leaf => !covered.has(leaf.name))) {
-      return [migrationMeta(migration)];
+      return [migrationMeta(migration, migration.sql)];
     }
 
     if (leaves.every(leaf => covered.has(leaf.name))) {

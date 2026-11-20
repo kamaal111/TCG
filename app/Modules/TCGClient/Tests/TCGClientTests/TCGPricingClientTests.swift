@@ -274,20 +274,26 @@ private struct PricingRecordedRequest: Sendable {
 
 private let expectedPricedCard = PricedCard(
     id: "550e8400-e29b-41d4-a716-446655440000",
+    printingKey: nil,
+    isWishlisted: nil,
     game: .pokemon,
     name: "Giratina VSTAR",
     cardNumber: "GG69",
     setName: "Crown Zenith",
     rarity: "Secret Rare",
     illustrator: nil,
-    headline: .init(amount: 146.69, currency: .usd),
+    variantName: nil,
+    imageURL: nil,
+    headline: .init(amount: 146.69, currency: .usd, metric: .lowestNearMint),
     market: .init(
+        condition: .nearMint,
         currency: .usd,
         low: 146.69,
         market: 172.42,
         trend7d: .init(priceChange: 7.36, percentChange: 4.46),
         trend30d: .init(priceChange: 13.88, percentChange: 8.75)
     ),
+    display: nil,
     pricedOn: Date(timeIntervalSince1970: 1_784_764_800),
     fetchedAt: Date(timeIntervalSince1970: 1_753_266_600)
 )

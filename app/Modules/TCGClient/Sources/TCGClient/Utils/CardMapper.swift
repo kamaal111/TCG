@@ -188,7 +188,7 @@ enum CardMapper {
         return cardResult.map { card in
             CardWithPrice(
                 card: card,
-                price: .init(cardId: card.id, status: .pending),
+                price: .init(cardId: card.id, status: .pending, price: nil),
                 imageURL: details.value2.artworkUrl.flatMap(URL.init(string:))
             )
         }
@@ -201,7 +201,7 @@ enum CardMapper {
             .flatMap { card in
                 PricedCardMapper.makeOwnedPrice(cardWithPrice.value2.price)
                     .map { price in
-                        CardWithPrice(card: card, price: price)
+                        CardWithPrice(card: card, price: price, imageURL: nil)
                     }
             }
     }

@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 
-export type RunOperation = (work: (signal: AbortSignal) => Promise<void>, interactive?: boolean) => Promise<void>;
+export type RunOperation = (work: (signal: AbortSignal) => Promise<void>, interactive: boolean) => Promise<void>;
 
 export function usePortalOperation() {
   const [busy, setBusy] = useState(false);
   const operation = useRef<{ controller: AbortController; interactive: boolean } | null>(null);
 
-  async function perform(work: (signal: AbortSignal) => Promise<void>, interactive = true) {
+  async function perform(work: (signal: AbortSignal) => Promise<void>, interactive: boolean) {
     if (operation.current?.interactive || (operation.current && !interactive)) {
       return;
     }

@@ -116,7 +116,7 @@ if(process.env.TCG_TEST_UPLOAD_FAILURE){console.error('Upload credentials reject
     TCG_TEST_CALLS: calls,
   };
 
-  const invoke = (mode: string, platform: string, args: string[] = [], extra: Record<string, string> = {}) => {
+  const invoke = (mode: string, platform: string, args: string[], extra: Record<string, string>) => {
     return execute(
       'bash',
       [path.join(root, 'scripts/app-release.sh'), mode, platform, ...args, '--config-dir', config],
@@ -162,7 +162,7 @@ describe.runIf(process.platform === 'darwin')('native shell release pipeline', (
     'releases $platform with local export followed by private-credential upload',
     async ({ platform, destination }) => {
       const f = await fixture();
-      const result = await f.invoke('release', platform);
+      const result = await f.invoke('release', platform, [], {});
       expect(result.stdout).toContain('Uploaded to App Store Connect; processing pending.');
       expect(result.stdout.trim().split('\n').at(-1)).toContain(`Release complete: ${platform} version 1.0 (build 1).`);
       expect(result.stdout).not.toContain('Approve');
@@ -182,7 +182,7 @@ describe.runIf(process.platform === 'darwin')('native shell release pipeline', (
         fingerprint: appFingerprint(platform, f.sha, settings),
       });
       await expect(fs.access(path.join(f.config, 'app-release.lock'))).rejects.toThrow('ENOENT');
-      await expect(f.invoke('release', platform)).rejects.toMatchObject({
+      await expect(f.invoke('release', platform, [], {})).rejects.toMatchObject({
         stderr: expect.stringContaining('already uploaded'),
       });
     },
@@ -190,7 +190,7 @@ describe.runIf(process.platform === 'darwin')('native shell release pipeline', (
 
   test('formats Xcode output while keeping private logs raw', async () => {
     const f = await fixture();
-    const result = await f.invoke('release', 'ios');
+    const result = await f.invoke('release', 'ios', [], {});
     expect(result.stdout).toContain('pretty: Archive fixture completed');
     expect(result.stdout).toContain('pretty: Export fixture completed');
     expect(result.stdout).toContain('Upload fixture completed [private email] [private password]');
@@ -216,7 +216,7 @@ describe.runIf(process.platform === 'darwin')('native shell release pipeline', (
     await fs.writeFile(path.join(f.directory, 'bin/xcbeautify'), `#!${process.execPath}\nprocess.exit(${code});`, {
       mode: 0o755,
     });
-    const result = await f.invoke('release', 'ios');
+    const result = await f.invoke('release', 'ios', [], {});
     expect(result.stdout).toContain('Uploaded to App Store Connect; processing pending.');
     expect(await f.records()).toHaveLength(3);
     expect(await f.summary()).toMatchObject({ state: 'uploaded' });
@@ -249,7 +249,7 @@ describe.runIf(process.platform === 'darwin')('native shell release pipeline', (
         );
       }
 
-      const result = await f.invoke('release', platform);
+      const result = await f.invoke('release', platform, [], {});
       expect(result.stdout).toContain('Uploaded to App Store Connect; processing pending.');
       expect(result.stdout).not.toContain('Waiting for the release Mac');
       expect(result.stderr).not.toContain('Unexpected session check');
@@ -261,7 +261,7 @@ describe.runIf(process.platform === 'darwin')('native shell release pipeline', (
   test('a failed idle-sleep helper does not block release', async () => {
     const f = await fixture();
     await fs.writeFile(path.join(f.directory, 'bin/caffeinate'), '#!/bin/bash\nexit 1\n', { mode: 0o755 });
-    const result = await f.invoke('release', 'ios');
+    const result = await f.invoke('release', 'ios', [], {});
     expect(result.stdout).toContain('Uploaded to App Store Connect; processing pending.');
     expect(await f.records()).toHaveLength(3);
     expect(await f.summary()).toMatchObject({ state: 'uploaded' });
@@ -269,7 +269,7 @@ describe.runIf(process.platform === 'darwin')('native shell release pipeline', (
 
   test('archive-only uses Xcode automatic signing without API credentials or upload', async () => {
     const f = await fixture();
-    const result = await f.invoke('archive', 'ios');
+    const result = await f.invoke('archive', 'ios', [], {});
     expect(result.stdout).toContain('Archive ready:');
     expect(await f.records()).toHaveLength(1);
     expect((await f.records())[0]).toContain('-allowProvisioningUpdates');
@@ -359,7 +359,7 @@ describe.runIf(process.platform === 'darwin')('native shell release pipeline', (
 
   test('exports locally and uploads the package with an environment password reference', async () => {
     const f = await fixture();
-    await f.invoke('release', 'ios');
+    await f.invoke('release', 'ios', [], {});
     const calls = await f.records();
     expect(calls[2]).toContain('altool');
     expect(calls[2]).toContain('--upload-app');
@@ -374,7 +374,7 @@ describe.runIf(process.platform === 'darwin')('native shell release pipeline', (
   test('missing private upload settings stop before any Apple command', async () => {
     const f = await fixture();
     await fs.rm(path.join(f.config, 'app-store-connect.json'));
-    await expect(f.invoke('release', 'ios')).rejects.toMatchObject({
+    await expect(f.invoke('release', 'ios', [], {})).rejects.toMatchObject({
       stderr: expect.stringContaining('save your App Store Connect email'),
     });
     expect(await f.records()).toEqual([]);
@@ -389,7 +389,7 @@ describe.runIf(process.platform === 'darwin')('native shell release pipeline', (
     const sessions = await fs.readdir(path.join(f.config, 'app-releases'));
     const archive = path.join(f.config, 'app-releases', sessions[0] ?? '', 'Mintomo.xcarchive');
     expect(await f.summary()).toMatchObject({ state: 'failed' });
-    const retried = await f.invoke('upload', 'ios', [archive]);
+    const retried = await f.invoke('upload', 'ios', [archive], {});
     expect(retried.stdout).toContain('Uploaded to App Store Connect');
     expect((await f.records()).filter(args => args.includes('archive'))).toHaveLength(1);
     expect(await f.summary()).toMatchObject({ state: 'uploaded' });
@@ -397,7 +397,7 @@ describe.runIf(process.platform === 'darwin')('native shell release pipeline', (
 
   test('upload-only reports the retained archive version and build in the final message', async () => {
     const f = await fixture();
-    await f.invoke('archive', 'ios');
+    await f.invoke('archive', 'ios', [], {});
     const sessions = await fs.readdir(path.join(f.config, 'app-releases'));
     const archive = path.join(f.config, 'app-releases', sessions[0] ?? '', 'Mintomo.xcarchive');
     await execute('plutil', [
@@ -407,14 +407,14 @@ describe.runIf(process.platform === 'darwin')('native shell release pipeline', (
       '42',
       path.join(archive, 'Info.plist'),
     ]);
-    const result = await f.invoke('upload', 'ios', [archive]);
+    const result = await f.invoke('upload', 'ios', [archive], {});
     expect(result.stdout.trim().split('\n').at(-1)).toContain('Release complete: ios version 1.0 (build 42).');
     expect((await f.records()).filter(args => args.includes('archive'))).toHaveLength(1);
   });
 
   test('upload-only rejects changed release settings without modifying archive history', async () => {
     const f = await fixture();
-    await f.invoke('archive', 'ios');
+    await f.invoke('archive', 'ios', [], {});
     const original = await f.summary();
     const sessions = await fs.readdir(path.join(f.config, 'app-releases'));
     const archive = path.join(f.config, 'app-releases', sessions[0] ?? '', 'Mintomo.xcarchive');
@@ -422,7 +422,7 @@ describe.runIf(process.platform === 'darwin')('native shell release pipeline', (
       path.join(f.config, 'app-release.json'),
       JSON.stringify({ ...settings, apiHost: 'other.mintomo.com' }),
     );
-    await expect(f.invoke('upload', 'ios', [archive])).rejects.toMatchObject({
+    await expect(f.invoke('upload', 'ios', [archive], {})).rejects.toMatchObject({
       stderr: expect.stringContaining('Archive settings differ'),
     });
     expect(await f.records()).toHaveLength(1);

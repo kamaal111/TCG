@@ -92,7 +92,7 @@ export class CardImageProcessor {
         }
 
         const leaseOwner = `${INSTANCE_ID}:${crypto.randomUUID()}`;
-        const claimed = await this.dependencies.repository.claimBatch(leaseOwner, capacity);
+        const claimed = await this.dependencies.repository.claimBatch(leaseOwner, capacity, new Date());
 
         for (const row of claimed) {
           this.activeWorkers += 1;

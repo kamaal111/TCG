@@ -279,7 +279,7 @@ struct TCGCardFormScreenModelTests {
         )
         model.values.defaultMarketPrice = 12.5
         model.values.defaultMarketCurrency = .usd
-        let original = PurchaseBatchFormValue(condition: .nearMint, quantity: 2, currency: .usd)
+        let original = PurchaseBatchFormValue(condition: .nearMint, quantity: 2, priceText: "", currency: .usd)
         let updated = model.values.applyingMarketDefault(to: original)
         #expect(original.priceText.isEmpty)
         #expect(original.currency == .usd)
@@ -547,8 +547,8 @@ struct TCGCardFormScreenModelTests {
     func `Multiple purchases in one condition retain individual costs and aggregate quantities`() {
         let model = TCGCardFormScreenModel(mode: .add(CardsTestIDs.addPrinting), initialValues: validValues)
         model.values.batches = [
-            .init(condition: .nearMint, quantity: 2, priceText: "2"),
-            .init(condition: .nearMint, quantity: 3, priceText: "4"),
+            .init(condition: .nearMint, quantity: 2, priceText: "2", currency: .fallback),
+            .init(condition: .nearMint, quantity: 3, priceText: "4", currency: .fallback),
         ]
         #expect(model.values.quantities == [.nearMint: 5])
         #expect(model.values.payload.purchases.map(\.purchasePrice) == [Decimal(2), Decimal(4)])
@@ -578,11 +578,26 @@ struct TCGCardFormScreenModelTests {
     func `A missing average does not use the lowest price`() {
         let card = PricedCard(
             id: "low-only",
+            printingKey: nil,
+            isWishlisted: nil,
             game: .pokemon,
             name: "Pikachu",
             cardNumber: "58",
+            setName: nil,
+            rarity: nil,
             illustrator: nil,
-            market: MarketPrice(currency: .usd, low: 10),
+            variantName: nil,
+            imageURL: nil,
+            headline: nil,
+            market: MarketPrice(
+                condition: .nearMint,
+                currency: .usd,
+                low: 10,
+                market: nil,
+                trend7d: nil,
+                trend30d: nil
+            ),
+            display: nil,
             pricedOn: .now,
             fetchedAt: .now
         )

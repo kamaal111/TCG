@@ -11,6 +11,7 @@ export async function requireWebBundle(): Promise<void> {
   } catch {
     throw new InfraFailure(
       'The Devportal web build is missing. Rerun just install-devportal-agent or just build-devportal-web.',
+      1,
     );
   }
 }

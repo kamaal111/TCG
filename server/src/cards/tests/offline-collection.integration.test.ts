@@ -132,7 +132,7 @@ describe('Offline collection integration', () => {
       const first = await app.request(`${path}/manifest`, { headers: authenticatedHeaders });
       expect(first.status).toBe(200);
       const initial = ManifestSchema.parse(await first.json());
-      const other = await createUser();
+      const other = await createUser({});
 
       const foreign = await app.request(`${path}/records`, {
         method: 'POST',

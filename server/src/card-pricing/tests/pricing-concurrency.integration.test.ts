@@ -23,7 +23,7 @@ import { StaticScrydexClient } from '../scrydex/static-client.ts';
 integrationTest(
   'card reads finish during concurrent cold price requests with two application connections',
   async ({ app, db, user, authenticatedHeaders: headers, connectionString, storageClient }) => {
-    const collection = await createTestCollection(app, headers);
+    const collection = await createTestCollection(app, headers, { name: 'Favorites' });
 
     const inputs = [
       { name: 'Giratina VSTAR', card_number: 'GG69', set_name: 'Crown Zenith' },

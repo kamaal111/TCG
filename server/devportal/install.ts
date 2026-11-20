@@ -29,6 +29,7 @@ async function waitForStoppedService(directory: string): Promise<() => Promise<v
       if (!(error instanceof Conflict) || Date.now() >= deadline) {
         throw new InfraFailure(
           'The existing Devportal process has not stopped. Nothing was updated. Rerun just install-devportal-agent when it has stopped.',
+          1,
         );
       }
 
@@ -47,6 +48,7 @@ export async function installDevportalAgent(options: InstallOptions): Promise<vo
     if (!z.object({ code: z.literal('ENOENT') }).safeParse(error).success) {
       throw new InfraFailure(
         'Existing devportal.json is invalid or unreadable. It has been preserved; repair it before rerunning just install-devportal-agent.',
+        1,
       );
     }
 
@@ -65,12 +67,14 @@ export async function installDevportalAgent(options: InstallOptions): Promise<vo
     if (gitCurrentBranch(commands.read).trim() !== 'main') {
       throw new InfraFailure(
         'Run just install-devportal-agent from the persistent main checkout used by this Mac. The service was left running.',
+        1,
       );
     }
 
     if (gitStatus(commands.read).trim()) {
       throw new InfraFailure(
         'This checkout has local changes. Commit or move them before rerunning just install-devportal-agent. The service was left running.',
+        1,
       );
     }
 
@@ -89,6 +93,7 @@ async function requireFastForward(commands: PortalCommands, target: string): Pro
   } catch {
     throw new InfraFailure(
       'Local main cannot fast-forward to merged origin/main. Keep local commits on another branch before rerunning just install-devportal-agent. The service was left running.',
+      1,
     );
   }
 }
@@ -101,6 +106,7 @@ async function updateCheckout({ configDirectory, commands, stop }: InstallOption
     if (gitCurrentBranch(commands.read).trim() !== 'main' || gitStatus(commands.read).trim()) {
       throw new InfraFailure(
         'The checkout changed during the update. Local work was preserved. Rerun just install-devportal-agent once main is clean.',
+        1,
       );
     }
 

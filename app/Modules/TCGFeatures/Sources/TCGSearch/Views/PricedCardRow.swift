@@ -144,6 +144,7 @@ struct CardHeadlinePrice: View {
             CurrencyAmount(
                 headline.amount,
                 currency: headline.currency,
+                label: nil,
                 conversionUnavailable: card.conversionUnavailable
             )
             .font(.title3.weight(.semibold).monospacedDigit())

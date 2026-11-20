@@ -5,9 +5,9 @@ import Testing
 
 enum CollectionTestFixtures {
     static func collection(
-        columns: Int = 3,
-        rows: Int = 3,
-        pages: [BinderPage] = []
+        columns: Int,
+        rows: Int,
+        pages: [BinderPage]
     ) -> CardBinderCollection {
         CardBinderCollection(
             id: CardsTestIDs.primary,
@@ -28,7 +28,7 @@ enum CollectionTestFixtures {
 
     @MainActor
     static func loadedContext() async -> Context {
-        let client = TCGClient.preview()
+        let client = TCGClient.preview(hasValidCredentials: false)
         let cards = TCGCards(client: client)
         let collections = TCGCollections(client: client, defaults: nil)
         await collections.reload(using: cards, force: true, loadsList: true)

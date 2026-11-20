@@ -4,11 +4,7 @@ import { ConfigStore, homePath, readSettingsFile } from '../infra/config.ts';
 import { InfraFailure } from '../infra/errors.ts';
 import { ReleaseRepositorySchema } from '../release-metadata.ts';
 
-export async function releaseConnection(
-  root: string,
-  configDirectory: string,
-  overrides: NodeJS.ProcessEnv = process.env,
-) {
+export async function releaseConnection(root: string, configDirectory: string, overrides: NodeJS.ProcessEnv) {
   const store = new ConfigStore({ repositoryRoot: root, configDirectory });
   const release = await store.readEnvironment('release');
   const releaseEnvironment = { ...release.values };
@@ -27,7 +23,7 @@ export async function releaseConnection(
     .safeParse(releaseEnvironment);
 
   if (!settings.success) {
-    throw new InfraFailure('Release settings are missing or invalid. Run just setup-infra first.');
+    throw new InfraFailure('Release settings are missing or invalid. Run just setup-infra first.', 1);
   }
 
   const environment = {
@@ -43,7 +39,7 @@ export async function releaseConnection(
   const hosts = await readSettingsFile(environment.TCG_KNOWN_HOSTS);
 
   if (!key || !hosts) {
-    throw new InfraFailure('Deployment key or verified known_hosts is missing. Run just setup-infra.');
+    throw new InfraFailure('Deployment key or verified known_hosts is missing. Run just setup-infra.', 1);
   }
 
   return { store, release, releaseEnvironment, settings: settings.data, environment, key, hosts };

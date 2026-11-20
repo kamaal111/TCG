@@ -45,7 +45,9 @@ public struct CardImageExplorer: View {
         }
         .tcgSheet(
             Text("Explore image", bundle: .module),
-            closeLabel: Text("Close", bundle: .module)
+            closeLabel: Text("Close", bundle: .module),
+            closeDisabled: false,
+            onClose: nil
         )
         .background(.background)
         .onChange(of: url) { _, _ in zoom.reset() }

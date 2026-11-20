@@ -26,7 +26,8 @@ struct TCGCardFormScreenSnapshotTests {
         model.values.batches[0].priceWasEdited = true
         #expect(model.values.batches[0].price == 5)
         #expect(model.values.batches[0].quantity == 2)
-        await assertScreenSnapshot(testName: #function) {
+        await assertScreenSnapshot(testName: #function, fileID: #fileID, file: #filePath, line: #line, column: #column)
+        {
             makeScreen(model: model).environment(\.tcgPricePrivacy, privacy)
         }
     }
@@ -38,8 +39,8 @@ struct TCGCardFormScreenSnapshotTests {
             initialValues: nil
         )
         model.values.batches = [
-            .init(condition: .nearMint, quantity: 2),
-            .init(condition: .nearMint, quantity: 3, priceText: "4"),
+            .init(condition: .nearMint, quantity: 2, priceText: "", currency: .fallback),
+            .init(condition: .nearMint, quantity: 3, priceText: "4", currency: .fallback),
         ]
         model.values.batches[1].priceWasEdited = true
         model.values.defaultMarketPrice = 300
@@ -53,14 +54,16 @@ struct TCGCardFormScreenSnapshotTests {
         #expect(model.values.batches[0].priceText == "2")
         #expect(model.values.batches[0].currency == .usd)
         #expect(model.values.quantities == [.nearMint: 5])
-        await assertScreenSnapshot(testName: #function) { makeScreen(model: model) }
+        await assertScreenSnapshot(testName: #function, fileID: #fileID, file: #filePath, line: #line, column: #column)
+        { makeScreen(model: model) }
     }
 
     @Test
     func `Renders a searched Pokemon add form`() async {
         let card = PreviewTCGPricingClient.samplePricedCards[1]
         #expect(card.game == .pokemon)
-        await assertScreenSnapshot(testName: #function) {
+        await assertScreenSnapshot(testName: #function, fileID: #fileID, file: #filePath, line: #line, column: #column)
+        {
             TCGCardFormScreen(pricedCard: card, onAdded: {})
                 .environment(TCGCards(client: .preview(cardsOutcome: .empty)))
         }
@@ -70,7 +73,8 @@ struct TCGCardFormScreenSnapshotTests {
     func `Renders a searched One Piece add form`() async {
         let card = PreviewTCGPricingClient.samplePricedCards[0]
         #expect(card.game == .onePiece)
-        await assertScreenSnapshot(testName: #function) {
+        await assertScreenSnapshot(testName: #function, fileID: #fileID, file: #filePath, line: #line, column: #column)
+        {
             TCGCardFormScreen(pricedCard: card, onAdded: {})
                 .environment(TCGCards(client: .preview(cardsOutcome: .empty)))
         }
@@ -78,7 +82,8 @@ struct TCGCardFormScreenSnapshotTests {
 
     @Test
     func `Renders a prefilled edit form`() async {
-        await assertScreenSnapshot(testName: #function) {
+        await assertScreenSnapshot(testName: #function, fileID: #fileID, file: #filePath, line: #line, column: #column)
+        {
             makeScreen(model: .init(mode: .edit(PreviewTCGCardsClient.sampleCards[0]), initialValues: nil))
         }
     }
@@ -86,9 +91,10 @@ struct TCGCardFormScreenSnapshotTests {
     @Test
     func `Renders an unfiled edit form before collections load`() async {
         let model = TCGCardFormScreenModel(mode: .edit(PreviewTCGCardsClient.sampleCards[0]), initialValues: nil)
-        let collections = TCGCollections(client: .preview(), defaults: nil)
+        let collections = TCGCollections(client: .preview(hasValidCredentials: false), defaults: nil)
         #expect(model.values.collectionID == nil)
-        await assertScreenSnapshot(testName: #function) {
+        await assertScreenSnapshot(testName: #function, fileID: #fileID, file: #filePath, line: #line, column: #column)
+        {
             makeScreen(model: model).environment(\.tcgCollections, collections)
         }
         #expect(model.values.collectionID == nil)
@@ -99,7 +105,8 @@ struct TCGCardFormScreenSnapshotTests {
     func `Renders validation errors`() async {
         let model = TCGCardFormScreenModel(mode: .add(CardsTestIDs.addPrinting), initialValues: nil)
         _ = await model.submit(using: TCGCards(client: .preview(cardsOutcome: .empty)))
-        await assertScreenSnapshot(testName: #function) { makeScreen(model: model) }
+        await assertScreenSnapshot(testName: #function, fileID: #fileID, file: #filePath, line: #line, column: #column)
+        { makeScreen(model: model) }
     }
 
     private func makeScreen(model: TCGCardFormScreenModel) -> some View {

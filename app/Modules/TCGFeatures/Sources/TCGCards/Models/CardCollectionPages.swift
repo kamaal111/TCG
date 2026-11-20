@@ -13,7 +13,7 @@ struct CardCollectionPages {
     var visitedCursors: Set<String> { pagination.visitedCursors }
     var pageCount: Int { pagination.pageCount }
 
-    init(cards: [CardWithPrice] = [], pagination: CursorPagination = .init()) {
+    init(cards: [CardWithPrice], pagination: CursorPagination) {
         pages = CursorPages(rows: cards, pagination: pagination, identity: \.card.id)
     }
 

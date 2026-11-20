@@ -18,7 +18,7 @@ public struct OwnedCardPrice: Codable, Hashable, Sendable {
     public let status: OwnedCardPriceStatus
     public let price: PricedCard?
 
-    public init(cardId: UUID, status: OwnedCardPriceStatus, price: PricedCard? = nil) {
+    public init(cardId: UUID, status: OwnedCardPriceStatus, price: PricedCard?) {
         self.cardId = cardId
         self.status = status
         self.price = price

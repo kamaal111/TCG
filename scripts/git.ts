@@ -15,7 +15,7 @@ interface LogOptions {
 
 const LOG_FORMATS = { summary: '%h %s', commits: '%H%x00%P%x00%s%x00%an%x00%aI' } as const;
 
-export function gitFetch<Output>(command: Command<Output>, options: FetchOptions = {}): Output {
+export function gitFetch<Output>(command: Command<Output>, options: FetchOptions): Output {
   return command('git', [
     'fetch',
     ...(options.noTags ? ['--no-tags'] : []),
@@ -24,7 +24,7 @@ export function gitFetch<Output>(command: Command<Output>, options: FetchOptions
   ]);
 }
 
-export function gitRevision<Output>(command: Command<Output>, revision = 'HEAD'): Output {
+export function gitRevision<Output>(command: Command<Output>, revision: string): Output {
   return command('git', ['rev-parse', '--verify', '--end-of-options', `${revision}^{commit}`]);
 }
 
@@ -88,6 +88,6 @@ export function gitRemoveWorktree<Output>(
   return command('git', ['worktree', 'remove', ...(options.force ? ['--force'] : []), options.path]);
 }
 
-export function gitRemoteUrl<Output>(command: Command<Output>, remote = 'origin'): Output {
+export function gitRemoteUrl<Output>(command: Command<Output>, remote: string): Output {
   return command('git', ['remote', 'get-url', remote]);
 }

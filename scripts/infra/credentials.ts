@@ -134,18 +134,18 @@ export async function askCredential({
   credential,
   prompts,
   document,
-  replace = false,
+  replace,
 }: {
   credential: Credential;
   prompts: Prompts;
   document: EnvironmentDocument;
-  replace?: boolean;
+  replace: boolean;
 }): Promise<Record<string, string>> {
   if (
     credential.fields.length &&
     !replace &&
     credential.fields.every(field => Boolean(document.values[field.key])) &&
-    (await prompts.confirm(`${credential.label}: configured — keep existing?`))
+    (await prompts.confirm(`${credential.label}: configured — keep existing?`, true))
   ) {
     return { ...credential.environment };
   }

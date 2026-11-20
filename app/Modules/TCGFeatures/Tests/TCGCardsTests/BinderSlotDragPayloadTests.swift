@@ -35,12 +35,16 @@ struct BinderSlotDragPayloadTests {
     }
 
     private func collection() -> CardBinderCollection {
-        CollectionTestFixtures.collection(pages: [
-            .init(
-                id: CardsTestIDs.secondary,
-                slots: [.init(row: 1, column: 1, cardID: CardsTestIDs.splitCard, quantity: 3)]
-            )
-        ])
+        CollectionTestFixtures.collection(
+            columns: 3,
+            rows: 3,
+            pages: [
+                .init(
+                    id: CardsTestIDs.secondary,
+                    slots: [.init(row: 1, column: 1, cardID: CardsTestIDs.splitCard, quantity: 3)]
+                )
+            ]
+        )
     }
 
     private func payload() -> BinderSlotDragPayload {

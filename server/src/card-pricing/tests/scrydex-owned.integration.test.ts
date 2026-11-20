@@ -15,6 +15,7 @@ import {
 import { cardPrice } from '../../db/schema/card-pricing.ts';
 import { card } from '../../db/schema/cards.ts';
 import { integrationTest } from '../../tests/fixtures.ts';
+import { createTestRequestId } from '../../tests/logs.ts';
 import { StaticScrydexClient } from '../scrydex/static-client.ts';
 
 const providerCard = {
@@ -45,7 +46,7 @@ describe('Scrydex owned-card pricing', () => {
         expect(url.searchParams.get('include')).toBe('prices');
 
         return Response.json({ status: 'success', data: providerCard });
-      });
+      }, {});
 
       const realApp = createApp({ pricingClient });
       const first = await requestOwnedPrices(realApp, authenticatedHeaders, [created.id]);
@@ -75,7 +76,7 @@ describe('Scrydex owned-card pricing', () => {
         .where(eq(card.id, created.id));
 
       const realApp = createApp({ pricingClient: new UnexpectedPricingClient() });
-      const { headers, requestId } = withRequestId(authenticatedHeaders);
+      const { headers, requestId } = withRequestId(authenticatedHeaders, createTestRequestId());
       const response = await requestOwnedPrices(realApp, headers, [created.id]);
       expect(response.status).toBe(500);
       expect(getLogsForRequestId(requestId)).toEqual(
@@ -93,7 +94,7 @@ describe('Scrydex owned-card pricing', () => {
   integrationTest(
     'uses the cached printing and allows ownership updates when its price provider is unavailable',
     async ({ db, createApp, user, authenticatedHeaders }) => {
-      const pricingClient = createTestScrydexClient(async () => Response.json({ data: null }));
+      const pricingClient = createTestScrydexClient(async () => Response.json({ data: null }), {});
 
       const realApp = createApp({ pricingClient });
       const printing = await seedCatalogPrinting(db, validCardPayload, 'scrydex_real');
@@ -152,10 +153,10 @@ describe('Scrydex owned-card pricing', () => {
           return url.pathname.endsWith(providerCard.id)
             ? Response.json({ data: providerCard })
             : Response.json({ data: null });
-        });
+        }, {});
 
         const realApp = createApp({ pricingClient });
-        const { headers, requestId } = withRequestId(authenticatedHeaders);
+        const { headers, requestId } = withRequestId(authenticatedHeaders, createTestRequestId());
         const response = await requestOwnedPrices(realApp, headers, [failed.id, successful.id]);
         expect(response.status).toBe(200);
         const body = OwnedCardPricesSchema.parse(await response.json());

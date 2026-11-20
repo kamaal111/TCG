@@ -10,15 +10,19 @@ import type { HonoEnvironment } from '../../context.ts';
 import env from '../../env.ts';
 import { expectErrorResponse } from '../../tests/auth.ts';
 import { integrationTest } from '../../tests/fixtures.ts';
+import { createTestRequestId } from '../../tests/logs.ts';
 import { TOKEN_ROUTE_PATH } from '../constants.ts';
 
 describe('Token integration', () => {
   integrationTest(
     'returns a JWT and refresh headers for a valid session token',
     async ({ app, getLogsForRequestId, withRequestId, user: createdUser }) => {
-      const { headers, requestId } = withRequestId({
-        Authorization: `Bearer ${createdUser.sessionToken}`,
-      });
+      const { headers, requestId } = withRequestId(
+        {
+          Authorization: `Bearer ${createdUser.sessionToken}`,
+        },
+        createTestRequestId(),
+      );
 
       const response = await sendTokenRequest(app, headers);
 
@@ -56,7 +60,7 @@ describe('Token integration', () => {
   );
 
   integrationTest('rejects a missing session token', async ({ app, getLogsForRequestId, withRequestId }) => {
-    const { headers, requestId } = withRequestId();
+    const { headers, requestId } = withRequestId({}, createTestRequestId());
     const response = await sendTokenRequest(app, headers);
 
     await expectErrorResponse(response, CONTENTFUL_STATUS_CODES.UNAUTHORIZED);
@@ -85,7 +89,7 @@ describe('Token integration', () => {
       const jwt = tokenResponse.headers.get('set-auth-token');
       assert(isString(jwt), 'Token responses must include an authentication token header');
 
-      const { headers, requestId } = withRequestId({ Authorization: `Bearer ${jwt}` });
+      const { headers, requestId } = withRequestId({ Authorization: `Bearer ${jwt}` }, createTestRequestId());
       const response = await sendTokenRequest(app, headers);
 
       expect(await expectErrorResponse(response, CONTENTFUL_STATUS_CODES.UNAUTHORIZED)).toMatchObject({

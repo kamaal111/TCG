@@ -5,8 +5,8 @@ extension View {
     public func tcgSheet(
         _ title: Text,
         closeLabel: Text,
-        closeDisabled: Bool = false,
-        onClose: (() -> Void)? = nil
+        closeDisabled: Bool,
+        onClose: (() -> Void)?
     ) -> some View {
         tcgSheet(title, closeLabel: closeLabel, closeDisabled: closeDisabled, onClose: onClose) { EmptyView() }
     }
@@ -14,8 +14,8 @@ extension View {
     public func tcgSheet<Confirmation: View>(
         _ title: Text,
         closeLabel: Text,
-        closeDisabled: Bool = false,
-        onClose: (() -> Void)? = nil,
+        closeDisabled: Bool,
+        onClose: (() -> Void)?,
         @ViewBuilder confirmation: () -> Confirmation
     ) -> some View {
         TCGSheet(

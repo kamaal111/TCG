@@ -55,7 +55,7 @@ public final class TCGSearch {
     ///
     /// - Returns: A feature whose history persists across app launches.
     public static func `default`() -> TCGSearch {
-        TCGSearch(client: .default(), history: TCGSearchHistoryStore(defaults: .standard))
+        TCGSearch(client: .default(), history: TCGSearchHistoryStore(defaults: .standard, now: Date.init))
     }
 
     public func resetDisplayPrices() {

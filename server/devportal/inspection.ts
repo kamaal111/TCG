@@ -56,7 +56,7 @@ async function inspectGit(root: string, host: z.infer<typeof HostSchema> | null,
 
 export async function inspectServer(options: ReleaseSettings, page: number): Promise<ServerStatus> {
   try {
-    const { environment: env } = await releaseConnection(options.root, options.configDirectory);
+    const { environment: env } = await releaseConnection(options.root, options.configDirectory, process.env);
 
     const host = await inspectHost(options, env);
 
@@ -132,14 +132,20 @@ export async function inspectApp(options: ReleaseSettings, platform: Platform, p
 }
 
 async function inspectAppReview(options: ReleaseSettings, platform: Platform, page: number): Promise<AppStatus> {
-  const command: Command = async (program, args, cwd = options.root) => {
+  const command: Command = async (program, args, cwd) => {
     return (await execute(program, args, { cwd, timeout: 30000 })).stdout.trim();
   };
 
   const { sha, version } = await inspectAppSource(options.root, 'origin/main', command);
   const settings = await readAppSettings(options.configDirectory).catch(() => null);
   const uploaded = await lastAppUpload(options.configDirectory, platform);
-  const git = await pendingCommits((program, args) => command(program, args), uploaded?.sha ?? null, sha, page);
+
+  const git = await pendingCommits(
+    (program, args) => command(program, args, options.root),
+    uploaded?.sha ?? null,
+    sha,
+    page,
+  );
 
   let blocker = APP_SETUP_REQUIRED;
 

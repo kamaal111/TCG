@@ -41,6 +41,7 @@ export function migrationStatus(output: string): MigrationStatus {
   } catch {
     throw new InfraFailure(
       'Cannot determine migration readiness. Check database connectivity and the private release log; no migrations were started.',
+      1,
     );
   }
 }
@@ -57,6 +58,7 @@ function parseMigrationStatus(output: string): MigrationStatus {
   if (!parsed.success || (parsed.data.status === 'ready') !== (parsed.data.pending === 0)) {
     throw new InfraFailure(
       'Cannot determine migration readiness. Check the private release log; no migrations were started.',
+      1,
     );
   }
 

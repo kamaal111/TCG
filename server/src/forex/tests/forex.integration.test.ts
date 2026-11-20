@@ -40,7 +40,7 @@ integrationTest(
       ]),
     );
     expect(failures.filter(log => log.event === 'forex.snapshot.loaded')).toHaveLength(0);
-    await seedExchangeRate(db);
+    await seedExchangeRate(db, {});
     const response = await app.request(LATEST_SNAPSHOT_ROUTE_PATH, { headers });
     expect(response.status).toBe(200);
     const requestId = response.headers.get('tcg-request-id');
@@ -184,7 +184,7 @@ integrationTest(
       code: 'EXCHANGE_RATES_UNAVAILABLE',
       message: 'No exchange rates available',
     });
-    await seedExchangeRate(db);
+    await seedExchangeRate(db, {});
     const response = await app.request(LATEST_SNAPSHOT_ROUTE_PATH, { headers });
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ base: 'EUR', date: '2026-10-16', rates: { EUR: 1, USD: 1.25, JPY: 150 } });
@@ -221,7 +221,7 @@ integrationTest(
 
     assert(stored.isErr());
     expect(stored.error).toBeInstanceOf(ForexStoredSnapshotInvalid);
-    const collection = await service.collectLatest();
+    const collection = await service.collectLatest(new Date());
     assert(collection.isErr());
     expect(collection.error).toBeInstanceOf(ForexStoredSnapshotInvalid);
     expect(fetchFeed).not.toHaveBeenCalled();
@@ -251,11 +251,14 @@ integrationTest('captures database read and write failures in repository results
   expect(read.error).toBeInstanceOf(ForexReadFailed);
   expect(read.error.cause).toBeInstanceOf(Error);
 
-  const write = await repository.storeSnapshot({
-    base: 'EUR',
-    date: '2026-10-16',
-    rates: { EUR: 1, USD: 1.2, JPY: 140 },
-  });
+  const write = await repository.storeSnapshot(
+    {
+      base: 'EUR',
+      date: '2026-10-16',
+      rates: { EUR: 1, USD: 1.2, JPY: 140 },
+    },
+    new Date(),
+  );
 
   assert(write.isErr());
   expect(write.error).toBeInstanceOf(ForexWriteFailed);

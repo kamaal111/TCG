@@ -96,7 +96,7 @@ public enum Currency: String, Codable, CaseIterable, Hashable, Sendable {
 
     public static let fallback: Currency = .usd
 
-    public static func initialPreference(locale: Locale = .current) -> Currency {
+    public static func initialPreference(locale: Locale) -> Currency {
         locale.currency.flatMap { Currency(rawValue: $0.identifier) } ?? fallback
     }
 }
@@ -177,12 +177,12 @@ public struct MarketPrice: Codable, Hashable, Sendable {
     ///   let price = MarketPrice(currency: .usd, low: 10, market: 12)
     ///   ```
     public init(
-        condition: CardCondition = .nearMint,
+        condition: CardCondition,
         currency: Currency,
-        low: Double? = nil,
-        market: Double? = nil,
-        trend7d: PriceMovement? = nil,
-        trend30d: PriceMovement? = nil
+        low: Double?,
+        market: Double?,
+        trend7d: PriceMovement?,
+        trend30d: PriceMovement?
     ) {
         self.condition = condition
         self.currency = currency
@@ -227,7 +227,7 @@ public struct PriceHeadline: Codable, Hashable, Sendable {
     ///   ```swift
     ///   let headline = PriceHeadline(amount: 10, currency: .usd)
     ///   ```
-    public init(amount: Double, currency: Currency, metric: PriceMetric = .lowestNearMint) {
+    public init(amount: Double, currency: Currency, metric: PriceMetric) {
         self.amount = amount
         self.currency = currency
         self.metric = metric
@@ -303,19 +303,19 @@ public struct PricedCard: Codable, Hashable, Identifiable, Sendable {
     ///   ```
     public init(
         id: String,
-        printingKey: String? = nil,
-        isWishlisted: Bool? = nil,
+        printingKey: String?,
+        isWishlisted: Bool?,
         game: ClientCardGame,
         name: String,
         cardNumber: String,
-        setName: String? = nil,
-        rarity: String? = nil,
+        setName: String?,
+        rarity: String?,
         illustrator: String?,
-        variantName: String? = nil,
-        imageURL: URL? = nil,
-        headline: PriceHeadline? = nil,
-        market: MarketPrice? = nil,
-        display: PricedCardDisplay? = nil,
+        variantName: String?,
+        imageURL: URL?,
+        headline: PriceHeadline?,
+        market: MarketPrice?,
+        display: PricedCardDisplay?,
         pricedOn: Date,
         fetchedAt: Date
     ) {

@@ -68,7 +68,7 @@ const createCardRoute = defineOpenAPIRoute<HonoEnvironment, typeof routeConfig>(
       throw display.error;
     }
 
-    const [price] = await c.get('cardPricingService').priceOwnedCards([createdCard]);
+    const [price] = await c.get('cardPricingService').priceOwnedCards([createdCard], {});
 
     await c.get('cardRepository').backfillPurchasePrices([createdCard], [price]);
 

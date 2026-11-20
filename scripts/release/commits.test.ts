@@ -23,7 +23,7 @@ async function fixture() {
   await git(['config', 'user.name', 'Release Test']);
   await git(['config', 'user.email', 'release@example.com']);
 
-  const commit = async (subject: string, files: readonly string[] = []) => {
+  const commit = async (subject: string, files: readonly string[]) => {
     for (const file of files) {
       const target = path.join(root, file);
       await fs.mkdir(path.dirname(target), { recursive: true });
@@ -85,14 +85,14 @@ test('missing deployed history fails rather than claiming an empty release', asy
 test('unmerged revisions cannot be selected', async () => {
   const f = await fixture();
   await f.git(['checkout', '-b', 'feature', f.base]);
-  const feature = await f.commit('Unmerged change');
+  const feature = await f.commit('Unmerged change', []);
   await expect(selectRelease(f.command, feature, f.server)).rejects.toThrow('already merged');
 });
 
 test('divergent targets list only commits absent from deployed history', async () => {
   const f = await fixture();
   await f.git(['checkout', '-b', 'feature', f.base]);
-  const feature = await f.commit('Feature change');
+  const feature = await f.commit('Feature change', []);
   expect(await commitSummary(f.command, f.server, feature)).toBe(
     `Selected revision is older than or divergent from the deployed revision.\nCommits to release (1):\n${feature.slice(0, 7)} Feature change`,
   );
@@ -139,7 +139,7 @@ test('structured preview uses CI path rules and counts both sides of a rename', 
   const shared = await f.commit('Refresh dependencies', ['pnpm-lock.yaml']);
   const mixed = await f.commit('Change app and server', ['app/Client.swift', 'server/api.ts']);
   await f.git(['mv', 'app/Client.swift', 'server/Client.swift']);
-  const moved = await f.commit('Move file');
+  const moved = await f.commit('Move file', []);
 
   const preview = await pendingCommits(f.command, f.server, moved, 0);
   expect(preview.commits.map(({ sha, area }) => [sha, area])).toEqual([
@@ -157,7 +157,7 @@ test('structured preview pages without skipping or repeating commits', async () 
   await f.commit('Change 1', ['app/After.swift']);
 
   for (let index = 2; index < 51; index += 1) {
-    await f.commit(`Change ${index}`);
+    await f.commit(`Change ${index}`, []);
   }
 
   const selected = await f.git(['rev-parse', 'HEAD']);

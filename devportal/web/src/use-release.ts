@@ -70,7 +70,7 @@ export function useRelease(destination: Destination) {
   }
 
   const refreshOnMount = useEffectEvent(() => {
-    void perform(refresh);
+    void perform(refresh, true);
   });
 
   useEffect(() => {
@@ -163,7 +163,7 @@ export function useRelease(destination: Destination) {
       const { commits, nextPage } = next;
       setReview({ ...review, commits: [...review.commits, ...commits], nextPage });
       setError(undefined);
-    });
+    }, true);
   }
 
   function updateRelease(next: Release) {
@@ -194,6 +194,6 @@ export function useRelease(destination: Destination) {
     loadMore,
     start: startReviewedRelease,
     decide: decidePendingApproval,
-    refresh: () => perform(refresh),
+    refresh: () => perform(refresh, true),
   };
 }

@@ -32,7 +32,7 @@ export class EcbForexClient implements ForexClient {
     removeNSPrefix: true,
   });
 
-  constructor(options: { fetch?: typeof fetch } = {}) {
+  constructor(options: { fetch?: typeof fetch }) {
     this.fetchImplementation = options.fetch ?? fetch;
   }
 

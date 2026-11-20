@@ -32,6 +32,7 @@ struct TCGCardDetailScreen: View {
         .tcgSheet(
             Text("Card details", bundle: .module),
             closeLabel: Text("Close", bundle: .module),
+            closeDisabled: false,
             onClose: requestDismissal
         ) {
             if canEditCard {
@@ -180,10 +181,11 @@ struct TCGCardDetailScreen: View {
                             CurrencyAmount(
                                 price.amount,
                                 currency: price.currency,
+                                label: nil,
                                 conversionUnavailable: price.conversionUnavailable
                             )
                         } else if let amount = batch.purchasePrice, let currency = batch.currency {
-                            CurrencyAmount(amount, currency: currency)
+                            CurrencyAmount(amount, currency: currency, label: nil, conversionUnavailable: false)
                         } else {
                             Text("Purchase price unknown", bundle: .module).foregroundStyle(.secondary)
                         }

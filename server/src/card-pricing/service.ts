@@ -104,7 +104,14 @@ export class CardPricingService {
           this.throwProviderUnavailable('search', game, searchResult.error, providerStartedAt);
         }
 
-        this.logProviderSuccess('search', game, searchResult.value, providerStartedAt);
+        this.logProviderSuccess(
+          'search',
+          game,
+          searchResult.value,
+          providerStartedAt,
+          undefined,
+          searchResult.value.records.length,
+        );
 
         const normalizedCardsById = searchResult.value.records.reduce((normalizedCardsById, record) => {
           if (!normalizedCardsById.has(record.card.id)) {
@@ -170,7 +177,7 @@ export class CardPricingService {
    */
   async priceOwnedCards(
     cards: NonEmptyArray<CardWithPurchases>,
-    options: { allowUnavailable?: boolean } = {},
+    options: { allowUnavailable?: boolean },
   ): Promise<NonEmptyArray<OwnedCardPriceResponse>> {
     const pending = cards.entries();
     const prices: OwnedCardPriceResponse[] = [];
@@ -542,8 +549,8 @@ export class CardPricingService {
     game: CardGame,
     searchResult: PricingSearchResult | undefined,
     startedAt: number,
-    cardId?: string,
-    resultCount = searchResult?.records.length ?? 0,
+    cardId: string | undefined,
+    resultCount: number,
   ) {
     this.logger.info(
       {

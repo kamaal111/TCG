@@ -2,6 +2,7 @@ import { CONTENTFUL_STATUS_CODES } from '@tcg/http/status';
 
 import { integrationTest } from './fixtures.ts';
 import env from '../../env.ts';
+import { createTestRequestId } from '../../tests/logs.ts';
 import { CARD_IMAGE_STATUSES } from '../types.ts';
 
 describe('Card image proxy integration', () => {
@@ -14,8 +15,8 @@ describe('Card image proxy integration', () => {
       });
 
       const [first, second] = await Promise.all([
-        repository.claim(imageKey, 'worker-one'),
-        repository.claim(imageKey, 'worker-two'),
+        repository.claim(imageKey, 'worker-one', new Date()),
+        repository.claim(imageKey, 'worker-two', new Date()),
       ]);
 
       const claimed = [first, second].filter(row => row != null);
@@ -126,7 +127,7 @@ describe('Card image proxy integration', () => {
       await createImage({
         imageKey,
       });
-      const { headers, requestId } = withRequestId();
+      const { headers, requestId } = withRequestId({}, createTestRequestId());
 
       origin.release();
       const response = await app.request(`/app-api/images/${imageKey}`, { headers });

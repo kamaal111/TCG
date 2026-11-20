@@ -79,7 +79,7 @@ describe('Illustrator search and owned filtering', () => {
           queries.push(url.searchParams.get('q'));
 
           return Response.json({ data: [ARITA_CARD] });
-        }),
+        }, {}),
       });
 
       const illustratorURL = `${SEARCH_PRICING_ROUTE_PATH}?game=pokemon&query=Mitsuhiro%20Arita&search_by=illustrator&languages=en`;
@@ -186,7 +186,7 @@ describe('Illustrator search and owned filtering', () => {
   integrationTest(
     'filters owned pages through shared metadata without duplicate or cross-user choices',
     async ({ app, db, user, createUser, authenticatedHeaders }) => {
-      const other = await createUser();
+      const other = await createUser({});
 
       const first = await createTestCard(app, user.sessionToken, {
         ...validCardPayload,

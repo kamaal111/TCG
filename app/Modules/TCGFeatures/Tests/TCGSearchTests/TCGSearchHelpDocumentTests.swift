@@ -7,7 +7,8 @@ import Testing
 struct TCGSearchHelpDocumentTests {
     @Test
     func `Pokemon help loads its bundled query examples`() throws {
-        let markdown = try TCGSearchHelpDocument.load(game: .pokemon).get()
+        let markdown = try TCGSearchHelpDocument.load(game: .pokemon, bundle: TCGSearchHelpDocument.resourceBundle)
+            .get()
 
         #expect(markdown.contains("## Card name"))
         #expect(markdown.contains("Charizard ex 199"))
@@ -18,7 +19,8 @@ struct TCGSearchHelpDocumentTests {
 
     @Test
     func `One Piece help loads its bundled query examples`() throws {
-        let markdown = try TCGSearchHelpDocument.load(game: .onePiece).get()
+        let markdown = try TCGSearchHelpDocument.load(game: .onePiece, bundle: TCGSearchHelpDocument.resourceBundle)
+            .get()
 
         #expect(markdown.contains("## Card name"))
         #expect(markdown.contains("Monkey D. Luffy"))

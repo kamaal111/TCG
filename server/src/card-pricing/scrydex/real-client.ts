@@ -15,7 +15,7 @@ export class RealScrydexClient implements PricingClient {
   readonly source = PRICING_SOURCES.SCRYDEX_REAL;
   private readonly client: ScrydexClient;
 
-  constructor(options: ScrydexClientOptions = {}) {
+  constructor(options: ScrydexClientOptions) {
     this.client = new ScrydexClient(options);
   }
 

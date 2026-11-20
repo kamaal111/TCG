@@ -5,6 +5,7 @@ import type { Hono } from 'hono';
 
 import type { HonoEnvironment } from '../../context.ts';
 import { integrationTest } from '../../tests/fixtures.ts';
+import { createTestRequestId } from '../../tests/logs.ts';
 import { SIGN_OUT_ROUTE_PATH } from '../constants.ts';
 
 describe('Sign-out integration', () => {
@@ -15,10 +16,13 @@ describe('Sign-out integration', () => {
         where: { userId: createdUser.userId },
       });
 
-      const { headers, requestId } = withRequestId({
-        Cookie: `better-auth.session_token=${createdUser.sessionToken}`,
-        'Content-Type': MIME_TYPES.JSON,
-      });
+      const { headers, requestId } = withRequestId(
+        {
+          Cookie: `better-auth.session_token=${createdUser.sessionToken}`,
+          'Content-Type': MIME_TYPES.JSON,
+        },
+        createTestRequestId(),
+      );
 
       const response = await sendSignOutRequest(app, headers);
 
@@ -52,7 +56,7 @@ describe('Sign-out integration', () => {
   integrationTest(
     'returns success and an expired session cookie when no active session is present',
     async ({ app, getLogsForRequestId, withRequestId }) => {
-      const { headers, requestId } = withRequestId({ 'Content-Type': MIME_TYPES.JSON });
+      const { headers, requestId } = withRequestId({ 'Content-Type': MIME_TYPES.JSON }, createTestRequestId());
       const response = await sendSignOutRequest(app, headers);
 
       expect(response.status).toBe(CONTENTFUL_STATUS_CODES.OK);

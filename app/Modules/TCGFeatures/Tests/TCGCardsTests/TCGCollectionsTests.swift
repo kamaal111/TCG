@@ -13,7 +13,7 @@ struct TCGCollectionsTests {
         defer { defaults.removePersistentDomain(forName: suite) }
         let directory = URL.temporaryDirectory.appending(path: suite, directoryHint: .isDirectory)
         defer { try? FileManager.default.removeItem(at: directory) }
-        let client = TCGClient.preview()
+        let client = TCGClient.preview(hasValidCredentials: false)
         let cards = TCGCards(client: client, snapshot: CollectionSnapshotCache(root: directory), now: { .now })
         let collections = TCGCollections(client: client, defaults: defaults)
         let account = "wishlist@example.test"
@@ -50,7 +50,7 @@ struct TCGCollectionsTests {
         defer { defaults.removePersistentDomain(forName: suite) }
         let directory = URL.temporaryDirectory.appending(path: suite, directoryHint: .isDirectory)
         defer { try? FileManager.default.removeItem(at: directory) }
-        let client = TCGClient.preview()
+        let client = TCGClient.preview(hasValidCredentials: false)
         let account = "favorites@example.test"
         let cards = TCGCards(client: client, snapshot: CollectionSnapshotCache(root: directory), now: { .now })
         let collections = TCGCollections(client: client, defaults: defaults)
@@ -74,14 +74,14 @@ struct TCGCollectionsTests {
         let cards = TCGCards(client: client)
         let collections = TCGCollections(client: client, defaults: nil)
         let savedCards = PreviewTCGCardsClient.sampleCards.map { card in
-            CardWithPrice(card: card, price: .init(cardId: card.id, status: .unavailable))
+            CardWithPrice(card: card, price: .init(cardId: card.id, status: .unavailable, price: nil), imageURL: nil)
         }
         let first = try #require(savedCards.first)
         let page = BinderPage(
             id: CardsTestIDs.secondary,
             slots: [.init(row: 0, column: 0, cardID: first.card.id, quantity: 1)]
         )
-        let favorites = CollectionTestFixtures.collection(pages: [page])
+        let favorites = CollectionTestFixtures.collection(columns: 3, rows: 3, pages: [page])
         let empty = CardBinderCollection(
             id: CardsTestIDs.third,
             name: "Empty binder",

@@ -45,7 +45,7 @@ async function main(): Promise<void> {
     try {
       await fs.access(tailscale, fs.constants.X_OK);
     } catch {
-      throw new InfraFailure('Install and open Tailscale on this Mac, sign in, then rerun just setup-devportal.');
+      throw new InfraFailure('Install and open Tailscale on this Mac, sign in, then rerun just setup-devportal.', 1);
     }
   }
 

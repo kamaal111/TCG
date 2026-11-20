@@ -56,7 +56,7 @@ async function fixture(t: TestContext) {
     CURRENCY_TEST_COMMAND: commandFixture,
   };
 
-  function invoke(args: string[], overrides: Record<string, string> = {}) {
+  function invoke(args: string[], overrides: Record<string, string>) {
     return childProcess.spawnSync('/bin/bash', [script, ...args], {
       env: { ...env, ...overrides },
       encoding: 'utf8',
@@ -79,7 +79,7 @@ async function fixture(t: TestContext) {
 
 it('previews an escaped 17:15 regular-user plist without credentials or installation', async t => {
   const f = await fixture(t);
-  const result = f.invoke(['preview', f.envFile]);
+  const result = f.invoke(['preview', f.envFile], {});
   expect(result.status).toBe(0);
   expect(result.stdout).toContain('<key>UserName</key><string>tcg-user</string>');
   expect(result.stdout).toContain('<key>Hour</key><integer>17</integer><key>Minute</key><integer>15</integer>');
@@ -92,8 +92,8 @@ it('previews an escaped 17:15 regular-user plist without credentials or installa
 
 it('replaces the same root-owned job without duplication and preserves configuration and logs on removal', async t => {
   const f = await fixture(t);
-  expect(f.invoke(['install', f.envFile]).status).toBe(0);
-  expect(f.invoke(['install', f.envFile]).status).toBe(0);
+  expect(f.invoke(['install', f.envFile], {}).status).toBe(0);
+  expect(f.invoke(['install', f.envFile], {}).status).toBe(0);
   expect(await fs.readFile(f.installed, 'utf8')).toContain('com.tcg.daily-currencies');
   expect((await f.commands()).filter(command => command.includes('bootout'))).toHaveLength(1);
   expect(await f.commands()).toContainEqual([
@@ -108,7 +108,7 @@ it('replaces the same root-owned job without duplication and preserves configura
     expect.any(String),
     '/Library/LaunchDaemons/com.tcg.daily-currencies.plist',
   ]);
-  expect(f.invoke(['uninstall']).status).toBe(0);
+  expect(f.invoke(['uninstall'], {}).status).toBe(0);
   expect(await fs.readFile(f.envFile, 'utf8')).toContain('fixture-secret');
   expect((await fs.stat(path.join(f.root, 'Library/Logs/TCG'))).isDirectory()).toBe(true);
   await expect(fs.stat(f.installed)).rejects.toMatchObject({ code: 'ENOENT' });
@@ -116,14 +116,14 @@ it('replaces the same root-owned job without duplication and preserves configura
 
 it('rejects missing environment files before executing system commands', async t => {
   const f = await fixture(t);
-  expect(f.invoke(['install', path.join(f.root, 'missing.env')]).status).toBe(1);
+  expect(f.invoke(['install', path.join(f.root, 'missing.env')], {}).status).toBe(1);
   expect(await f.commands()).toEqual([]);
 });
 
 it('rejects DEBUG=false because the collector would enable query logging', async t => {
   const f = await fixture(t);
   await fs.appendFile(f.envFile, 'DEBUG=false\n');
-  const result = f.invoke(['install', f.envFile]);
+  const result = f.invoke(['install', f.envFile], {});
   expect(result.status).toBe(1);
   expect(result.stderr).toContain('Omit DEBUG');
   expect(await f.commands()).toEqual([]);
@@ -132,15 +132,15 @@ it('rejects DEBUG=false because the collector would enable query logging', async
 it('ignores an invalid auth URL that collection does not use', async t => {
   const f = await fixture(t);
   await fs.appendFile(f.envFile, 'BETTER_AUTH_URL=invalid\n');
-  expect(f.invoke(['install', f.envFile]).status).toBe(0);
-  expect(f.invoke(['run', f.envFile, process.execPath]).status).toBe(0);
+  expect(f.invoke(['install', f.envFile], {}).status).toBe(0);
+  expect(f.invoke(['run', f.envFile, process.execPath], {}).status).toBe(0);
   expect(JSON.parse(await fs.readFile(f.collected, 'utf8')).database).toBe('postgresql://tcg:fixture-secret@db/tcg');
 });
 
 it('rejects a missing database URL before executing system commands', async t => {
   const f = await fixture(t);
   await fs.writeFile(f.envFile, '');
-  const result = f.invoke(['install', f.envFile]);
+  const result = f.invoke(['install', f.envFile], {});
   expect(result.status).toBe(1);
   expect(result.stderr).toContain('DATABASE_URL');
   expect(result.stderr).not.toContain('BETTER_AUTH_URL');
@@ -150,14 +150,14 @@ it('rejects a missing database URL before executing system commands', async t =>
 it('rejects shared-readable environment files before executing system commands', async t => {
   const f = await fixture(t);
   await fs.chmod(f.envFile, 0o644);
-  expect(f.invoke(['install', f.envFile]).status).toBe(1);
+  expect(f.invoke(['install', f.envFile], {}).status).toBe(1);
   expect(await f.commands()).toEqual([]);
 });
 
 it('rejects invalid configuration without exposing credentials', async t => {
   const f = await fixture(t);
   await fs.writeFile(f.envFile, 'DATABASE_URL=fixture-secret\n');
-  const result = f.invoke(['install', f.envFile]);
+  const result = f.invoke(['install', f.envFile], {});
   expect(result.status).toBe(1);
   expect(result.stderr).not.toContain('fixture-secret');
   expect(await f.commands()).toEqual([]);
@@ -208,13 +208,13 @@ it('runs the collector at 17:15 with the explicit environment file and no inheri
 it('propagates collector failures to launchd', async t => {
   const f = await fixture(t);
   await fs.appendFile(f.envFile, 'COLLECTOR_TEST_EXIT=1\n');
-  expect(f.invoke(['run', f.envFile, process.execPath]).status).toBe(1);
+  expect(f.invoke(['run', f.envFile, process.execPath], {}).status).toBe(1);
 });
 
 it('shows launchctl status without changing the installed job', async t => {
   const f = await fixture(t);
   await fs.writeFile(f.loaded, 'loaded');
-  const result = f.invoke(['status']);
+  const result = f.invoke(['status'], {});
   expect(result.status).toBe(0);
   expect(result.stdout).toContain('last exit code = 0');
   expect(await f.commands()).toEqual([['launchctl', 'print', 'system/com.tcg.daily-currencies']]);
@@ -222,7 +222,7 @@ it('shows launchctl status without changing the installed job', async t => {
 
 it('can uninstall an absent job without deleting credentials', async t => {
   const f = await fixture(t);
-  expect(f.invoke(['uninstall']).status).toBe(0);
+  expect(f.invoke(['uninstall'], {}).status).toBe(0);
   expect(await fs.readFile(f.envFile, 'utf8')).toContain('fixture-secret');
   expect(await f.commands()).toContainEqual([
     'sudo',

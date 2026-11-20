@@ -17,8 +17,19 @@ import Testing
 struct TCGAuthClientTests {
     @Test
     func `Should refresh the token and store refreshed credentials`() async throws {
+        let encoder = JSONEncoder()
         let credentialsStore = try CredentialsStoreSpy(
-            initialData: JSONEncoder().encode(makeCredentials(expiryDate: .distantFuture))
+            initialData: encoder.encode(
+                makeCredentials(
+                    expiryDate: .distantFuture,
+                    sessionUpdateAge: 1800,
+                    lastSessionUpdate: .now,
+                    sessionExpiryDate: nil
+                )
+            ),
+            throwsOnDelete: false,
+            throwsOnGet: false,
+            throwsOnSet: false
         )
         let transport = try RequestTransport.tokenSuccess()
         let client = TCGClient.default(
@@ -40,8 +51,19 @@ struct TCGAuthClientTests {
 
     @Test
     func `Should delete credentials and return unauthorized when token refresh is unauthorized`() async throws {
+        let encoder = JSONEncoder()
         let credentialsStore = try CredentialsStoreSpy(
-            initialData: JSONEncoder().encode(makeCredentials(expiryDate: .distantFuture))
+            initialData: encoder.encode(
+                makeCredentials(
+                    expiryDate: .distantFuture,
+                    sessionUpdateAge: 1800,
+                    lastSessionUpdate: .now,
+                    sessionExpiryDate: nil
+                )
+            ),
+            throwsOnDelete: false,
+            throwsOnGet: false,
+            throwsOnSet: false
         )
         let transport = RequestTransport.unauthorized()
         let client = TCGClient.default(
@@ -62,8 +84,19 @@ struct TCGAuthClientTests {
 
     @Test
     func `Should delete credentials and return unauthorized when token refresh finds no session`() async throws {
+        let encoder = JSONEncoder()
         let credentialsStore = try CredentialsStoreSpy(
-            initialData: JSONEncoder().encode(makeCredentials(expiryDate: .distantFuture))
+            initialData: encoder.encode(
+                makeCredentials(
+                    expiryDate: .distantFuture,
+                    sessionUpdateAge: 1800,
+                    lastSessionUpdate: .now,
+                    sessionExpiryDate: nil
+                )
+            ),
+            throwsOnDelete: false,
+            throwsOnGet: false,
+            throwsOnSet: false
         )
         let client = TCGClient.default(
             transport: RequestTransport.notFound(),
@@ -82,8 +115,19 @@ struct TCGAuthClientTests {
 
     @Test
     func `Should return an unknown error when token refresh transport fails`() async throws {
+        let encoder = JSONEncoder()
         let credentialsStore = try CredentialsStoreSpy(
-            initialData: JSONEncoder().encode(makeCredentials(expiryDate: .distantFuture))
+            initialData: encoder.encode(
+                makeCredentials(
+                    expiryDate: .distantFuture,
+                    sessionUpdateAge: 1800,
+                    lastSessionUpdate: .now,
+                    sessionExpiryDate: nil
+                )
+            ),
+            throwsOnDelete: false,
+            throwsOnGet: false,
+            throwsOnSet: false
         )
         let client = TCGClient.default(
             transport: RequestTransport.failing(),
@@ -100,8 +144,19 @@ struct TCGAuthClientTests {
 
     @Test
     func `Should preserve undocumented token refresh response statuses`() async throws {
+        let encoder = JSONEncoder()
         let credentialsStore = try CredentialsStoreSpy(
-            initialData: JSONEncoder().encode(makeCredentials(expiryDate: .distantFuture))
+            initialData: encoder.encode(
+                makeCredentials(
+                    expiryDate: .distantFuture,
+                    sessionUpdateAge: 1800,
+                    lastSessionUpdate: .now,
+                    sessionExpiryDate: nil
+                )
+            ),
+            throwsOnDelete: false,
+            throwsOnGet: false,
+            throwsOnSet: false
         )
         let client = TCGClient.default(
             transport: RequestTransport.undocumented(),
@@ -118,8 +173,21 @@ struct TCGAuthClientTests {
 
     @Test
     func `Should preserve credentials when token issuance returns a documented server error`() async throws {
-        let initialData = try JSONEncoder().encode(makeCredentials(expiryDate: .distantFuture))
-        let credentialsStore = CredentialsStoreSpy(initialData: initialData)
+        let encoder = JSONEncoder()
+        let initialData = try encoder.encode(
+            makeCredentials(
+                expiryDate: .distantFuture,
+                sessionUpdateAge: 1800,
+                lastSessionUpdate: .now,
+                sessionExpiryDate: nil
+            )
+        )
+        let credentialsStore = CredentialsStoreSpy(
+            initialData: initialData,
+            throwsOnDelete: false,
+            throwsOnGet: false,
+            throwsOnSet: false
+        )
         let transport = RequestTransport.serverError()
         let client = TCGClient.default(
             transport: transport,
@@ -141,8 +209,16 @@ struct TCGAuthClientTests {
         let credentialsStore = try CredentialsStoreSpy(
             initialData: JSONEncoder()
                 .encode(
-                    makeCredentials(expiryDate: .distantFuture, lastSessionUpdate: .distantPast)
-                )
+                    makeCredentials(
+                        expiryDate: .distantFuture,
+                        sessionUpdateAge: 1800,
+                        lastSessionUpdate: .distantPast,
+                        sessionExpiryDate: nil
+                    )
+                ),
+            throwsOnDelete: false,
+            throwsOnGet: false,
+            throwsOnSet: false
         )
         let transport = try RequestTransport.refreshThenSignUp()
         let client = TCGClient.default(
@@ -164,8 +240,16 @@ struct TCGAuthClientTests {
         let credentialsStore = try CredentialsStoreSpy(
             initialData: JSONEncoder()
                 .encode(
-                    makeCredentials(expiryDate: .now.addingTimeInterval(3599))
-                )
+                    makeCredentials(
+                        expiryDate: .now.addingTimeInterval(3599),
+                        sessionUpdateAge: 1800,
+                        lastSessionUpdate: .now,
+                        sessionExpiryDate: nil
+                    )
+                ),
+            throwsOnDelete: false,
+            throwsOnGet: false,
+            throwsOnSet: false
         )
         let transport = try RequestTransport.refreshThenSignUp()
         let client = TCGClient.default(
@@ -184,7 +268,12 @@ struct TCGAuthClientTests {
 
     @Test
     func `Should sign in and store credentials after a successful request`() async throws {
-        let credentialsStore = CredentialsStoreSpy()
+        let credentialsStore = CredentialsStoreSpy(
+            initialData: nil,
+            throwsOnDelete: false,
+            throwsOnGet: false,
+            throwsOnSet: false
+        )
         let transport = try RequestTransport.signInSuccess()
         let client = TCGClient.default(
             transport: transport,
@@ -215,7 +304,12 @@ struct TCGAuthClientTests {
         let client = TCGClient.default(
             transport: try RequestTransport.signInSuccess(),
             credentialsKeychainKey: "credentials-key",
-            credentialsStore: CredentialsStoreSpy(throwsOnSet: true)
+            credentialsStore: CredentialsStoreSpy(
+                initialData: nil,
+                throwsOnDelete: false,
+                throwsOnGet: false,
+                throwsOnSet: true
+            )
         )
 
         let result = await client.auth.signIn(
@@ -236,7 +330,12 @@ struct TCGAuthClientTests {
         let client = TCGClient.default(
             transport: transport,
             credentialsKeychainKey: "credentials-key",
-            credentialsStore: CredentialsStoreSpy()
+            credentialsStore: CredentialsStoreSpy(
+                initialData: nil,
+                throwsOnDelete: false,
+                throwsOnGet: false,
+                throwsOnSet: false
+            )
         )
 
         let result = await client.auth.signIn(
@@ -260,7 +359,12 @@ struct TCGAuthClientTests {
     @Test
     func `Should return empty validation errors from a sign in rejected for invalid credentials`() async throws {
         let transport = RequestTransport.invalidCredentials()
-        let credentialsStore = CredentialsStoreSpy()
+        let credentialsStore = CredentialsStoreSpy(
+            initialData: nil,
+            throwsOnDelete: false,
+            throwsOnGet: false,
+            throwsOnSet: false
+        )
         let client = TCGClient.default(
             transport: transport,
             credentialsKeychainKey: "credentials-key",
@@ -288,7 +392,12 @@ struct TCGAuthClientTests {
         async throws
     {
         let transport = RequestTransport.unauthorized()
-        let credentialsStore = CredentialsStoreSpy()
+        let credentialsStore = CredentialsStoreSpy(
+            initialData: nil,
+            throwsOnDelete: false,
+            throwsOnGet: false,
+            throwsOnSet: false
+        )
         let client = TCGClient.default(
             transport: transport,
             credentialsKeychainKey: "credentials-key",
@@ -312,7 +421,12 @@ struct TCGAuthClientTests {
 
     @Test
     func `Should sign up and store credentials after a successful request`() async throws {
-        let credentialsStore = CredentialsStoreSpy()
+        let credentialsStore = CredentialsStoreSpy(
+            initialData: nil,
+            throwsOnDelete: false,
+            throwsOnGet: false,
+            throwsOnSet: false
+        )
         let transport = try RequestTransport.signUpSuccess()
         let client = TCGClient.default(
             transport: transport,
@@ -339,7 +453,12 @@ struct TCGAuthClientTests {
         let client = TCGClient.default(
             transport: try RequestTransport.signUpSuccess(),
             credentialsKeychainKey: "credentials-key",
-            credentialsStore: CredentialsStoreSpy(throwsOnSet: true)
+            credentialsStore: CredentialsStoreSpy(
+                initialData: nil,
+                throwsOnDelete: false,
+                throwsOnGet: false,
+                throwsOnSet: true
+            )
         )
 
         let result = await client.auth.signUp(
@@ -357,7 +476,12 @@ struct TCGAuthClientTests {
         let client = TCGClient.default(
             transport: transport,
             credentialsKeychainKey: "credentials-key",
-            credentialsStore: CredentialsStoreSpy()
+            credentialsStore: CredentialsStoreSpy(
+                initialData: nil,
+                throwsOnDelete: false,
+                throwsOnGet: false,
+                throwsOnSet: false
+            )
         )
 
         let result = await client.auth.signUp(
@@ -381,7 +505,12 @@ struct TCGAuthClientTests {
         let client = TCGClient.default(
             transport: transport,
             credentialsKeychainKey: "credentials-key",
-            credentialsStore: CredentialsStoreSpy()
+            credentialsStore: CredentialsStoreSpy(
+                initialData: nil,
+                throwsOnDelete: false,
+                throwsOnGet: false,
+                throwsOnSet: false
+            )
         )
 
         let result = await client.auth.signUp(
@@ -397,8 +526,19 @@ struct TCGAuthClientTests {
 
     @Test
     func `Should retrieve the current session and update credential expiry`() async throws {
-        let initialCredentials = makeCredentials(expiryDate: .distantFuture)
-        let credentialsStore = try CredentialsStoreSpy(initialData: JSONEncoder().encode(initialCredentials))
+        let initialCredentials = makeCredentials(
+            expiryDate: .distantFuture,
+            sessionUpdateAge: 1800,
+            lastSessionUpdate: .now,
+            sessionExpiryDate: nil
+        )
+        let encoder = JSONEncoder()
+        let credentialsStore = try CredentialsStoreSpy(
+            initialData: encoder.encode(initialCredentials),
+            throwsOnDelete: false,
+            throwsOnGet: false,
+            throwsOnSet: false
+        )
         let transport = RequestTransport.sessionSuccess()
         let client = TCGClient.default(
             transport: transport,
@@ -430,7 +570,12 @@ struct TCGAuthClientTests {
         let client = TCGClient.default(
             transport: transport,
             credentialsKeychainKey: "credentials-key",
-            credentialsStore: CredentialsStoreSpy()
+            credentialsStore: CredentialsStoreSpy(
+                initialData: nil,
+                throwsOnDelete: false,
+                throwsOnGet: false,
+                throwsOnSet: false
+            )
         )
 
         let result = await client.auth.session()
@@ -446,8 +591,16 @@ struct TCGAuthClientTests {
         let credentialsStore = try CredentialsStoreSpy(
             initialData: JSONEncoder()
                 .encode(
-                    makeCredentials(expiryDate: .distantPast, sessionExpiryDate: .distantPast)
-                )
+                    makeCredentials(
+                        expiryDate: .distantPast,
+                        sessionUpdateAge: 1800,
+                        lastSessionUpdate: .now,
+                        sessionExpiryDate: .distantPast
+                    )
+                ),
+            throwsOnDelete: false,
+            throwsOnGet: false,
+            throwsOnSet: false
         )
         let transport = RequestTransport.notFound()
         let client = TCGClient.default(
@@ -468,8 +621,19 @@ struct TCGAuthClientTests {
 
     @Test
     func `Should delete credentials and return unauthorized when the server has no session`() async throws {
+        let encoder = JSONEncoder()
         let credentialsStore = try CredentialsStoreSpy(
-            initialData: JSONEncoder().encode(makeCredentials(expiryDate: .distantFuture))
+            initialData: encoder.encode(
+                makeCredentials(
+                    expiryDate: .distantFuture,
+                    sessionUpdateAge: 1800,
+                    lastSessionUpdate: .now,
+                    sessionExpiryDate: nil
+                )
+            ),
+            throwsOnDelete: false,
+            throwsOnGet: false,
+            throwsOnSet: false
         )
         let transport = RequestTransport.notFound()
         let client = TCGClient.default(
@@ -494,7 +658,12 @@ struct TCGAuthClientTests {
         let client = TCGClient.default(
             transport: transport,
             credentialsKeychainKey: "credentials-key",
-            credentialsStore: CredentialsStoreSpy(throwsOnGet: true)
+            credentialsStore: CredentialsStoreSpy(
+                initialData: nil,
+                throwsOnDelete: false,
+                throwsOnGet: true,
+                throwsOnSet: false
+            )
         )
 
         let result = await client.auth.session()
@@ -511,7 +680,12 @@ struct TCGAuthClientTests {
         let client = TCGClient.default(
             transport: transport,
             credentialsKeychainKey: "credentials-key",
-            credentialsStore: CredentialsStoreSpy(initialData: Data("invalid".utf8))
+            credentialsStore: CredentialsStoreSpy(
+                initialData: Data("invalid".utf8),
+                throwsOnDelete: false,
+                throwsOnGet: false,
+                throwsOnSet: false
+            )
         )
 
         let result = await client.auth.session()
@@ -526,8 +700,18 @@ struct TCGAuthClientTests {
     /// fail the call or discard the session.
     @Test
     func `Should still return the session when caching its expiry fails`() async throws {
+        let encoder = JSONEncoder()
         let credentialsStore = try CredentialsStoreSpy(
-            initialData: JSONEncoder().encode(makeCredentials(expiryDate: .distantFuture)),
+            initialData: encoder.encode(
+                makeCredentials(
+                    expiryDate: .distantFuture,
+                    sessionUpdateAge: 1800,
+                    lastSessionUpdate: .now,
+                    sessionExpiryDate: nil
+                )
+            ),
+            throwsOnDelete: false,
+            throwsOnGet: false,
             throwsOnSet: true
         )
         let client = TCGClient.default(
@@ -546,8 +730,17 @@ struct TCGAuthClientTests {
     func `Should proceed unauthenticated when clearing expired session credentials fails`() async throws {
         let credentialsStore = try CredentialsStoreSpy(
             initialData: JSONEncoder()
-                .encode(makeCredentials(expiryDate: .distantFuture, sessionExpiryDate: .distantPast)),
-            throwsOnDelete: true
+                .encode(
+                    makeCredentials(
+                        expiryDate: .distantFuture,
+                        sessionUpdateAge: 1800,
+                        lastSessionUpdate: .now,
+                        sessionExpiryDate: .distantPast
+                    )
+                ),
+            throwsOnDelete: true,
+            throwsOnGet: false,
+            throwsOnSet: false
         )
         let transport = RequestTransport.unauthorized()
         let client = TCGClient.default(
@@ -568,7 +761,17 @@ struct TCGAuthClientTests {
     func `Should preserve a live session when refreshing an expired JWT fails`() async throws {
         let credentialsStore = try CredentialsStoreSpy(
             initialData: JSONEncoder()
-                .encode(makeCredentials(expiryDate: .distantPast, sessionExpiryDate: .distantFuture))
+                .encode(
+                    makeCredentials(
+                        expiryDate: .distantPast,
+                        sessionUpdateAge: 1800,
+                        lastSessionUpdate: .now,
+                        sessionExpiryDate: .distantFuture
+                    )
+                ),
+            throwsOnDelete: false,
+            throwsOnGet: false,
+            throwsOnSet: false
         )
         let transport = RequestTransport.serverError()
         let client = TCGClient.default(
@@ -588,8 +791,19 @@ struct TCGAuthClientTests {
 
     @Test
     func `Should include stored authorization on non-session requests`() async throws {
+        let encoder = JSONEncoder()
         let credentialsStore = try CredentialsStoreSpy(
-            initialData: JSONEncoder().encode(makeCredentials(expiryDate: .distantFuture))
+            initialData: encoder.encode(
+                makeCredentials(
+                    expiryDate: .distantFuture,
+                    sessionUpdateAge: 1800,
+                    lastSessionUpdate: .now,
+                    sessionExpiryDate: nil
+                )
+            ),
+            throwsOnDelete: false,
+            throwsOnGet: false,
+            throwsOnSet: false
         )
         let transport = try RequestTransport.signUpSuccess()
         let client = TCGClient.default(
@@ -609,8 +823,19 @@ struct TCGAuthClientTests {
 
     @Test
     func `Should return an unknown error when session transport fails`() async throws {
+        let encoder = JSONEncoder()
         let credentialsStore = try CredentialsStoreSpy(
-            initialData: JSONEncoder().encode(makeCredentials(expiryDate: .distantFuture))
+            initialData: encoder.encode(
+                makeCredentials(
+                    expiryDate: .distantFuture,
+                    sessionUpdateAge: 1800,
+                    lastSessionUpdate: .now,
+                    sessionExpiryDate: nil
+                )
+            ),
+            throwsOnDelete: false,
+            throwsOnGet: false,
+            throwsOnSet: false
         )
         let client = TCGClient.default(
             transport: RequestTransport.failing(),
@@ -627,8 +852,19 @@ struct TCGAuthClientTests {
 
     @Test
     func `Should preserve undocumented session response statuses`() async throws {
+        let encoder = JSONEncoder()
         let credentialsStore = try CredentialsStoreSpy(
-            initialData: JSONEncoder().encode(makeCredentials(expiryDate: .distantFuture))
+            initialData: encoder.encode(
+                makeCredentials(
+                    expiryDate: .distantFuture,
+                    sessionUpdateAge: 1800,
+                    lastSessionUpdate: .now,
+                    sessionExpiryDate: nil
+                )
+            ),
+            throwsOnDelete: false,
+            throwsOnGet: false,
+            throwsOnSet: false
         )
         let client = TCGClient.default(
             transport: RequestTransport.undocumented(),
@@ -645,8 +881,19 @@ struct TCGAuthClientTests {
 
     @Test
     func `Should send the session token as the bearer when refreshing the authentication token`() async throws {
+        let encoder = JSONEncoder()
         let credentialsStore = try CredentialsStoreSpy(
-            initialData: JSONEncoder().encode(makeCredentials(expiryDate: .distantFuture))
+            initialData: encoder.encode(
+                makeCredentials(
+                    expiryDate: .distantFuture,
+                    sessionUpdateAge: 1800,
+                    lastSessionUpdate: .now,
+                    sessionExpiryDate: nil
+                )
+            ),
+            throwsOnDelete: false,
+            throwsOnGet: false,
+            throwsOnSet: false
         )
         let transport = try RequestTransport.serverLike()
         let client = TCGClient.default(
@@ -669,9 +916,13 @@ struct TCGAuthClientTests {
                     makeCredentials(
                         expiryDate: .now.addingTimeInterval(6 * 24 * 60 * 60),
                         sessionUpdateAge: 24 * 60 * 60,
-                        lastSessionUpdate: .now.addingTimeInterval(-25 * 60 * 60)
+                        lastSessionUpdate: .now.addingTimeInterval(-25 * 60 * 60),
+                        sessionExpiryDate: nil
                     )
-                )
+                ),
+            throwsOnDelete: false,
+            throwsOnGet: false,
+            throwsOnSet: false
         )
         let transport = try RequestTransport.serverLike()
         let client = TCGClient.default(
@@ -694,8 +945,16 @@ struct TCGAuthClientTests {
         let credentialsStore = try CredentialsStoreSpy(
             initialData: JSONEncoder()
                 .encode(
-                    makeCredentials(expiryDate: .distantPast, sessionExpiryDate: .distantFuture)
-                )
+                    makeCredentials(
+                        expiryDate: .distantPast,
+                        sessionUpdateAge: 1800,
+                        lastSessionUpdate: .now,
+                        sessionExpiryDate: .distantFuture
+                    )
+                ),
+            throwsOnDelete: false,
+            throwsOnGet: false,
+            throwsOnSet: false
         )
         let transport = try RequestTransport.serverLike()
         let client = TCGClient.default(
@@ -714,9 +973,9 @@ struct TCGAuthClientTests {
 
     private func makeCredentials(
         expiryDate: Date,
-        sessionUpdateAge: TimeInterval = 1800,
-        lastSessionUpdate: Date = .now,
-        sessionExpiryDate: Date? = nil
+        sessionUpdateAge: TimeInterval,
+        lastSessionUpdate: Date,
+        sessionExpiryDate: Date?
     ) -> Credentials {
         Credentials(
             authToken: "auth-token",
@@ -792,9 +1051,9 @@ private actor RequestTransport: ClientTransport {
     private init(
         response: HTTPResponse?,
         responseBody: Data?,
-        tokenRefreshResponse: HTTPResponse? = nil,
-        tokenRefreshResponseBody: Data? = nil,
-        isServerLike: Bool = false
+        tokenRefreshResponse: HTTPResponse?,
+        tokenRefreshResponseBody: Data?,
+        isServerLike: Bool
     ) {
         self.response = response
         self.responseBody = responseBody
@@ -821,13 +1080,14 @@ private actor RequestTransport: ClientTransport {
 
     static func refreshThenSignUp() throws -> RequestTransport {
         let tokenResponse = try authSuccessResponse(status: .ok, token: "refreshed-auth-token")
-        let signUpResponse = try authSuccessResponse(status: .created)
+        let signUpResponse = try authSuccessResponse(status: .created, token: "auth-token")
 
         return RequestTransport(
             response: signUpResponse.response,
             responseBody: signUpResponse.body,
             tokenRefreshResponse: tokenResponse.response,
-            tokenRefreshResponseBody: tokenResponse.body
+            tokenRefreshResponseBody: tokenResponse.body,
+            isServerLike: false
         )
     }
 
@@ -845,14 +1105,20 @@ private actor RequestTransport: ClientTransport {
     }
 
     private static func authSuccess(status: HTTPResponse.Status) throws -> RequestTransport {
-        let response = try authSuccessResponse(status: status)
+        let response = try authSuccessResponse(status: status, token: "auth-token")
 
-        return RequestTransport(response: response.response, responseBody: response.body)
+        return RequestTransport(
+            response: response.response,
+            responseBody: response.body,
+            tokenRefreshResponse: nil,
+            tokenRefreshResponseBody: nil,
+            isServerLike: false
+        )
     }
 
     private static func authSuccessResponse(
         status: HTTPResponse.Status,
-        token: String = "auth-token"
+        token: String
     ) throws -> (response: HTTPResponse, body: Data) {
         let authTokenHeader = try #require(HTTPField.Name("set-auth-token"))
         let authTokenExpiryHeader = try #require(HTTPField.Name("set-auth-token-expiry"))
@@ -906,7 +1172,10 @@ private actor RequestTransport: ClientTransport {
                   }
                 }
                 """.utf8
-            )
+            ),
+            tokenRefreshResponse: nil,
+            tokenRefreshResponseBody: nil,
+            isServerLike: false
         )
     }
 
@@ -919,7 +1188,10 @@ private actor RequestTransport: ClientTransport {
                   "message": "Authentication failed"
                 }
                 """.utf8
-            )
+            ),
+            tokenRefreshResponse: nil,
+            tokenRefreshResponseBody: nil,
+            isServerLike: false
         )
     }
 
@@ -930,7 +1202,10 @@ private actor RequestTransport: ClientTransport {
                 """
                 {"message": "Authentication provider failed"}
                 """.utf8
-            )
+            ),
+            tokenRefreshResponse: nil,
+            tokenRefreshResponseBody: nil,
+            isServerLike: false
         )
     }
 
@@ -944,7 +1219,10 @@ private actor RequestTransport: ClientTransport {
                   "code": "INVALID_EMAIL_OR_PASSWORD"
                 }
                 """.utf8
-            )
+            ),
+            tokenRefreshResponse: nil,
+            tokenRefreshResponseBody: nil,
+            isServerLike: false
         )
     }
 
@@ -986,7 +1264,13 @@ private actor RequestTransport: ClientTransport {
 
     static func sessionSuccess() -> RequestTransport {
         let response = sessionSuccessResponse()
-        return RequestTransport(response: response.response, responseBody: response.body)
+        return RequestTransport(
+            response: response.response,
+            responseBody: response.body,
+            tokenRefreshResponse: nil,
+            tokenRefreshResponseBody: nil,
+            isServerLike: false
+        )
     }
 
     private static func sessionSuccessResponse() -> (response: HTTPResponse, body: Data) {
@@ -1024,7 +1308,10 @@ private actor RequestTransport: ClientTransport {
                   "code": "SESSION_NOT_FOUND"
                 }
                 """.utf8
-            )
+            ),
+            tokenRefreshResponse: nil,
+            tokenRefreshResponseBody: nil,
+            isServerLike: false
         )
     }
 
@@ -1045,13 +1332,22 @@ private actor RequestTransport: ClientTransport {
     }
 
     static func failing() -> RequestTransport {
-        RequestTransport(response: nil, responseBody: nil)
+        RequestTransport(
+            response: nil,
+            responseBody: nil,
+            tokenRefreshResponse: nil,
+            tokenRefreshResponseBody: nil,
+            isServerLike: false
+        )
     }
 
     static func undocumented() -> RequestTransport {
         RequestTransport(
             response: .init(status: .init(code: 502), headerFields: [.contentType: "application/json"]),
-            responseBody: Data("{}".utf8)
+            responseBody: Data("{}".utf8),
+            tokenRefreshResponse: nil,
+            tokenRefreshResponseBody: nil,
+            isServerLike: false
         )
     }
 }
@@ -1074,10 +1370,10 @@ private final class CredentialsStoreSpy: CredentialsStore, @unchecked Sendable {
     private let throwsOnSet: Bool
 
     init(
-        initialData: Data? = nil,
-        throwsOnDelete: Bool = false,
-        throwsOnGet: Bool = false,
-        throwsOnSet: Bool = false
+        initialData: Data?,
+        throwsOnDelete: Bool,
+        throwsOnGet: Bool,
+        throwsOnSet: Bool
     ) {
         if let initialData {
             _storedCredentials = .init(data: initialData, key: "credentials-key")

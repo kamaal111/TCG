@@ -55,7 +55,11 @@ public final class TCGCards {
     var hasLoadedCurrentCollection: Bool { collectionState.status == .loaded }
 
     convenience init(client: TCGClient) {
-        self.init(client: client, snapshot: CollectionSnapshotCache(), now: { .now })
+        self.init(
+            client: client,
+            snapshot: CollectionSnapshotCache(root: CollectionSnapshotCache.defaultRoot),
+            now: { .now }
+        )
     }
 
     init(client: TCGClient, snapshot: CollectionSnapshotCache, now: @escaping () -> Date) {
@@ -111,7 +115,7 @@ public final class TCGCards {
 
         return .init(
             card: entry.card.replacingDisplay(with: nil),
-            price: .init(cardId: entry.card.id, status: .pending),
+            price: .init(cardId: entry.card.id, status: .pending, price: nil),
             imageURL: entry.imageURL
         )
     }
@@ -394,7 +398,7 @@ public final class TCGCards {
         }
 
         let result = await CachedListLoad.load(
-            CardCollectionPages(),
+            CardCollectionPages(cards: [], pagination: .init(nextCursor: nil, visitedCursors: [], pageCount: 0)),
             through: request.pageCount,
             pagination: \.pagination,
             fetch: { pages in await self.loadPage(into: &pages, generation: generation) },
@@ -471,7 +475,7 @@ public final class TCGCards {
         )
         let requiresPricing =
             pages.cards.contains { $0.price.status == .pending }
-            || priceIDs != nil && snapshot.freshPage(for: scope, at: now())?.list?.requiresPricing == true
+            || priceIDs != nil && snapshot.freshPage(for: scope, at: now(), force: false)?.list?.requiresPricing == true
         snapshot.saveRead(
             cards,
             for: scope,

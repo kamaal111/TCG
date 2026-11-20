@@ -8,6 +8,7 @@ import { createTestScrydexClient } from '../../card-pricing/tests/utils.ts';
 import { card, cardPurchaseBatch } from '../../db/schema/cards.ts';
 import { sessionHeaders } from '../../tests/auth.ts';
 import { integrationTest } from '../../tests/fixtures.ts';
+import { createTestRequestId } from '../../tests/logs.ts';
 import { EXPORT_CARDS_ROUTE_PATH } from '../routes/export-cards.ts';
 import { IMPORT_CARDS_ROUTE_PATH } from '../routes/import-cards.ts';
 import { ExportCardsResponseSchema, ImportCardsResponseSchema } from '../schemas/responses.ts';
@@ -98,7 +99,7 @@ describe('Card CSV import and export integration', () => {
   integrationTest(
     'transfers a backup to another account without changing the owner',
     async ({ app, db, user: owner, createUser, authenticatedHeaders }) => {
-      const recipient = await createUser();
+      const recipient = await createUser({});
       expect((await createCardRequest(app, owner.sessionToken, validCardPayload)).status).toBe(
         CONTENTFUL_STATUS_CODES.CREATED,
       );
@@ -198,7 +199,7 @@ describe('Card CSV import and export integration', () => {
   integrationTest(
     'returns repository failures as 500 and rolls back the import',
     async ({ app, db, getLogsForRequestId, withRequestId, user, authenticatedHeaders }) => {
-      const { headers, requestId } = withRequestId(authenticatedHeaders);
+      const { headers, requestId } = withRequestId(authenticatedHeaders, createTestRequestId());
       await db.execute(sql`alter table ${cardPurchaseBatch} add constraint forced_import_failure check (quantity < 0)`);
 
       const response = await app.request(IMPORT_CARDS_ROUTE_PATH, {
@@ -238,7 +239,7 @@ describe('Card CSV import and export integration', () => {
         providerRequests += 1;
 
         return new Response('Unavailable', { status: 503 });
-      });
+      }, {});
 
       const isolated = createApp({ pricingClient });
 
@@ -269,7 +270,7 @@ describe('Card CSV import and export integration', () => {
   integrationTest(
     'accepts the generated client wire shape for the supplied Japanese CSV and logs committed milestones',
     async ({ app, db, getLogsForRequestId, withRequestId, user, authenticatedHeaders }) => {
-      const { headers, requestId } = withRequestId(authenticatedHeaders);
+      const { headers, requestId } = withRequestId(authenticatedHeaders, createTestRequestId());
 
       const input = {
         id: '9ecb8b92-e1ad-4863-bd0e-7ca38210835b',
@@ -473,7 +474,7 @@ describe('Card CSV import and export integration', () => {
   integrationTest(
     'returns and logs the specific indexed date validation failure',
     async ({ app, db, getLogsForRequestId, withRequestId, user, authenticatedHeaders }) => {
-      const { headers, requestId } = withRequestId(authenticatedHeaders);
+      const { headers, requestId } = withRequestId(authenticatedHeaders, createTestRequestId());
       const input = { ...backupCard, purchases: [{ ...backupCard.purchases[0], automatic_price_date: '' }] };
 
       const response = await app.request(IMPORT_CARDS_ROUTE_PATH, {

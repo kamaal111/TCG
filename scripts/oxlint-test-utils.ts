@@ -27,7 +27,7 @@ export async function createLintFixture(source: string, relativeDirectory?: stri
   return filename;
 }
 
-export function lintFixture(filename: string, fix = false) {
+export function lintFixture(filename: string, fix: boolean) {
   const args = ['-c', CONFIG, '--format', 'json', filename];
 
   if (fix) {

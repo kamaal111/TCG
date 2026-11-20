@@ -30,7 +30,7 @@ test('installs and removes only the private user LaunchAgent, preserving configu
     );
   }
 
-  const run = (action: string, failBuild = false) => {
+  const run = (action: string, failBuild: boolean) => {
     return childProcess.spawnSync(process.execPath, [script, action], {
       encoding: 'utf8',
       env: {
@@ -51,7 +51,7 @@ test('installs and removes only the private user LaunchAgent, preserving configu
   await expect(fs.access(plist)).rejects.toThrow('ENOENT');
   expect(await fs.readFile(calls, 'utf8')).not.toContain('bootstrap');
 
-  const installed = run('install');
+  const installed = run('install', false);
   expect(installed.status).toBe(0);
   const commands = await fs.readFile(calls, 'utf8');
   expect(commands.lastIndexOf('build-devportal-web')).toBeLessThan(commands.indexOf('bootstrap'));
@@ -105,7 +105,7 @@ test('installs and removes only the private user LaunchAgent, preserving configu
   const mismatched = preview(path.join(directory, 'another config'));
   expect(mismatched.status).toBe(1);
   expect(mismatched.stderr).toContain('differs from the installed agent');
-  expect(run('uninstall').status).toBe(0);
+  expect(run('uninstall', false).status).toBe(0);
   await expect(fs.access(plist)).rejects.toThrow('ENOENT');
   await expect(fs.access(path.join(config, 'devportal.json'))).resolves.toBeUndefined();
 });

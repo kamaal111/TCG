@@ -4,6 +4,7 @@ import { createTestCard, validCardPayload } from './utils.ts';
 import { cardConditionQuantity, cardPurchaseBatch } from '../../db/schema/cards.ts';
 import { expectErrorResponse, expectValidationIssueForField } from '../../tests/auth.ts';
 import { integrationTest } from '../../tests/fixtures.ts';
+import { createTestRequestId } from '../../tests/logs.ts';
 
 const path = '/app-api/cards';
 
@@ -17,7 +18,7 @@ describe('Delete cards integration', () => {
       const second = await createTestCard(app, user.sessionToken, validCardPayload);
       const preserved = await createTestCard(app, user.sessionToken, validCardPayload);
       const ids = [second.id, first.id];
-      const { headers, requestId } = withRequestId(authenticatedHeaders);
+      const { headers, requestId } = withRequestId(authenticatedHeaders, createTestRequestId());
       const response = await app.request(path, { method: 'DELETE', headers, body: JSON.stringify({ card_ids: ids }) });
 
       expect(response.status).toBe(200);
@@ -45,7 +46,7 @@ describe('Delete cards integration', () => {
   integrationTest(
     'deduplicates IDs, hides ownership, preserves foreign cards, and safely retries',
     async ({ app, db, user, createUser, authenticatedHeaders }) => {
-      const other = await createUser();
+      const other = await createUser({});
       const owned = await createTestCard(app, user.sessionToken, validCardPayload);
       const foreign = await createTestCard(app, other.sessionToken, validCardPayload);
 

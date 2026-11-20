@@ -40,41 +40,51 @@ struct PreviewTCGPricingClient: TCGPricingClient {
     static let samplePricedCards = [
         PricedCard(
             id: "00000000-0000-0000-0000-000000000001",
+            printingKey: nil,
+            isWishlisted: nil,
             game: .onePiece,
             name: "Marshall.D.Teach",
             cardNumber: "OP09-093",
             setName: "Emperors in the New World",
             rarity: "Manga Rare",
             illustrator: nil,
+            variantName: nil,
             imageURL: URL(string: "https://example.com/cards/marshall-d-teach.png"),
-            headline: .init(amount: 8.75, currency: .usd),
+            headline: .init(amount: 8.75, currency: .usd, metric: .lowestNearMint),
             market: .init(
+                condition: .nearMint,
                 currency: .usd,
                 low: 8.75,
                 market: 9.60,
                 trend7d: .init(priceChange: 0.10, percentChange: 1.05),
                 trend30d: .init(priceChange: 0.85, percentChange: 9.71)
             ),
+            display: nil,
             pricedOn: fixedDate,
             fetchedAt: fixedDate
         ),
         PricedCard(
             id: "00000000-0000-0000-0000-000000000002",
+            printingKey: nil,
+            isWishlisted: nil,
             game: .pokemon,
             name: "Giratina VSTAR",
             cardNumber: "GG69",
             setName: "Crown Zenith",
             rarity: "Secret Rare",
             illustrator: "Akira Egawa",
+            variantName: nil,
             imageURL: URL(string: "https://example.com/cards/giratina-vstar.png"),
-            headline: .init(amount: 146.69, currency: .usd),
+            headline: .init(amount: 146.69, currency: .usd, metric: .lowestNearMint),
             market: .init(
+                condition: .nearMint,
                 currency: .usd,
                 low: 146.69,
                 market: 172.42,
                 trend7d: .init(priceChange: 7.36, percentChange: 4.46),
                 trend30d: .init(priceChange: 13.88, percentChange: 8.75)
             ),
+            display: nil,
             pricedOn: fixedDate,
             fetchedAt: fixedDate
         ),

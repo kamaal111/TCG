@@ -16,7 +16,7 @@ describe('CardImageRepository attempt accounting', () => {
         attemptCount: env.CARD_IMAGE_MAX_ATTEMPTS - 1,
       });
 
-      const claimed = await repository.claim(imageKey, 'worker');
+      const claimed = await repository.claim(imageKey, 'worker', new Date());
 
       const markedReady = await repository.markReady(imageKey, 'worker', {
         contentType: 'image/png',
@@ -47,7 +47,7 @@ describe('CardImageRepository attempt accounting', () => {
 
       await repository.resetMissingObject(imageKey);
       const afterReset = await repository.getByImageKey(imageKey);
-      const reclaimed = await repository.claim(imageKey, 'worker');
+      const reclaimed = await repository.claim(imageKey, 'worker', new Date());
 
       expect(afterReset?.attemptCount).toBe(0);
       expect(afterReset?.lastErrorCode).toBeNull();
@@ -66,7 +66,7 @@ describe('CardImageRepository attempt accounting', () => {
         nextAttemptAt: new Date(Date.now() - env.CARD_IMAGE_RETRY_AFTER_MS),
       });
 
-      const claimed = await repository.claim(imageKey, 'worker');
+      const claimed = await repository.claim(imageKey, 'worker', new Date());
 
       expect(claimed).toBeUndefined();
     },
@@ -83,7 +83,7 @@ describe('CardImageRepository attempt accounting', () => {
         nextAttemptAt: new Date(Date.now() - env.CARD_IMAGE_RETRY_AFTER_MS),
       });
 
-      const claimed = await repository.claim(imageKey, 'worker');
+      const claimed = await repository.claim(imageKey, 'worker', new Date());
       const [stored] = await db.select().from(cardImage).where(eq(cardImage.imageKey, imageKey));
 
       expect(claimed?.attemptCount).toBe(2);
@@ -104,8 +104,8 @@ describe('CardImageRepository.claimBatch', () => {
     );
 
     const [first, second] = await Promise.all([
-      repository.claimBatch('worker-one', imageKeys.length),
-      repository.claimBatch('worker-two', imageKeys.length),
+      repository.claimBatch('worker-one', imageKeys.length, new Date()),
+      repository.claimBatch('worker-two', imageKeys.length, new Date()),
     ]);
 
     const claimed = [...first, ...second];
@@ -138,7 +138,7 @@ describe('CardImageRepository.claimBatch', () => {
       }),
     ]);
 
-    const claimed = await repository.claimBatch('worker', 2);
+    const claimed = await repository.claimBatch('worker', 2, new Date());
 
     expect(claimed.map(row => row.imageKey).sort()).toEqual(['b'.repeat(64), 'c'.repeat(64)]);
   });
@@ -160,7 +160,7 @@ describe('CardImageRepository.claimBatch', () => {
       }),
     ]);
 
-    const claimed = await repository.claimBatch('worker', 10);
+    const claimed = await repository.claimBatch('worker', 10, new Date());
 
     expect(claimed).toEqual([]);
   });
@@ -173,7 +173,7 @@ describe('CardImageRepository.claimBatch', () => {
         imageKey,
       });
 
-      const [claimed] = await repository.claimBatch('worker', 1);
+      const [claimed] = await repository.claimBatch('worker', 1, new Date());
       const released = await repository.releaseClaim(imageKey, 'worker');
       const afterRelease = await repository.getByImageKey(imageKey);
 
@@ -200,7 +200,7 @@ describe('CardImageRepository retry backoff', () => {
 
       const delays = await Promise.all(
         imageKeys.map(async (imageKey, index) => {
-          await repository.claim(imageKey, imageKey);
+          await repository.claim(imageKey, imageKey, new Date());
           const failedAt = Date.now();
           await repository.markFailed(imageKey, imageKey, {
             code: 'origin_http_error',
@@ -235,8 +235,8 @@ describe('CardImageRepository retry backoff', () => {
         leaseExpiresAt: new Date(Date.now() - 60_000),
       });
 
-      const claimed = await repository.claim(imageKey, 'worker');
-      const batchClaimed = await repository.claimBatch('worker', 10);
+      const claimed = await repository.claim(imageKey, 'worker', new Date());
+      const batchClaimed = await repository.claimBatch('worker', 10, new Date());
 
       expect(claimed).toBeUndefined();
       expect(batchClaimed).toEqual([]);
@@ -270,7 +270,7 @@ describe('CardImageRepository.requeueForRefresh', () => {
     const matched = await repository.findReadyImageKeysByOriginUrlPattern('https://images.example.com/sets/base/%');
     const refreshed = await repository.requeueForRefresh(matched.map(row => row.imageKey));
     const refreshedRow = await repository.getByImageKey(readyKey);
-    const claimed = await repository.claimBatch('worker', 10);
+    const claimed = await repository.claimBatch('worker', 10, new Date());
 
     expect(matched.map(row => row.imageKey)).toEqual([readyKey]);
     expect(refreshed).toBe(1);

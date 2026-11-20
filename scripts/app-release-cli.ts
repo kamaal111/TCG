@@ -47,7 +47,7 @@ try {
       root: url.fileURLToPath(new URL('../', import.meta.url)),
       directory: homePath(directory),
       prompts: terminalPrompts,
-      edit: args.values.edit,
+      edit: args.values.edit ?? false,
     });
   }
 } catch (cause) {

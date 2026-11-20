@@ -61,7 +61,7 @@ final class CollectionSnapshotCache {
         write()
     }
 
-    func freshPage(for scope: Scope, at now: Date, force: Bool = false) -> Page? {
+    func freshPage(for scope: Scope, at now: Date, force: Bool) -> Page? {
         snapshot.pages.first {
             $0.scope == scope && CachedListLoad.restoreWithoutFetching(checkedAt: $0.checkedAt, now: now, force: force)
         }
@@ -119,7 +119,11 @@ final class CollectionSnapshotCache {
         write()
     }
 
-    init(root: URL = URL.cachesDirectory.appending(path: "OnlineCollection-v1", directoryHint: .isDirectory)) {
+    static var defaultRoot: URL {
+        URL.cachesDirectory.appending(path: "OnlineCollection-v1", directoryHint: .isDirectory)
+    }
+
+    init(root: URL) {
         store = AccountSnapshotStore(root: root, namespace: TCGClient.authenticationStorageNamespace)
     }
 

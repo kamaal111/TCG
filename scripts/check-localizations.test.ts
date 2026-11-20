@@ -16,7 +16,7 @@ const repo = path.dirname(path.dirname(script));
 
 const label = 'Modules/Features/Sources/Search/Localizable.xcstrings';
 
-const unit = (state = 'translated', value = 'Zoekhulp') => ({ stringUnit: { state, value } });
+const unit = (state: string, value: string) => ({ stringUnit: { state, value } });
 
 const quote = (value: string) => "'" + value.replaceAll("'", "'\\''") + "'";
 
@@ -35,7 +35,7 @@ function fixture(t: TestContext) {
   const fileList = path.join(output, 'Search.SwiftFileList');
   fs.writeFileSync(fileList, quote(source) + '\n');
 
-  const extract = (keys: JSONValue[], table = 'Localizable', sourceFile = source, directory = output) => {
+  const extract = (keys: JSONValue[], table: string, sourceFile: string, directory: string) => {
     return write(path.join(directory, `${path.basename(sourceFile, '.swift')}.stringsdata`), {
       source: sourceFile,
       tables: { [table]: keys.map(key => ({ key })) },
@@ -43,11 +43,11 @@ function fixture(t: TestContext) {
     });
   };
 
-  const catalog = (entries: Record<string, JSONValue>, table = 'Localizable') => {
+  const catalog = (entries: Record<string, JSONValue>, table: string) => {
     return write(path.join(owner, `${table}.xcstrings`), { sourceLanguage: 'en', strings: entries, version: '1.0' });
   };
 
-  extract(['How to search']);
+  extract(['How to search'], 'Localizable', source, output);
 
   return {
     root,
@@ -60,25 +60,25 @@ function fixture(t: TestContext) {
     write,
     extract,
     catalog,
-    check: (configuration = 'Debug') => checkCatalogs(app, build, configuration),
+    check: (configuration: string) => checkCatalogs(app, build, configuration),
   };
 }
 
 test('accepts source-language fallback', t => {
   const f = fixture(t);
-  f.catalog({ 'How to search': {} });
-  expect(f.check()).toStrictEqual([]);
+  f.catalog({ 'How to search': {} }, 'Localizable');
+  expect(f.check('Debug')).toStrictEqual([]);
 });
 
 test('reports missing catalogs', t => {
   const f = fixture(t);
-  expect(f.check()).toStrictEqual([`${label}: missing string catalog (1 extracted keys).`]);
+  expect(f.check('Debug')).toStrictEqual([`${label}: missing string catalog (1 extracted keys).`]);
 });
 
 test('reports missing keys', t => {
   const f = fixture(t);
-  f.catalog({});
-  expect(f.check()).toStrictEqual([`${label}: missing key 'How to search'.`]);
+  f.catalog({}, 'Localizable');
+  expect(f.check('Debug')).toStrictEqual([`${label}: missing key 'How to search'.`]);
 });
 
 test('isolates catalog ownership', t => {
@@ -86,24 +86,24 @@ test('isolates catalog ownership', t => {
   const other = path.join(f.app, 'Modules/Other/Sources/Other');
   fs.mkdirSync(other, { recursive: true });
   f.write(path.join(other, 'Localizable.xcstrings'), { sourceLanguage: 'en', strings: { 'How to search': {} } });
-  expect(f.check()).toStrictEqual([`${label}: missing string catalog (1 extracted keys).`]);
+  expect(f.check('Debug')).toStrictEqual([`${label}: missing string catalog (1 extracted keys).`]);
 });
 
 test('checks iOS extraction independently', t => {
   const f = fixture(t);
-  f.catalog({ 'How to search': {} });
+  f.catalog({ 'How to search': {} }, 'Localizable');
   const ios = f.output.replace('/Debug/', '/Debug-iphonesimulator/');
   fs.mkdirSync(ios, { recursive: true });
   fs.writeFileSync(path.join(ios, 'Search.SwiftFileList'), quote(f.source) + '\n');
   f.extract(['How to search', 'Done'], 'Localizable', f.source, ios);
   expect(f.check('Debug-iphonesimulator')).toStrictEqual([`${label}: missing key 'Done'.`]);
-  expect(f.check()).toStrictEqual([]);
+  expect(f.check('Debug')).toStrictEqual([]);
 });
 
 test('reports disabled compiler extraction', t => {
   const f = fixture(t);
   fs.unlinkSync(path.join(f.output, 'Screen.stringsdata'));
-  expect(f.check()).toStrictEqual([
+  expect(f.check('Debug')).toStrictEqual([
     'Modules/Features/Sources/Search/Screen.swift: no compiler string extraction; enable SWIFT_EMIT_LOC_STRINGS.',
   ]);
 });
@@ -111,67 +111,89 @@ test('reports disabled compiler extraction', t => {
 test('reports absent compilation inputs', t => {
   const f = fixture(t);
   fs.unlinkSync(f.fileList);
-  expect(f.check()).toStrictEqual(['No app compilation inputs found for Debug. Run the matching app tests first.']);
+  expect(f.check('Debug')).toStrictEqual([
+    'No app compilation inputs found for Debug. Run the matching app tests first.',
+  ]);
 });
 
 test('honors custom tables', t => {
   const f = fixture(t);
-  f.extract(['How to search'], 'Help');
+  f.extract(['How to search'], 'Help', f.source, f.output);
   f.catalog({ 'How to search': {} }, 'Help');
-  expect(f.check()).toStrictEqual([]);
+  expect(f.check('Debug')).toStrictEqual([]);
 });
 
 test('excludes dependencies and nonlocalizable literals', t => {
   const f = fixture(t);
-  f.catalog({ 'How to search': {} });
-  f.extract(['Dependency key'], 'Localizable', path.join(f.root, 'dependency/External.swift'));
+  f.catalog({ 'How to search': {} }, 'Localizable');
+  f.extract(['Dependency key'], 'Localizable', path.join(f.root, 'dependency/External.swift'), f.output);
   fs.writeFileSync(f.source, 'Text("How to search"); Text(verbatim: "sv5m 072/071")');
-  expect(f.check()).toStrictEqual([]);
+  expect(f.check('Debug')).toStrictEqual([]);
 });
 
 test('requires completed declared translations', t => {
   const f = fixture(t);
-  f.extract(['How to search', 'Done']);
-  f.catalog({
-    'How to search': { localizations: { nl: unit() } },
-    Done: { localizations: { nl: unit('needs_review') } },
-  });
-  expect(f.check()).toStrictEqual([`${label}: 'Done' has no completed nl translation.`]);
+  f.extract(['How to search', 'Done'], 'Localizable', f.source, f.output);
+  f.catalog(
+    {
+      'How to search': { localizations: { nl: unit('translated', 'Zoekhulp') } },
+      Done: { localizations: { nl: unit('needs_review', 'Zoekhulp') } },
+    },
+    'Localizable',
+  );
+  expect(f.check('Debug')).toStrictEqual([`${label}: 'Done' has no completed nl translation.`]);
 });
 
 test('accepts translation exemptions', t => {
   const f = fixture(t);
-  f.extract(['How to search', 'TCG']);
-  f.catalog({ 'How to search': { localizations: { nl: unit() } }, TCG: { shouldTranslate: false } });
-  expect(f.check()).toStrictEqual([]);
+  f.extract(['How to search', 'TCG'], 'Localizable', f.source, f.output);
+  f.catalog(
+    { 'How to search': { localizations: { nl: unit('translated', 'Zoekhulp') } }, TCG: { shouldTranslate: false } },
+    'Localizable',
+  );
+  expect(f.check('Debug')).toStrictEqual([]);
 });
 
 test('collects languages repository-wide and excludes each source language', t => {
   const f = fixture(t);
-  f.catalog({ 'How to search': {} });
+  f.catalog({ 'How to search': {} }, 'Localizable');
   f.write(path.join(f.app, 'Other.xcstrings'), {
     sourceLanguage: 'nl',
-    strings: { Other: { localizations: { en: unit(), fr: unit() } } },
+    strings: { Other: { localizations: { en: unit('translated', 'Zoekhulp'), fr: unit('translated', 'Zoekhulp') } } },
   });
-  expect(f.check()).toStrictEqual([`${label}: 'How to search' has no completed fr translation.`]);
+  expect(f.check('Debug')).toStrictEqual([`${label}: 'How to search' has no completed fr translation.`]);
 });
 
 test('requires every plural variant', () => {
-  expect(translated({ variations: { plural: { one: unit(), other: unit('new') } } })).toBe(false);
+  expect(
+    translated({ variations: { plural: { one: unit('translated', 'Zoekhulp'), other: unit('new', 'Zoekhulp') } } }),
+  ).toBe(false);
 });
 
 test('accepts completed plural variants', () => {
-  expect(translated({ variations: { plural: { one: unit(), other: unit() } } })).toBe(true);
+  expect(
+    translated({
+      variations: { plural: { one: unit('translated', 'Zoekhulp'), other: unit('translated', 'Zoekhulp') } },
+    }),
+  ).toBe(true);
 });
 
 test('requires completed substitution variants', () => {
-  expect(translated({ ...unit(), substitutions: { count: { variations: { plural: { other: unit('new') } } } } })).toBe(
-    false,
-  );
+  expect(
+    translated({
+      ...unit('translated', 'Zoekhulp'),
+      substitutions: { count: { variations: { plural: { other: unit('new', 'Zoekhulp') } } } },
+    }),
+  ).toBe(false);
 });
 
 test('accepts completed substitution variants', () => {
-  expect(translated({ ...unit(), substitutions: { count: { variations: { plural: { other: unit() } } } } })).toBe(true);
+  expect(
+    translated({
+      ...unit('translated', 'Zoekhulp'),
+      substitutions: { count: { variations: { plural: { other: unit('translated', 'Zoekhulp') } } } },
+    }),
+  ).toBe(true);
 });
 
 for (const value of [
@@ -183,8 +205,8 @@ for (const value of [
   { variations: {} },
   { variations: { plural: {} } },
   { variations: { plural: [] } },
-  { ...unit(), substitutions: null },
-  { ...unit(), substitutions: [] },
+  { ...unit('translated', 'Zoekhulp'), substitutions: null },
+  { ...unit('translated', 'Zoekhulp'), substitutions: [] },
 ]) {
   test(`rejects incomplete translation ${JSON.stringify(value)}`, () => {
     expect(translated(value)).toBe(false);
@@ -195,7 +217,7 @@ for (const value of ['not JSON', '{}', '{"source":1,"tables":{}}', '{"source":"x
   test(`rejects malformed extraction ${value}`, t => {
     const f = fixture(t);
     fs.writeFileSync(path.join(f.output, 'Screen.stringsdata'), value);
-    expect(f.check).toThrow(Error);
+    expect(() => f.check('Debug')).toThrow(Error);
   });
 }
 
@@ -213,28 +235,28 @@ for (const value of malformedCatalogs) {
   test(`rejects malformed catalog ${JSON.stringify(value)}`, t => {
     const f = fixture(t);
     f.write(path.join(f.owner, 'Localizable.xcstrings'), value);
-    expect(f.check).toThrow(Error);
+    expect(() => f.check('Debug')).toThrow(Error);
   });
 }
 
 for (const table of ['', '.', '..', '../Other', '/Other']) {
   test(`rejects invalid table ${JSON.stringify(table)}`, t => {
     const f = fixture(t);
-    f.extract(['x'], table);
-    expect(f.check).toThrow(/Invalid localization table/);
+    f.extract(['x'], table, f.source, f.output);
+    expect(() => f.check('Debug')).toThrow(/Invalid localization table/);
   });
 }
 
 test('rejects non-string extracted keys', t => {
   const f = fixture(t);
-  f.extract([1]);
-  expect(f.check).toThrow(/Invalid localization key/);
+  f.extract([1], 'Localizable', f.source, f.output);
+  expect(() => f.check('Debug')).toThrow(/Invalid localization key/);
 });
 
 test('rejects malformed table entries', t => {
   const f = fixture(t);
   f.write(path.join(f.output, 'Screen.stringsdata'), { source: f.source, tables: { Localizable: {} } });
-  expect(f.check).toThrow(/Invalid localization entries/);
+  expect(() => f.check('Debug')).toThrow(/Invalid localization entries/);
 });
 
 for (const name of ['Screen with spaces.swift', "Screen'quote.swift", 'Screen"quote.swift', 'Screen\\slash.swift']) {
@@ -242,9 +264,9 @@ for (const name of ['Screen with spaces.swift', "Screen'quote.swift", 'Screen"qu
     const f = fixture(t);
     const source = path.join(f.owner, name);
     fs.writeFileSync(f.fileList, quote(source) + '\n');
-    f.extract(['How to search'], 'Localizable', source);
-    f.catalog({ 'How to search': {} });
-    expect(f.check()).toStrictEqual([]);
+    f.extract(['How to search'], 'Localizable', source, f.output);
+    f.catalog({ 'How to search': {} }, 'Localizable');
+    expect(f.check('Debug')).toStrictEqual([]);
   });
 }
 
@@ -255,16 +277,16 @@ test('parses double quotes and backslash escapes', t => {
     f.fileList,
     '"' + source.replace(/(["\\])/g, '\\$1') + '"\n' + source.replace(/([\s"\\])/g, '\\$1') + '\n',
   );
-  f.extract(['How to search'], 'Localizable', source);
-  f.catalog({ 'How to search': {} });
-  expect(f.check()).toStrictEqual([]);
+  f.extract(['How to search'], 'Localizable', source, f.output);
+  f.catalog({ 'How to search': {} }, 'Localizable');
+  expect(f.check('Debug')).toStrictEqual([]);
 });
 
 for (const entry of ['', 'two paths', "'unterminated", 'dangling\\', "''"]) {
   test(`rejects invalid file-list entry ${JSON.stringify(entry)}`, t => {
     const f = fixture(t);
     fs.writeFileSync(f.fileList, entry + '\n');
-    expect(f.check).toThrow(/Invalid Swift file list entry/);
+    expect(() => f.check('Debug')).toThrow(/Invalid Swift file list entry/);
   });
 }
 
@@ -273,20 +295,22 @@ test('does not claim sources in sibling directories', t => {
   const sibling = path.join(f.app, 'TCGSibling', 'Screen.swift');
   fs.mkdirSync(path.dirname(sibling));
   fs.writeFileSync(f.fileList, quote(sibling) + '\n');
-  f.extract(['x'], 'Localizable', sibling);
-  expect(f.check()).toStrictEqual(['No app compilation inputs found for Debug. Run the matching app tests first.']);
+  f.extract(['x'], 'Localizable', sibling, f.output);
+  expect(f.check('Debug')).toStrictEqual([
+    'No app compilation inputs found for Debug. Run the matching app tests first.',
+  ]);
 });
 
 test('deduplicates keys and sorts diagnostics', t => {
   const f = fixture(t);
-  f.extract(['z', 'a', 'z']);
+  f.extract(['z', 'a', 'z'], 'Localizable', f.source, f.output);
   f.extract(['a', 'z'], 'Localizable', f.source, f.output);
   f.write(path.join(f.output, 'Duplicate.stringsdata'), {
     source: f.source,
     tables: { Localizable: [{ key: 'z' }, { key: 'a' }] },
   });
-  f.catalog({});
-  expect(f.check()).toStrictEqual([`${label}: missing key 'a'.`, `${label}: missing key 'z'.`]);
+  f.catalog({}, 'Localizable');
+  expect(f.check('Debug')).toStrictEqual([`${label}: missing key 'a'.`, `${label}: missing key 'z'.`]);
 });
 
 test('fails on filesystem errors', t => {
@@ -294,7 +318,7 @@ test('fails on filesystem errors', t => {
   expect(() => checkCatalogs(f.app, path.join(f.root, 'missing'), 'Debug')).toThrow(/ENOENT/);
 });
 
-function cli(args: string[], env: NodeJS.ProcessEnv = {}) {
+function cli(args: string[], env: NodeJS.ProcessEnv) {
   return childProcess.spawnSync(process.execPath, [script, ...args], {
     encoding: 'utf8',
     cwd: os.tmpdir(),
@@ -475,23 +499,23 @@ test('CLI reports unavailable xcodebuild', () => {
 test('checks absent sources in empty module directories', t => {
   const f = fixture(t);
   fs.unlinkSync(f.source);
-  f.catalog({ 'How to search': {} });
-  expect(f.check()).toStrictEqual([]);
+  f.catalog({ 'How to search': {} }, 'Localizable');
+  expect(f.check('Debug')).toStrictEqual([]);
 });
 
 test('rejects malformed catalog JSON', t => {
   const f = fixture(t);
   fs.writeFileSync(path.join(f.owner, 'Localizable.xcstrings'), 'not JSON');
-  expect(f.check).toThrow(SyntaxError);
+  expect(() => f.check('Debug')).toThrow(SyntaxError);
 });
 
 test('treats shell expansions as literal source paths', t => {
   const f = fixture(t);
   const source = path.join(f.owner, '$(touch sentinel).swift');
   fs.writeFileSync(f.fileList, quote(source) + '\n');
-  f.extract(['How to search'], 'Localizable', source);
-  f.catalog({ 'How to search': {} });
-  expect(f.check()).toStrictEqual([]);
+  f.extract(['How to search'], 'Localizable', source, f.output);
+  f.catalog({ 'How to search': {} }, 'Localizable');
+  expect(f.check('Debug')).toStrictEqual([]);
   expect(fs.existsSync(path.join(f.root, 'sentinel'))).toBe(false);
 });
 

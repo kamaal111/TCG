@@ -57,7 +57,7 @@ export const createTestDatabase = async (
 export async function createTestUser(
   app: Hono<HonoEnvironment>,
   db: Database,
-  overrides: Partial<{ password: string }> = {},
+  overrides: Partial<{ password: string }>,
 ) {
   const email = `test_${crypto.randomUUID()}@example.com`;
   const password = overrides.password ?? 'password123';

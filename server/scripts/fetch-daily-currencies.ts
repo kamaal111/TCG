@@ -16,12 +16,12 @@ const db = createDatabase({
   connectionTimeoutMs: env.DATABASE_CONNECTION_TIMEOUT_MS,
 });
 
-const service = new ForexCollector(new PostgresForexRepository(db), new EcbForexClient());
+const service = new ForexCollector(new PostgresForexRepository(db), new EcbForexClient({}));
 
 const logger = forexProcessLogger();
 
 try {
-  const result = await service.collectLatest();
+  const result = await service.collectLatest(new Date());
 
   if (result.isErr()) {
     throw result.error;

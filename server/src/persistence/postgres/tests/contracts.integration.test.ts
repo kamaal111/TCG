@@ -21,7 +21,7 @@ definePersistenceContracts('PostgreSQL and S3', async () => {
     coordinator: persistence.pricingCoordinator,
     storage,
     createOwner: async () => {
-      const user = await createTestUser(app, database.db);
+      const user = await createTestUser(app, database.db, {});
 
       const repositories = persistence.forRequest(
         { requireUserId: () => user.userId },

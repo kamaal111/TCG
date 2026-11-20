@@ -118,11 +118,11 @@ struct TCGBinderScreen: View {
             return false
         }
         isSavingLayout = true
-        Task { await saveLayout(updated) }
+        Task { await saveLayout(updated, selecting: nil) }
         return true
     }
 
-    private func saveLayout(_ updated: CardBinderCollection, selecting pageID: UUID? = nil) async {
+    private func saveLayout(_ updated: CardBinderCollection, selecting pageID: UUID?) async {
         defer { isSavingLayout = false }
         guard await collections?.save(updated, using: cards) == true else { return }
         guard let saved = latestCollection else { return }
@@ -138,7 +138,7 @@ struct TCGBinderScreen: View {
         guard var updated = latestCollection else { return }
         updated.pages.removeAll { $0.id == page.id }
         isSavingLayout = true
-        await saveLayout(updated)
+        await saveLayout(updated, selecting: nil)
     }
 
 }

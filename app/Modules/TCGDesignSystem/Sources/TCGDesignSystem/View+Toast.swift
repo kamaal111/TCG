@@ -30,7 +30,7 @@ extension View {
 
     public func toast<T: ToastPresentable>(
         _ toast: T?,
-        type: KPopUpBottomType = .error,
+        type: KPopUpBottomType,
         dismiss: @escaping () -> Void
     ) -> some View {
         self.toast(
