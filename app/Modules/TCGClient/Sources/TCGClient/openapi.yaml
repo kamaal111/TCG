@@ -2997,6 +2997,65 @@ components:
         trend_30d:
           price_change: 13.88
           percent_change: 8.75
+    ConditionPrice:
+      type: object
+      properties:
+        condition:
+          type: string
+          enum:
+            - near_mint
+            - excellent
+            - good
+            - played
+            - damaged
+        currency:
+          $ref: '#/components/schemas/Currency'
+        low:
+          type: number
+          minimum: 0
+        market:
+          type: number
+          minimum: 0
+        trend_7d:
+          $ref: '#/components/schemas/PriceMovement'
+        trend_30d:
+          $ref: '#/components/schemas/PriceMovement'
+      required:
+        - condition
+        - currency
+      title: Condition Price
+    ConditionValue:
+      type: object
+      properties:
+        condition:
+          type: string
+          enum:
+            - mint
+            - near_mint
+            - excellent
+            - good
+            - played
+            - damaged
+        currency:
+          $ref: '#/components/schemas/Currency'
+        amount:
+          type: number
+          minimum: 0
+        basis:
+          type: string
+          enum:
+            - market
+            - low
+            - interpolated
+            - adjusted
+        conversion_unavailable:
+          type: boolean
+      required:
+        - condition
+        - currency
+        - amount
+        - basis
+      title: Condition Value
     PricedCardDisplay:
       type: object
       properties:
@@ -3008,6 +3067,14 @@ components:
           $ref: '#/components/schemas/PriceHeadline'
         market:
           $ref: '#/components/schemas/MarketPrice'
+        condition_prices:
+          type: array
+          items:
+            $ref: '#/components/schemas/ConditionPrice'
+        condition_values:
+          type: array
+          items:
+            $ref: '#/components/schemas/ConditionValue'
       required:
         - preferred_currency
         - conversion_unavailable
@@ -3065,6 +3132,14 @@ components:
           $ref: '#/components/schemas/PriceHeadline'
         market:
           $ref: '#/components/schemas/MarketPrice'
+        condition_prices:
+          type: array
+          items:
+            $ref: '#/components/schemas/ConditionPrice'
+        condition_values:
+          type: array
+          items:
+            $ref: '#/components/schemas/ConditionValue'
         display:
           $ref: '#/components/schemas/PricedCardDisplay'
         priced_on:
@@ -3109,6 +3184,26 @@ components:
             percent_change: 8.75
         priced_on: '2026-07-23T00:00:00.000Z'
         fetched_at: '2026-07-23T10:30:00.000Z'
+    OwnedValuation:
+      type: object
+      properties:
+        amount:
+          type: number
+          minimum: 0
+        currency:
+          $ref: '#/components/schemas/Currency'
+        estimated:
+          type: boolean
+        conversion_unavailable:
+          type: boolean
+        purchase_price_change_percent:
+          type: number
+      required:
+        - amount
+        - currency
+        - estimated
+        - conversion_unavailable
+      title: Owned Valuation
     OwnedCardPrice:
       type: object
       properties:
@@ -3130,6 +3225,8 @@ components:
           example: priced
         priced_card:
           $ref: '#/components/schemas/PricedCard'
+        valuation:
+          $ref: '#/components/schemas/OwnedValuation'
       required:
         - card_id
         - status
@@ -3217,6 +3314,12 @@ components:
           example: '2.50'
         currency:
           $ref: '#/components/schemas/NullableCurrency'
+        automatic_price_date:
+          type:
+            - 'null'
+            - string
+          format: date
+          description: Pricing day for an automatic cost on a new batch
       required:
         - condition
         - quantity

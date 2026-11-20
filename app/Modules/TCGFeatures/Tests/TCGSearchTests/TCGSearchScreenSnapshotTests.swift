@@ -182,6 +182,8 @@ struct TCGSearchScreenSnapshotTests {
                 imageURL: nil,
                 headline: nil,
                 market: nil,
+                conditionPrices: nil,
+                conditionValues: nil,
                 display: nil,
                 pricedOn: Date(timeIntervalSince1970: 0),
                 fetchedAt: Date(timeIntervalSince1970: 0)
@@ -266,7 +268,16 @@ struct TCGSearchScreenSnapshotTests {
             imageURL: source.imageURL,
             headline: source.headline,
             market: source.market,
-            display: .init(preferredCurrency: .eur, headline: nil, market: nil, conversionUnavailable: true),
+            conditionPrices: nil,
+            conditionValues: nil,
+            display: .init(
+                preferredCurrency: .eur,
+                headline: nil,
+                market: nil,
+                conditionPrices: nil,
+                conditionValues: nil,
+                conversionUnavailable: true
+            ),
             pricedOn: source.pricedOn,
             fetchedAt: source.fetchedAt
         )
@@ -572,6 +583,8 @@ struct TCGSearchScreenSnapshotTests {
             imageURL: nil,
             headline: nil,
             market: nil,
+            conditionPrices: nil,
+            conditionValues: nil,
             display: nil,
             pricedOn: Date(timeIntervalSince1970: 1_750_000_000),
             fetchedAt: Date(timeIntervalSince1970: 1_750_000_000)
@@ -646,10 +659,58 @@ struct TCGSearchScreenSnapshotTests {
                 trend7d: PriceMovement(priceChange: 12, percentChange: 2.7),
                 trend30d: PriceMovement(priceChange: -20, percentChange: -4.3)
             ),
+            conditionPrices: nil,
+            conditionValues: nil,
             display: nil,
             pricedOn: Date(timeIntervalSince1970: 1_750_000_000),
             fetchedAt: Date(timeIntervalSince1970: 1_750_000_000)
         )
+    }
+
+    @Test
+    func `Renders condition quotes in Wishlist details`() async {
+        let card = PricedCard(
+            id: "wishlist-condition-prices",
+            printingKey: nil,
+            isWishlisted: nil,
+            game: .pokemon,
+            name: "Giratina V",
+            cardNumber: "186/196",
+            setName: nil,
+            rarity: nil,
+            illustrator: "Shinji Kanda",
+            variantName: nil,
+            imageURL: nil,
+            headline: nil,
+            market: nil,
+            conditionPrices: [
+                MarketPrice(condition: .nearMint, currency: .usd, low: 420, market: 450, trend7d: nil, trend30d: nil),
+                MarketPrice(condition: .excellent, currency: .usd, low: 310, market: 375, trend7d: nil, trend30d: nil),
+            ],
+            conditionValues: nil,
+            display: nil,
+            pricedOn: Date(timeIntervalSince1970: 1_750_000_000),
+            fetchedAt: Date(timeIntervalSince1970: 1_750_000_000)
+        )
+        await assertScreenSnapshot(testName: #function, fileID: #fileID, file: #filePath, line: #line, column: #column)
+        {
+            TCGSearchDetailView(
+                card: card,
+                variants: [],
+                isWishlistEntry: true,
+                onWishlistRemoval: nil,
+                addForm: { _, _ in EmptyView() }
+            )
+            .tcgSearch(
+                TCGSearch(
+                    client: .preview(hasValidCredentials: false),
+                    history: TCGSearchHistoryStore(defaults: nil, now: Date.init)
+                )
+            )
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(.background)
+            .environment(\.timeZone, TimeZone(secondsFromGMT: 0)!)
+        }
     }
 
     @ViewBuilder

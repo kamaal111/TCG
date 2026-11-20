@@ -1,9 +1,10 @@
 import { z } from 'zod';
 
-import { CARD_GAMES } from '../../cards/types.ts';
+import { CARD_CONDITION_MAP, CARD_CONDITIONS, CARD_GAMES } from '../../cards/types.ts';
 import { CurrencySchema } from '../../forex/currencies.ts';
 import { ApiCommonDatetime, UuidSchema } from '../../schemas/common.ts';
 import { paginatedResponseSchema } from '../../schemas/pagination.ts';
+import { CONDITION_VALUE_BASIS_MAP, QUOTED_CONDITIONS } from '../types.ts';
 
 export const PRICE_HEADLINE_METRICS = { LOWEST_NEAR_MINT: 'lowest_near_mint' } as const;
 
@@ -49,7 +50,7 @@ const PriceMovementSchema = z
 export const MarketPriceSchema = z
   .object({
     condition: z
-      .literal('near_mint')
+      .literal(CARD_CONDITION_MAP.NEAR_MINT)
       .meta({ description: 'Normalized raw-card condition selected for pricing', example: 'near_mint' }),
     currency: CurrencySchema,
     low: AmountSchema.optional().meta({ description: 'Lowest known Near Mint price', example: 146.69 }),
@@ -71,12 +72,49 @@ export const MarketPriceSchema = z
     },
   });
 
+const ConditionPriceSchema = z
+  .object({
+    condition: z.enum(QUOTED_CONDITIONS),
+    currency: CurrencySchema,
+    low: AmountSchema.optional(),
+    market: AmountSchema.optional(),
+    trend_7d: PriceMovementSchema.optional(),
+    trend_30d: PriceMovementSchema.optional(),
+  })
+  .meta({ $id: 'ConditionPrice', title: 'Condition Price' });
+
+const ConditionValueSchema = z
+  .object({
+    condition: z.enum(CARD_CONDITIONS),
+    currency: CurrencySchema,
+    amount: AmountSchema,
+    basis: z.enum(Object.values(CONDITION_VALUE_BASIS_MAP)),
+    conversion_unavailable: z.boolean().optional(),
+  })
+  .meta({ $id: 'ConditionValue', title: 'Condition Value' });
+
+const OwnedValuationSchema = z
+  .object({
+    amount: AmountSchema,
+    currency: CurrencySchema,
+    estimated: z.boolean(),
+    conversion_unavailable: z.boolean(),
+    purchase_price_change_percent: z.number().optional(),
+  })
+  .meta({ $id: 'OwnedValuation', title: 'Owned Valuation' });
+
+const conditionPricingFields = {
+  condition_prices: z.array(ConditionPriceSchema).optional(),
+  condition_values: z.array(ConditionValueSchema).optional(),
+};
+
 export const PricedCardDisplaySchema = z
   .object({
     preferred_currency: CurrencySchema,
     conversion_unavailable: z.boolean(),
     headline: PriceHeadlineSchema.optional(),
     market: MarketPriceSchema.optional(),
+    ...conditionPricingFields,
   })
   .meta({ $id: 'PricedCardDisplay', title: 'Priced Card Display' });
 
@@ -104,6 +142,7 @@ export const PricedCardSchema = z
     }),
     headline: PriceHeadlineSchema.optional(),
     market: MarketPriceSchema.optional(),
+    ...conditionPricingFields,
     display: PricedCardDisplaySchema.optional(),
     priced_on: ApiCommonDatetime.meta({
       description: 'UTC pricing date',
@@ -157,6 +196,7 @@ export const OwnedCardPriceSchema = z
       example: OWNED_CARD_PRICE_STATUSES.PRICED,
     }),
     priced_card: PricedCardSchema.optional(),
+    valuation: OwnedValuationSchema.optional(),
   })
   .meta({
     $id: 'OwnedCardPrice',
@@ -167,6 +207,12 @@ export const OwnedCardPriceSchema = z
       status: 'priced',
     },
   });
+
+export type ConditionPriceResponse = z.infer<typeof ConditionPriceSchema>;
+
+export type ConditionValueResponse = z.infer<typeof ConditionValueSchema>;
+
+export type OwnedValuationResponse = z.infer<typeof OwnedValuationSchema>;
 
 export type PricedCardResponse = z.infer<typeof PricedCardSchema>;
 

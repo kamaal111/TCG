@@ -59,6 +59,8 @@ struct PreviewTCGPricingClient: TCGPricingClient {
                 trend7d: .init(priceChange: 0.10, percentChange: 1.05),
                 trend30d: .init(priceChange: 0.85, percentChange: 9.71)
             ),
+            conditionPrices: nil,
+            conditionValues: nil,
             display: nil,
             pricedOn: fixedDate,
             fetchedAt: fixedDate
@@ -84,6 +86,8 @@ struct PreviewTCGPricingClient: TCGPricingClient {
                 trend7d: .init(priceChange: 7.36, percentChange: 4.46),
                 trend30d: .init(priceChange: 13.88, percentChange: 8.75)
             ),
+            conditionPrices: nil,
+            conditionValues: nil,
             display: nil,
             pricedOn: fixedDate,
             fetchedAt: fixedDate

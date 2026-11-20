@@ -24,7 +24,7 @@ import type { HonoContext } from '../context.ts';
 import { isNonEmpty, type NonEmptyArray } from '../utils/type-utils.ts';
 import { cachedIllustrator } from './utils/illustrator.ts';
 import { searchPageKey } from './utils/pagination.ts';
-import { serializePricedCard } from './utils/pricing.ts';
+import { serializeOwnedCardPrice, serializePricedCard } from './utils/pricing.ts';
 import { printingKey } from './utils/printing-key.ts';
 import { buildSearchQuery, normalizeCardNumber, normalizeName, queryKey, todayUTC } from './utils/query.ts';
 import type { WishlistEntry } from '../wishlist/repository.ts';
@@ -333,7 +333,7 @@ export class CardPricingService {
 
     await this.repository.setOwnedCardPricingIdentity(card, matchedRow.pricingCardId, this.client.source);
 
-    return this.makeOwnedResponse(card.id, matched);
+    return serializeOwnedCardPrice(card.id, matched);
   }
 
   private async priceOwnedCardById(
@@ -354,7 +354,7 @@ export class CardPricingService {
       await this.registerImages([cached]);
       this.logCache('pricing.owned.cache', 'hit', 1, card.id);
 
-      return this.makeOwnedResponse(
+      return serializeOwnedCardPrice(
         card.id,
         serializePricedCard(card.game, cached, this.c.get('config').PUBLIC_BASE_URL),
       );
@@ -365,7 +365,7 @@ export class CardPricingService {
 
     return price == null
       ? { card_id: card.id, status: OWNED_CARD_PRICE_STATUSES.NO_MATCH }
-      : this.makeOwnedResponse(card.id, price);
+      : serializeOwnedCardPrice(card.id, price);
   }
 
   private async fetchPrintingById(
@@ -465,14 +465,6 @@ export class CardPricingService {
     this.logCache('pricing.search.cache', 'hit', matches.length);
 
     return { normalizedQuery, matches, hasMore: cachedSearch.hasMore };
-  }
-
-  private makeOwnedResponse(cardId: string, price: PricedCardResponse): OwnedCardPriceResponse {
-    return {
-      card_id: cardId,
-      status: price.market == null ? OWNED_CARD_PRICE_STATUSES.NO_PRICE : OWNED_CARD_PRICE_STATUSES.PRICED,
-      priced_card: price,
-    };
   }
 
   private async registerImages(rows: CardPriceRow[]): Promise<void> {

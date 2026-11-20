@@ -67,10 +67,12 @@ struct PreviewTCGCardsClient: TCGCardsClient {
         let requested = Set(ids)
         let cards = state.cards.withLock { $0.filter { requested.contains($0.id) } }
         return .success(
-            cards.map { card in
-                .init(
+            cards.compactMap { card in
+                guard let price = pricedEntry(for: card).price else { return nil }
+
+                return OwnedCardPriceUpdate(
                     updatedAt: card.updatedAt,
-                    price: pricedEntry(for: card).price,
+                    price: price,
                     displayCurrency: card.displayCurrency,
                     illustrator: card.illustrator,
                     purchasePriceChangePercent: card.purchasePriceChangePercent,
@@ -233,7 +235,11 @@ struct PreviewTCGCardsClient: TCGCardsClient {
         )
         state.cards.withLock { $0.append(card) }
         return .success(
-            CardWithPrice(card: card, price: .init(cardId: card.id, status: .priced, price: printing), imageURL: nil)
+            CardWithPrice(
+                card: card,
+                price: .init(cardId: card.id, status: .priced, price: printing, valuation: nil),
+                imageURL: nil
+            )
         )
     }
 
@@ -269,7 +275,12 @@ struct PreviewTCGCardsClient: TCGCardsClient {
 
     static func price(for card: Card) -> OwnedCardPrice {
         let pricedCard = PreviewTCGPricingClient.samplePricedCards.first { $0.game == card.game }
-        return OwnedCardPrice(cardId: card.id, status: pricedCard == nil ? .noMatch : .priced, price: pricedCard)
+        return OwnedCardPrice(
+            cardId: card.id,
+            status: pricedCard == nil ? .noMatch : .priced,
+            price: pricedCard,
+            valuation: nil
+        )
     }
 
     func delete(ids: [UUID]) async -> Result<DeleteCardsResult, DeleteCardsErrors> {

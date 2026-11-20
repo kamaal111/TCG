@@ -110,12 +110,12 @@ public final class TCGCards {
     }
 
     func compatibleDisplay(_ entry: CardWithPrice) -> CardWithPrice {
-        let cachedCurrency = entry.card.displayCurrency ?? entry.price.price?.display?.preferredCurrency
+        let cachedCurrency = entry.card.displayCurrency ?? entry.price?.price?.display?.preferredCurrency
         guard let displayIdentity, cachedCurrency != displayIdentity.currency else { return entry }
 
         return .init(
             card: entry.card.replacingDisplay(with: nil),
-            price: .init(cardId: entry.card.id, status: .pending, price: nil),
+            price: nil,
             imageURL: entry.imageURL
         )
     }
@@ -167,7 +167,7 @@ public final class TCGCards {
     }
 
     func keepingPrice(for details: CardWithPrice, cached: CardWithPrice?) -> CardWithPrice {
-        guard details.price.status == .pending, let cached, cached.card.updatedAt == details.card.updatedAt,
+        guard details.price == nil, let cached, cached.card.updatedAt == details.card.updatedAt,
             cached.card.displayCurrency == details.card.displayCurrency
         else { return details }
 
@@ -474,7 +474,7 @@ public final class TCGCards {
             }
         )
         let requiresPricing =
-            pages.cards.contains { $0.price.status == .pending }
+            pages.cards.contains { $0.price == nil }
             || priceIDs != nil && snapshot.freshPage(for: scope, at: now(), force: false)?.list?.requiresPricing == true
         snapshot.saveRead(
             cards,
@@ -510,7 +510,7 @@ public final class TCGCards {
 
     func purchaseDefault(cardID: UUID) async -> PricedCard? {
         let result = await client.cards.prices(ids: [cardID])
-        return try? result.get().first { $0.price.cardId == cardID }?.price.price
+        return try? result.get().first { $0.cardID == cardID }?.price.price
     }
 
     func addCard(_ payload: CreateCardPayload) async -> Result<Void, TCGCardsOperationError> {

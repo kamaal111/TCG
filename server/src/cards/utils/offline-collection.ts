@@ -3,7 +3,7 @@ import type { z } from 'zod';
 
 import { serializeCardWithPrice } from './cards.ts';
 import { OWNED_CARD_PRICE_STATUSES } from '../../card-pricing/schemas/responses.ts';
-import { serializePricedCard } from '../../card-pricing/utils/pricing.ts';
+import { serializeOwnedCardPrice, serializePricedCard } from '../../card-pricing/utils/pricing.ts';
 import type { Collection } from '../../collections/schemas/responses.ts';
 import type { HonoContext } from '../../context.ts';
 import type { OfflineCollectionIDs } from '../offline-collection-repository.ts';
@@ -24,9 +24,7 @@ export async function readOfflineRecords(c: HonoContext, ids: OfflineCollectionI
       return serializeCardWithPrice(owned, { card_id: owned.id, status: OWNED_CARD_PRICE_STATUSES.UNAVAILABLE });
     }
 
-    const status = cached.market != null ? OWNED_CARD_PRICE_STATUSES.PRICED : OWNED_CARD_PRICE_STATUSES.NO_PRICE;
-
-    return serializeCardWithPrice(owned, { card_id: owned.id, status, priced_card: cached });
+    return serializeCardWithPrice(owned, serializeOwnedCardPrice(owned.id, cached));
   });
 
   return { cards, collections: snapshot.collections };

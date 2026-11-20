@@ -69,7 +69,7 @@ struct PreviewTCGCardsClientTests {
         let cards = PreviewTCGCardsClient.sampleCards.map {
             CardWithPrice(
                 card: $0,
-                price: OwnedCardPrice(cardId: $0.id, status: .unavailable, price: nil),
+                price: OwnedCardPrice(cardId: $0.id, status: .unavailable, price: nil, valuation: nil),
                 imageURL: nil
             )
         }
@@ -92,7 +92,7 @@ struct PreviewTCGCardsClientTests {
         let cards = PreviewTCGCardsClient.sampleCards.map {
             CardWithPrice(
                 card: $0,
-                price: OwnedCardPrice(cardId: $0.id, status: .unavailable, price: nil),
+                price: OwnedCardPrice(cardId: $0.id, status: .unavailable, price: nil, valuation: nil),
                 imageURL: nil
             )
         }

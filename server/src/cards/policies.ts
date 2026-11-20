@@ -50,6 +50,7 @@ export function purchaseBatchFields(cardId: string, batch: UpdateCard['purchases
     quantity: batch.quantity,
     purchasePrice: batch.purchase_price,
     currency: batch.currency,
+    automaticPriceDate: batch.automatic_price_date ?? null,
   };
 }
 

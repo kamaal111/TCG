@@ -44,13 +44,21 @@ const CardPurchaseFieldsSchema = z.object({
   currency: NullableCurrencySchema,
 });
 
-export const CardPurchaseInputSchema = CardPurchaseFieldsSchema.refine(
-  batch => (batch.purchase_price == null) === (batch.currency == null),
-  {
+export const CardPurchaseInputSchema = CardPurchaseFieldsSchema.extend({
+  automatic_price_date: z.iso
+    .date()
+    .nullish()
+    .meta({ description: 'Pricing day for an automatic cost on a new batch' }),
+})
+  .refine(batch => (batch.purchase_price == null) === (batch.currency == null), {
     message: 'Purchase price and currency must be provided together',
     path: ['purchase_price'],
-  },
-).meta({ $id: 'CardPurchaseInput', title: 'Card Purchase Input' });
+  })
+  .refine(batch => batch.automatic_price_date == null || (batch.id == null && batch.purchase_price != null), {
+    message: 'Automatic price date requires a purchase price on a new batch',
+    path: ['automatic_price_date'],
+  })
+  .meta({ $id: 'CardPurchaseInput', title: 'Card Purchase Input' });
 
 export const CardPurchaseSchema = CardPurchaseFieldsSchema.extend({
   id: UuidSchema,

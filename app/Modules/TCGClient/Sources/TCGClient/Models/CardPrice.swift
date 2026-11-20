@@ -142,7 +142,7 @@ public struct PriceMovement: Codable, Hashable, Sendable {
     }
 }
 
-/// Provider-neutral raw Near Mint pricing for the selected base printing.
+/// Provider-neutral raw pricing for one condition of the selected printing.
 ///
 /// - Example:
 ///   ```swift
@@ -153,9 +153,9 @@ public struct MarketPrice: Codable, Hashable, Sendable {
     public let condition: CardCondition
     /// Currency shared by all amounts and absolute movements.
     public let currency: Currency
-    /// Lowest known Near Mint price, when supplied.
+    /// Lowest known price in this condition, when supplied.
     public let low: Double?
-    /// Average Near Mint market price, when supplied.
+    /// Average market price in this condition, when supplied.
     public let market: Double?
     /// Seven-day market movement, when supplied.
     public let trend7d: PriceMovement?
@@ -165,7 +165,7 @@ public struct MarketPrice: Codable, Hashable, Sendable {
     /// Creates normalized market pricing for a base card variant.
     ///
     /// - Parameters:
-    ///   - condition: Raw-card condition, fixed to Near Mint by default.
+    ///   - condition: Raw-card condition.
     ///   - currency: Currency for the monetary values.
     ///   - low: Lowest known price.
     ///   - market: Average market price.
@@ -234,27 +234,66 @@ public struct PriceHeadline: Codable, Hashable, Sendable {
     }
 }
 
+public struct ConditionValue: Codable, Hashable, Sendable {
+    public enum Basis: String, Codable, Hashable, Sendable {
+        case market, low, interpolated, adjusted
+    }
+
+    public let condition: CardCondition
+    public let currency: Currency
+    public let amount: Double
+    public let basis: Basis
+    public let conversionUnavailable: Bool?
+
+    public init(
+        condition: CardCondition,
+        currency: Currency,
+        amount: Double,
+        basis: Basis,
+        conversionUnavailable: Bool?
+    ) {
+        self.condition = condition
+        self.currency = currency
+        self.amount = amount
+        self.basis = basis
+        self.conversionUnavailable = conversionUnavailable
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case condition, currency, amount, basis
+        case conversionUnavailable = "conversion_unavailable"
+    }
+}
+
 public struct PricedCardDisplay: Codable, Hashable, Sendable {
     public let preferredCurrency: Currency
     public let headline: PriceHeadline?
     public let market: MarketPrice?
+    public let conditionPrices: [MarketPrice]?
+    public let conditionValues: [ConditionValue]?
     public let conversionUnavailable: Bool
 
     public init(
         preferredCurrency: Currency,
         headline: PriceHeadline?,
         market: MarketPrice?,
+        conditionPrices: [MarketPrice]?,
+        conditionValues: [ConditionValue]?,
         conversionUnavailable: Bool
     ) {
         self.preferredCurrency = preferredCurrency
         self.headline = headline
         self.market = market
+        self.conditionPrices = conditionPrices
+        self.conditionValues = conditionValues
         self.conversionUnavailable = conversionUnavailable
     }
 
     private enum CodingKeys: String, CodingKey {
         case preferredCurrency = "preferred_currency"
         case headline, market
+        case conditionPrices = "condition_prices"
+        case conditionValues = "condition_values"
         case conversionUnavailable = "conversion_unavailable"
     }
 }
@@ -287,6 +326,8 @@ public struct PricedCard: Codable, Hashable, Identifiable, Sendable {
     public let imageURL: URL?
     public let headline: PriceHeadline?
     public let market: MarketPrice?
+    public let conditionPrices: [MarketPrice]?
+    public let conditionValues: [ConditionValue]?
     public let display: PricedCardDisplay?
     public let pricedOn: Date
     public let fetchedAt: Date
@@ -315,6 +356,8 @@ public struct PricedCard: Codable, Hashable, Identifiable, Sendable {
         imageURL: URL?,
         headline: PriceHeadline?,
         market: MarketPrice?,
+        conditionPrices: [MarketPrice]?,
+        conditionValues: [ConditionValue]?,
         display: PricedCardDisplay?,
         pricedOn: Date,
         fetchedAt: Date
@@ -332,6 +375,8 @@ public struct PricedCard: Codable, Hashable, Identifiable, Sendable {
         self.imageURL = imageURL
         self.headline = headline
         self.market = market
+        self.conditionPrices = conditionPrices
+        self.conditionValues = conditionValues
         self.display = display
         self.pricedOn = pricedOn
         self.fetchedAt = fetchedAt
@@ -343,6 +388,8 @@ public struct PricedCard: Codable, Hashable, Identifiable, Sendable {
         case rarity
         case headline
         case market, display
+        case conditionPrices = "condition_prices"
+        case conditionValues = "condition_values"
         case id
         case printingKey = "printing_key"
         case isWishlisted = "is_wishlisted"
@@ -356,6 +403,10 @@ public struct PricedCard: Codable, Hashable, Identifiable, Sendable {
     }
 
     public var displayHeadline: PriceHeadline? { display?.headline ?? headline }
+    public var displayConditionPrices: [MarketPrice] {
+        display?.conditionPrices ?? conditionPrices ?? [displayMarket].compactMap { $0 }
+    }
+    public var displayConditionValues: [ConditionValue]? { display?.conditionValues ?? conditionValues }
     public var displayMarket: MarketPrice? { display?.market ?? market }
     public var conversionUnavailable: Bool { display?.conversionUnavailable ?? false }
 }

@@ -1,18 +1,24 @@
-import type { ScrydexRawCard, ScrydexRawPrice } from '@tcg/scrydex';
+import {
+  SCRYDEX_PRICE_TYPE_MAP,
+  SCRYDEX_RAW_CONDITION_MAP,
+  type ScrydexRawCard,
+  type ScrydexRawPrice,
+} from '@tcg/scrydex';
 import z from 'zod';
 
+import { CARD_CONDITION_MAP } from '../../cards/types.ts';
 import { CurrencySchema } from '../../forex/currencies.ts';
 import type { PricingSearchResult } from '../client.ts';
 import { ONE_PIECE_VARIANT_SEPARATOR } from '../constants.ts';
 import type {
   CardGame,
   Currency,
-  NormalizedPricing,
+  NormalizedConditionPrice,
   NormalizedPricingCard,
   PriceMovement,
   PricingCardRecord,
 } from '../types.ts';
-import { CARD_GAME_MAP } from '../types.ts';
+import { CARD_GAME_MAP, QUOTED_CONDITIONS } from '../types.ts';
 import { IllustratorNameSchema } from '../utils/illustrator.ts';
 
 const RequiredCardSchema = z.object({
@@ -23,6 +29,14 @@ const RequiredCardSchema = z.object({
 const NonEmptyStringSchema = z.string().trim().nonempty();
 
 const FiniteNumberSchema = z.number();
+
+const SCRYDEX_CONDITIONS = {
+  [CARD_CONDITION_MAP.NEAR_MINT]: SCRYDEX_RAW_CONDITION_MAP.NEAR_MINT,
+  [CARD_CONDITION_MAP.EXCELLENT]: SCRYDEX_RAW_CONDITION_MAP.LIGHTLY_PLAYED,
+  [CARD_CONDITION_MAP.GOOD]: SCRYDEX_RAW_CONDITION_MAP.MODERATELY_PLAYED,
+  [CARD_CONDITION_MAP.PLAYED]: SCRYDEX_RAW_CONDITION_MAP.HEAVILY_PLAYED,
+  [CARD_CONDITION_MAP.DAMAGED]: SCRYDEX_RAW_CONDITION_MAP.DAMAGED,
+} satisfies Record<NormalizedConditionPrice['condition'], string>;
 
 const POKEMON_BASE_VARIANT_NAMES = ['normal', 'unlimitednormal', 'holofoil', 'unlimitedholofoil'];
 
@@ -161,8 +175,21 @@ function normalizePrinting(
     return null;
   }
 
-  const rawPrice = variant?.prices?.find(price => price.condition === 'NM' && price.type === 'raw');
-  const market = normalizeRawPrice(rawPrice);
+  const conditionPrices = QUOTED_CONDITIONS.flatMap(condition => {
+    for (const price of variant?.prices ?? []) {
+      if (price.type === SCRYDEX_PRICE_TYPE_MAP.RAW && price.condition === SCRYDEX_CONDITIONS[condition]) {
+        const normalized = normalizeRawPrice(price, condition);
+
+        if (normalized != null) {
+          return [normalized];
+        }
+      }
+    }
+
+    return [];
+  });
+
+  const market = conditionPrices.find(price => price.condition === CARD_CONDITION_MAP.NEAR_MINT);
   const image = imageURL(variant?.images) ?? (variantKey == null ? imageURL(raw.images) : undefined);
   const rarity = stringValue(raw.rarity);
   const pricing: NormalizedPricingCard['pricing'] = {};
@@ -185,8 +212,12 @@ function normalizePrinting(
     pricing.setName = raw.expansion.name;
   }
 
+  if (conditionPrices.length > 0) {
+    pricing.conditionPrices = conditionPrices;
+  }
+
   if (market != null) {
-    pricing.market = market;
+    pricing.market = { ...market, condition: CARD_CONDITION_MAP.NEAR_MINT };
   }
 
   if (image != null) {
@@ -208,11 +239,10 @@ function normalizePrinting(
   };
 }
 
-function normalizeRawPrice(raw: ScrydexRawPrice | undefined): NormalizedPricing['market'] {
-  if (raw == null) {
-    return undefined;
-  }
-
+function normalizeRawPrice(
+  raw: ScrydexRawPrice,
+  condition: NormalizedConditionPrice['condition'],
+): NormalizedConditionPrice | undefined {
   const currency = normalizeCurrency(raw.currency);
 
   if (currency == null) {
@@ -228,8 +258,8 @@ function normalizeRawPrice(raw: ScrydexRawPrice | undefined): NormalizedPricing[
     return undefined;
   }
 
-  const normalized: NonNullable<NormalizedPricing['market']> = {
-    condition: 'near_mint',
+  const normalized: NormalizedConditionPrice = {
+    condition,
     currency,
   };
 

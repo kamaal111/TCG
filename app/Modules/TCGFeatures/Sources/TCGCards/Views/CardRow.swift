@@ -34,6 +34,14 @@ struct CardRow: View {
         }
     }
 
+    private var hasConditionPricing: Bool { cardWithPrice.price?.price?.conditionValues != nil }
+
+    private var purchasePriceChangePercent: Double? {
+        hasConditionPricing
+            ? cardWithPrice.price?.valuation?.purchasePriceChangePercent
+            : cardWithPrice.card.purchasePriceChangePercent
+    }
+
     private var details: some View {
         HStack(alignment: .top) {
             VStack(alignment: .leading, spacing: 4) {
@@ -51,7 +59,7 @@ struct CardRow: View {
                     .font(.title3.monospacedDigit())
                 if pricePrivacy?.hidePrices != true {
                     CardPriceView(price: cardWithPrice.price)
-                    if let change = cardWithPrice.card.purchasePriceChangePercent, abs(change) >= 0.005 {
+                    if let change = purchasePriceChangePercent, abs(change) >= 0.005 {
                         VStack(alignment: .trailing, spacing: 2) {
                             Text(
                                 change / 100,
@@ -59,14 +67,20 @@ struct CardRow: View {
                             )
                             .font(.subheadline.weight(.semibold).monospacedDigit())
                             .foregroundStyle(change > 0 ? .green : .red)
-                            Text("vs. purchase · NM market", bundle: .module)
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
+                            if hasConditionPricing {
+                                Text("vs. purchase", bundle: .module)
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                            } else {
+                                Text("vs. purchase · NM market", bundle: .module)
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                            }
                         }
                         .accessibilityElement(children: .ignore)
                         .accessibilityLabel(
                             Text(
-                                "Average near-mint market price changed \(change / 100, format: .percent.precision(.fractionLength(0...2)).sign(strategy: .always())) since purchase",
+                                "Total market value changed \(change / 100, format: .percent.precision(.fractionLength(0...2)).sign(strategy: .always())) since purchase",
                                 bundle: .module
                             )
                         )

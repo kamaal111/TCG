@@ -45,7 +45,7 @@ final class TCGCardFormScreenModel {
 
     convenience init(editing card: CardWithPrice) {
         self.init(mode: .edit(card.card), initialValues: nil)
-        if let price = card.price.price { applyMarketDefault(price) }
+        if let price = card.price?.price { applyMarketDefault(price) }
     }
 
     var canChooseCollection: Bool {
@@ -107,8 +107,10 @@ final class TCGCardFormScreenModel {
             currencyConfigured = true
         }
         values.exchangeRates = rates
-        guard case .add = mode else { return }
-        applyBatchDefaults()
+        switch mode {
+        case .add, .edit: applyBatchDefaults()
+        case .draft: break
+        }
     }
 
     private func applyBatchDefaults() {
@@ -130,6 +132,9 @@ final class TCGCardFormScreenModel {
         batch.currency = currency
         switch mode {
         case .add:
+            batch.currencyWasSelected = true
+            batch = values.applyingMarketDefault(to: batch)
+        case .edit where batch.persistedID == nil && values.conditionValues != nil:
             batch.currencyWasSelected = true
             batch = values.applyingMarketDefault(to: batch)
         case .edit, .draft:

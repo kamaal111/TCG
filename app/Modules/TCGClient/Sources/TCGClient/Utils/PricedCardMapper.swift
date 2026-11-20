@@ -13,7 +13,16 @@ enum PricedCardMapper {
                 OwnedCardPrice(
                     cardId: cardID,
                     status: makeOwnedStatus(apiPrice.status),
-                    price: apiPrice.pricedCard.map(makePricedCard)
+                    price: apiPrice.pricedCard.map(makePricedCard),
+                    valuation: apiPrice.valuation.map {
+                        OwnedValuation(
+                            amount: $0.amount,
+                            currency: makeCurrency($0.currency),
+                            estimated: $0.estimated,
+                            conversionUnavailable: $0.conversionUnavailable,
+                            purchasePriceChangePercent: $0.purchasePriceChangePercent
+                        )
+                    }
                 )
             }
     }
@@ -33,11 +42,15 @@ enum PricedCardMapper {
             imageURL: card.imageUrl.flatMap(URL.init(string:)),
             headline: card.headline.map(makeHeadline),
             market: card.market.map(makeMarket),
+            conditionPrices: card.conditionPrices?.map(makeConditionPrice),
+            conditionValues: card.conditionValues?.map(makeConditionValue),
             display: card.display.map {
                 PricedCardDisplay(
                     preferredCurrency: makeCurrency($0.preferredCurrency),
                     headline: $0.headline.map(makeHeadline),
                     market: $0.market.map(makeMarket),
+                    conditionPrices: $0.conditionPrices?.map(makeConditionPrice),
+                    conditionValues: $0.conditionValues?.map(makeConditionValue),
                     conversionUnavailable: $0.conversionUnavailable
                 )
             },
@@ -58,6 +71,51 @@ enum PricedCardMapper {
             market: market.market,
             trend7d: market.trend7d.map(makeMovement),
             trend30d: market.trend30d.map(makeMovement)
+        )
+    }
+
+    private static func makeConditionPrice(_ price: Components.Schemas.ConditionPrice) -> MarketPrice {
+        let condition: CardCondition =
+            switch price.condition {
+            case .nearMint: .nearMint
+            case .excellent: .excellent
+            case .good: .good
+            case .played: .played
+            case .damaged: .damaged
+            }
+        return MarketPrice(
+            condition: condition,
+            currency: makeCurrency(price.currency),
+            low: price.low,
+            market: price.market,
+            trend7d: price.trend7d.map(makeMovement),
+            trend30d: price.trend30d.map(makeMovement)
+        )
+    }
+
+    private static func makeConditionValue(_ value: Components.Schemas.ConditionValue) -> ConditionValue {
+        let condition: CardCondition =
+            switch value.condition {
+            case .mint: .mint
+            case .nearMint: .nearMint
+            case .excellent: .excellent
+            case .good: .good
+            case .played: .played
+            case .damaged: .damaged
+            }
+        let basis: ConditionValue.Basis =
+            switch value.basis {
+            case .market: .market
+            case .low: .low
+            case .interpolated: .interpolated
+            case .adjusted: .adjusted
+            }
+        return ConditionValue(
+            condition: condition,
+            currency: makeCurrency(value.currency),
+            amount: value.amount,
+            basis: basis,
+            conversionUnavailable: value.conversionUnavailable
         )
     }
 

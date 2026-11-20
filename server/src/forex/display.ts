@@ -1,7 +1,7 @@
 import { convertMoney } from './conversion.ts';
 import type { Currency } from './currencies.ts';
 import type { ForexSnapshot } from './schemas/responses.ts';
-import type { PricedCardResponse } from '../card-pricing/schemas/responses.ts';
+import type { ConditionPriceResponse, PricedCardResponse } from '../card-pricing/schemas/responses.ts';
 
 export interface ForexDisplayContext {
   currency: Currency;
@@ -40,43 +40,58 @@ export function displayPricedCard(card: PricedCardResponse, context: ForexDispla
       ? { ...card.headline, amount: headlineAmount, currency: context.currency }
       : card.headline;
 
-  const market = card.market;
-  const low = market?.low != null ? convert(market.low, market.currency) : undefined;
-  const average = market?.market != null ? convert(market.market, market.currency) : undefined;
-  const change7d = market?.trend_7d != null ? convert(market.trend_7d.price_change, market.currency) : undefined;
-  const change30d = market?.trend_30d != null ? convert(market.trend_30d.price_change, market.currency) : undefined;
+  const displayQuote = <Quote extends ConditionPriceResponse>(market: Quote) => {
+    const low = market?.low != null ? convert(market.low, market.currency) : undefined;
+    const average = market?.market != null ? convert(market.market, market.currency) : undefined;
+    const change7d = market?.trend_7d != null ? convert(market.trend_7d.price_change, market.currency) : undefined;
+    const change30d = market?.trend_30d != null ? convert(market.trend_30d.price_change, market.currency) : undefined;
 
-  const unavailable = [
-    [card.headline?.amount, headlineAmount],
-    [market?.low, low],
-    [market?.market, average],
-    [market?.trend_7d?.price_change, change7d],
-    [market?.trend_30d?.price_change, change30d],
-  ].some(([original, converted]) => original != null && converted == null);
+    const unavailable = [
+      [market?.low, low],
+      [market?.market, average],
+      [market?.trend_7d?.price_change, change7d],
+      [market?.trend_30d?.price_change, change30d],
+    ].some(([original, converted]) => original != null && converted == null);
+
+    return {
+      unavailable,
+      quote: !unavailable
+        ? {
+            ...market,
+            currency: context.currency,
+            low,
+            market: average,
+            trend_7d:
+              market.trend_7d != null && change7d != null ? { ...market.trend_7d, price_change: change7d } : undefined,
+            trend_30d:
+              market.trend_30d != null && change30d != null
+                ? { ...market.trend_30d, price_change: change30d }
+                : undefined,
+          }
+        : market,
+    };
+  };
+
+  const market = card.market != null ? displayQuote(card.market) : undefined;
+  const conditionPrices = card.condition_prices?.map(quote => displayQuote(quote).quote);
+
+  const conditionValues = card.condition_values?.map(value => {
+    const amount = convert(value.amount, value.currency);
+
+    return amount == null
+      ? { ...value, conversion_unavailable: true }
+      : { ...value, amount, currency: context.currency };
+  });
 
   return {
     ...card,
     display: {
       preferred_currency: context.currency,
-      conversion_unavailable: unavailable,
+      conversion_unavailable: (card.headline != null && headlineAmount == null) || market?.unavailable === true,
       headline,
-      market:
-        market != null && !unavailable
-          ? {
-              ...market,
-              currency: context.currency,
-              low,
-              market: average,
-              trend_7d:
-                market.trend_7d != null && change7d != null
-                  ? { ...market.trend_7d, price_change: change7d }
-                  : undefined,
-              trend_30d:
-                market.trend_30d != null && change30d != null
-                  ? { ...market.trend_30d, price_change: change30d }
-                  : undefined,
-            }
-          : market,
+      market: market?.quote,
+      condition_prices: conditionPrices,
+      condition_values: conditionValues,
     },
   };
 }

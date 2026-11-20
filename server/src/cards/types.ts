@@ -3,7 +3,23 @@ import type { Currency } from '../forex/currencies.ts';
 
 export const CARD_GAMES = ['one_piece', 'pokemon'] as const;
 
-export const CARD_CONDITIONS = ['mint', 'near_mint', 'excellent', 'good', 'played', 'damaged'] as const;
+export const CARD_CONDITION_MAP = {
+  MINT: 'mint',
+  NEAR_MINT: 'near_mint',
+  EXCELLENT: 'excellent',
+  GOOD: 'good',
+  PLAYED: 'played',
+  DAMAGED: 'damaged',
+} as const;
+
+export const CARD_CONDITIONS = [
+  CARD_CONDITION_MAP.MINT,
+  CARD_CONDITION_MAP.NEAR_MINT,
+  CARD_CONDITION_MAP.EXCELLENT,
+  CARD_CONDITION_MAP.GOOD,
+  CARD_CONDITION_MAP.PLAYED,
+  CARD_CONDITION_MAP.DAMAGED,
+] as const;
 
 export const MAX_COPIES_PER_CONDITION = 999;
 

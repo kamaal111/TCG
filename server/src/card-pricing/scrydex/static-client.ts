@@ -1,4 +1,9 @@
-import { SCRYDEX_SEARCH_PAGE_SIZE, type ScrydexRawCard } from '@tcg/scrydex';
+import {
+  SCRYDEX_PRICE_TYPE_MAP,
+  SCRYDEX_RAW_CONDITION_MAP,
+  SCRYDEX_SEARCH_PAGE_SIZE,
+  type ScrydexRawCard,
+} from '@tcg/scrydex';
 import { ok } from 'neverthrow';
 
 import type { PricingClient, PricingClientResult, PricingSearchResult } from '../client.ts';
@@ -29,8 +34,8 @@ const CANNED_CARDS: Record<CardGame, ScrydexRawCard[]> = {
           name: 'normal',
           prices: [
             {
-              condition: 'NM',
-              type: 'raw',
+              condition: SCRYDEX_RAW_CONDITION_MAP.NEAR_MINT,
+              type: SCRYDEX_PRICE_TYPE_MAP.RAW,
               currency: 'USD',
               low: 146.69,
               market: 172.42,
@@ -55,8 +60,8 @@ const CANNED_CARDS: Record<CardGame, ScrydexRawCard[]> = {
           name: 'normal',
           prices: [
             {
-              condition: 'NM',
-              type: 'raw',
+              condition: SCRYDEX_RAW_CONDITION_MAP.NEAR_MINT,
+              type: SCRYDEX_PRICE_TYPE_MAP.RAW,
               currency: 'USD',
               low: 98.5,
               market: 118.32,
@@ -85,8 +90,8 @@ const CANNED_CARDS: Record<CardGame, ScrydexRawCard[]> = {
           name: 'normal',
           prices: [
             {
-              condition: 'NM',
-              type: 'raw',
+              condition: SCRYDEX_RAW_CONDITION_MAP.NEAR_MINT,
+              type: SCRYDEX_PRICE_TYPE_MAP.RAW,
               currency: 'USD',
               low: 12.45,
               market: 14.2,
@@ -112,8 +117,8 @@ const CANNED_CARDS: Record<CardGame, ScrydexRawCard[]> = {
           name: 'normal',
           prices: [
             {
-              condition: 'NM',
-              type: 'raw',
+              condition: SCRYDEX_RAW_CONDITION_MAP.NEAR_MINT,
+              type: SCRYDEX_PRICE_TYPE_MAP.RAW,
               currency: 'USD',
               low: 8.75,
               market: 9.6,
@@ -126,7 +131,15 @@ const CANNED_CARDS: Record<CardGame, ScrydexRawCard[]> = {
         },
         {
           name: 'mangaAltArt',
-          prices: [{ condition: 'NM', type: 'raw', currency: 'USD', low: 734.9, market: 845.1 }],
+          prices: [
+            {
+              condition: SCRYDEX_RAW_CONDITION_MAP.NEAR_MINT,
+              type: SCRYDEX_PRICE_TYPE_MAP.RAW,
+              currency: 'USD',
+              low: 734.9,
+              market: 845.1,
+            },
+          ],
         },
       ],
     },
@@ -218,8 +231,8 @@ function makeSyntheticCard(game: CardGame, query: string): ScrydexRawCard {
         name: 'normal',
         prices: [
           {
-            condition: 'NM',
-            type: 'raw',
+            condition: SCRYDEX_RAW_CONDITION_MAP.NEAR_MINT,
+            type: SCRYDEX_PRICE_TYPE_MAP.RAW,
             currency: 'USD',
             low: amount,
             market: Number((amount * 1.08).toFixed(2)),

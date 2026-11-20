@@ -18,6 +18,54 @@ import Testing
 @MainActor
 struct TCGCardFormScreenModelTests {
     @Test
+    func `Uses matched and estimated condition values for new purchases and clears provenance after an edit`() {
+        let card = PricedCard(
+            id: "condition-pricing",
+            printingKey: nil,
+            isWishlisted: nil,
+            game: .pokemon,
+            name: "Pikachu",
+            cardNumber: "58",
+            setName: nil,
+            rarity: nil,
+            illustrator: nil,
+            variantName: nil,
+            imageURL: nil,
+            headline: nil,
+            market: nil,
+            conditionPrices: nil,
+            conditionValues: [
+                ConditionValue(
+                    condition: .excellent,
+                    currency: .usd,
+                    amount: 20,
+                    basis: .market,
+                    conversionUnavailable: nil
+                ),
+                ConditionValue(
+                    condition: .good,
+                    currency: .usd,
+                    amount: 16,
+                    basis: .interpolated,
+                    conversionUnavailable: nil
+                ),
+            ],
+            display: nil,
+            pricedOn: Date(timeIntervalSince1970: 0),
+            fetchedAt: Date(timeIntervalSince1970: 0)
+        )
+        var values = CardFormValues(pricedCard: card)
+        values.batches = [values.newBatch(condition: .excellent), values.newBatch(condition: .good)]
+        #expect(values.payload.purchases.map(\.purchasePrice) == [20, 16])
+        #expect(values.payload.purchases.map(\.automaticPriceDate) == ["1970-01-01", "1970-01-01"])
+
+        values.batches[1].priceText = "13"
+        values.batches[1].priceWasEdited = true
+        #expect(values.payload.purchases.map(\.purchasePrice) == [20, 13])
+        #expect(values.payload.purchases.map(\.automaticPriceDate) == ["1970-01-01", nil])
+    }
+
+    @Test
     func `Selecting JPY converts the automatic price and saved purchase`() throws {
         let model = makeCurrencySelectionModel()
         model.values.batches[0].quantity = 2
@@ -597,6 +645,8 @@ struct TCGCardFormScreenModelTests {
                 trend7d: nil,
                 trend30d: nil
             ),
+            conditionPrices: nil,
+            conditionValues: nil,
             display: nil,
             pricedOn: .now,
             fetchedAt: .now

@@ -63,8 +63,12 @@ struct TCGPricingClientTests {
               "id":"display-card","game":"pokemon","name":"Pikachu","card_number":"58",
               "headline":{"amount":12.5,"currency":"USD","metric":"lowest_near_mint"},
               "market":{"condition":"near_mint","currency":"USD","market":25},
+              "condition_prices":[{"condition":"excellent","currency":"USD","market":20}],
+              "condition_values":[{"condition":"good","currency":"USD","amount":18,"basis":"adjusted"}],
               "display":{"preferred_currency":"EUR","conversion_unavailable":false,
                 "headline":{"amount":10,"currency":"EUR","metric":"lowest_near_mint"},
+                "condition_prices":[{"condition":"excellent","currency":"EUR","market":16}],
+                "condition_values":[{"condition":"good","currency":"EUR","amount":14.4,"basis":"adjusted"}],
                 "market":{"condition":"near_mint","currency":"EUR","market":20,
                   "trend_7d":{"price_change":-2,"percent_change":-10}}},
               "priced_on":"2026-10-16T00:00:00.000Z","fetched_at":"2026-10-16T10:00:00.000Z"
@@ -84,6 +88,11 @@ struct TCGPricingClientTests {
         #expect(card.displayHeadline?.currency == .eur)
         #expect(card.displayMarket?.market == 20)
         #expect(card.displayMarket?.trend7d == PriceMovement(priceChange: -2, percentChange: -10))
+        #expect(card.conditionPrices?.first?.market == 20)
+        #expect(card.displayConditionPrices.first?.condition == .excellent)
+        #expect(card.displayConditionPrices.first?.market == 16)
+        #expect(card.conditionValues?.first?.basis == .adjusted)
+        #expect(card.displayConditionValues?.first?.amount == 14.4)
         #expect(!card.conversionUnavailable)
     }
 
@@ -293,6 +302,8 @@ private let expectedPricedCard = PricedCard(
         trend7d: .init(priceChange: 7.36, percentChange: 4.46),
         trend30d: .init(priceChange: 13.88, percentChange: 8.75)
     ),
+    conditionPrices: nil,
+    conditionValues: nil,
     display: nil,
     pricedOn: Date(timeIntervalSince1970: 1_784_764_800),
     fetchedAt: Date(timeIntervalSince1970: 1_753_266_600)

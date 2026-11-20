@@ -47,7 +47,7 @@ struct TCGCardsListScreenSnapshotTests {
         let feature = makeUnavailableFeature(allUnavailable: true)
         let model = TCGCardsListScreenModel(preferences: nil)
         await model.load(using: feature)
-        #expect(feature.cards.allSatisfy { $0.price.status == .unavailable })
+        #expect(feature.cards.allSatisfy { $0.price?.status == .unavailable })
         await assertScreenSnapshot(testName: #function, fileID: #fileID, file: #filePath, line: #line, column: #column)
         {
             makeScreen(feature: feature, model: model).environment(\.tcgPricePrivacy, privacy)
@@ -223,7 +223,7 @@ struct TCGCardsListScreenSnapshotTests {
         let feature = makeUnavailableFeature(allUnavailable: false)
         let model = TCGCardsListScreenModel(preferences: nil)
         await model.load(using: feature)
-        #expect(feature.cards.map(\.price.status) == [.unavailable, .priced])
+        #expect(feature.cards.map(\.price?.status) == [.unavailable, .priced])
         await assertScreenSnapshot(testName: #function, fileID: #fileID, file: #filePath, line: #line, column: #column)
         { makeScreen(feature: feature, model: model) }
     }
@@ -233,7 +233,7 @@ struct TCGCardsListScreenSnapshotTests {
         let feature = makeUnavailableFeature(allUnavailable: true)
         let model = TCGCardsListScreenModel(preferences: nil)
         await model.load(using: feature)
-        #expect(feature.cards.allSatisfy { $0.price.status == .unavailable })
+        #expect(feature.cards.allSatisfy { $0.price?.status == .unavailable })
         await assertScreenSnapshot(testName: #function, fileID: #fileID, file: #filePath, line: #line, column: #column)
         { makeScreen(feature: feature, model: model) }
     }
@@ -255,7 +255,7 @@ struct TCGCardsListScreenSnapshotTests {
                 CardWithPrice(
                     card: card,
                     price: allUnavailable || index == 0
-                        ? OwnedCardPrice(cardId: card.id, status: .unavailable, price: nil)
+                        ? OwnedCardPrice(cardId: card.id, status: .unavailable, price: nil, valuation: nil)
                         : PreviewTCGCardsClient.price(for: card),
                     imageURL: nil
                 )
