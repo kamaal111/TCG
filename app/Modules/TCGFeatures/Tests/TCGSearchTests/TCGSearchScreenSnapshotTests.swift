@@ -71,11 +71,44 @@ struct TCGSearchScreenSnapshotTests {
 
     @Test
     func `Renders saved printings in the Wishlist list`() async {
-        let model = await wishlistModel(entries: [WishlistTestClient.luffy])
+        let model = await wishlistModel(entries: [detailCard, WishlistTestClient.luffy])
         await assertScreenSnapshot(testName: #function) {
             NavigationStack {
                 TCGWishlistScreen(isVisible: false, model: model) { _, _ in EmptyView() }
             }
+            .cardImageLoader(PreviewCardImageLoader(outcome: .success))
+        }
+    }
+
+    @Test
+    func `Hides prices in the Wishlist list`() async {
+        let privacy = TCGPricePrivacy(defaults: nil)
+        privacy.hidePrices = true
+        let model = await wishlistModel(entries: [detailCard, WishlistTestClient.luffy])
+        await assertScreenSnapshot(testName: #function) {
+            NavigationStack {
+                TCGWishlistScreen(isVisible: false, model: model) { _, _ in EmptyView() }
+            }
+            .environment(\.tcgPricePrivacy, privacy)
+            .cardImageLoader(PreviewCardImageLoader(outcome: .success))
+        }
+    }
+
+    @Test
+    func `Renders Wishlist pricing without search results`() async {
+        let search = TCGSearch(client: .preview(), history: TCGSearchHistoryStore())
+        #expect(search.results.isEmpty)
+        await assertScreenSnapshot(testName: #function) {
+            TCGSearchDetailView(
+                card: detailCard,
+                isWishlistEntry: true,
+                onWishlistRemoval: nil,
+                addForm: { _, _ in EmptyView() }
+            )
+            .tcgSearch(search)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(.background)
+            .environment(\.timeZone, TimeZone(secondsFromGMT: 0)!)
             .cardImageLoader(PreviewCardImageLoader(outcome: .success))
         }
     }

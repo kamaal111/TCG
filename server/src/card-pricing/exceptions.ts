@@ -17,7 +17,7 @@ const MESSAGE_BY_CODE: Record<CardPricingExceptionCode, string> = {
   PRICING_PROVIDER_UNAVAILABLE: 'Card pricing data is temporarily unavailable; try again shortly.',
 };
 
-class CardPriceException extends APIException {
+export abstract class CardPriceException extends APIException {
   override readonly cause: Error | undefined;
 
   constructor(c: ExceptionContext, options: { code: CardPricingExceptionCode; cause?: Error }) {

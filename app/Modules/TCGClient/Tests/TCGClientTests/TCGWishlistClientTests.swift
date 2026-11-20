@@ -73,6 +73,40 @@ struct TCGWishlistClientTests {
         #expect(request.path == "/app-api/wishlist?cursor=previous")
     }
 
+    @Test func `Decodes Wishlist prices in the preferred currency`() async throws {
+        let transport = WishlistTransport(
+            status: .ok,
+            response: """
+                {
+                  "entries": [{
+                    "id": "550e8400-e29b-41d4-a716-446655440000",
+                    "printing_key": "\(Self.key)",
+                    "game": "one_piece",
+                    "name": "Monkey.D.Luffy",
+                    "card_number": "OP05-119",
+                    "priced_on": "2026-11-17T00:00:00.000Z",
+                    "fetched_at": "2026-11-17T10:00:00.000Z",
+                    "headline": {"amount": 25, "currency": "USD", "metric": "lowest_near_mint"},
+                    "display": {
+                      "preferred_currency": "EUR",
+                      "conversion_unavailable": false,
+                      "headline": {"amount": 20, "currency": "EUR", "metric": "lowest_near_mint"},
+                      "market": {"condition": "near_mint", "currency": "EUR", "market": 24}
+                    }
+                  }],
+                  "next_cursor": null
+                }
+                """
+        )
+        let page = try await makeClient(transport).list(cursor: nil).get()
+        let card = try #require(page.entries.first)
+        #expect(card.headline?.amount == 25)
+        #expect(card.displayHeadline?.amount == 20)
+        #expect(card.displayHeadline?.currency == .eur)
+        #expect(card.displayMarket?.market == 24)
+        #expect(!card.conversionUnavailable)
+    }
+
     @Test func `Maps an unknown pricing record`() async {
         let transport = WishlistTransport(status: .notFound, response: #"{"message":"Pricing record not found"}"#)
         await #expect(throws: WishlistError.notFound) {
