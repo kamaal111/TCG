@@ -14,22 +14,29 @@ import TCGDesignSystem
 import TCGSearch
 
 public struct TCGScene: Scene {
-    @State private var auth = KamaalAuth(
-        client: TCGClient.default().auth,
-        configuration: KamaalAuthConfiguration(
-            appName: String(localized: "Mintomo", bundle: .module),
-            storageNamespace: TCGClient.authenticationStorageNamespace
-        )
-    )
+    @State private var auth: KamaalAuth
     @State private var currencyState = TCGCurrency()
     @State private var pricePrivacy = TCGPricePrivacy()
     @State private var cards = TCGCards.default()
     @State private var collections = TCGCollections(client: .default(), defaults: .standard)
-    @State private var wishlist = TCGClient.default().wishlist.map { TCGWishlist(client: $0) }
+    @State private var wishlist: TCGWishlist?
     @State private var search = TCGSearch.default()
     @State private var offline = OfflineCollection(client: .default(), defaults: .standard)
 
     public init() {
+        let auth = KamaalAuth(
+            client: TCGClient.default().auth,
+            configuration: KamaalAuthConfiguration(
+                appName: String(localized: "Mintomo", bundle: .module),
+                storageNamespace: TCGClient.authenticationStorageNamespace
+            )
+        )
+        _auth = State(initialValue: auth)
+        _wishlist = State(
+            initialValue: TCGClient.default().wishlist.map { client in
+                TCGWishlist(client: client, accountID: { auth.session?.email })
+            }
+        )
         TCGNavigationAppearance.install()
     }
 

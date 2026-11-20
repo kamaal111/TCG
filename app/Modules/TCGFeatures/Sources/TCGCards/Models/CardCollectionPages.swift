@@ -1,39 +1,27 @@
 import Foundation
 import TCGClient
+import TCGListSupport
 
 struct CardCollectionPages {
-    struct Pagination {
-        var nextCursor: String?
-        var visitedCursors: Set<String> = []
-        var pageCount = 0
-    }
-
-    private(set) var cards: [CardWithPrice]
+    private var pages: CursorPages<CardWithPrice, UUID>
     private(set) var availableSetNames: Set<String> = []
     private(set) var availableIllustrators: Set<String> = []
-    private(set) var nextCursor: String?
-    private(set) var visitedCursors: Set<String>
-    private(set) var pageCount: Int
-    private var cardIDs: Set<UUID>
 
-    init(cards: [CardWithPrice] = [], pagination: Pagination = .init()) {
-        self.cards = cards
-        nextCursor = pagination.nextCursor
-        visitedCursors = pagination.visitedCursors
-        pageCount = pagination.pageCount
-        cardIDs = Set(cards.map(\.card.id))
+    var cards: [CardWithPrice] { pages.rows }
+    var pagination: CursorPagination { pages.pagination }
+    var nextCursor: String? { pagination.nextCursor }
+    var visitedCursors: Set<String> { pagination.visitedCursors }
+    var pageCount: Int { pagination.pageCount }
+
+    init(cards: [CardWithPrice] = [], pagination: CursorPagination = .init()) {
+        pages = CursorPages(rows: cards, pagination: pagination, identity: \.card.id)
     }
 
     mutating func append(_ page: CardCollectionPage) -> Bool {
-        if let next = page.nextCursor {
-            guard !next.isEmpty else { return false }
-            guard visitedCursors.insert(next).inserted else { return false }
-        }
-        cards.append(contentsOf: page.cards.filter { cardIDs.insert($0.card.id).inserted })
+        guard pages.append(page.cards, nextCursor: page.nextCursor) else { return false }
+
         availableSetNames = page.availableSetNames
         availableIllustrators = page.availableIllustrators
-        nextCursor = page.nextCursor
-        pageCount += 1
         return true
     }
 }
