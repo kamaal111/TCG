@@ -30,10 +30,10 @@ public struct TCGWishlistScreen<AddForm: View>: View {
     public var body: some View {
         wishlistList
             .task(id: loadIdentity) {
-                guard loadIdentity != nil else { return }
-                await model.search(using: wishlist)
+                guard let loadIdentity else { return }
+                await model.search(using: wishlist, currency: loadIdentity.display?.currency)
             }
-            .refreshable { await model.refresh(using: wishlist) }
+            .refreshable { await model.refresh(using: wishlist, currency: currency?.preferredCurrency) }
             .sheet(item: $model.selected) { card in
                 TCGSearchDetailView(
                     card: model.entries.first { $0.printingKey == card.printingKey } ?? card,
@@ -59,8 +59,8 @@ public struct TCGWishlistScreen<AddForm: View>: View {
             }
             ForEach(model.entries) { card in
                 wishlistRow(card)
-                    .task(id: card.id == model.entries.last?.id ? model.cursor : nil) {
-                        guard isVisible, model.cursor != nil, card.id == model.entries.last?.id else { return }
+                    .task(id: paginationCursor(for: card)) {
+                        guard paginationCursor(for: card) != nil else { return }
                         await model.loadNextPage(using: wishlist)
                     }
             }
@@ -74,11 +74,19 @@ public struct TCGWishlistScreen<AddForm: View>: View {
     private struct LoadIdentity: Equatable {
         let query: String?
         let display: TCGCurrency.DisplayIdentity?
+        let revision: UUID?
     }
 
     private var loadIdentity: LoadIdentity? {
         guard isVisible, scenePhase == .active else { return nil }
-        return LoadIdentity(query: model.searchQuery, display: currency?.displayIdentity)
+        return LoadIdentity(query: model.searchQuery, display: currency?.displayIdentity, revision: wishlist?.revision)
+    }
+
+    private func paginationCursor(for card: PricedCard) -> String? {
+        guard isVisible, scenePhase == .active, !model.isRefreshing, card.id == model.entries.last?.id else {
+            return nil
+        }
+        return model.cursor
     }
 
     @ViewBuilder

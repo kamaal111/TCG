@@ -52,6 +52,9 @@ struct TCGAppTabs: View {
         .tcgSearch(search)
         .environment(\.tcgWishlist, auth.isLoggedIn ? wishlist : nil)
         .kamaalAuth(auth)
+        .onChange(of: auth.session?.email, initial: true) { _, _ in
+            wishlist?.updateAccount()
+        }
         .task { await currencyState.trackSession(auth) }
         .task { await collections.trackSession(auth, cards: cards, offlineSeed: offline.cachedCollection) }
         .onDisappear { collections.stopLiveLoading(using: cards) }

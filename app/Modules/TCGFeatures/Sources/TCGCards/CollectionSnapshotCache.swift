@@ -1,6 +1,6 @@
-import CryptoKit
 import Foundation
 import TCGClient
+import TCGListSupport
 
 @MainActor
 final class CollectionSnapshotCache {
@@ -46,15 +46,14 @@ final class CollectionSnapshotCache {
         var prices: [CollectionPricing.Key: OwnedCardPriceUpdate]?
     }
 
-    private let root: URL
+    private let store: AccountSnapshotStore<Snapshot>
     private var snapshot = Snapshot()
-    private var file: URL?
     private var account: String?
 
     var summaries: [CardCollectionSummary] { snapshot.summaries }
     var selected: CardBinderCollection? { snapshot.selected }
 
-    func summariesAreFresh(at now: Date) -> Bool { Self.isFresh(snapshot.summariesCheckedAt, at: now) }
+    func summariesAreFresh(at now: Date) -> Bool { CachedListLoad.isFresh(snapshot.summariesCheckedAt, at: now) }
 
     func saveSummaries(_ summaries: [CardCollectionSummary], checkedAt now: Date) {
         snapshot.summaries = summaries
@@ -62,12 +61,16 @@ final class CollectionSnapshotCache {
         write()
     }
 
-    func freshPage(for scope: Scope, at now: Date) -> Page? {
-        snapshot.pages.first { $0.scope == scope && Self.isFresh($0.checkedAt, at: now) }
+    func freshPage(for scope: Scope, at now: Date, force: Bool = false) -> Page? {
+        snapshot.pages.first {
+            $0.scope == scope && CachedListLoad.restoreWithoutFetching(checkedAt: $0.checkedAt, now: now, force: force)
+        }
     }
 
     func verifiedCard(_ id: UUID, at now: Date) -> CardWithPrice? {
-        guard let verified = snapshot.verifiedCards?[id], Self.isFresh(verified.checkedAt, at: now) else { return nil }
+        guard let verified = snapshot.verifiedCards?[id], CachedListLoad.isFresh(verified.checkedAt, at: now) else {
+            return nil
+        }
 
         return verified.row
     }
@@ -88,7 +91,7 @@ final class CollectionSnapshotCache {
                 }
             }
         }
-        var verified = (snapshot.verifiedCards ?? [:]).filter { Self.isFresh($0.value.checkedAt, at: now) }
+        var verified = (snapshot.verifiedCards ?? [:]).filter { CachedListLoad.isFresh($0.value.checkedAt, at: now) }
         for row in rows { verified[row.card.id] = VerifiedCard(row: row, checkedAt: now) }
         snapshot.verifiedCards = verified
         write()
@@ -116,34 +119,15 @@ final class CollectionSnapshotCache {
         write()
     }
 
-    private static func isFresh(_ checkedAt: Date?, at now: Date) -> Bool {
-        guard let checkedAt else { return false }
-
-        let age = now.timeIntervalSince(checkedAt)
-        return age >= 0 && age < 15 * 60
-    }
-
     init(root: URL = URL.cachesDirectory.appending(path: "OnlineCollection-v1", directoryHint: .isDirectory)) {
-        self.root = root
+        store = AccountSnapshotStore(root: root, namespace: TCGClient.authenticationStorageNamespace)
     }
 
     func useAccount(_ account: String?) {
         guard account != self.account else { return }
 
         self.account = account
-        snapshot = Snapshot()
-        file = nil
-        guard let account, let directory = try? prepareDirectory() else { return }
-
-        let identity = "\(TCGClient.authenticationStorageNamespace)|\(account)"
-        let key = SHA256.hash(data: Data(identity.utf8)).map { String(format: "%02x", $0) }.joined()
-        let file = directory.appending(path: "\(key).json")
-        self.file = file
-        if let data = try? Data(contentsOf: file),
-            let decoded = try? JSONDecoder().decode(Snapshot.self, from: data)
-        {
-            snapshot = decoded
-        }
+        snapshot = store.open(account: account) ?? Snapshot()
     }
 
     func rows(for scope: Scope) -> [CardWithPrice]? {
@@ -156,15 +140,13 @@ final class CollectionSnapshotCache {
 
     func saveRead(_ cards: [CardWithPrice], for scope: Scope, checkedAt: Date?, list: ListState?) {
         let previous = snapshot.pages.first { $0.scope == scope }
-        snapshot.pages.removeAll { $0.scope == scope }
-        snapshot.pages.insert(
-            Page(scope: scope, cards: cards, checkedAt: checkedAt ?? previous?.checkedAt, list: list ?? previous?.list),
-            at: 0
+        let page = Page(
+            scope: scope,
+            cards: cards,
+            checkedAt: checkedAt ?? previous?.checkedAt,
+            list: list ?? previous?.list
         )
-        let limit = snapshot.pages.contains(where: { $0.scope == .allCards }) ? 9 : 8
-        if snapshot.pages.count > limit, let last = snapshot.pages.lastIndex(where: { $0.scope != .allCards }) {
-            snapshot.pages.remove(at: last)
-        }
+        CachedListLoad.store(page, in: &snapshot.pages, keyedBy: \.scope, keeping: .allCards)
         write()
     }
 
@@ -189,21 +171,6 @@ final class CollectionSnapshotCache {
     }
 
     private func write() {
-        guard let file, let data = try? JSONEncoder().encode(snapshot) else { return }
-
-        #if os(iOS)
-            try? data.write(to: file, options: [.atomic, .completeFileProtection])
-        #else
-            try? data.write(to: file, options: .atomic)
-        #endif
-    }
-
-    private func prepareDirectory() throws -> URL {
-        var directory = root
-        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        var resources = URLResourceValues()
-        resources.isExcludedFromBackup = true
-        try directory.setResourceValues(resources)
-        return directory
+        store.write(snapshot)
     }
 }

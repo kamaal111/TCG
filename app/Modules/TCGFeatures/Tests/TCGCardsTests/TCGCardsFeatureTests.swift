@@ -288,6 +288,50 @@ struct TCGCardsFeatureTests {
     }
 
     @Test
+    func `Restores two fresh All Cards pages from disk and resumes at page three`() async throws {
+        let directory = URL.temporaryDirectory.appending(path: UUID().uuidString, directoryHint: .isDirectory)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let clock = CollectionTestClock(now: Date(timeIntervalSince1970: 1_784_548_800))
+        let transport = PendingCollectionTransport()
+        let initial = makePendingFeature(
+            transport,
+            snapshot: CollectionSnapshotCache(root: directory),
+            now: { clock.now }
+        )
+        initial.useAccount("pages@example.test")
+        let list = "/app-api/cards"
+        let first = Task { await initial.load(game: nil, setNames: [], query: nil, illustrators: []) }
+        await transport.waitForRequest(list)
+        await transport.completePage(list, id: CardsTestIDs.firstPageCard, cursor: "page-two")
+        try await first.value.get()
+        let second = Task { await initial.loadNextPage() }
+        await transport.waitForRequest("\(list)?cursor=page-two")
+        await transport.completePage("\(list)?cursor=page-two", id: CardsTestIDs.secondPageCard, cursor: "page-three")
+        try await second.value.get()
+
+        clock.now = clock.now.addingTimeInterval(5 * 60)
+        let reopened = makePendingFeature(
+            transport,
+            snapshot: CollectionSnapshotCache(root: directory),
+            now: { clock.now }
+        )
+        reopened.useAccount("pages@example.test")
+        try await reopened.load(game: nil, setNames: [], query: nil, illustrators: []).get()
+        #expect(reopened.cards.map(\.card.id) == [CardsTestIDs.firstPageCard, CardsTestIDs.secondPageCard])
+        #expect(await transport.requestCount == 2)
+        let third = Task { await reopened.loadNextPage() }
+        await transport.waitForRequest("\(list)?cursor=page-three")
+        await transport.completePage("\(list)?cursor=page-three", id: CardsTestIDs.loadedCard, cursor: nil)
+        try await third.value.get()
+        #expect(
+            reopened.cards.map(\.card.id) == [
+                CardsTestIDs.firstPageCard, CardsTestIDs.secondPageCard, CardsTestIDs.loadedCard,
+            ]
+        )
+        #expect(!reopened.hasMoreCards)
+    }
+
+    @Test
     func `Pagination requests prices only for newly loaded cards`() async throws {
         let transport = PendingCollectionTransport(holdPrices: true)
         let feature = makePendingFeature(transport)

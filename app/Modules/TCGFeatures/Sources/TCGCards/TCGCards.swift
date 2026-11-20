@@ -11,6 +11,7 @@ import KamaalLogger
 import Observation
 import TCGClient
 import TCGCurrency
+import TCGListSupport
 
 private let logger = KamaalLogger(from: TCGCards.self)
 
@@ -380,7 +381,7 @@ public final class TCGCards {
             return .success(())
         }
 
-        if !force, let fresh = snapshot.freshPage(for: scope, at: now()), let list = fresh.list {
+        if let fresh = snapshot.freshPage(for: scope, at: now(), force: force), let list = fresh.list {
             setCards(fresh.cards.map(compatibleDisplay))
             availableSetNames = list.sets
             availableIllustrators = list.illustrators
@@ -392,34 +393,25 @@ public final class TCGCards {
             return .success(())
         }
 
-        var pages = CardCollectionPages()
-
-        repeat {
-            let result = await loadPage(into: &pages, generation: generation)
-
-            guard generation == collectionState.generation else { return .success(()) }
-
-            switch result {
-            case .failure(let error):
-                collectionState.status = .idle
-                return .failure(error)
-            case .success(let didLoadPage):
-                guard didLoadPage else {
-                    collectionState.status = .idle
-                    return .success(())
-                }
+        let result = await CachedListLoad.load(
+            CardCollectionPages(),
+            through: request.pageCount,
+            pagination: \.pagination,
+            fetch: { pages in await self.loadPage(into: &pages, generation: generation) },
+            publish: { pages, isFinal in
+                guard generation == self.collectionState.generation, !Task.isCancelled else { return }
+                self.publish(
+                    pages,
+                    isFinal: isFinal,
+                    checkedAt: pages.pageCount == 1 ? self.now() : nil,
+                    priceIDs: nil,
+                    retry: force
+                )
             }
-            let hasMoreRequestedPages = pages.nextCursor != nil && pages.pageCount < request.pageCount
-            publish(
-                pages,
-                isFinal: !hasMoreRequestedPages,
-                checkedAt: pages.pageCount == 1 ? now() : nil,
-                priceIDs: nil,
-                retry: force
-            )
-        } while pages.nextCursor != nil && pages.pageCount < request.pageCount
-
-        return .success(())
+        )
+        guard generation == collectionState.generation else { return .success(()) }
+        if collectionState.status == .loading { collectionState.status = .idle }
+        return result
     }
 
     private func loadPage(into pages: inout CardCollectionPages, generation: Int) async -> Result<

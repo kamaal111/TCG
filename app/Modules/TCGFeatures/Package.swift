@@ -27,6 +27,7 @@ let package = Package(
         .package(path: "../TCGUtils"),
     ],
     targets: [
+        .target(name: "TCGListSupport"),
         .target(
             name: "TCGCurrency",
             dependencies: [
@@ -48,6 +49,7 @@ let package = Package(
         .target(
             name: "TCGCards",
             dependencies: [
+                "TCGListSupport",
                 "TCGCurrency",
                 .product(name: "KamaalUI", package: "KamaalSwift"),
                 .product(name: "KamaalUtils", package: "KamaalSwift"),
@@ -67,6 +69,7 @@ let package = Package(
         .target(
             name: "TCGSearch",
             dependencies: [
+                "TCGListSupport",
                 "TCGCurrency",
                 .product(name: "Textual", package: "textual"),
                 .product(name: "KamaalLogger", package: "KamaalSwift"),
