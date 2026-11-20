@@ -75,16 +75,8 @@ struct PricedCardRow: View {
                 VStack(alignment: .trailing, spacing: 8) {
                     if !pricesAreCurrent {
                         ProgressView()
-                    } else if let headline = card.displayHeadline {
-                        CurrencyAmount(
-                            headline.amount,
-                            currency: headline.currency,
-                            conversionUnavailable: card.conversionUnavailable
-                        )
-                        .font(.title3.weight(.semibold).monospacedDigit())
-                        .fixedSize(horizontal: true, vertical: false)
                     } else {
-                        Text("No price", bundle: .module).foregroundStyle(.secondary)
+                        CardHeadlinePrice(card: card)
                     }
                     if pricesAreCurrent, let trend = card.displayMarket?.trend7d?.trend {
                         Label(trend.title, systemImage: trend.systemImage)
@@ -140,6 +132,24 @@ struct PricedCardRow: View {
             }
             .font(.caption.monospacedDigit())
             .foregroundStyle(.secondary)
+        }
+    }
+}
+
+struct CardHeadlinePrice: View {
+    let card: PricedCard
+
+    var body: some View {
+        if let headline = card.displayHeadline {
+            CurrencyAmount(
+                headline.amount,
+                currency: headline.currency,
+                conversionUnavailable: card.conversionUnavailable
+            )
+            .font(.title3.weight(.semibold).monospacedDigit())
+            .fixedSize(horizontal: true, vertical: false)
+        } else {
+            Text("No price", bundle: .module).foregroundStyle(.secondary)
         }
     }
 }

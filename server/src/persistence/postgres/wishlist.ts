@@ -5,6 +5,7 @@ import { PostgresCardMetadataRepository } from './card-metadata.ts';
 import { proxyURLForOriginURL } from '../../card-images/keys.ts';
 import { CARD_GAME_MAP } from '../../card-pricing/types.ts';
 import { pricedCardMetadata } from '../../card-pricing/utils/pricing.ts';
+import { printingKey } from '../../card-pricing/utils/printing-key.ts';
 import type { Database } from '../../db/index.ts';
 import { cardMetadata, cardPrice, wishlist } from '../../db/schema/index.ts';
 import { cursorPage } from '../../utils/pagination.ts';
@@ -83,11 +84,38 @@ export class PostgresWishlistRepository implements WishlistRepository {
       return encodeWishlistCursor({ savedAt: row.savedAt, printingKey: row.printingKey });
     });
 
+    const identities =
+      page.length === 0
+        ? []
+        : await this.db
+            .select({
+              id: cardPrice.id,
+              pricingSource: cardPrice.pricingSource,
+              game: cardPrice.game,
+              pricingCardId: cardPrice.pricingCardId,
+            })
+            .from(cardPrice)
+            .where(
+              inArray(
+                cardPrice.id,
+                page.map(row => row.card.id),
+              ),
+            );
+
+    const identitiesById = new Map(identities.map(identity => [identity.id, identity]));
+
     return {
-      entries: page.map(({ card: { originImageURL, ...card } }) => ({
-        ...card,
-        image_url: originImageURL != null ? proxyURLForOriginURL(originImageURL, baseURL) : undefined,
-      })),
+      entries: page.map(({ card: { originImageURL, ...card } }) => {
+        const identity = identitiesById.get(card.id);
+
+        return {
+          card: {
+            ...card,
+            image_url: originImageURL != null ? proxyURLForOriginURL(originImageURL, baseURL) : undefined,
+          },
+          pricingIdentity: identity != null && printingKey(identity) === card.printing_key ? identity : undefined,
+        };
+      }),
       next_cursor: nextCursor,
     };
   }

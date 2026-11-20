@@ -1,14 +1,19 @@
+import { eq } from 'drizzle-orm';
+import { err, ok } from 'neverthrow';
 import { z } from 'zod';
 
+import { PRICING_CLIENT_ERROR_REASONS } from '../../card-pricing/client.ts';
 import { SEARCH_PRICING_ROUTE_PATH } from '../../card-pricing/routes/search-pricing.ts';
 import { PricingSearchResponseSchema } from '../../card-pricing/schemas/responses.ts';
 import { CARD_GAME_MAP, PRICING_SOURCES } from '../../card-pricing/types.ts';
-import { serializePricedCard } from '../../card-pricing/utils/pricing.ts';
+import { pricedCardMetadata, serializePricedCard } from '../../card-pricing/utils/pricing.ts';
 import { printingKey } from '../../card-pricing/utils/printing-key.ts';
+import { todayUTC } from '../../card-pricing/utils/query.ts';
 import { cardMetadata, cardPrice, wishlist } from '../../db/schema/index.ts';
-import { sessionHeaders } from '../../tests/auth.ts';
+import { seedExchangeRate } from '../../forex/tests/utils.ts';
+import { sessionHeaders, setPreferredCurrency } from '../../tests/auth.ts';
 import { integrationTest } from '../../tests/fixtures.ts';
-import { WishlistCardSchema } from '../schemas/responses.ts';
+import { WishlistCardSchema, WishlistPageSchema } from '../schemas/responses.ts';
 
 const path = '/app-api/wishlist';
 
@@ -22,6 +27,195 @@ const alternateArt = {
 } satisfies Omit<typeof cardPrice.$inferInsert, 'pricedOn'>;
 
 const pageSchema = z.object({ entries: z.array(WishlistCardSchema), next_cursor: z.string().nullable() });
+
+integrationTest(
+  'fetches the exact saved printing once per day and displays it in the preferred currency',
+  async ({ app, db, authenticatedHeaders, pricingClient }) => {
+    const [saved] = await db
+      .insert(cardPrice)
+      .values([
+        {
+          ...alternateArt,
+          pricedOn: '2026-01-01',
+          prices: { ...alternateArt.prices, market: { condition: 'near_mint', currency: 'USD', low: 15 } },
+        },
+        {
+          ...alternateArt,
+          pricingCardId: 'op05-119',
+          pricedOn: todayUTC(),
+          prices: { market: { condition: 'near_mint', currency: 'USD', low: 10 } },
+        },
+      ])
+      .returning();
+
+    assert(saved);
+
+    const lookup = vi.spyOn(pricingClient, 'getCardById').mockResolvedValue(
+      ok({
+        card: {
+          id: saved.pricingCardId,
+          name: saved.name,
+          cardNumber: saved.cardNumber,
+          pricing: {
+            ...alternateArt.prices,
+            market: { condition: 'near_mint', currency: 'USD', low: 25, market: 30 },
+          },
+        },
+        raw: null,
+      }),
+    );
+
+    await setPreferredCurrency(app, authenticatedHeaders, 'EUR');
+    const headers = authenticatedHeaders;
+    expect(
+      (
+        await app.request(path, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ priced_card_id: saved.id }),
+        })
+      ).status,
+    ).toBe(204);
+
+    const readList = async () => {
+      const response = await app.request(path, { headers });
+      expect(response.status).toBe(200);
+
+      return WishlistPageSchema.parse(await response.json()).entries;
+    };
+
+    const [first, concurrent] = await Promise.all([readList(), readList()]);
+    expect(first).toEqual(concurrent);
+    expect(first).toMatchObject([
+      {
+        id: saved.id,
+        printing_key: printingKey(saved),
+        priced_on: `${todayUTC()}T00:00:00.000Z`,
+        headline: { amount: 25, currency: 'USD' },
+        display: {
+          preferred_currency: 'EUR',
+          conversion_unavailable: true,
+          headline: { amount: 25, currency: 'USD' },
+        },
+      },
+    ]);
+    expect(lookup).toHaveBeenCalledExactlyOnceWith(saved.game, saved.pricingCardId);
+
+    await seedExchangeRate(db);
+    expect(await readList()).toMatchObject([
+      {
+        display: {
+          preferred_currency: 'EUR',
+          conversion_unavailable: false,
+          headline: { amount: 20, currency: 'EUR' },
+          market: { market: 24, currency: 'EUR' },
+        },
+      },
+    ]);
+    expect(lookup).toHaveBeenCalledTimes(1);
+  },
+);
+
+integrationTest(
+  'recovers a missing saved pricing record through the daily search for the exact printing',
+  async ({ app, db, authenticatedHeaders: headers, pricingClient }) => {
+    const initial = await app.request(`${SEARCH_PRICING_ROUTE_PATH}?search_by=card&game=pokemon&query=Giratina`, {
+      headers,
+    });
+
+    expect(initial.status).toBe(200);
+    const [card] = PricingSearchResponseSchema.parse(await initial.json()).matches;
+    assert(card?.printing_key && card.headline);
+    expect(
+      (
+        await app.request(path, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ priced_card_id: card.id }),
+        })
+      ).status,
+    ).toBe(204);
+    await db.delete(cardPrice).where(eq(cardPrice.id, card.id));
+    const search = vi.spyOn(pricingClient, 'searchCards');
+
+    const response = await app.request(path, { headers });
+    expect(response.status).toBe(200);
+    expect(WishlistPageSchema.parse(await response.json()).entries).toMatchObject([
+      {
+        id: card.id,
+        printing_key: card.printing_key,
+        headline: card.headline,
+      },
+    ]);
+    expect(search).toHaveBeenCalledTimes(1);
+
+    const next = await app.request(path, { headers });
+    expect(next.status).toBe(200);
+    expect(WishlistPageSchema.parse(await next.json()).entries).toMatchObject([{ headline: card.headline }]);
+    expect(search).toHaveBeenCalledTimes(1);
+  },
+);
+
+integrationTest(
+  'prices only the requested page and preserves cached prices when a provider lookup fails',
+  async ({ app, db, user, authenticatedHeaders, pricingClient }) => {
+    const rows = await db
+      .insert(cardPrice)
+      .values(
+        Array.from({ length: 51 }, (_, index) => ({
+          ...alternateArt,
+          pricingCardId: `op05-119:variant-${index}`,
+          pricedOn: index < 2 ? '2026-01-01' : todayUTC(),
+          prices:
+            index === 2
+              ? alternateArt.prices
+              : {
+                  ...alternateArt.prices,
+                  market: { condition: 'near_mint' as const, currency: 'USD' as const, low: 25 },
+                },
+        })),
+      )
+      .returning();
+
+    await db.insert(wishlist).values(
+      rows.map((row, index) => ({
+        userId: user.userId,
+        printingKey: printingKey(row),
+        card: WishlistCardSchema.parse(pricedCardMetadata(row)),
+        savedAt: new Date(Date.UTC(2026, 10, 17, 0, 0, index)),
+      })),
+    );
+
+    const lookup = vi.spyOn(pricingClient, 'getCardById').mockResolvedValue(
+      err({
+        reason: PRICING_CLIENT_ERROR_REASONS.INVALID_RESPONSE,
+        message: 'Provider fixture did not return a quote',
+        isRetryable: false,
+      }),
+    );
+
+    const first = await app.request(path, { headers: authenticatedHeaders });
+    expect(first.status).toBe(200);
+    const page = WishlistPageSchema.parse(await first.json());
+    expect(page.entries).toHaveLength(50);
+    expect(page.entries.filter(entry => entry.headline?.amount === 25)).toHaveLength(48);
+    expect(page.entries.at(-2)?.headline).toBeUndefined();
+    expect(page.entries.at(-1)).toMatchObject({
+      printing_key: printingKey({ ...alternateArt, pricingCardId: 'op05-119:variant-1' }),
+    });
+    expect(page.entries.at(-1)?.headline).toBeUndefined();
+    expect(lookup).toHaveBeenCalledExactlyOnceWith(alternateArt.game, 'op05-119:variant-1');
+    assert(page.next_cursor);
+    const second = await app.request(`${path}?cursor=${page.next_cursor}`, { headers: authenticatedHeaders });
+    expect(second.status).toBe(200);
+    expect(WishlistPageSchema.parse(await second.json()).entries).toMatchObject([
+      {
+        printing_key: printingKey({ ...alternateArt, pricingCardId: 'op05-119:variant-0' }),
+      },
+    ]);
+    expect(lookup).toHaveBeenNthCalledWith(2, alternateArt.game, 'op05-119:variant-0');
+  },
+);
 
 integrationTest(
   'recognizes the same alternate art across dates and concurrent saves without changing its save time',

@@ -1,9 +1,12 @@
 import SwiftUI
 import TCGClient
+import TCGCurrency
 import TCGDesignSystem
 
 public struct TCGWishlistScreen<AddForm: View>: View {
     @Environment(\.tcgWishlist) private var wishlist
+    @Environment(\.tcgCurrency) private var currency
+    @Environment(\.tcgPricePrivacy) private var pricePrivacy
     @Environment(\.scenePhase) private var scenePhase
     @State private var model: TCGWishlistScreenModel
 
@@ -33,7 +36,7 @@ public struct TCGWishlistScreen<AddForm: View>: View {
             .refreshable { await model.refresh(using: wishlist) }
             .sheet(item: $model.selected) { card in
                 TCGSearchDetailView(
-                    card: card,
+                    card: model.entries.first { $0.printingKey == card.printingKey } ?? card,
                     isWishlistEntry: true,
                     onWishlistRemoval: { model.didRemove(card) },
                     addForm: addForm
@@ -70,11 +73,12 @@ public struct TCGWishlistScreen<AddForm: View>: View {
 
     private struct LoadIdentity: Equatable {
         let query: String?
+        let display: TCGCurrency.DisplayIdentity?
     }
 
     private var loadIdentity: LoadIdentity? {
         guard isVisible, scenePhase == .active else { return nil }
-        return LoadIdentity(query: model.searchQuery)
+        return LoadIdentity(query: model.searchQuery, display: currency?.displayIdentity)
     }
 
     @ViewBuilder
@@ -127,12 +131,25 @@ public struct TCGWishlistScreen<AddForm: View>: View {
             TCGCollectionRowContent {
                 CardImageView(url: card.imageURL)
             } details: {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(card.name).font(.headline)
-                    Text([card.setName, card.cardNumber, card.variantName].compactMap { $0 }.joined(separator: " · "))
+                HStack(alignment: .top, spacing: 12) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(card.name).font(.headline)
+                        Text(
+                            [card.setName, card.cardNumber, card.variantName].compactMap { $0 }.joined(separator: " · ")
+                        )
                         .foregroundStyle(.secondary)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    if pricePrivacy?.hidePrices != true {
+                        if let currency, let display = card.display,
+                            display.preferredCurrency != currency.preferredCurrency
+                        {
+                            if model.isLoading { ProgressView() }
+                        } else {
+                            CardHeadlinePrice(card: card)
+                        }
+                    }
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
             }
             .contentShape(Rectangle())
         }

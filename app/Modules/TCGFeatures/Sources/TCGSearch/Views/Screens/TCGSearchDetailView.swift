@@ -168,7 +168,8 @@ struct TCGSearchDetailView<AddForm: View>: View {
     }
 
     private var selectedCard: PricedCard {
-        Self.latestCard(for: card, in: search.results)
+        if isWishlistEntry { return card }
+        return Self.latestCard(for: card, in: search.results)
     }
 
     static func latestCard(for card: PricedCard, in results: [PricedCard]) -> PricedCard {
@@ -184,7 +185,14 @@ struct TCGSearchDetailView<AddForm: View>: View {
     }
 
     private var displayedCard: PricedCard? {
-        guard !isWishlistEntry else { return nil }
+        if isWishlistEntry {
+            if let currencyState, let display = card.display,
+                display.preferredCurrency != currencyState.preferredCurrency
+            {
+                return nil
+            }
+            return card.display != nil || card.headline != nil || card.market != nil ? card : nil
+        }
         let card = selectedCard
         guard let currencyState else { return card }
         let matches = search.results.filter { $0.display?.preferredCurrency == currencyState.preferredCurrency }

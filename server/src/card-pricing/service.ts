@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
 
+import { compactMap } from '@kamaalio/kamaal/arrays';
 import { SCRYDEX_SEARCH_PAGE_SIZE } from '@tcg/scrydex';
 
 import type { PricingClient, PricingClientError, PricingSearchResult } from './client.ts';
-import { PricingLockTimeout, PricingLockUnavailable, PricingProviderUnavailable } from './exceptions.ts';
+import { CardPriceException, PricingProviderUnavailable } from './exceptions.ts';
 import { normalizeCardLanguages } from './languages.ts';
 import { type PricingLogFields, pricingLogger } from './logging.ts';
 import { PricingOperation } from './operation.ts';
@@ -24,7 +25,11 @@ import { isNonEmpty, type NonEmptyArray } from '../utils/type-utils.ts';
 import { cachedIllustrator } from './utils/illustrator.ts';
 import { searchPageKey } from './utils/pagination.ts';
 import { serializePricedCard } from './utils/pricing.ts';
+import { printingKey } from './utils/printing-key.ts';
 import { buildSearchQuery, normalizeCardNumber, normalizeName, queryKey, todayUTC } from './utils/query.ts';
+import type { WishlistEntry } from '../wishlist/repository.ts';
+
+const PRICING_LOOKUP_CONCURRENCY = 4;
 
 export class CardPricingService {
   private readonly c: HonoContext;
@@ -175,12 +180,7 @@ export class CardPricingService {
         try {
           prices[index] = await this.priceOwnedCard(card);
         } catch (error) {
-          if (
-            options.allowUnavailable &&
-            (error instanceof PricingLockTimeout ||
-              error instanceof PricingLockUnavailable ||
-              error instanceof PricingProviderUnavailable)
-          ) {
+          if (options.allowUnavailable && error instanceof CardPriceException) {
             prices[index] = { card_id: card.id, status: OWNED_CARD_PRICE_STATUSES.UNAVAILABLE };
           } else {
             throw error;
@@ -189,12 +189,80 @@ export class CardPricingService {
       }
     };
 
-    await Promise.all(Array.from({ length: Math.min(4, cards.length) }, worker));
+    await Promise.all(Array.from({ length: Math.min(PRICING_LOOKUP_CONCURRENCY, cards.length) }, worker));
     const [priced, ...rest] = prices;
 
     assert(priced != null, 'Owned card pricing did not return a result for at least one card');
 
     return [priced, ...rest];
+  }
+
+  async priceWishlistEntries(entries: WishlistEntry[]): Promise<ReadonlyMap<string, PricedCardResponse>> {
+    const pricedOn = todayUTC();
+    const identities = compactMap(entries, ({ pricingIdentity }) => pricingIdentity);
+    const groups = Map.groupBy(identities, identity => `${identity.pricingSource}:${identity.game}`);
+
+    const cached = await Promise.all(
+      Array.from(groups.values(), ([first, ...rest]) => {
+        assert(first != null, 'A pricing identity group must be nonempty');
+        const ids = new Set([first.pricingCardId, ...rest.map(identity => identity.pricingCardId)]);
+
+        return this.repository.getCachedCardPrices(first.pricingSource, first.game, [...ids], pricedOn);
+      }),
+    );
+
+    const prices = new Map(
+      cached
+        .flat()
+        .map(row => [printingKey(row), serializePricedCard(row.game, row, this.c.get('config').PUBLIC_BASE_URL)]),
+    );
+
+    const misses = new Map(
+      compactMap(entries, entry => {
+        const key = entry.card.printing_key;
+
+        return prices.has(key) ? undefined : ([key, entry] as const);
+      }),
+    );
+
+    const pending = misses.values();
+    const searches = new Map<string, ReturnType<CardPricingService['searchAndPrice']>>();
+
+    const worker = async () => {
+      for (const { card, pricingIdentity } of pending) {
+        try {
+          let price: PricedCardResponse | undefined;
+
+          if (pricingIdentity?.pricingSource === this.client.source) {
+            price = await this.fetchPrintingById(card.game, pricingIdentity.pricingCardId, pricedOn);
+          } else if (pricingIdentity == null) {
+            const query = buildSearchQuery(card.name, card.card_number);
+            const options = { languages: [], searchBy: 'card' } as const;
+            const key = queryKey(card.game, query, options);
+            let search = searches.get(key);
+
+            if (search == null) {
+              search = this.searchAndPrice(card.game, query, options, 0);
+              searches.set(key, search);
+            }
+
+            price = (await search).matches.find(match => match.printing_key === card.printing_key);
+          }
+
+          if (price?.printing_key === card.printing_key) {
+            prices.set(card.printing_key, price);
+          }
+        } catch (error) {
+          if (!(error instanceof CardPriceException)) {
+            throw error;
+          }
+        }
+      }
+    };
+
+    await Promise.all(Array.from({ length: Math.min(PRICING_LOOKUP_CONCURRENCY, misses.size) }, worker));
+
+    return prices;
   }
 
   async catalogPrintings(ids: readonly string[]): Promise<ReadonlyMap<string, CatalogPrinting>> {
@@ -266,9 +334,14 @@ export class CardPricingService {
       pricingCardId: NonNullable<CardWithPurchases['pricingCardId']>;
     },
   ): Promise<OwnedCardPriceResponse> {
-    const pricingCardId = card.pricingCardId;
     const pricedOn = todayUTC();
-    const cached = await this.repository.getCachedCardPrice(this.client.source, card.game, pricingCardId, pricedOn);
+
+    const cached = await this.repository.getCachedCardPrice(
+      this.client.source,
+      card.game,
+      card.pricingCardId,
+      pricedOn,
+    );
 
     if (cached != null) {
       await this.registerImages([cached]);
@@ -281,55 +354,55 @@ export class CardPricingService {
     }
 
     this.logCache('pricing.owned.cache', 'miss', 0, card.id);
+    const price = await this.fetchPrintingById(card.game, card.pricingCardId, pricedOn, card.id);
 
+    return price == null
+      ? { card_id: card.id, status: OWNED_CARD_PRICE_STATUSES.NO_MATCH }
+      : this.makeOwnedResponse(card.id, price);
+  }
+
+  private async fetchPrintingById(
+    game: CardGame,
+    pricingCardId: string,
+    pricedOn: string,
+    ownedCardId?: string,
+  ): Promise<PricedCardResponse | undefined> {
     const result = await this.operation.withPricingLock(
       {
-        game: card.game,
-        key: `pricing:card:${this.client.source}:${pricedOn}:${card.game}:${pricingCardId}`,
+        game,
+        key: `pricing:card:${this.client.source}:${pricedOn}:${game}:${pricingCardId}`,
         keyType: 'card',
         pricedOn,
       },
       async () => {
-        const populated = await this.repository.getCachedCardPrice(
-          this.client.source,
-          card.game,
-          pricingCardId,
-          pricedOn,
-        );
+        const populated = await this.repository.getCachedCardPrice(this.client.source, game, pricingCardId, pricedOn);
 
         if (populated != null) {
           await this.registerImages([populated]);
-          this.logCache('pricing.owned.cache', 'hit', 1, card.id);
 
-          return this.makeOwnedResponse(
-            card.id,
-            serializePricedCard(card.game, populated, this.c.get('config').PUBLIC_BASE_URL),
-          );
+          if (ownedCardId != null) {
+            this.logCache('pricing.owned.cache', 'hit', 1, ownedCardId);
+          }
+
+          return serializePricedCard(game, populated, this.c.get('config').PUBLIC_BASE_URL);
         }
 
         const providerStartedAt = performance.now();
-        const cardResult = await this.client.getCardById(card.game, pricingCardId);
+        const cardResult = await this.client.getCardById(game, pricingCardId);
 
         if (cardResult.isErr()) {
-          this.throwProviderUnavailable('card_lookup', card.game, cardResult.error, providerStartedAt, card.id);
+          this.throwProviderUnavailable('card_lookup', game, cardResult.error, providerStartedAt, ownedCardId);
         }
 
         const record = cardResult.value;
-        this.logProviderSuccess(
-          'card_lookup',
-          card.game,
-          undefined,
-          providerStartedAt,
-          card.id,
-          record == null ? 0 : 1,
-        );
+        this.logProviderSuccess('card_lookup', game, undefined, providerStartedAt, ownedCardId, record == null ? 0 : 1);
 
         if (record == null) {
-          return { card_id: card.id, status: OWNED_CARD_PRICE_STATUSES.NO_MATCH };
+          return undefined;
         }
 
         const row = await this.repository.upsertCardPrice({
-          game: card.game,
+          game,
           card: record.card,
           raw: record.raw,
           pricedOn,
@@ -337,12 +410,12 @@ export class CardPricingService {
         });
 
         await this.registerImages([row]);
-        this.logCache('pricing.owned.cache', 'set', 1, card.id);
 
-        return this.makeOwnedResponse(
-          card.id,
-          serializePricedCard(card.game, row, this.c.get('config').PUBLIC_BASE_URL),
-        );
+        if (ownedCardId != null) {
+          this.logCache('pricing.owned.cache', 'set', 1, ownedCardId);
+        }
+
+        return serializePricedCard(game, row, this.c.get('config').PUBLIC_BASE_URL);
       },
     );
 
