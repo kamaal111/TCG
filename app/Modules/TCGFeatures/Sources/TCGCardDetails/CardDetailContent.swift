@@ -229,9 +229,9 @@ public struct CardDetailContent<Supplemental: View>: View {
     private func catalogQuoteAmount(_ quote: MarketPrice, amount: Double) -> some View {
         let conversionUnavailable = conversionUnavailable(for: quote)
         let currencyAmount: CurrencyAmount
-        if let market = quote.market, market != amount {
+        if let low = quote.low, let market = quote.market {
             currencyAmount = CurrencyAmount(
-                low: amount,
+                low: low,
                 market: market,
                 currency: quote.currency,
                 conversionUnavailable: conversionUnavailable
