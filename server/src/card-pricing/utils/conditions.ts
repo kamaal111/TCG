@@ -36,22 +36,38 @@ export function resolveConditionValues(prices: readonly ConditionPriceResponse[]
     const betterQuote = bands[better];
     const worseQuote = bands[worse];
 
-    if (betterQuote != null && worseQuote != null && betterQuote.currency === worseQuote.currency) {
+    if (
+      betterQuote != null &&
+      worseQuote != null &&
+      betterQuote.currency === worseQuote.currency &&
+      betterQuote.amount > worseQuote.amount
+    ) {
       const fraction = (index - better) / (worse - better);
       const amount = betterQuote.amount + (worseQuote.amount - betterQuote.amount) * fraction;
 
-      return [{ condition, amount, currency: betterQuote.currency, basis: CONDITION_VALUE_BASIS_MAP.INTERPOLATED }];
+      if (amount > worseQuote.amount && amount < betterQuote.amount) {
+        return [{ condition, amount, currency: betterQuote.currency, basis: CONDITION_VALUE_BASIS_MAP.INTERPOLATED }];
+      }
     }
 
-    const useBetter = betterQuote != null && (worseQuote == null || index - better <= worse - index);
-    const anchor = useBetter ? betterQuote : worseQuote;
+    for (let distance = 1; distance < bands.length; distance += 1) {
+      for (const offset of [-distance, distance]) {
+        const anchor = bands[index + offset];
 
-    const amount =
-      anchor != null ? anchor.amount * ADJACENT_CONDITION_FACTOR ** (index - (useBetter ? better : worse)) : undefined;
+        if (anchor == null) {
+          continue;
+        }
 
-    return anchor == null || amount == null || !Number.isFinite(amount)
-      ? []
-      : [{ condition, amount, currency: anchor.currency, basis: CONDITION_VALUE_BASIS_MAP.ADJUSTED }];
+        const amount = anchor.amount * ADJACENT_CONDITION_FACTOR ** -offset;
+        const movesTowardCondition = offset < 0 ? amount < anchor.amount : amount > anchor.amount;
+
+        if (Number.isFinite(amount) && movesTowardCondition) {
+          return [{ condition, amount, currency: anchor.currency, basis: CONDITION_VALUE_BASIS_MAP.ADJUSTED }];
+        }
+      }
+    }
+
+    return [];
   });
 }
 

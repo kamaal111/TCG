@@ -226,11 +226,11 @@ struct TCGSearchScreenSnapshotTests {
     func `Hides financial sections in search details`() async {
         let privacy = TCGPricePrivacy(defaults: nil)
         privacy.hidePrices = true
-        #expect(detailCard.headline?.amount == 420)
+        #expect(catalogConditionCard.displayConditionValues?.contains { $0.basis == .interpolated } == true)
         await assertScreenSnapshot(testName: #function, fileID: #fileID, file: #filePath, line: #line, column: #column)
         {
             TCGSearchDetailView(
-                card: detailCard,
+                card: catalogConditionCard,
                 variants: [],
                 isWishlistEntry: false,
                 onWishlistRemoval: nil,
@@ -548,7 +548,7 @@ struct TCGSearchScreenSnapshotTests {
         await assertScreenSnapshot(testName: #function, fileID: #fileID, file: #filePath, line: #line, column: #column)
         {
             TCGSearchDetailView(
-                card: detailCard,
+                card: catalogConditionCard,
                 variants: [],
                 isWishlistEntry: false,
                 onWishlistRemoval: nil,
@@ -669,33 +669,10 @@ struct TCGSearchScreenSnapshotTests {
 
     @Test
     func `Renders condition quotes in Wishlist details`() async {
-        let card = PricedCard(
-            id: "wishlist-condition-prices",
-            printingKey: nil,
-            isWishlisted: nil,
-            game: .pokemon,
-            name: "Giratina V",
-            cardNumber: "186/196",
-            setName: nil,
-            rarity: nil,
-            illustrator: "Shinji Kanda",
-            variantName: nil,
-            imageURL: nil,
-            headline: nil,
-            market: nil,
-            conditionPrices: [
-                MarketPrice(condition: .nearMint, currency: .usd, low: 420, market: 450, trend7d: nil, trend30d: nil),
-                MarketPrice(condition: .excellent, currency: .usd, low: 310, market: 375, trend7d: nil, trend30d: nil),
-            ],
-            conditionValues: nil,
-            display: nil,
-            pricedOn: Date(timeIntervalSince1970: 1_750_000_000),
-            fetchedAt: Date(timeIntervalSince1970: 1_750_000_000)
-        )
         await assertScreenSnapshot(testName: #function, fileID: #fileID, file: #filePath, line: #line, column: #column)
         {
             TCGSearchDetailView(
-                card: card,
+                card: catalogConditionCard,
                 variants: [],
                 isWishlistEntry: true,
                 onWishlistRemoval: nil,
@@ -710,7 +687,64 @@ struct TCGSearchScreenSnapshotTests {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(.background)
             .environment(\.timeZone, TimeZone(secondsFromGMT: 0)!)
+            .cardImageLoader(PreviewCardImageLoader(outcome: .success))
         }
+    }
+
+    private var catalogConditionCard: PricedCard {
+        PricedCard(
+            id: "catalog-condition-prices",
+            printingKey: nil,
+            isWishlisted: nil,
+            game: .pokemon,
+            name: "Giratina V",
+            cardNumber: "186/196",
+            setName: nil,
+            rarity: detailCard.rarity,
+            illustrator: "Shinji Kanda",
+            variantName: nil,
+            imageURL: detailCard.imageURL,
+            headline: nil,
+            market: nil,
+            conditionPrices: [
+                MarketPrice(
+                    condition: .nearMint,
+                    currency: .usd,
+                    low: 0.026,
+                    market: 0.03,
+                    trend7d: nil,
+                    trend30d: nil
+                ),
+                MarketPrice(condition: .excellent, currency: .usd, low: nil, market: 0.02, trend7d: nil, trend30d: nil),
+                MarketPrice(condition: .played, currency: .usd, low: nil, market: 0.01, trend7d: nil, trend30d: nil),
+            ],
+            conditionValues: [
+                ConditionValue(
+                    condition: .mint,
+                    currency: .usd,
+                    amount: 0.03,
+                    basis: .market,
+                    conversionUnavailable: nil
+                ),
+                ConditionValue(
+                    condition: .good,
+                    currency: .usd,
+                    amount: 0.015,
+                    basis: .interpolated,
+                    conversionUnavailable: nil
+                ),
+                ConditionValue(
+                    condition: .damaged,
+                    currency: .usd,
+                    amount: 0.009,
+                    basis: .adjusted,
+                    conversionUnavailable: nil
+                ),
+            ],
+            display: nil,
+            pricedOn: Date(timeIntervalSince1970: 1_750_000_000),
+            fetchedAt: Date(timeIntervalSince1970: 1_750_000_000)
+        )
     }
 
     @ViewBuilder
