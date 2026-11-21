@@ -178,9 +178,6 @@ public struct CardDetailContent<Supplemental: View>: View {
                         )
                         .monospacedDigit()
                         Text("Per copy", bundle: .module).font(.caption).foregroundStyle(.secondary)
-                        if value.condition == .mint {
-                            Text("Near Mint proxy", bundle: .module).font(.caption).foregroundStyle(.secondary)
-                        }
                         switch value.basis {
                         case .market: EmptyView()
                         case .low:
@@ -202,41 +199,61 @@ public struct CardDetailContent<Supplemental: View>: View {
         ForEach(CardCondition.allCases, id: \.self) { condition in
             let quote = quotes.first { $0.condition == condition }
 
-            if let quote, quote.market != nil || quote.low != nil {
-                conditionQuote(quote)
-            } else {
-                VStack(alignment: .leading, spacing: 8) {
-                    LabeledContent {
-                        if let value = values.first(where: { $0.condition == condition }) {
-                            HStack(alignment: .top, spacing: 0) {
-                                Text(verbatim: "~")
-                                    .accessibilityLabel(Text("Estimated price", bundle: .module))
-                                CurrencyAmount(
-                                    value.amount,
-                                    currency: value.currency,
-                                    label: nil,
-                                    conversionUnavailable: value.conversionUnavailable == true
-                                )
-                            }
-                            .monospacedDigit()
-                            .accessibilityElement(children: .combine)
-                        } else {
-                            Text("No price", bundle: .module).foregroundStyle(.secondary)
-                        }
-                    } label: {
-                        Text(condition.title)
+            VStack(alignment: .leading, spacing: 8) {
+                conditionHeading(condition)
+                if let quote, let amount = quote.low ?? quote.market {
+                    catalogQuoteAmount(quote, amount: amount)
+                } else if let value = values.first(where: { $0.condition == condition }) {
+                    HStack(alignment: .top, spacing: 0) {
+                        Text(verbatim: "~")
+                            .accessibilityLabel(Text("Estimated price", bundle: .module))
+                        CurrencyAmount(
+                            value.amount,
+                            currency: value.currency,
+                            label: nil,
+                            conversionUnavailable: value.conversionUnavailable == true
+                        )
                     }
-                    if let quote {
-                        quoteAmounts(quote, conversionUnavailable: conversionUnavailable(for: quote))
-                    }
+                    .monospacedDigit()
+                    .accessibilityElement(children: .combine)
+                } else {
+                    Text("No price", bundle: .module).foregroundStyle(.secondary)
+                }
+                if let quote {
+                    quoteMovements(quote, conversionUnavailable: conversionUnavailable(for: quote))
                 }
             }
         }
     }
 
+    private func catalogQuoteAmount(_ quote: MarketPrice, amount: Double) -> some View {
+        let conversionUnavailable = conversionUnavailable(for: quote)
+        let currencyAmount: CurrencyAmount
+        if let market = quote.market, market != amount {
+            currencyAmount = CurrencyAmount(
+                low: amount,
+                market: market,
+                currency: quote.currency,
+                conversionUnavailable: conversionUnavailable
+            )
+        } else {
+            currencyAmount = CurrencyAmount(
+                amount,
+                currency: quote.currency,
+                label: nil,
+                conversionUnavailable: conversionUnavailable
+            )
+        }
+        return currencyAmount.monospacedDigit()
+    }
+
+    private func conditionHeading(_ condition: CardCondition) -> some View {
+        Text(condition.title).font(.headline).accessibilityAddTraits(.isHeader)
+    }
+
     private func conditionQuote(_ quote: MarketPrice) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(quote.condition.title).font(.headline).accessibilityAddTraits(.isHeader)
+            conditionHeading(quote.condition)
             quoteAmounts(quote, conversionUnavailable: conversionUnavailable(for: quote))
         }
     }
@@ -249,6 +266,11 @@ public struct CardDetailContent<Supplemental: View>: View {
         if let amount = quote.market {
             price("Market", amount: amount, currency: quote.currency, conversionUnavailable: conversionUnavailable)
         }
+        quoteMovements(quote, conversionUnavailable: conversionUnavailable)
+    }
+
+    @ViewBuilder
+    private func quoteMovements(_ quote: MarketPrice, conversionUnavailable: Bool) -> some View {
         if let movement = quote.trend7d {
             movementRow(
                 "7-day change",

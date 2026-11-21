@@ -14,8 +14,9 @@ struct TCGCurrencyAmountSnapshotTests {
         {
             VStack(alignment: .leading, spacing: 20) {
                 CurrencyAmount(10.0, currency: .eur, label: nil, conversionUnavailable: false)
-                CurrencyAmount(10.0, currency: .eur, label: nil, conversionUnavailable: false)
+                CurrencyAmount(low: 10, market: 14, currency: .eur, conversionUnavailable: false)
                 CurrencyAmount(12.5, currency: .gbp, label: nil, conversionUnavailable: true)
+                CurrencyAmount(low: 12.5, market: 17, currency: .gbp, conversionUnavailable: true)
             }
             .padding(24)
         }
