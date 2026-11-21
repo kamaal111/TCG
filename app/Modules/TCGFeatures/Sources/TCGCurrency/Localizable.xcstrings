@@ -31,8 +31,28 @@
         }
       }
     },
+    "%@ - %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ - %2$@"
+          }
+        }
+      }
+    },
     "Conversion unavailable" : {
 
+    },
+    "Low %@, market %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Low %1$@, market %2$@"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

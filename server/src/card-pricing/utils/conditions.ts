@@ -1,4 +1,4 @@
-import { CARD_CONDITION_MAP, CARD_CONDITIONS, type CardCondition } from '../../cards/types.ts';
+import { CARD_CONDITION_MAP, type CardCondition } from '../../cards/types.ts';
 import type { ConditionPriceResponse, ConditionValueResponse } from '../schemas/responses.ts';
 import { CONDITION_VALUE_BASIS_MAP, QUOTED_CONDITIONS } from '../types.ts';
 
@@ -20,11 +20,7 @@ export function resolveConditionValues(prices: readonly ConditionPriceResponse[]
       : undefined;
   });
 
-  return CARD_CONDITIONS.flatMap<ConditionValueResponse>(condition => {
-    const index = QUOTED_CONDITIONS.indexOf(
-      condition === CARD_CONDITION_MAP.MINT ? CARD_CONDITION_MAP.NEAR_MINT : condition,
-    );
-
+  const values = QUOTED_CONDITIONS.flatMap<ConditionValueResponse>((condition, index) => {
     const direct = bands[index];
 
     if (direct != null) {
@@ -69,6 +65,28 @@ export function resolveConditionValues(prices: readonly ConditionPriceResponse[]
 
     return [];
   });
+
+  const nearMint = conditionValue(values, CARD_CONDITION_MAP.NEAR_MINT);
+
+  if (nearMint == null) {
+    return values;
+  }
+
+  const amount = nearMint.amount / ADJACENT_CONDITION_FACTOR;
+
+  if (!Number.isFinite(amount) || amount <= nearMint.amount) {
+    return values;
+  }
+
+  return [
+    {
+      condition: CARD_CONDITION_MAP.MINT,
+      amount,
+      currency: nearMint.currency,
+      basis: CONDITION_VALUE_BASIS_MAP.ADJUSTED,
+    },
+    ...values,
+  ];
 }
 
 export function conditionValue(

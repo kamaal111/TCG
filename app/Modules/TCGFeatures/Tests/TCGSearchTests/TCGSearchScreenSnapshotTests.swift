@@ -710,20 +710,34 @@ struct TCGSearchScreenSnapshotTests {
                 MarketPrice(
                     condition: .nearMint,
                     currency: .usd,
-                    low: 0.026,
-                    market: 0.03,
+                    low: 18,
+                    market: 20,
                     trend7d: nil,
                     trend30d: nil
                 ),
-                MarketPrice(condition: .excellent, currency: .usd, low: nil, market: 0.02, trend7d: nil, trend30d: nil),
-                MarketPrice(condition: .played, currency: .usd, low: nil, market: 0.01, trend7d: nil, trend30d: nil),
+                MarketPrice(
+                    condition: .excellent,
+                    currency: .usd,
+                    low: 0.02,
+                    market: 0.02,
+                    trend7d: nil,
+                    trend30d: nil
+                ),
+                MarketPrice(
+                    condition: .played,
+                    currency: .usd,
+                    low: nil,
+                    market: 0.01,
+                    trend7d: PriceMovement(priceChange: 0.002, percentChange: 25),
+                    trend30d: nil
+                ),
             ],
             conditionValues: [
                 ConditionValue(
                     condition: .mint,
                     currency: .usd,
-                    amount: 0.03,
-                    basis: .market,
+                    amount: 20 / 0.9,
+                    basis: .adjusted,
                     conversionUnavailable: nil
                 ),
                 ConditionValue(
@@ -731,13 +745,6 @@ struct TCGSearchScreenSnapshotTests {
                     currency: .usd,
                     amount: 0.015,
                     basis: .interpolated,
-                    conversionUnavailable: nil
-                ),
-                ConditionValue(
-                    condition: .damaged,
-                    currency: .usd,
-                    amount: 0.009,
-                    basis: .adjusted,
                     conversionUnavailable: nil
                 ),
             ],

@@ -232,13 +232,14 @@ struct TCGCardDetailScreenSnapshotTests {
 
     @Test
     func `Renders owned condition prices and estimates`() async {
-        let card = PreviewTCGCardsClient.sampleCards[0]
+        let card = PreviewTCGCardsClient.sampleCards[1]
+        #expect(card.quantities.contains { $0.condition == .mint })
         let pricedOn = Date(timeIntervalSince1970: 1_750_000_000)
         let quotes = card.quantities.map { quantity in
             ConditionValue(
                 condition: quantity.condition,
                 currency: .usd,
-                amount: 18,
+                amount: 22.22,
                 basis: .adjusted,
                 conversionUnavailable: nil
             )

@@ -16,6 +16,7 @@ test('uses matched averages, zero lows and neighboring quotes for missing bands'
     { condition: 'played', amount: 12, basis: 'market' },
     { condition: 'damaged', amount: 0, basis: 'low' },
   ]);
+  expect(values[0]?.amount).toBeCloseTo(24.69, 2);
   expect(values[1]?.amount).toBeCloseTo(20 / 0.9, 6);
 });
 
@@ -41,16 +42,35 @@ test('returns no unit values when quotes contain only movements', () => {
   ).toEqual([]);
 });
 
-test('estimates every missing condition from a single Near Mint quote, including the Mint proxy', () => {
+test('estimates Mint one condition step above a single Near Mint quote', () => {
   const values = resolveConditionValues([{ condition: 'near_mint', currency: 'USD', market: 20 }]);
 
   expect(values.map(({ condition, amount, basis }) => [condition, Number(amount.toFixed(2)), basis])).toEqual([
-    ['mint', 20, 'market'],
+    ['mint', 22.22, 'adjusted'],
     ['near_mint', 20, 'market'],
     ['excellent', 18, 'adjusted'],
     ['good', 16.2, 'adjusted'],
     ['played', 14.58, 'adjusted'],
     ['damaged', 13.12, 'adjusted'],
+  ]);
+});
+
+test('estimates Mint from an estimated Near Mint value in the same currency', () => {
+  const values = resolveConditionValues([{ condition: 'excellent', currency: 'EUR', market: 18 }]);
+
+  expect(
+    values
+      .slice(0, 2)
+      .map(({ condition, amount, currency, basis }) => [condition, Number(amount.toFixed(2)), currency, basis]),
+  ).toEqual([
+    ['mint', 22.22, 'EUR', 'adjusted'],
+    ['near_mint', 20, 'EUR', 'adjusted'],
+  ]);
+});
+
+test('keeps a zero Near Mint quote without estimating a Mint premium from it', () => {
+  expect(resolveConditionValues([{ condition: 'near_mint', currency: 'USD', low: 0 }])).toEqual([
+    { condition: 'near_mint', amount: 0, currency: 'USD', basis: 'low' },
   ]);
 });
 
