@@ -40,3 +40,45 @@ test('returns no unit values when quotes contain only movements', () => {
     ]),
   ).toEqual([]);
 });
+
+test('estimates every missing condition from a single Near Mint quote, including the Mint proxy', () => {
+  const values = resolveConditionValues([{ condition: 'near_mint', currency: 'USD', market: 20 }]);
+
+  expect(values.map(({ condition, amount, basis }) => [condition, Number(amount.toFixed(2)), basis])).toEqual([
+    ['mint', 20, 'market'],
+    ['near_mint', 20, 'market'],
+    ['excellent', 18, 'adjusted'],
+    ['good', 16.2, 'adjusted'],
+    ['played', 14.58, 'adjusted'],
+    ['damaged', 13.12, 'adjusted'],
+  ]);
+});
+
+test.each([12, 20])('uses the better quote of $%s when the $20 worse quote cannot bracket Good', excellent => {
+  const values = resolveConditionValues([
+    { condition: 'excellent', currency: 'USD', market: excellent },
+    { condition: 'played', currency: 'USD', market: 20 },
+  ]);
+
+  expect(values).toContainEqual({ condition: 'good', amount: excellent * 0.9, currency: 'USD', basis: 'adjusted' });
+  expect(values).toContainEqual({ condition: 'played', amount: 20, currency: 'USD', basis: 'market' });
+});
+
+test('interpolates a sub-cent estimate strictly between its two quotes', () => {
+  const values = resolveConditionValues([
+    { condition: 'excellent', currency: 'USD', market: 0.02 },
+    { condition: 'played', currency: 'USD', market: 0.01 },
+  ]);
+
+  const good = values.find(value => value.condition === CARD_CONDITION_MAP.GOOD);
+  expect(good?.basis).toBe('interpolated');
+  expect(good?.amount).toBeCloseTo(0.015, 8);
+  expect(good?.amount).toBeLessThan(0.02);
+  expect(good?.amount).toBeGreaterThan(0.01);
+});
+
+test('keeps an actual zero quote without deriving equal prices from it', () => {
+  expect(resolveConditionValues([{ condition: 'good', currency: 'USD', low: 0 }])).toEqual([
+    { condition: 'good', amount: 0, currency: 'USD', basis: 'low' },
+  ]);
+});

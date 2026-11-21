@@ -95,8 +95,17 @@ public struct CardDetailContent<Supplemental: View>: View {
                         Text("Pricing", bundle: .module).font(.title2.bold()).accessibilityAddTraits(.isHeader)
                         if let ownedQuantities, let values = card.displayConditionValues {
                             ownedPricing(ownedQuantities, values: values)
+                        } else if ownedQuantities == nil,
+                            card.conditionPrices != nil || card.displayConditionValues != nil
+                        {
+                            conditionPricing(card.displayConditionPrices, values: card.displayConditionValues ?? [])
                         } else if card.conditionPrices != nil {
-                            conditionPricing(card.displayConditionPrices)
+                            if !card.displayConditionPrices.contains(where: { $0.low != nil || $0.market != nil }) {
+                                Text("No price", bundle: .module).foregroundStyle(.secondary)
+                            }
+                            ForEach(card.displayConditionPrices, id: \.condition) { quote in
+                                conditionQuote(quote)
+                            }
                         } else {
                             legacyPricing(card)
                         }
@@ -189,16 +198,46 @@ public struct CardDetailContent<Supplemental: View>: View {
         }
     }
 
-    @ViewBuilder
-    private func conditionPricing(_ quotes: [MarketPrice]) -> some View {
-        if !quotes.contains(where: { $0.low != nil || $0.market != nil }) {
-            Text("No price", bundle: .module).foregroundStyle(.secondary)
-        }
-        ForEach(quotes, id: \.condition) { quote in
-            VStack(alignment: .leading, spacing: 8) {
-                Text(quote.condition.title).font(.headline).accessibilityAddTraits(.isHeader)
-                quoteAmounts(quote, conversionUnavailable: conversionUnavailable(for: quote))
+    private func conditionPricing(_ quotes: [MarketPrice], values: [ConditionValue]) -> some View {
+        ForEach(CardCondition.allCases, id: \.self) { condition in
+            let quote = quotes.first { $0.condition == condition }
+
+            if let quote, quote.market != nil || quote.low != nil {
+                conditionQuote(quote)
+            } else {
+                VStack(alignment: .leading, spacing: 8) {
+                    LabeledContent {
+                        if let value = values.first(where: { $0.condition == condition }) {
+                            HStack(alignment: .top, spacing: 0) {
+                                Text(verbatim: "~")
+                                    .accessibilityLabel(Text("Estimated price", bundle: .module))
+                                CurrencyAmount(
+                                    value.amount,
+                                    currency: value.currency,
+                                    label: nil,
+                                    conversionUnavailable: value.conversionUnavailable == true
+                                )
+                            }
+                            .monospacedDigit()
+                            .accessibilityElement(children: .combine)
+                        } else {
+                            Text("No price", bundle: .module).foregroundStyle(.secondary)
+                        }
+                    } label: {
+                        Text(condition.title)
+                    }
+                    if let quote {
+                        quoteAmounts(quote, conversionUnavailable: conversionUnavailable(for: quote))
+                    }
+                }
             }
+        }
+    }
+
+    private func conditionQuote(_ quote: MarketPrice) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(quote.condition.title).font(.headline).accessibilityAddTraits(.isHeader)
+            quoteAmounts(quote, conversionUnavailable: conversionUnavailable(for: quote))
         }
     }
 
