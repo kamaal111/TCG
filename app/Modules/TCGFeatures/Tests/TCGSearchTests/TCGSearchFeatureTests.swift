@@ -6,6 +6,7 @@
 import Foundation
 import HTTPTypes
 import KamaalAuth
+import KamaalLogger
 import OpenAPIRuntime
 import TCGCurrency
 import Testing
@@ -202,9 +203,11 @@ struct TCGSearchFeatureTests {
 
     @Test
     func `No results clears matches and records that a search happened`() async throws {
+        let holder = LogHolder(max: 8)
         let feature = TCGSearch(
             client: .preview(pricingOutcome: .noResults),
-            history: TCGSearchHistoryStore(defaults: nil, now: Date.init)
+            history: TCGSearchHistoryStore(defaults: nil, now: Date.init),
+            logger: KamaalLogger(from: TCGSearch.self, holder: holder)
         )
 
         try await feature.search(.init(game: .onePiece, query: "Missing", languages: [], mode: .card, cursor: nil))
@@ -212,6 +215,9 @@ struct TCGSearchFeatureTests {
 
         #expect(feature.hasSearched)
         #expect(feature.results.isEmpty)
+        let logs = await holder.logs.filter { $0.message.hasPrefix("pricing.") }
+        #expect(logs.map(\.message) == ["pricing.search.completed"])
+        #expect(logs.first?.fields().map(\.value.displayText) == [ClientCardGame.onePiece.rawValue, "0"])
     }
 
     @Test

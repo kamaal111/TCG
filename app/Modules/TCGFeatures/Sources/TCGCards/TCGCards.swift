@@ -13,8 +13,6 @@ import TCGClient
 import TCGCurrency
 import TCGListSupport
 
-private let logger = KamaalLogger(from: TCGCards.self)
-
 @MainActor
 @Observable
 public final class TCGCards {
@@ -44,6 +42,7 @@ public final class TCGCards {
     var onCollectionMutation: (@MainActor () async -> Void)?
     private(set) var selectedCollection: CardBinderCollection?
     private let client: TCGClient
+    private let logger: KamaalLogger
     private var downloadedCards: [CardWithPrice]?
     var isReadOnly: Bool { downloadedCards != nil }
     private var collectionState = CollectionState(illustrators: [])
@@ -62,8 +61,13 @@ public final class TCGCards {
         )
     }
 
-    init(client: TCGClient, snapshot: CollectionSnapshotCache, now: @escaping () -> Date) {
+    convenience init(client: TCGClient, snapshot: CollectionSnapshotCache, now: @escaping () -> Date) {
+        self.init(client: client, snapshot: snapshot, now: now, logger: KamaalLogger(from: TCGCards.self))
+    }
+
+    init(client: TCGClient, snapshot: CollectionSnapshotCache, now: @escaping () -> Date, logger: KamaalLogger) {
         self.client = client
+        self.logger = logger
         self.snapshot = snapshot
         self.now = now
         pricing = CollectionPricing(client: client.cards, snapshot: snapshot, now: now)
@@ -393,6 +397,13 @@ public final class TCGCards {
             let query = request.query?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
             setCards(query.isEmpty ? scoped : scoped.filter { $0.card.matchesSearch(query) })
             collectionState.status = .loaded
+            logger.info(
+                "collection.load.completed",
+                fields: [
+                    .init("source", "offline", privacy: .public),
+                    .init("result_count", object: cards.count, privacy: .public),
+                ]
+            )
             return .success(())
         }
 
@@ -405,9 +416,17 @@ public final class TCGCards {
             collectionState.pageCount = list.pageCount
             collectionState.status = .loaded
             if list.requiresPricing != false { refreshVisiblePrices(ids: nil, retry: false) }
+            logger.info(
+                "collection.load.completed",
+                fields: [
+                    .init("source", "cache", privacy: .public),
+                    .init("result_count", object: cards.count, privacy: .public),
+                ]
+            )
             return .success(())
         }
 
+        var retainedSource = "cache"
         let result = await CachedListLoad.load(
             CardCollectionPages(cards: [], pagination: .init(nextCursor: nil, visitedCursors: [], pageCount: 0)),
             through: request.pageCount,
@@ -415,6 +434,7 @@ public final class TCGCards {
             fetch: { pages in await self.loadPage(into: &pages, generation: generation) },
             publish: { pages, isFinal in
                 guard generation == self.collectionState.generation, !Task.isCancelled else { return }
+                retainedSource = "network"
                 self.publish(
                     pages,
                     isFinal: isFinal,
@@ -426,6 +446,27 @@ public final class TCGCards {
         )
         guard generation == collectionState.generation else { return .success(()) }
         if collectionState.status == .loading { collectionState.status = .idle }
+        if !Task.isCancelled {
+            switch result {
+            case .success where collectionState.status == .loaded:
+                logger.info(
+                    "collection.load.completed",
+                    fields: [
+                        .init("source", "network", privacy: .public),
+                        .init("result_count", object: cards.count, privacy: .public),
+                    ]
+                )
+            case .failure where !cards.isEmpty:
+                logger.warning(
+                    "collection.load.retained",
+                    fields: [
+                        .init("source", retainedSource, privacy: .public),
+                        .init("result_count", object: cards.count, privacy: .public),
+                    ]
+                )
+            default: break
+            }
+        }
         return result
     }
 
@@ -529,6 +570,7 @@ public final class TCGCards {
         let result = await client.cards.create(with: payload)
             .map { card in if displayIdentity == identity { insertCard(card) } }
             .mapError(mapCreateError)
+        logMutation(.create, result: result)
         if case .success = result {
             invalidateCollectionReads()
             await refresh(force: true)
@@ -538,7 +580,7 @@ public final class TCGCards {
     }
 
     func updateCard(id: UUID, values: CardFormValues) async -> Result<CardWithPrice, TCGCardsOperationError> {
-        await updateCard(id: id, payload: values.payload)
+        await updateCard(id: id, payload: values.payload, operation: .update)
     }
 
     func moveCard(_ card: Card, to collectionID: UUID) async -> Result<CardWithPrice, TCGCardsOperationError> {
@@ -547,11 +589,14 @@ public final class TCGCards {
             purchases: card.purchases,
             collectionID: collectionID
         )
-        return await updateCard(id: card.id, payload: payload)
+        return await updateCard(id: card.id, payload: payload, operation: .move)
     }
 
-    private func updateCard(id: UUID, payload: UpdateCardPayload) async -> Result<CardWithPrice, TCGCardsOperationError>
-    {
+    private func updateCard(
+        id: UUID,
+        payload: UpdateCardPayload,
+        operation: Mutation
+    ) async -> Result<CardWithPrice, TCGCardsOperationError> {
         let identity = displayIdentity
         let result = await client.cards.update(id: id, with: payload)
             .map { card in
@@ -562,6 +607,7 @@ public final class TCGCards {
                 return card
             }
             .mapError(mapUpdateError)
+        logMutation(operation, result: result)
         if case .success = result {
             invalidateCollectionReads()
             await refresh(force: true)
@@ -589,6 +635,22 @@ public final class TCGCards {
         switch await client.cards.delete(ids: ids) {
         case .success(let result):
             let deletedIDs = Set(result.deletedIDs)
+            let missingCount = result.notFoundIDs.count
+            let fields: [LogField] = [
+                .init("operation", "delete", privacy: .public),
+                .init("deleted_count", object: deletedIDs.count, privacy: .public),
+                .init("missing_count", object: missingCount, privacy: .public),
+            ]
+            if deletedIDs.isEmpty {
+                logger.warning(
+                    "cards.mutation.failed",
+                    fields: fields + [.init("reason", "not_found", privacy: .public)]
+                )
+            } else if missingCount > 0 {
+                logger.warning("cards.mutation.partial", fields: fields)
+            } else {
+                logger.info("cards.mutation.completed", fields: fields)
+            }
             if !deletedIDs.isEmpty {
                 invalidateCollectionReads()
                 deletedCardIDs.formUnion(deletedIDs)
@@ -601,7 +663,44 @@ public final class TCGCards {
             }
             return .success(result)
         case .failure:
+            logger.warning(
+                "cards.mutation.failed",
+                fields: [
+                    .init("operation", "delete", privacy: .public),
+                    .init("reason", "unavailable", privacy: .public),
+                ]
+            )
             return .failure(.serverUnavailable)
+        }
+    }
+
+    private enum Mutation: String {
+        case create, update, move
+    }
+
+    private func logMutation<Value>(_ operation: Mutation, result: Result<Value, TCGCardsOperationError>) {
+        switch result {
+        case .success:
+            logger.info(
+                "cards.mutation.completed",
+                fields: [
+                    .init("operation", operation.rawValue, privacy: .public)
+                ]
+            )
+        case .failure(let error):
+            let reason: String
+            switch error {
+            case .validation: reason = "validation"
+            case .notFound: reason = "not_found"
+            case .serverUnavailable: reason = "unavailable"
+            }
+            logger.warning(
+                "cards.mutation.failed",
+                fields: [
+                    .init("operation", operation.rawValue, privacy: .public),
+                    .init("reason", reason, privacy: .public),
+                ]
+            )
         }
     }
 

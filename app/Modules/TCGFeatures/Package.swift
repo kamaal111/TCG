@@ -16,7 +16,7 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/gonzalezreal/textual", .upToNextMinor(from: "0.5.0")),
-        .package(url: "https://github.com/Kamaalio/KamaalSwift", .upToNextMajor(from: "3.5.0")),
+        .package(url: "https://github.com/Kamaalio/KamaalSwift", .upToNextMajor(from: "3.6.0")),
         .package(url: "https://github.com/apple/swift-http-types", .upToNextMajor(from: "1.8.0")),
         .package(url: "https://github.com/apple/swift-openapi-runtime", .upToNextMajor(from: "1.13.4")),
         .package(url: "https://github.com/pointfreeco/swift-snapshot-testing", .upToNextMajor(from: "1.19.7")),
@@ -123,6 +123,7 @@ let package = Package(
         .testTarget(
             name: "TCGCardsTests",
             dependencies: [
+                .product(name: "KamaalLogger", package: "KamaalSwift"),
                 "TCGCurrency",
                 .product(name: "KamaalAuth", package: "kamaal-auth"),
                 .product(name: "HTTPTypes", package: "swift-http-types"),
@@ -142,6 +143,7 @@ let package = Package(
         .testTarget(
             name: "TCGSearchTests",
             dependencies: [
+                .product(name: "KamaalLogger", package: "KamaalSwift"),
                 "TCGCurrency",
                 .product(name: "KamaalAuth", package: "kamaal-auth"),
                 "TCGSearch",

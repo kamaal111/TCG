@@ -23,16 +23,32 @@ struct RequestDiagnosticsMiddleware: ClientMiddleware {
             let result = try await next(request, body, baseURL)
             if result.0.status.code >= 400 {
                 let requestID = HTTPField.Name("tcg-request-id").flatMap { result.0.headerFields[$0] }
-                let message =
-                    "event=api.request.failed; operation=\(operation); status=\(result.0.status.code); request_id=\(Self.safeRequestID(requestID)); duration_ms=\(Self.milliseconds(since: started))"
-                if result.0.status.code >= 500 { logger.error(message) } else { logger.warning(message) }
+                let fields: [LogField] = [
+                    .init("operation", operation, privacy: .public),
+                    .init("status", object: result.0.status.code, privacy: .public),
+                    .init("request_id", Self.safeRequestID(requestID)),
+                    .init("duration_ms", object: Self.milliseconds(since: started), privacy: .public),
+                ]
+                if result.0.status.code >= 500 {
+                    logger.error("api.request.failed", fields: fields)
+                } else {
+                    logger.warning("api.request.failed", fields: fields)
+                }
             }
             return result
         } catch {
             let cancelled = error is CancellationError || (error as? URLError)?.code == .cancelled
-            let message =
-                "event=api.request.\(cancelled ? "cancelled" : "failed"); operation=\(operation); reason=transport_failed; status=none; duration_ms=\(Self.milliseconds(since: started))"
-            if cancelled { logger.debug(message) } else { logger.warning(message) }
+            let fields: [LogField] = [
+                .init("operation", operation, privacy: .public),
+                .init("reason", "transport_failed", privacy: .public),
+                .init("status", "none", privacy: .public),
+                .init("duration_ms", object: Self.milliseconds(since: started), privacy: .public),
+            ]
+            if cancelled {
+                logger.debug("api.request.cancelled", fields: fields)
+            } else {
+                logger.warning("api.request.failed", fields: fields)
+            }
             throw error
         }
     }
@@ -48,7 +64,12 @@ struct RequestDiagnosticsMiddleware: ClientMiddleware {
         let reason = cause is DecodingError ? "decoding_failed" : "response_processing_failed"
         let status = wrapped?.response?.status.code
         logger.error(
-            "event=api.request.failed; operation=\(operation); reason=\(reason); status=\(status.map(String.init) ?? "none")"
+            "api.request.failed",
+            fields: [
+                .init("operation", operation, privacy: .public),
+                .init("reason", reason, privacy: .public),
+                .init("status", status.map(String.init) ?? "none", privacy: .public),
+            ]
         )
     }
 
@@ -57,7 +78,12 @@ struct RequestDiagnosticsMiddleware: ClientMiddleware {
         logger: KamaalLogger
     ) {
         logger.error(
-            "event=api.request.failed; operation=\(operation); reason=model_mapping_failed; status=200"
+            "api.request.failed",
+            fields: [
+                .init("operation", operation, privacy: .public),
+                .init("reason", "model_mapping_failed", privacy: .public),
+                .init("status", "200", privacy: .public),
+            ]
         )
     }
 

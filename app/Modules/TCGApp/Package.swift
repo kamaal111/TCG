@@ -11,6 +11,7 @@ let package = Package(
         .library(name: "TCGApp", targets: ["TCGApp"])
     ],
     dependencies: [
+        .package(url: "https://github.com/Kamaalio/KamaalSwift", .upToNextMajor(from: "3.6.0")),
         .package(url: "https://github.com/Kamaalio/kamaal-auth", .upToNextMinor(from: "0.1.2")),
         .package(path: "../TCGFeatures"),
         .package(path: "../TCGClient"),
@@ -25,6 +26,7 @@ let package = Package(
                 .product(name: "TCGSearch", package: "TCGFeatures"),
                 .product(name: "TCGSettings", package: "TCGFeatures"),
                 .product(name: "KamaalAuth", package: "kamaal-auth"),
+                .product(name: "KamaalLogger", package: "KamaalSwift"),
                 "TCGClient",
                 "TCGDesignSystem",
             ],
@@ -33,6 +35,9 @@ let package = Package(
                 .treatAllWarnings(as: .error),
             ],
         ),
-        .testTarget(name: "TCGAppTests", dependencies: ["TCGApp"]),
+        .testTarget(
+            name: "TCGAppTests",
+            dependencies: ["TCGApp", .product(name: "KamaalLogger", package: "KamaalSwift")]
+        ),
     ]
 )

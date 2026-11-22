@@ -25,12 +25,15 @@ struct TCGCurrencyClientTests {
             holder: holder
         )
         let result = await client.latestRates()
-        let logs = await clientLogs(holder)
+        let logs = await holder.logs
         let entry = try #require(logs.first)
         #expect(entry.level == level)
-        #expect(entry.message.contains("event=currency.request.failed; operation=latest_rates; reason=\(reason)"))
-        #expect(entry.message.contains("status=\(status)"))
-        #expect(logs.allSatisfy { !$0.message.contains("never-log-me") && !$0.message.contains("private") })
+        #expect(
+            entry.message == "currency.request.failed"
+                && entry.hasLogFields(["operation": "latest_rates", "reason": "\(reason)"])
+        )
+        #expect(entry.hasLogFields(["status": "\(status)"]))
+        #expect(logs.allSatisfy { !$0.hasLogText("never-log-me") && !$0.hasLogText("private") })
         #expect(throws: (any Error).self) { try result.get() }
     }
 
@@ -50,8 +53,8 @@ struct TCGCurrencyClientTests {
             holder: holder
         )
         await #expect(throws: CurrencyClientError.unknown) { try await client.latestRates().get() }
-        let logs = await clientLogs(holder)
-        #expect(logs.contains { $0.level == .error && $0.message.contains("reason=\(reason); status=200") })
+        let logs = await holder.logs
+        #expect(logs.contains { $0.level == .error && $0.hasLogFields(["reason": "\(reason)", "status": "200"]) })
     }
 
     @Test
@@ -62,9 +65,11 @@ struct TCGCurrencyClientTests {
             holder: holder
         )
         await #expect(throws: CurrencyClientError.unknown) { try await client.latestRates().get() }
-        let logs = await clientLogs(holder)
-        #expect(logs.contains { $0.level == .warning && $0.message.contains("reason=transport_failed; status=none") })
-        #expect(logs.allSatisfy { !$0.message.contains("never-log-me") })
+        let logs = await holder.logs
+        #expect(
+            logs.contains { $0.level == .warning && $0.hasLogFields(["reason": "transport_failed", "status": "none"]) }
+        )
+        #expect(logs.allSatisfy { !$0.hasLogText("never-log-me") })
     }
 
     @Test
@@ -72,11 +77,12 @@ struct TCGCurrencyClientTests {
         let holder = LogHolder(max: nil)
         let client = try loggedClient(CurrencyTransport(status: .ok, json: "", failure: .cancelled), holder: holder)
         await #expect(throws: CurrencyClientError.unknown) { try await client.latestRates().get() }
-        let logs = await clientLogs(holder)
+        let logs = await holder.logs
         #expect(logs.count == 1)
         #expect(
             logs.contains {
-                $0.level == .debug && $0.message == "event=currency.request.cancelled; operation=latest_rates"
+                $0.level == .debug && $0.message == "currency.request.cancelled"
+                    && $0.hasLogFields(["operation": "latest_rates"])
             }
         )
     }

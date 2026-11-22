@@ -1,5 +1,5 @@
 {
-  "originHash" : "347409330a94b380d5ce19d1a56ca653e55ae1c64d74c44a163cdc7755d1ee7e",
+  "originHash" : "f7af87a61c81d82478f60030892fab629173fb44a7847ac092c7e35187222aae",
   "pins" : [
     {
       "identity" : "confettiswiftui",
@@ -24,8 +24,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/Kamaalio/KamaalSwift",
       "state" : {
-        "revision" : "9f2a154b06c05021b490c4262f7d0937bb94dee3",
-        "version" : "3.5.0"
+        "revision" : "d6bdec4c5718da429276254baf551469cd08ae92",
+        "version" : "3.6.0"
       }
     },
     {

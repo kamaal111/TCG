@@ -158,13 +158,16 @@ struct TCGCurrencyClientImpl: TCGCurrencyClient {
         reason: FailureReason,
         status: Int?
     ) -> CurrencyClientError {
-        let message =
-            "event=currency.request.failed; operation=\(operation); reason=\(reason.rawValue); status=\(status.map(String.init) ?? "none")"
+        let fields: [LogField] = [
+            .init("operation", operation, privacy: .public),
+            .init("reason", reason.rawValue, privacy: .public),
+            .init("status", status.map(String.init) ?? "none", privacy: .public),
+        ]
         switch reason {
         case .unexpectedStatus, .invalidBase, .invalidRates, .decoding, .response:
-            logger.error(message)
+            logger.error("currency.request.failed", fields: fields)
         case .validation, .unauthorized, .unavailable, .transport:
-            logger.warning(message)
+            logger.warning("currency.request.failed", fields: fields)
         }
         return failure
     }
@@ -173,7 +176,12 @@ struct TCGCurrencyClientImpl: TCGCurrencyClient {
         let clientError = error as? OpenAPIRuntime.ClientError
         let cause = clientError?.underlyingError ?? error
         if cause is CancellationError || (cause as? URLError)?.code == .cancelled {
-            logger.debug("event=currency.request.cancelled; operation=\(operation)")
+            logger.debug(
+                "currency.request.cancelled",
+                fields: [
+                    .init("operation", operation, privacy: .public)
+                ]
+            )
             return .unknown
         }
         let reason: FailureReason

@@ -17,7 +17,7 @@ public final class TCGCollections {
     private var downloadedCollections: [UUID: CardBinderCollection]?
     private var downloadedCards: [UUID: CardWithPrice] = [:]
     private let preferences: CollectionPreferences
-    private let logger = KamaalLogger(from: TCGCollections.self)
+    private let logger: KamaalLogger
     private var account: String?
     private var generation = UUID()
     private var reloadRevision = 0
@@ -34,8 +34,13 @@ public final class TCGCollections {
     private var views: [UUID: CollectionViewMode] = [:]
     private(set) var cardFormCollectionID: UUID?
 
-    public init(client: TCGClient, defaults: UserDefaults?) {
+    public convenience init(client: TCGClient, defaults: UserDefaults?) {
+        self.init(client: client, defaults: defaults, logger: KamaalLogger(from: TCGCollections.self))
+    }
+
+    init(client: TCGClient, defaults: UserDefaults?, logger: KamaalLogger) {
         self.client = client.collections
+        self.logger = logger
         preferences = CollectionPreferences(defaults: defaults)
     }
 
@@ -318,13 +323,14 @@ public final class TCGCollections {
 
     func create(name: String) async -> Result<CardBinderCollection, CollectionsError> {
         await mutate(
+            operation: .create,
             action: { await client.create(name: name.trimmingCharacters(in: .whitespacesAndNewlines)) },
             apply: { collections.append($0.summary) }
         )
     }
 
     func update(_ collection: CardBinderCollection, using cards: TCGCards) async -> Bool {
-        await perform(using: cards, action: { await client.update(collection) }, apply: replace)
+        await perform(using: cards, operation: .update, action: { await client.update(collection) }, apply: replace)
     }
 
     func save(_ collection: CardBinderCollection, using cards: TCGCards) async -> Bool {
@@ -332,7 +338,12 @@ public final class TCGCollections {
     }
 
     func save(_ payload: SaveBinderLayoutPayload, using cards: TCGCards) async -> Bool {
-        let saved = await perform(using: cards, action: { await client.save(payload) }, apply: replace)
+        let saved = await perform(
+            using: cards,
+            operation: .saveLayout,
+            action: { await client.save(payload) },
+            apply: replace
+        )
         if saved, payload.moveFromUnfiledCardID != nil, cards.selectedCollection?.id == payload.collection.id {
             await cards.refresh(force: true)
         }
@@ -340,7 +351,12 @@ public final class TCGCollections {
     }
 
     func delete(_ collection: CardBinderCollection, using cards: TCGCards) async -> Bool {
-        await perform(using: cards, action: { await client.delete(id: collection.id) }, apply: { _ in })
+        await perform(
+            using: cards,
+            operation: .delete,
+            action: { await client.delete(id: collection.id) },
+            apply: { _ in }
+        )
     }
 
     private func replace(_ collection: CardBinderCollection) {
@@ -349,14 +365,20 @@ public final class TCGCollections {
         if selectedID == collection.id { selected = collection }
     }
 
+    private enum Mutation: String {
+        case create, update, delete
+        case saveLayout = "save_layout"
+    }
+
     private func perform<Value>(
         using cards: TCGCards,
+        operation: Mutation,
         action: () async -> Result<Value, CollectionsError>,
         apply: (Value) -> Void
     ) async -> Bool {
         guard !isWorking else { return false }
         let token = generation
-        let result = await mutate(action: action, apply: apply)
+        let result = await mutate(operation: operation, action: action, apply: apply)
         guard generation == token else { return false }
         switch result {
         case .success:
@@ -371,6 +393,7 @@ public final class TCGCollections {
     }
 
     private func mutate<Value>(
+        operation: Mutation,
         action: () async -> Result<Value, CollectionsError>,
         apply: (Value) -> Void
     ) async -> Result<Value, CollectionsError> {
@@ -384,9 +407,19 @@ public final class TCGCollections {
         switch result {
         case .success(let value):
             apply(value)
-            logger.info("event=collections.mutation.completed")
+            logger.info(
+                "collections.mutation.completed",
+                fields: [
+                    .init("operation", operation.rawValue, privacy: .public)
+                ]
+            )
         case .failure:
-            logger.warning("event=collections.mutation.failed")
+            logger.warning(
+                "collections.mutation.failed",
+                fields: [
+                    .init("operation", operation.rawValue, privacy: .public)
+                ]
+            )
         }
         return result
     }
