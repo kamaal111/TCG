@@ -4,123 +4,132 @@ import Testing
 
 @testable import TCGSettings
 
+#if os(macOS)
+    import AppKit
+#elseif os(iOS)
+    import UIKit
+#endif
+
 @Suite("App logs")
 struct TCGAppLogsTests {
     @Test
-    func `Shows the newest log first and keeps repeated rows individually selectable`() throws {
-        let timestamp = Date(timeIntervalSince1970: 0)
-        let earlier = HoldedLog(
-            label: "TCGCurrency",
-            level: .info,
-            message: "event=currency.preference.applied; source=initialize; currency=EUR",
-            timestamp: timestamp
-        )
-        let failure = HoldedLog(
-            label: "RequestDiagnosticsMiddleware",
-            level: .error,
-            message:
-                "event=api.request.failed; operation=cards.list; status=503; request_id=example-secret; duration_ms=15",
-            timestamp: timestamp.addingTimeInterval(1)
+    func `Structured fields preserve order repeated keys punctuation and JSON values`() async throws {
+        let holder = LogHolder(max: 1)
+        let logger = KamaalLogger(label: "TCGCards", holder: holder)
+        logger.info(
+            "example",
+            fields: [
+                .init("value", "a=b; c=d", privacy: .public),
+                .init("value", "second", privacy: .public),
+                .init("empty", "", privacy: .public),
+                .init("object", object: ["count": 2], privacy: .public),
+            ]
         )
 
-        let rows = TCGAppLog.recent(in: [earlier, failure, failure], disclosure: .redacted)
+        let entry = try #require(TCGAppLog.recent(in: await holder.logs, disclosure: .redacted).first)
+        #expect(entry.message == "example")
+        #expect(
+            Array(entry.fields.dropLast()) == [
+                .init(key: nil, value: "example"),
+                .init(key: "value", value: "a=b; c=d"),
+                .init(key: "value", value: "second"),
+                .init(key: "empty", value: ""),
+            ]
+        )
+        let object = try #require(entry.fields.last)
+        #expect(object.key == "object")
+        #expect(try JSONDecoder().decode([String: Int].self, from: Data(object.value.utf8)) == ["count": 2])
+    }
 
+    @Test
+    @MainActor
+    func `Copy writes only the selected approved value to the platform pasteboard`() async throws {
+        let holder = LogHolder(max: 1)
+        AppLogFixture.requestFailure(into: holder)
+        let entry = try #require(TCGAppLog.recent(in: await holder.logs, disclosure: .redacted).first)
+        let status = try #require(entry.fields.first { $0.key == "status" })
+        #expect(entry.fields.allSatisfy { $0.key != "request_id" && !$0.value.contains("example-secret") })
+
+        #if os(macOS)
+            let pasteboard = NSPasteboard.withUniqueName()
+            defer { pasteboard.releaseGlobally() }
+            #expect(TCGAppLogDetail.copy(status.value, to: pasteboard))
+            #expect(pasteboard.string(forType: .string) == "503")
+        #elseif os(iOS)
+            let name = UIPasteboard.Name(rawValue: UUID().uuidString)
+            let pasteboard = try #require(UIPasteboard(name: name, create: true))
+            defer { UIPasteboard.remove(withName: name) }
+            #expect(TCGAppLogDetail.copy(status.value, to: pasteboard))
+            #expect(pasteboard.string == "503")
+        #endif
+    }
+
+    @Test
+    func `Shows the newest log first and keeps repeated rows individually selectable`() async throws {
+        let holder = LogHolder(max: 3)
+        AppLogFixture.currencyPreference(into: holder)
+        AppLogFixture.requestFailure(into: holder)
+        AppLogFixture.requestFailure(into: holder)
+
+        let logs = await holder.logs
+        let rows = TCGAppLog.recent(in: logs, disclosure: .redacted)
         #expect(rows.map(\.id) == [2, 1, 0])
         #expect(rows.map(\.source) == ["RequestDiagnosticsMiddleware", "RequestDiagnosticsMiddleware", "TCGCurrency"])
         let first = try #require(rows.first)
         #expect(first.level == .error)
-        #expect(first.timestamp == failure.timestamp)
-        #expect(first.message == "event=api.request.failed; operation=cards.list; status=503; duration_ms=15")
-        #expect(rows.last?.message == "event=currency.preference.applied; source=initialize")
+        #expect(first.timestamp == logs.last?.timestamp)
+        #expect(first.summaryContext == "cards.list")
+        #expect(rows.last?.fields.map(\.value) == ["currency.preference.applied", "initialize"])
     }
 
     @Test(arguments: ["AuthTokenProvider", "KeychainCredentialsStore", "Unknown"])
-    func `Excludes authentication internals and unreviewed sources`(source: String) {
-        let log = HoldedLog(
-            label: source,
-            level: .error,
-            message: "token=example-secret",
-            timestamp: Date(timeIntervalSince1970: 0)
-        )
+    func `Release excludes authentication internals and unreviewed sources`(source: String) {
+        let log = HoldedLog(label: source, level: .error, message: "example-secret", timestamp: .distantPast)
         #expect(TCGAppLog.recent(in: [log], disclosure: .redacted).isEmpty)
     }
 
     @Test(arguments: [
-        (
-            "URLSessionCardImageLoader",
-            "Card image load failed; reason=network; attempts=2; url=https://private.example/image?token=example-secret; description='private-error'; error='private-error'",
-            "Card image load failed; reason=network; attempts=2"
-        ),
-        (
-            "URLSessionCardImageLoader",
-            "Could not save downloaded card artwork: /private/binder.jpg",
-            "Could not save downloaded card artwork"
-        ),
-        (
-            "TCGSearch",
-            "Card pricing search failed; reason=unknown; status=500; game=pokemon; queryLength=7; description='private-error'; error='private-error'",
-            "Card pricing search failed; reason=unknown; status=500; game=pokemon; queryLength=7"
-        ),
-        (
-            "TCGCardsClientImpl",
-            "event=cards.import.validation; attempt_id=123; code=private-code; path=private-path; message=example-secret",
-            "event=cards.import.validation; attempt_id=123"
-        ),
-        (
-            "TCGCardsClientImpl",
-            "event=cards.import.failed; attempt_id=123; stage=response_decoding; http_status=200; cause=DecodingError; path=example-secret",
-            "event=cards.import.failed; attempt_id=123; stage=response_decoding; http_status=200; cause=DecodingError"
-        ),
-        (
-            "TCGCurrency",
-            "event=currency.rates.applied; source=network; rate_date=2026-10-16; result_count=3",
-            "event=currency.rates.applied; source=network; rate_date=2026-10-16; result_count=3"
-        ),
-        (
-            "TCGCurrency",
-            "event=currency.rates.applied; source=network; rate_date=2026-10-16; result_count=99; token=example-secret; result_count=3",
-            "event=currency.rates.applied; source=network; rate_date=none; result_count=3"
-        ),
-        (
-            "TCGCurrency",
-            "event=currency.rates.retained; reason=refresh_failed; cache_status=available; rate_date=2026-10-16; result_count=99",
-            "event=currency.rates.retained; reason=refresh_failed; cache_status=available; rate_date=none"
-        ),
+        ("OfflineCollection", "offline.sync.failed", "account"),
+        ("URLSessionCardImageLoader", "test event", "url"),
+        ("TCGSearch", "test event", "description"),
+        ("TCGCardsClientImpl", "test event", "path"),
+        ("TCGCurrency", "test event", "rate_date"),
     ])
-    func `Release redaction preserves the events and safe fields`(source: String, message: String, expected: String) {
-        let log = HoldedLog(
-            label: source,
-            level: .error,
-            message: message,
-            timestamp: Date(timeIntervalSince1970: 0)
+    func `Release keeps approved fields and Debug can show private fields`(
+        source: String,
+        message: String,
+        privateField: String
+    ) async {
+        let holder = LogHolder(max: 1)
+        let logger = KamaalLogger(label: source, holder: holder)
+        logger.error(
+            message,
+            fields: [
+                .init("reason", "failed", privacy: .public),
+                .init(privateField, "example-secret"),
+            ]
         )
+        let logs = await holder.logs
 
-        let rows = TCGAppLog.recent(in: [log], disclosure: .redacted)
-
-        #expect(rows.map(\.message) == [expected])
-        #expect(rows.map(\.source) == [source])
+        let release = TCGAppLog.recent(in: logs, disclosure: .redacted)
+        #expect(release.first?.fields.map(\.value) == [message, "failed"])
+        let debug = TCGAppLog.recent(in: logs, disclosure: .unredacted)
+        #expect(debug.first?.fields.map(\.value) == [message, "failed", "example-secret"])
     }
 
     @Test
-    func `Debug keeps original messages and all sources`() {
-        let timestamp = Date(timeIntervalSince1970: 0)
-        let artwork = HoldedLog(
-            label: "URLSessionCardImageLoader",
-            level: .error,
-            message: "Card image load failed; reason=decode; url=https://private.example/image?token=example-secret",
-            timestamp: timestamp
-        )
-        let auth = HoldedLog(
-            label: "AuthTokenProvider",
-            level: .debug,
-            message: "synthetic auth detail",
-            timestamp: timestamp
-        )
-        let input = [artwork, auth]
-        let unredacted = TCGAppLog.recent(in: input, disclosure: .unredacted)
+    func `Release excludes unreviewed offline messages`() {
+        let log = HoldedLog(label: "OfflineCollection", level: .info, message: "raw payload", timestamp: .distantPast)
+        #expect(TCGAppLog.recent(in: [log], disclosure: .redacted).isEmpty)
+    }
 
-        #expect(unredacted.map(\.source) == [auth.label, artwork.label])
-        #expect(unredacted.map(\.message) == [auth.message, artwork.message])
+    @Test
+    func `Debug shows original unstructured messages from any source`() {
+        let message = "An opaque value; token=example-secret; value=a=b"
+        let log = HoldedLog(label: "AuthTokenProvider", level: .debug, message: message, timestamp: .distantPast)
+
+        let rows = TCGAppLog.recent(in: [log], disclosure: .unredacted)
+        #expect(rows.first?.fields == [.init(key: nil, value: message)])
         #if DEBUG
             #expect(TCGAppLog.Disclosure.appBuild == .unredacted)
         #else
@@ -131,5 +140,31 @@ struct TCGAppLogsTests {
     @Test
     func `An empty buffer produces no rows`() {
         #expect(TCGAppLog.recent(in: [], disclosure: .redacted).isEmpty)
+    }
+}
+
+enum AppLogFixture {
+    static func requestFailure(into holder: LogHolder) {
+        let logger = KamaalLogger(label: "RequestDiagnosticsMiddleware", holder: holder)
+        logger.error(
+            "api.request.failed",
+            fields: [
+                .init("operation", "cards.list", privacy: .public),
+                .init("status", object: 503, privacy: .public),
+                .init("request_id", "example-secret"),
+                .init("duration_ms", object: 45, privacy: .public),
+            ]
+        )
+    }
+
+    static func currencyPreference(into holder: LogHolder) {
+        let logger = KamaalLogger(label: "TCGCurrency", holder: holder)
+        logger.info(
+            "currency.preference.applied",
+            fields: [
+                .init("source", "initialize", privacy: .public),
+                .init("currency", "EUR"),
+            ]
+        )
     }
 }

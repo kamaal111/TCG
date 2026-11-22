@@ -2,6 +2,11 @@ import Foundation
 import KamaalLogger
 
 struct TCGAppLog: Identifiable {
+    struct Field: Equatable {
+        let key: String?
+        let value: String
+    }
+
     enum Disclosure: Equatable {
         case redacted
         case unredacted
@@ -21,82 +26,43 @@ struct TCGAppLog: Identifiable {
     let message: String
     let timestamp: Date
 
+    let fields: [Field]
+
+    var summaryContext: String? {
+        fields.first { $0.key == "operation" || $0.key == "source" }?.value
+    }
+
     // Dependency and unreviewed messages can contain raw credentials or account data.
     private static let releaseSources: Set<String> = [
         "RequestDiagnosticsMiddleware", "TCGCurrencyClientImpl", "TCGCurrency", "TCGCollections",
         "TCGCards", "TCGCardsClientImpl", "TCGSearch", "TCGSearchHistoryStore", "URLSessionCardImageLoader",
+        "OfflineCollection",
     ]
+
+    private static let offlineEvents: Set<String> = [
+        "offline.sync.started", "offline.sync.completed", "offline.sync.failed",
+    ]
+
+    private static func isReleaseVisible(_ log: HoldedLog) -> Bool {
+        guard releaseSources.contains(log.label) else { return false }
+        return log.label != "OfflineCollection" || offlineEvents.contains(log.message)
+    }
 
     static func recent(in logs: [HoldedLog], disclosure: Disclosure) -> [Self] {
         let newestFirst = logs.enumerated().reversed()
         return newestFirst.compactMap { index, log in
-            if disclosure == .redacted, !releaseSources.contains(log.label) { return nil }
+            let includesPrivate = disclosure == .unredacted
+            guard includesPrivate || isReleaseVisible(log) else { return nil }
+            let visible = log.fields(includingPrivate: includesPrivate)
+            let fields = visible.map { Field(key: $0.name, value: $0.value.displayText) }
             return Self(
                 id: index,
                 source: log.label,
                 level: log.level,
-                message: disclosure == .redacted ? redactedMessage(for: log) : log.message,
-                timestamp: log.timestamp
+                message: log.message,
+                timestamp: log.timestamp,
+                fields: [Field(key: nil, value: log.message)] + fields
             )
         }
-    }
-
-    private static func redactedMessage(for log: HoldedLog) -> String {
-        switch log.label {
-        case "RequestDiagnosticsMiddleware":
-            removeField("request_id=", from: log.message)
-        case "TCGCurrency":
-            redactCurrencyMessage(log.message)
-        case "TCGCardsClientImpl":
-            if log.message.hasPrefix("event=cards.import.validation; ") {
-                prefix(of: log.message, before: "; code=")
-            } else {
-                prefix(of: log.message, before: "; path=")
-            }
-        case "TCGSearch":
-            prefix(of: log.message, before: "; description=")
-        case "URLSessionCardImageLoader":
-            redactArtworkMessage(log.message)
-        default:
-            log.message
-        }
-    }
-
-    private static func removeField(_ field: String, from message: String) -> String {
-        message
-            .components(separatedBy: "; ")
-            .filter { !$0.hasPrefix(field) }
-            .joined(separator: "; ")
-    }
-
-    private static func prefix(of message: String, before delimiter: String) -> String {
-        guard let delimiter = message.range(of: delimiter) else { return message }
-        return String(message[..<delimiter.lowerBound])
-    }
-
-    private static func redactArtworkMessage(_ message: String) -> String {
-        let withoutURL = prefix(of: message, before: "; url=")
-        return prefix(of: withoutURL, before: ": ")
-    }
-
-    private static func redactCurrencyMessage(_ message: String) -> String {
-        guard let dateField = message.range(of: "; rate_date=") else {
-            return removeField("currency=", from: message)
-        }
-        let prefix = message[..<dateField.upperBound]
-        let tail = message[dateField.upperBound...]
-        // Only the applied event appends a trusted count after the server or cache date.
-        let countField =
-            if message.hasPrefix("event=currency.rates.applied; ") {
-                tail.range(of: "; result_count=", options: .backwards)
-            } else {
-                nil as Range<String.Index>?
-            }
-        let date = tail[..<(countField?.lowerBound ?? tail.endIndex)]
-        let safeDate = date.wholeMatch(of: /[0-9]{4}-[0-9]{2}-[0-9]{2}/) == nil ? "none" : date
-        if let countField, let count = Int(tail[countField.upperBound...]) {
-            return "\(prefix)\(safeDate); result_count=\(count)"
-        }
-        return "\(prefix)\(safeDate)"
     }
 }

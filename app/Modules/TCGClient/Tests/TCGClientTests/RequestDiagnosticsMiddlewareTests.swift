@@ -34,16 +34,16 @@ struct RequestDiagnosticsMiddlewareTests {
             )
         }
         let body = try await String(collecting: #require(result.1), upTo: 1000)
-        let logs = await clientLogs(holder)
+        let logs = await holder.logs
         let entry = try #require(logs.first)
         #expect(result.0.status.code == status)
         #expect(body == "private-body")
-        #expect(
-            entry.message.contains(
-                "operation=\(operation); status=\(status); request_id=pricing-test-123; duration_ms="
-            )
-        )
-        #expect(logs.allSatisfy { !$0.message.contains("private") })
+        #expect(entry.message == "api.request.failed")
+        #expect(entry.hasLogFields(["operation": operation, "status": String(status)]))
+        #expect(entry.fields().contains { $0.name == "duration_ms" })
+        #expect(entry.fields(includingPrivate: true).contains(.init("request_id", "pricing-test-123")))
+        #expect(entry.fields().allSatisfy { $0.name != "request_id" })
+        #expect(logs.allSatisfy { !$0.hasLogText("private") })
     }
 
     @Test
@@ -61,9 +61,9 @@ struct RequestDiagnosticsMiddlewareTests {
                 throw URLError(.notConnectedToInternet, userInfo: [NSLocalizedDescriptionKey: "private-error"])
             }
         }
-        let logs = await clientLogs(holder)
-        #expect(logs.contains { $0.message.contains("reason=transport_failed; status=none") })
-        #expect(logs.allSatisfy { !$0.message.contains("private-error") })
+        let logs = await holder.logs
+        #expect(logs.contains { $0.hasLogFields(["reason": "transport_failed", "status": "none"]) })
+        #expect(logs.allSatisfy { !$0.hasLogText("private-error") })
     }
 
     @Test
@@ -74,9 +74,9 @@ struct RequestDiagnosticsMiddlewareTests {
             operation: "cards.list",
             logger: KamaalLogger(from: Self.self, holder: holder)
         )
-        let logs = await clientLogs(holder)
-        #expect(logs.contains { $0.message.contains("reason=decoding_failed") })
-        #expect(logs.allSatisfy { !$0.message.contains("private-payload") })
+        let logs = await holder.logs
+        #expect(logs.contains { $0.hasLogFields(["reason": "decoding_failed"]) })
+        #expect(logs.allSatisfy { !$0.hasLogText("private-payload") })
     }
 
     @Test

@@ -36,16 +36,28 @@ struct TCGCurrencyTests {
         #expect(await state.save(.gbp))
         await transport.rejectUpdates()
         #expect(await state.save(.eur) == false)
-        let logs = await currencyLogs(holder, containing: "reason=save_failed", minimumCount: 4)
+        let logs = await holder.logs
         #expect(
-            logs.contains { $0.message.contains("event=currency.preference.applied; source=initialize; currency=USD") }
+            logs.contains {
+                $0.message == "currency.preference.applied"
+                    && $0.hasLogFields(["source": "initialize", "currency": "USD"])
+            }
         )
-        #expect(logs.contains { $0.message.contains("event=currency.preference.applied; source=save; currency=GBP") })
         #expect(
-            logs.contains { $0.message.contains("event=currency.rates.applied; source=network; rate_date=2026-10-16") }
+            logs.contains {
+                $0.message == "currency.preference.applied" && $0.hasLogFields(["source": "save", "currency": "GBP"])
+            }
         )
-        #expect(logs.contains { $0.level == .warning && $0.message.contains("reason=save_failed; currency=GBP") })
-        #expect(logs.allSatisfy { !$0.message.contains("user@example.com") && !$0.message.contains("authToken") })
+        #expect(
+            logs.contains {
+                $0.message == "currency.rates.applied"
+                    && $0.hasLogFields(["source": "network", "rate_date": "2026-10-16"])
+            }
+        )
+        #expect(
+            logs.contains { $0.level == .warning && $0.hasLogFields(["reason": "save_failed", "currency": "GBP"]) }
+        )
+        #expect(logs.allSatisfy { !$0.hasLogText("user@example.com") && !$0.hasLogText("authToken") })
         #expect(state.preferredCurrency == .gbp)
     }
 
@@ -60,17 +72,38 @@ struct TCGCurrencyTests {
         await transport.rejectRates()
         let state = makeState(transport, defaults: defaults, holder: holder)
         await state.refresh(locale: .current)
-        let logs = await currencyLogs(holder, containing: "cache_status=missing", minimumCount: 3)
+        let logs = await holder.logs
         #expect(
-            logs.contains { $0.message.contains("event=currency.cache.rejected; cache=rates; reason=decoding_failed") }
+            logs.contains {
+                $0.message == "currency.cache.rejected"
+                    && $0.hasLogFields(["cache": "rates", "reason": "decoding_failed"])
+            }
         )
         #expect(
             logs.contains {
-                $0.message.contains("event=currency.rates.retained; reason=refresh_failed; cache_status=missing")
+                $0.message == "currency.rates.retained"
+                    && $0.hasLogFields(["reason": "refresh_failed", "cache_status": "missing"])
             }
         )
-        #expect(logs.allSatisfy { !$0.message.contains("private-invalid-cache") })
+        #expect(logs.allSatisfy { !$0.hasLogText("private-invalid-cache") })
         #expect(state.rates == nil)
+    }
+
+    @Test
+    func `Malformed rates dates are private diagnostics`() async throws {
+        let namespace = "TCGCurrencyLogs.\(UUID())"
+        let defaults = try #require(UserDefaults(suiteName: namespace))
+        defer { defaults.removePersistentDomain(forName: namespace) }
+        let date = "2026-10-16; private detail"
+        let cached = ExchangeRates(date: date, rates: ["EUR": 1])
+        defaults.set(try JSONEncoder().encode(cached), forKey: "TCG.currency.rates")
+        let holder = LogHolder(max: nil)
+        _ = makeState(PreferenceTransport(explicit: true), defaults: defaults, holder: holder)
+
+        let entries = await holder.logs
+        let event = try #require(entries.first { $0.message == "currency.rates.applied" })
+        #expect(event.fields().allSatisfy { $0.name != "rate_date" })
+        #expect(event.fields(includingPrivate: true).contains(.init("rate_date", date)))
     }
 
     @Test
@@ -84,13 +117,14 @@ struct TCGCurrencyTests {
         refresh.cancel()
         await transport.releaseUpdate()
         await refresh.value
-        let logs = await currencyLogs(holder, containing: "reason=cancelled", minimumCount: 1)
+        let logs = await holder.logs
         #expect(
             logs.contains {
-                $0.level == .debug && $0.message.contains("event=currency.response.discarded; reason=cancelled")
+                $0.level == .debug && $0.message == "currency.response.discarded"
+                    && $0.hasLogFields(["reason": "cancelled"])
             }
         )
-        #expect(logs.allSatisfy { !$0.message.contains("event=currency.preference.applied") })
+        #expect(logs.allSatisfy { $0.message != "currency.preference.applied" })
         #expect(state.preferenceLoaded == false)
     }
 
@@ -165,8 +199,8 @@ struct TCGCurrencyTests {
         await refreshing.value
         #expect(state.preferredCurrency == .fallback)
         #expect(state.preferenceLoaded == false)
-        let logs = await currencyLogs(holder, containing: "reason=session_changed", minimumCount: 2)
-        #expect(logs.allSatisfy { !$0.message.contains("event=currency.preference.applied") })
+        let logs = await holder.logs
+        #expect(logs.allSatisfy { $0.message != "currency.preference.applied" })
     }
 
     @Test
@@ -185,11 +219,14 @@ struct TCGCurrencyTests {
         #expect(restored.preferredCurrency == .eur)
         #expect(restored.rates?.convert(1500, from: .jpy, to: restored.preferredCurrency) == 10)
         #expect(restored.rates?.date == "2026-10-16")
-        let logs = await currencyLogs(holder, containing: "cache_status=available", minimumCount: 3)
+        let logs = await holder.logs
         #expect(
-            logs.contains { $0.message.contains("event=currency.rates.applied; source=cache; rate_date=2026-10-16") }
+            logs.contains {
+                $0.message == "currency.rates.applied"
+                    && $0.hasLogFields(["source": "cache", "rate_date": "2026-10-16"])
+            }
         )
-        #expect(logs.contains { $0.message.contains("cache_status=available; rate_date=2026-10-16") })
+        #expect(logs.contains { $0.hasLogFields(["cache_status": "available", "rate_date": "2026-10-16"]) })
     }
 
     private func makeState(
@@ -227,15 +264,16 @@ struct TCGCurrencyTests {
     }
 }
 
-private func currencyLogs(_ holder: LogHolder, containing marker: String, minimumCount: Int) async -> [HoldedLog] {
-    let clock = ContinuousClock()
-    let deadline = clock.now.advanced(by: .seconds(2))
-    while clock.now < deadline {
-        let logs = await holder.logs
-        if logs.count >= minimumCount && logs.contains(where: { $0.message.contains(marker) }) { return logs }
-        await Task.yield()
+extension HoldedLog {
+    fileprivate func hasLogFields(_ expected: [String: String]) -> Bool {
+        expected.allSatisfy { name, value in
+            fields(includingPrivate: true).contains { $0.name == name && $0.value.displayText == value }
+        }
     }
-    return await holder.logs
+
+    fileprivate func hasLogText(_ marker: String) -> Bool {
+        message.contains(marker) || fields(includingPrivate: true).contains { $0.value.displayText.contains(marker) }
+    }
 }
 
 private actor PreferenceTransport: ClientTransport {

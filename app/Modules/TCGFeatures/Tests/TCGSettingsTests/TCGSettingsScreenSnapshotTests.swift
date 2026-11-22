@@ -42,29 +42,37 @@ struct TCGSettingsScreenSnapshotTests {
 
     @Test
     func `Renders recent App Logs`() async {
-        let timestamp = Date(timeIntervalSince1970: 1_700_000_000)
-        let entries = TCGAppLog.recent(
-            in: [
-                HoldedLog(
-                    label: "TCGCurrency",
-                    level: .info,
-                    message: "event=currency.preference.applied; source=initialize; currency=EUR",
-                    timestamp: timestamp
-                ),
-                HoldedLog(
-                    label: "RequestDiagnosticsMiddleware",
-                    level: .error,
-                    message:
-                        "event=api.request.failed; operation=cards.list; status=503; request_id=example-secret; duration_ms=45",
-                    timestamp: timestamp.addingTimeInterval(1)
-                ),
-            ],
-            disclosure: .redacted
-        )
+        let holder = LogHolder(max: 2)
+        AppLogFixture.currencyPreference(into: holder)
+        AppLogFixture.requestFailure(into: holder)
+        let entries = TCGAppLog.recent(in: await holder.logs, disclosure: .redacted)
         #expect(entries.count == 2)
         await assertScreenSnapshot(testName: #function, fileID: #fileID, file: #filePath, line: #line, column: #column)
         {
             TCGAppLogsContent(entries: entries)
+        }
+    }
+
+    @Test
+    func `Renders structured App Log details`() async throws {
+        let holder = LogHolder(max: 1)
+        AppLogFixture.requestFailure(into: holder)
+        let captured = try #require(TCGAppLog.recent(in: await holder.logs, disclosure: .redacted).first)
+        let entry = TCGAppLog(
+            id: captured.id,
+            source: captured.source,
+            level: captured.level,
+            message: captured.message,
+            timestamp: Date(timeIntervalSince1970: 1_700_000_000),
+            fields: captured.fields
+        )
+        #expect(entry.fields.map(\.value) == ["api.request.failed", "cards.list", "503", "45"])
+        await assertScreenSnapshot(testName: #function, fileID: #fileID, file: #filePath, line: #line, column: #column)
+        {
+            NavigationStack {
+                TCGAppLogDetail(entry: entry)
+            }
+            .environment(\.timeZone, .gmt)
         }
     }
 

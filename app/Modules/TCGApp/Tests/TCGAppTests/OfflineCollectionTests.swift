@@ -1,5 +1,9 @@
 import Foundation
+import HTTPTypes
+import KamaalAuth
+import KamaalLogger
 import LocalAuthentication
+import OpenAPIRuntime
 import TCGClient
 import Testing
 
@@ -111,7 +115,55 @@ struct OfflineCollectionTests {
         #expect(fixture.grant.removed)
     }
 
+    @Test func `A retried offline sync records one start and one completion`() async throws {
+        let holder = LogHolder(max: 8)
+        let transport = RetryingManifestTransport()
+        let credentials = Credentials(
+            authToken: "auth-token",
+            authTokenExpiryDate: .distantFuture,
+            sessionToken: "session-token",
+            sessionUpdateAge: 1800,
+            lastSessionUpdate: .now
+        )
+        let credentialsKey = "offline-sync-tests"
+        let client = TCGClient.default(
+            transport: transport,
+            credentialsKeychainKey: credentialsKey,
+            credentialsStore: InMemoryCredentialsStore(seed: try JSONEncoder().encode(credentials), key: credentialsKey)
+        )
+        let fixture = try makeFixture(
+            hasFreshAuthToken: true,
+            client: client,
+            logger: KamaalLogger(from: OfflineCollection.self, holder: holder)
+        )
+        defer { try? fixture.store.remove() }
+
+        fixture.download.sync()
+
+        let expected = ["offline.sync.started", "offline.sync.completed"]
+        let clock = ContinuousClock()
+        let deadline = clock.now.advanced(by: .seconds(2))
+        while await holder.logs.count < expected.count, clock.now < deadline {
+            await Task.yield()
+        }
+        #expect(await holder.logs.map(\.message) == expected)
+        #expect(await holder.logs.last?.fields().map(\.value.displayText) == ["0"])
+        #expect(await transport.requestCount == 4)
+        #expect(!fixture.download.hasPendingDownload)
+        #expect(!fixture.download.failed)
+    }
+
     private func makeFixture(hasFreshAuthToken: Bool) throws -> (
+        download: OfflineCollection, store: OfflineCollectionStore, grant: ControlledOfflineAccess, identity: String
+    ) {
+        try makeFixture(
+            hasFreshAuthToken: hasFreshAuthToken,
+            client: .default(),
+            logger: KamaalLogger(from: OfflineCollection.self)
+        )
+    }
+
+    private func makeFixture(hasFreshAuthToken: Bool, client: TCGClient, logger: KamaalLogger) throws -> (
         download: OfflineCollection, store: OfflineCollectionStore, grant: ControlledOfflineAccess, identity: String
     ) {
         let identifier = UUID().uuidString
@@ -130,11 +182,12 @@ struct OfflineCollectionTests {
         try store.save(snapshot, in: .downloaded)
         let grant = ControlledOfflineAccess()
         let download = OfflineCollection(
-            client: .default(),
+            client: client,
             defaults: defaults,
             store: store,
             grant: grant,
-            hasFreshAuthToken: { hasFreshAuthToken }
+            hasFreshAuthToken: { hasFreshAuthToken },
+            logger: logger
         )
         return (download, store, grant, snapshot.grantIdentity)
     }
@@ -159,5 +212,24 @@ private final class ControlledOfflineAccess: OfflineCollectionAccess {
     func nextUnlock() async -> CheckedContinuation<String, any Error>? {
         var iterator = stream.stream.makeAsyncIterator()
         return await iterator.next()
+    }
+}
+
+private actor RetryingManifestTransport: ClientTransport {
+    private(set) var requestCount = 0
+
+    func send(_ request: HTTPRequest, body: HTTPBody?, baseURL: URL, operationID: String) async throws -> (
+        HTTPResponse, HTTPBody?
+    ) {
+        requestCount += 1
+        let etag = "\"current\""
+        guard requestCount <= 3 else {
+            return (HTTPResponse(status: .notModified, headerFields: [.eTag: etag]), nil)
+        }
+        let response = HTTPResponse(status: .ok, headerFields: [.contentType: "application/json", .eTag: etag])
+        let manifest = """
+            {"version":1,"account_id":"owner-id","entries":[],"needs_preparation":[]}
+            """
+        return (response, HTTPBody(manifest))
     }
 }

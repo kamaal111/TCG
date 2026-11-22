@@ -107,7 +107,13 @@ struct TCGCardsClientImpl: TCGCardsClient {
 
     func importCards(_ payload: ImportCardsPayload) async -> Result<ImportCardsResult, CardBackupErrors> {
         let attemptID = UUID()
-        logger.info("event=cards.import.submission; attempt_id=\(attemptID); card_count=\(payload.cards.count)")
+        logger.info(
+            "cards.import.submission",
+            fields: [
+                .init("attempt_id", attemptID.uuidString, privacy: .public),
+                .init("card_count", object: payload.cards.count, privacy: .public),
+            ]
+        )
 
         let generated = CardMapper.makeImportRequest(payload)
         let output: Operations.PostAppApiCardsImport.Output
@@ -122,7 +128,14 @@ struct TCGCardsClientImpl: TCGCardsClient {
             do {
                 let result = try response.body.json
                 logger.info(
-                    "event=cards.import.confirmed; attempt_id=\(attemptID); http_status=200; imported_count=\(result.importedCount); updated_count=\(result.updatedCount); skipped_count=\(result.skippedCount)"
+                    "cards.import.confirmed",
+                    fields: [
+                        .init("attempt_id", attemptID.uuidString, privacy: .public),
+                        .init("http_status", object: 200, privacy: .public),
+                        .init("imported_count", object: result.importedCount, privacy: .public),
+                        .init("updated_count", object: result.updatedCount, privacy: .public),
+                        .init("skipped_count", object: result.skippedCount, privacy: .public),
+                    ]
                 )
 
                 return .success(CardMapper.makeImportResult(result))
@@ -132,23 +145,52 @@ struct TCGCardsClientImpl: TCGCardsClient {
         case .badRequest(let response):
             let issues = TCGClientValidationErrorParser.parseIssues(from: try? response.body.json)
             logger.warning(
-                "event=cards.import.rejected; attempt_id=\(attemptID); http_status=400; issue_count=\(issues.count)"
+                "cards.import.rejected",
+                fields: [
+                    .init("attempt_id", attemptID.uuidString, privacy: .public),
+                    .init("http_status", object: 400, privacy: .public),
+                    .init("issue_count", object: issues.count, privacy: .public),
+                ]
             )
             for issue in issues {
                 logger.warning(
-                    "event=cards.import.validation; attempt_id=\(attemptID); code=\(issue.code); path=\(issue.path.joined(separator: ".")); message=\(issue.message)"
+                    "cards.import.validation",
+                    fields: [
+                        .init("attempt_id", attemptID.uuidString, privacy: .public),
+                        .init("code", issue.code),
+                        .init("path", issue.path.joined(separator: ".")),
+                        .init("message", issue.message),
+                    ]
                 )
             }
 
             return .failure(.badRequest(validations: issues))
         case .unauthorized:
-            logger.warning("event=cards.import.rejected; attempt_id=\(attemptID); http_status=401")
+            logger.warning(
+                "cards.import.rejected",
+                fields: [
+                    .init("attempt_id", attemptID.uuidString, privacy: .public),
+                    .init("http_status", object: 401, privacy: .public),
+                ]
+            )
             return .failure(.unauthorized)
         case .internalServerError:
-            logger.error("event=cards.import.failed; attempt_id=\(attemptID); http_status=500")
+            logger.error(
+                "cards.import.failed",
+                fields: [
+                    .init("attempt_id", attemptID.uuidString, privacy: .public),
+                    .init("http_status", object: 500, privacy: .public),
+                ]
+            )
             return .failure(.unknown(status: 500))
         case .undocumented(let status, _):
-            logger.error("event=cards.import.failed; attempt_id=\(attemptID); http_status=\(status)")
+            logger.error(
+                "cards.import.failed",
+                fields: [
+                    .init("attempt_id", attemptID.uuidString, privacy: .public),
+                    .init("http_status", object: status, privacy: .public),
+                ]
+            )
             return .failure(.unknown(status: status))
         }
     }
@@ -156,21 +198,38 @@ struct TCGCardsClientImpl: TCGCardsClient {
     private static func importFailure(_ error: any Error, attemptID: UUID) -> CardBackupErrors {
         guard let clientError = error as? ClientError else {
             logger.error(
-                "event=cards.import.failed; attempt_id=\(attemptID); stage=request; cause=\(type(of: error))"
+                "cards.import.failed",
+                fields: [
+                    .init("attempt_id", attemptID.uuidString, privacy: .public),
+                    .init("stage", "request", privacy: .public),
+                    .init("cause", "\(type(of: error))", privacy: .public),
+                ]
             )
             return .requestFailed
         }
 
         guard let response = clientError.response else {
             logger.error(
-                "event=cards.import.failed; attempt_id=\(attemptID); stage=request; cause=\(type(of: clientError.underlyingError))"
+                "cards.import.failed",
+                fields: [
+                    .init("attempt_id", attemptID.uuidString, privacy: .public),
+                    .init("stage", "request", privacy: .public),
+                    .init("cause", "\(type(of: clientError.underlyingError))", privacy: .public),
+                ]
             )
             return .requestFailed
         }
 
         let status = response.status.code
         logger.error(
-            "event=cards.import.failed; attempt_id=\(attemptID); stage=response_decoding; http_status=\(status); cause=\(type(of: clientError.underlyingError)); path=\(Self.decodingPath(clientError.underlyingError))"
+            "cards.import.failed",
+            fields: [
+                .init("attempt_id", attemptID.uuidString, privacy: .public),
+                .init("stage", "response_decoding", privacy: .public),
+                .init("http_status", object: status, privacy: .public),
+                .init("cause", "\(type(of: clientError.underlyingError))", privacy: .public),
+                .init("path", Self.decodingPath(clientError.underlyingError)),
+            ]
         )
 
         switch status {

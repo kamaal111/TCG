@@ -9,8 +9,6 @@ import Observation
 import TCGClient
 import TCGCurrency
 
-private let logger = KamaalLogger(from: TCGSearch.self)
-
 @MainActor
 @Observable
 public final class TCGSearch {
@@ -41,13 +39,19 @@ public final class TCGSearch {
     }
 
     private let client: TCGClient
+    private let logger: KamaalLogger
     private var activeSearchID: UUID?
     private var activePageID: UUID?
     private var displayIdentity: TCGCurrency.DisplayIdentity?
     private var lastSearch: SearchIdentity?
 
-    init(client: TCGClient, history: TCGSearchHistoryStore) {
+    convenience init(client: TCGClient, history: TCGSearchHistoryStore) {
+        self.init(client: client, history: history, logger: KamaalLogger(from: TCGSearch.self))
+    }
+
+    init(client: TCGClient, history: TCGSearchHistoryStore, logger: KamaalLogger) {
         self.client = client
+        self.logger = logger
         self.history = history
     }
 
@@ -118,7 +122,11 @@ public final class TCGSearch {
         let result = await client.pricing.search(request)
         guard !Task.isCancelled, activeSearchID == searchID else {
             logger.info(
-                "Cancelled a superseded card pricing search; game=\(game.rawValue); queryLength=\(query.count)"
+                "Cancelled a superseded card pricing search",
+                fields: [
+                    .init("game", game.rawValue, privacy: .public),
+                    .init("queryLength", object: query.count, privacy: .public),
+                ]
             )
             return .success(false)
         }
@@ -131,38 +139,61 @@ public final class TCGSearch {
                 didFailToLoadNextPage = false
                 hasSearched = true
                 completedSearch = SearchIdentity(request)
+                if request.cursor == nil {
+                    logger.info(
+                        "pricing.search.completed",
+                        fields: [
+                            .init("game", game.rawValue, privacy: .public),
+                            .init("result_count", object: result.matches.count, privacy: .public),
+                        ]
+                    )
+                }
                 return true
             }
             .mapError { error -> TCGSearchOperationError in
+                let context: [LogField] = [
+                    .init("game", game.rawValue, privacy: .public),
+                    .init("queryLength", object: query.count, privacy: .public),
+                ]
                 switch error {
                 case .badRequest(let validations):
                     logger.warning(
-                        "Card pricing search failed; reason=invalid_query; game=\(game.rawValue); "
-                            + "queryLength=\(query.count); validationCount=\(validations.count)"
+                        "Card pricing search failed",
+                        fields: [
+                            .init("reason", "invalid_query", privacy: .public),
+                            .init("validationCount", object: validations.count, privacy: .public),
+                        ] + context
                     )
-                    return TCGSearchOperationError.invalidQuery
+                    return .invalidQuery
                 case .unauthorized:
                     logger.warning(
-                        "Card pricing search failed; reason=unauthorized; game=\(game.rawValue); "
-                            + "queryLength=\(query.count)"
+                        "Card pricing search failed",
+                        fields: [
+                            .init("reason", "unauthorized", privacy: .public)
+                        ] + context
                     )
-                    return TCGSearchOperationError.serverUnavailable
+                    return .serverUnavailable
                 case .unavailable:
                     logger.warning(
-                        "Card pricing search failed; reason=server_unavailable; game=\(game.rawValue); "
-                            + "queryLength=\(query.count)"
+                        "Card pricing search failed",
+                        fields: [
+                            .init("reason", "server_unavailable", privacy: .public)
+                        ] + context
                     )
-                    return TCGSearchOperationError.serverUnavailable
+                    return .serverUnavailable
                 case .unknown(let status, _, let cause):
-                    let label =
-                        "Card pricing search failed; reason=unknown; status=\(status); game=\(game.rawValue); "
-                        + "queryLength=\(query.count)"
-                    if let cause {
-                        logger.error(label: label, error: cause)
-                    } else {
-                        logger.error(label)
-                    }
-                    return TCGSearchOperationError.serverUnavailable
+                    let details: [LogField] =
+                        cause.map {
+                            [.init("description", $0.localizedDescription), .init("error", String(describing: $0))]
+                        } ?? []
+                    logger.error(
+                        "Card pricing search failed",
+                        fields: [
+                            .init("reason", "unknown", privacy: .public),
+                            .init("status", "\(status)", privacy: .public),
+                        ] + context + details
+                    )
+                    return .serverUnavailable
                 }
             }
     }

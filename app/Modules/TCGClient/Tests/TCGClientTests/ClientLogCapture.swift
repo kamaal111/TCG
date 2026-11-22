@@ -1,12 +1,13 @@
 import KamaalLogger
 
-func clientLogs(_ holder: LogHolder) async -> [HoldedLog] {
-    let clock = ContinuousClock()
-    let deadline = clock.now.advanced(by: .seconds(2))
-    while clock.now < deadline {
-        let logs = await holder.logs
-        if !logs.isEmpty { return logs }
-        await Task.yield()
+extension HoldedLog {
+    func hasLogFields(_ expected: [String: String]) -> Bool {
+        expected.allSatisfy { name, value in
+            fields().contains { $0.name == name && $0.value.displayText == value }
+        }
     }
-    return await holder.logs
+
+    func hasLogText(_ marker: String) -> Bool {
+        message.contains(marker) || fields(includingPrivate: true).contains { $0.value.displayText.contains(marker) }
+    }
 }

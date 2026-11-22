@@ -11,7 +11,7 @@ let package = Package(
         .library(name: "TCGDesignSystem", targets: ["TCGDesignSystem"])
     ],
     dependencies: [
-        .package(url: "https://github.com/Kamaalio/KamaalSwift", .upToNextMajor(from: "3.5.0")),
+        .package(url: "https://github.com/Kamaalio/KamaalSwift", .upToNextMajor(from: "3.6.0")),
         .package(url: "https://github.com/pointfreeco/swift-snapshot-testing", .upToNextMajor(from: "1.19.7")),
         .package(path: "../TCGModels"),
     ],

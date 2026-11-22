@@ -384,7 +384,8 @@ supported currencies as purchase entry.
 In Xcode's console or macOS Console, filter the app process by `TCGCurrency` and
 `TCGCurrencyClientImpl` and include informational messages. Debug builds also
 record skipped refreshes, cancelled requests, and discarded late responses.
-These use the existing KamaalLogger categories, not a separate logging system.
+These diagnostics use named KamaalLogger fields. Private fields are visible
+in Settings → App Logs in Debug builds.
 
 - `currency.preference.applied` confirms the currency applied by the app; its
   source is `cache`, `initialize`, or `save`.
@@ -398,9 +399,10 @@ These use the existing KamaalLogger categories, not a separate logging system.
   problems without including cached content. `currency.session.cleared` confirms
   preference state was reset on sign-out.
 
-For manual testing, save GBP and look for `currency.preference.applied` with
-`source=save; currency=GBP`. Relaunch with a rate snapshot cached, then make the
-rate endpoint unavailable: expect `source=cache` followed by
+For manual testing in Debug, save GBP and open Settings → App Logs. Look for
+`currency.preference.applied` with `source` set to `save` and `currency` set to
+`GBP`. Relaunch with a rate snapshot cached, then make the rate endpoint
+unavailable. Look for `source` set to `cache` followed by
 `currency.rates.retained` with `cache_status=available`. Without cached rates,
 expect `cache_status=missing` for purchase-form conversion. Display-price
 conversion is logged on the server as `forex.display.completed`, with the target

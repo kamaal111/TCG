@@ -8,6 +8,7 @@
 import Foundation
 import HTTPTypes
 import KamaalAuth
+import KamaalLogger
 import OpenAPIRuntime
 import TCGCurrency
 import TCGModels
@@ -303,10 +304,12 @@ struct TCGCardsFeatureTests {
         let start = Date(timeIntervalSince1970: 1_784_548_800)
         let clock = CollectionTestClock(now: start)
         let transport = PendingCollectionTransport(holdPrices: false)
-        let feature = makePendingFeature(
-            transport,
+        let holder = LogHolder(max: 16)
+        let feature = TCGCards(
+            client: makePendingClient(transport),
             snapshot: CollectionSnapshotCache(root: CollectionSnapshotCache.defaultRoot),
-            now: { clock.now }
+            now: { clock.now },
+            logger: KamaalLogger(from: TCGCards.self, holder: holder)
         )
         let list = "/app-api/cards"
         let id = CardsTestIDs.cachedPokemon
@@ -318,6 +321,11 @@ struct TCGCardsFeatureTests {
 
         clock.now = start.addingTimeInterval(14 * 60)
         await feature.refresh(force: false)
+        let cacheEvent = await holder.logs.first {
+            $0.message == "collection.load.completed"
+                && $0.fields().contains(.init("source", "cache", privacy: .public))
+        }
+        #expect(cacheEvent?.fields().first { $0.name == "result_count" }?.value.displayText == "1")
         _ = try await feature.validateCard(verified).get()
         #expect(await transport.requestCount == 1)
 
@@ -582,10 +590,12 @@ struct TCGCardsFeatureTests {
     @Test(arguments: [false, true])
     func `A failed filter load retains only matching cached rows`(changeGame: Bool) async throws {
         let transport = PendingCollectionTransport(holdPrices: false)
-        let feature = makePendingFeature(
-            transport,
+        let holder = LogHolder(max: 16)
+        let feature = TCGCards(
+            client: makePendingClient(transport),
             snapshot: CollectionSnapshotCache(root: CollectionSnapshotCache.defaultRoot),
-            now: { .now }
+            now: { .now },
+            logger: KamaalLogger(from: TCGCards.self, holder: holder)
         )
         let initialLoad = Task { await feature.load(game: nil, setNames: [], query: nil, illustrators: []) }
         await transport.waitForRequest("/app-api/cards")
@@ -611,6 +621,10 @@ struct TCGCardsFeatureTests {
         #expect(feature.availableSetNames == (changeGame ? [] : ["Base Set", "Romance Dawn"]))
         #expect(!feature.hasLoadedCurrentCollection)
         #expect(!feature.isLoading)
+        let retainedEvent = await holder.logs.first {
+            $0.message == "collection.load.retained" && $0.fields().contains(.init("source", "cache", privacy: .public))
+        }
+        #expect(retainedEvent?.fields().first { $0.name == "result_count" }?.value.displayText == "1")
     }
 
     @Test(arguments: [
@@ -630,10 +644,12 @@ struct TCGCardsFeatureTests {
     {
         let (deletedIDs, notFoundIDs, expectedErrors) = scenario
         let transport = PendingCollectionTransport(holdPrices: false)
-        let feature = makePendingFeature(
-            transport,
+        let holder = LogHolder(max: 16)
+        let feature = TCGCards(
+            client: makePendingClient(transport),
             snapshot: CollectionSnapshotCache(root: CollectionSnapshotCache.defaultRoot),
-            now: { .now }
+            now: { .now },
+            logger: KamaalLogger(from: TCGCards.self, holder: holder)
         )
         let initialLoad = Task {
             await feature.load(game: .pokemon, setNames: ["Base Set"], query: nil, illustrators: [])
@@ -656,6 +672,11 @@ struct TCGCardsFeatureTests {
         #expect(feature.cards.isEmpty)
         await transport.complete(listPath, setName: "Remaining Set")
         #expect(await deletion.value == expectedErrors)
+        let outcome = notFoundIDs.isEmpty ? "completed" : "partial"
+        let event = await holder.logs.first { $0.message == "cards.mutation.\(outcome)" }
+        #expect(
+            event?.fields().map(\.value.displayText) == ["delete", String(deletedIDs.count), String(notFoundIDs.count)]
+        )
         #expect(await transport.requestCount == 3)
         #expect(feature.availableSetNames == ["Remaining Set"])
         #expect(feature.hasLoadedCurrentCollection)

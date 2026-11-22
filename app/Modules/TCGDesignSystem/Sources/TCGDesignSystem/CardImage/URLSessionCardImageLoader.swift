@@ -167,21 +167,38 @@ final class URLSessionCardImageLoader: CardImageLoader {
             )
         } catch {
             logger.error(
-                label:
-                    "Card image load failed; reason=network; attempts=\(attempt); url=\(url.absoluteString)",
-                error: error
+                "Card image load failed",
+                fields: [
+                    .init("reason", "network", privacy: .public),
+                    .init("attempts", object: attempt, privacy: .public),
+                    .init("url", url.absoluteString),
+                    .init("description", error.localizedDescription),
+                    .init("error", String(describing: error)),
+                ]
             )
             return nil
         }
 
         let (data, response) = responseData
         guard let response = response as? HTTPURLResponse else {
-            logger.warning("Card image load failed; reason=invalid_response; url=\(url.absoluteString)")
+            logger.warning(
+                "Card image load failed",
+                fields: [
+                    .init("reason", "invalid_response", privacy: .public),
+                    .init("url", url.absoluteString),
+                ]
+            )
             return nil
         }
         if (200..<300).contains(response.statusCode) {
             guard let image = PlatformImageDecoder.decode(data) else {
-                logger.warning("Card image load failed; reason=decode; url=\(url.absoluteString)")
+                logger.warning(
+                    "Card image load failed",
+                    fields: [
+                        .init("reason", "decode", privacy: .public),
+                        .init("url", url.absoluteString),
+                    ]
+                )
                 return nil
             }
             return DownloadedCardArtwork(image: image, data: data)
@@ -197,7 +214,13 @@ final class URLSessionCardImageLoader: CardImageLoader {
             )
         }
         logger.warning(
-            "Card image load failed; reason=http_status; status=\(response.statusCode); attempts=\(attempt); url=\(url.absoluteString)"
+            "Card image load failed",
+            fields: [
+                .init("reason", "http_status", privacy: .public),
+                .init("status", "\(response.statusCode)", privacy: .public),
+                .init("attempts", object: attempt, privacy: .public),
+                .init("url", url.absoluteString),
+            ]
         )
         return nil
     }
@@ -266,7 +289,10 @@ private actor CardArtworkStorage {
                 }
                 notifyObservers()
             } catch {
-                logger.warning("Could not save downloaded card artwork: \(error.localizedDescription)")
+                logger.warning(
+                    "Could not save downloaded card artwork",
+                    fields: [.init("description", error.localizedDescription)]
+                )
             }
             return artwork.image
         }
@@ -295,7 +321,10 @@ private actor CardArtworkStorage {
                 notifyObservers()
                 return image
             } catch {
-                logger.warning("Could not retain collection card artwork: \(error.localizedDescription)")
+                logger.warning(
+                    "Could not retain collection card artwork",
+                    fields: [.init("description", error.localizedDescription)]
+                )
             }
         }
         loader.cache(image, for: key, expiresAt: expiry)
@@ -343,7 +372,10 @@ private actor CardArtworkStorage {
                 try FileManager.default.removeItem(at: file)
                 removed = true
             } catch {
-                logger.warning("Could not remove expired card artwork: \(error.localizedDescription)")
+                logger.warning(
+                    "Could not remove expired card artwork",
+                    fields: [.init("description", error.localizedDescription)]
+                )
             }
         }
         if removed { notifyObservers() }

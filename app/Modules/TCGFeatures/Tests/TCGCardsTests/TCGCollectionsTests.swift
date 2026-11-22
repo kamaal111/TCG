@@ -1,4 +1,5 @@
 import Foundation
+import KamaalLogger
 import TCGModels
 import Testing
 
@@ -187,6 +188,21 @@ struct TCGCollectionsTests {
         #expect(await collections.delete(favorites, using: cards))
         #expect(collections.selectedID == nil)
         #expect(cards.selectedCollection == nil)
+    }
+
+    @Test func `Binder creation records its outcome without the binder name`() async throws {
+        let holder = LogHolder(max: 8)
+        let collections = TCGCollections(
+            client: .preview(hasValidCredentials: true),
+            defaults: nil,
+            logger: KamaalLogger(from: TCGCollections.self, holder: holder)
+        )
+        let binder = try await collections.create(name: "Private binder").get()
+
+        let messages = await holder.logs
+        #expect(messages.map(\.message) == ["collections.mutation.completed"])
+        #expect(messages.first?.fields(includingPrivate: true) == [.init("operation", "create", privacy: .public)])
+        #expect(binder.name == "Private binder")
     }
 
     @Test func `A confirmed missing binder switches to All cards and evicts its saved page`() async throws {

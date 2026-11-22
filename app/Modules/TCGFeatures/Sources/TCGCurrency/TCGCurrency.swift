@@ -44,7 +44,13 @@ public final class TCGCurrency {
                 rates = try JSONDecoder().decode(ExchangeRates.self, from: data)
                 logRates(source: "cache")
             } catch {
-                logger.warning("event=currency.cache.rejected; cache=rates; reason=decoding_failed")
+                logger.warning(
+                    "currency.cache.rejected",
+                    fields: [
+                        .init("cache", "rates", privacy: .public),
+                        .init("reason", "decoding_failed", privacy: .public),
+                    ]
+                )
             }
         }
     }
@@ -65,14 +71,26 @@ public final class TCGCurrency {
         do {
             let cached = try JSONDecoder().decode(CachedPreference.self, from: data)
             guard cached.account == account else {
-                logger.debug("event=currency.cache.skipped; cache=preference; reason=account_changed")
+                logger.debug(
+                    "currency.cache.skipped",
+                    fields: [
+                        .init("cache", "preference", privacy: .public),
+                        .init("reason", "account_changed", privacy: .public),
+                    ]
+                )
                 return
             }
             preferredCurrency = cached.currency
             preferenceLoaded = true
             logPreference(source: "cache")
         } catch {
-            logger.warning("event=currency.cache.rejected; cache=preference; reason=decoding_failed")
+            logger.warning(
+                "currency.cache.rejected",
+                fields: [
+                    .init("cache", "preference", privacy: .public),
+                    .init("reason", "decoding_failed", privacy: .public),
+                ]
+            )
         }
     }
 
@@ -87,7 +105,13 @@ public final class TCGCurrency {
             let data = try JSONEncoder().encode(value)
             defaults?.set(data, forKey: key)
         } catch {
-            logger.warning("event=currency.cache.write_failed; cache=\(kind); reason=encoding_failed")
+            logger.warning(
+                "currency.cache.write_failed",
+                fields: [
+                    .init("cache", kind, privacy: .public),
+                    .init("reason", "encoding_failed", privacy: .public),
+                ]
+            )
         }
     }
 
@@ -108,11 +132,21 @@ public final class TCGCurrency {
 
     public func refresh(locale: Locale) async {
         guard !isRefreshing else {
-            logger.debug("event=currency.refresh.skipped; reason=in_flight")
+            logger.debug(
+                "currency.refresh.skipped",
+                fields: [
+                    .init("reason", "in_flight", privacy: .public)
+                ]
+            )
             return
         }
         guard !isSaving else {
-            logger.debug("event=currency.refresh.skipped; reason=saving")
+            logger.debug(
+                "currency.refresh.skipped",
+                fields: [
+                    .init("reason", "saving", privacy: .public)
+                ]
+            )
             return
         }
         isRefreshing = true
@@ -123,7 +157,12 @@ public final class TCGCurrency {
         case .success(let preference):
             guard isCurrent(token) else { return }
             guard revision == preferenceRevision else {
-                logger.debug("event=currency.response.discarded; reason=preference_changed")
+                logger.debug(
+                    "currency.response.discarded",
+                    fields: [
+                        .init("reason", "preference_changed", privacy: .public)
+                    ]
+                )
                 return
             }
             preferredCurrency = preference.currency
@@ -134,15 +173,30 @@ public final class TCGCurrency {
             guard isCurrent(token) else { return }
             if revision == preferenceRevision {
                 logger.warning(
-                    "event=currency.preference.retained; reason=initialization_failed; currency=\(preferredCurrency.rawValue); preference_loaded=\(preferenceLoaded)"
+                    "currency.preference.retained",
+                    fields: [
+                        .init("reason", "initialization_failed", privacy: .public),
+                        .init("currency", preferredCurrency.rawValue),
+                        .init("preference_loaded", object: preferenceLoaded, privacy: .public),
+                    ]
                 )
             } else {
-                logger.debug("event=currency.response.discarded; reason=preference_changed")
+                logger.debug(
+                    "currency.response.discarded",
+                    fields: [
+                        .init("reason", "preference_changed", privacy: .public)
+                    ]
+                )
             }
         }
         guard isCurrent(token) else { return }
         if let ratesFetchedOn, Calendar.current.isDateInToday(ratesFetchedOn) {
-            logger.debug("event=currency.rates.refresh_skipped; reason=already_fetched_today")
+            logger.debug(
+                "currency.rates.refresh_skipped",
+                fields: [
+                    .init("reason", "already_fetched_today", privacy: .public)
+                ]
+            )
             return
         }
         switch await client.latestRates() {
@@ -155,7 +209,12 @@ public final class TCGCurrency {
         case .failure:
             guard isCurrent(token) else { return }
             logger.warning(
-                "event=currency.rates.retained; reason=refresh_failed; cache_status=\(rates == nil ? "missing" : "available"); rate_date=\(rates?.date ?? "none")"
+                "currency.rates.retained",
+                fields: [
+                    .init("reason", "refresh_failed", privacy: .public),
+                    .init("cache_status", rates == nil ? "missing" : "available", privacy: .public),
+                    rateDateField(rates?.date ?? "none"),
+                ]
             )
         }
     }
@@ -163,7 +222,12 @@ public final class TCGCurrency {
     @discardableResult
     public func save(_ currency: Currency) async -> Bool {
         guard !isSaving else {
-            logger.debug("event=currency.save.skipped; reason=in_flight")
+            logger.debug(
+                "currency.save.skipped",
+                fields: [
+                    .init("reason", "in_flight", privacy: .public)
+                ]
+            )
             return false
         }
         let token = generation
@@ -183,7 +247,11 @@ public final class TCGCurrency {
             guard isCurrent(token) else { return false }
             saveFailed = true
             logger.warning(
-                "event=currency.preference.retained; reason=save_failed; currency=\(preferredCurrency.rawValue)"
+                "currency.preference.retained",
+                fields: [
+                    .init("reason", "save_failed", privacy: .public),
+                    .init("currency", preferredCurrency.rawValue),
+                ]
             )
             return false
         }
@@ -198,30 +266,61 @@ public final class TCGCurrency {
         isSaving = false
         isRefreshing = false
         saveFailed = false
-        logger.info("event=currency.session.cleared; currency=\(preferredCurrency.rawValue)")
+        logger.info(
+            "currency.session.cleared",
+            fields: [
+                .init("currency", preferredCurrency.rawValue)
+            ]
+        )
     }
 
     private func isCurrent(_ token: UUID) -> Bool {
         guard !Task.isCancelled else {
-            logger.debug("event=currency.response.discarded; reason=cancelled")
+            logger.debug(
+                "currency.response.discarded",
+                fields: [
+                    .init("reason", "cancelled", privacy: .public)
+                ]
+            )
             return false
         }
         guard token == generation else {
-            logger.debug("event=currency.response.discarded; reason=session_changed")
+            logger.debug(
+                "currency.response.discarded",
+                fields: [
+                    .init("reason", "session_changed", privacy: .public)
+                ]
+            )
             return false
         }
         return true
     }
 
     private func logPreference(source: String) {
-        logger.info("event=currency.preference.applied; source=\(source); currency=\(preferredCurrency.rawValue)")
+        logger.info(
+            "currency.preference.applied",
+            fields: [
+                .init("source", source, privacy: .public),
+                .init("currency", preferredCurrency.rawValue),
+            ]
+        )
     }
 
     private func logRates(source: String) {
         guard let rates else { return }
         logger.info(
-            "event=currency.rates.applied; source=\(source); rate_date=\(rates.date); result_count=\(rates.rates.count)"
+            "currency.rates.applied",
+            fields: [
+                .init("source", source, privacy: .public),
+                rateDateField(rates.date),
+                .init("result_count", object: rates.rates.count, privacy: .public),
+            ]
         )
+    }
+
+    private func rateDateField(_ date: String) -> LogField {
+        let isPublic = date == "none" || date.wholeMatch(of: /[0-9]{4}-[0-9]{2}-[0-9]{2}/) != nil
+        return .init("rate_date", date, privacy: isPublic ? .public : .private)
     }
 
 }

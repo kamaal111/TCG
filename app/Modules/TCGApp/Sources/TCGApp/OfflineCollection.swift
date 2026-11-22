@@ -1,4 +1,5 @@
 import Foundation
+import KamaalLogger
 import LocalAuthentication
 import Observation
 import TCGClient
@@ -21,6 +22,7 @@ final class OfflineCollection {
     private let namespace: String
     private let session: URLSession
     private let defaults: UserDefaults
+    private let logger: KamaalLogger
     private var owner: String?
     private var signedInOwner: String?
     private var generation = UUID()
@@ -43,13 +45,32 @@ final class OfflineCollection {
         didSet { defaults.set(policy.rawValue, forKey: "offlineCollectionPolicy") }
     }
 
-    init(
+    convenience init(
         client: TCGClient,
         defaults: UserDefaults,
         store: OfflineCollectionStore,
         grant: any OfflineCollectionAccess,
         hasFreshAuthToken: (() -> Bool)?
     ) {
+        self.init(
+            client: client,
+            defaults: defaults,
+            store: store,
+            grant: grant,
+            hasFreshAuthToken: hasFreshAuthToken,
+            logger: KamaalLogger(from: OfflineCollection.self)
+        )
+    }
+
+    init(
+        client: TCGClient,
+        defaults: UserDefaults,
+        store: OfflineCollectionStore,
+        grant: any OfflineCollectionAccess,
+        hasFreshAuthToken: (() -> Bool)?,
+        logger: KamaalLogger
+    ) {
+        self.logger = logger
         self.client = client.offlineCollection
         self.hasFreshAuthToken = hasFreshAuthToken ?? { client.hasFreshAuthToken }
         self.defaults = defaults
@@ -95,6 +116,7 @@ final class OfflineCollection {
         guard !requiresDeviceSecurity else { return }
         progress = 0
         let token = generation
+        logger.info("offline.sync.started")
         operation = Task {
             defer {
                 if token == generation {
@@ -104,10 +126,35 @@ final class OfflineCollection {
             }
             do {
                 try await synchronizeWithRetry(client: client, owner: owner, token: token)
+                if token == generation, !Task.isCancelled {
+                    logger.info(
+                        "offline.sync.completed",
+                        fields: [
+                            .init("missing_artwork_count", object: missingImages, privacy: .public)
+                        ]
+                    )
+                }
             } catch OfflineCollectionError.unauthorized {
-                if token == generation { remove() }
+                if token == generation {
+                    logger.warning(
+                        "offline.sync.failed",
+                        fields: [
+                            .init("reason", "unauthorized", privacy: .public)
+                        ]
+                    )
+                    remove()
+                }
             } catch {
                 if token == generation {
+                    if !Task.isCancelled, !(error is CancellationError) {
+                        let reason = (error as? OfflineCollectionError) == .changed ? "changed" : "sync_failed"
+                        logger.error(
+                            "offline.sync.failed",
+                            fields: [
+                                .init("reason", reason, privacy: .public)
+                            ]
+                        )
+                    }
                     hasPendingDownload = (try? store.read(.pending)) != nil
                     failed = true
                 }
