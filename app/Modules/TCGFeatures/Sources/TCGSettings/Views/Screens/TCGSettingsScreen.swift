@@ -28,6 +28,7 @@ public struct TCGSettingsScreen: View {
 
     @State private var isWorking = false
     @State private var isShowingImport = false
+    @State private var isShowingAppLogs = false
     @State private var isChoosingFile = false
     @State private var isExportingFile = false
     @State private var document: CSVFileDocument?
@@ -170,13 +171,22 @@ public struct TCGSettingsScreen: View {
                 }
             }
 
-            if let versionText = version.displayText {
+            if auth.isLoggedIn || version.displayText != nil {
                 Section {
-                    LabeledContent {
-                        Text(versionText)
-                            .textSelection(.enabled)
-                    } label: {
-                        Text("Version", bundle: .module)
+                    if let versionText = version.displayText {
+                        LabeledContent {
+                            Text(versionText)
+                                .textSelection(.enabled)
+                        } label: {
+                            Text("Version", bundle: .module)
+                        }
+                    }
+                    if auth.isLoggedIn {
+                        Button {
+                            isShowingAppLogs = true
+                        } label: {
+                            Text("App Logs", bundle: .module)
+                        }
                     }
                 } header: {
                     Text("About", bundle: .module)
@@ -185,6 +195,12 @@ public struct TCGSettingsScreen: View {
         }
         .formStyle(.grouped)
         .navigationTitle(Text("Settings", bundle: .module))
+        .onChange(of: auth.isLoggedIn) { _, isLoggedIn in
+            if !isLoggedIn { isShowingAppLogs = false }
+        }
+        .sheet(isPresented: $isShowingAppLogs) {
+            if auth.isLoggedIn { TCGAppLogsScreen() }
+        }
         .sheet(isPresented: $isShowingImport) { importIntroduction }
         .fileImporter(isPresented: $isChoosingFile, allowedContentTypes: [.commaSeparatedText, .plainText]) { result in
             switch result {
