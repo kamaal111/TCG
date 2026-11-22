@@ -4,6 +4,9 @@
     "About" : {
 
     },
+    "App Logs" : {
+
+    },
     "CSV Transfer" : {
 
     },
@@ -22,10 +25,16 @@
     "Data" : {
 
     },
+    "Debug" : {
+
+    },
     "Download CSV Template" : {
 
     },
     "Download the template first, or choose a previous Mintomo export. Each row represents a purchase; use the same card ID for purchases of the same card." : {
+
+    },
+    "Error" : {
 
     },
     "Export Cards" : {
@@ -41,6 +50,15 @@
 
     },
     "Import Cards" : {
+
+    },
+    "Info" : {
+
+    },
+    "Log Details" : {
+
+    },
+    "No logs available" : {
 
     },
     "OK" : {
@@ -77,6 +95,9 @@
 
     },
     "Version" : {
+
+    },
+    "Warning" : {
 
     },
     "Your CSV was saved successfully." : {

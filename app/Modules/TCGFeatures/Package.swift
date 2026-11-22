@@ -89,6 +89,7 @@ let package = Package(
             dependencies: [
                 "TCGCurrency",
                 .product(name: "KamaalAuth", package: "kamaal-auth"),
+                .product(name: "KamaalLogger", package: "KamaalSwift"),
                 "TCGCards",
                 "TCGDesignSystem",
                 "TCGUtils",
@@ -163,6 +164,7 @@ let package = Package(
                 "TCGCurrency",
                 "TCGClient",
                 .product(name: "KamaalAuth", package: "kamaal-auth"),
+                .product(name: "KamaalLogger", package: "KamaalSwift"),
                 "TCGSettings",
                 "TCGSnapshotTesting",
                 .product(name: "SnapshotTesting", package: "swift-snapshot-testing"),
