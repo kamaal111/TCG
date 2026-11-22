@@ -23,7 +23,7 @@ import type { createTestUser } from '../../tests/utils.ts';
 import { parseCardLanguages } from '../languages.ts';
 import { SEARCH_PRICING_ROUTE_PATH } from '../routes/search-pricing.ts';
 import { PricedCardSchema, PricingSearchResponseSchema } from '../schemas/responses.ts';
-import type { CardGame } from '../types.ts';
+import { CARD_GAME_MAP, type CardGame, PRICING_SOURCES } from '../types.ts';
 import { searchPageKey } from '../utils/pagination.ts';
 import { queryKey, todayUTC } from '../utils/query.ts';
 
@@ -49,6 +49,25 @@ const LUFFY_PROMO = {
     { name: 'fourthAnniversaryStamp', prices: [{ condition: 'NM', type: 'raw', currency: 'USD', market: 20 }] },
     { name: 'fourthAnniversaryWinnerStamp' },
   ],
+} satisfies ScrydexRawCard;
+
+const SLEEPTIDS_ILLUSTRATIONS = [1, 2, 3].map(index => ({
+  name: `mangaIllustration${index}`,
+  image: `https://images.example.com/sleeptids-${index}.png`,
+  market: index,
+}));
+
+const SLEEPTIDS = {
+  id: 'OP18-093',
+  name: 'Sleeptids',
+  printed_number: 'OP18-093',
+  expansion: { name: 'The Dominance of God' },
+  images: [{ type: 'front', large: 'https://images.example.com/sleeptids.png' }],
+  variants: SLEEPTIDS_ILLUSTRATIONS.map(({ name, image, market }) => ({
+    name,
+    images: [{ type: 'front', large: image }],
+    prices: [{ condition: 'NM', type: 'raw', currency: 'USD', market }],
+  })),
 } satisfies ScrydexRawCard;
 
 const TORCHIC_PROMO = {
@@ -222,6 +241,131 @@ describe('Scrydex search through the authenticated pricing API', () => {
       expect(
         OwnedCardPricesSchema.parse(await missing.json()).prices.find(entry => entry.id === saved.id)?.price,
       ).toMatchObject({ status: 'no_match' });
+    },
+  );
+
+  integrationTest(
+    'replaces a cached Sleeptids Standard row and refreshes the selected illustration',
+    async ({ createApp, user, db, authenticatedHeaders }) => {
+      const pricedOn = todayUTC();
+      const variantIDs = SLEEPTIDS.variants.map(variant => `OP18-093|variant|${variant.name.toLowerCase()}`);
+      const oldPricingCardIds = [SLEEPTIDS.id, ...variantIDs];
+      await db.insert(cardPrice).values(
+        oldPricingCardIds.map(pricingCardId => ({
+          game: CARD_GAME_MAP.ONE_PIECE,
+          pricingSource: PRICING_SOURCES.SCRYDEX_REAL,
+          pricingCardId,
+          cardNumber: SLEEPTIDS.printed_number,
+          name: SLEEPTIDS.name,
+          pricedOn,
+          prices: { setName: SLEEPTIDS.expansion.name },
+        })),
+      );
+
+      await db.insert(cardPriceSearch).values({
+        game: CARD_GAME_MAP.ONE_PIECE,
+        pricingSource: PRICING_SOURCES.SCRYDEX_REAL,
+        queryKey: searchPageKey('one_piece|v3|op18-093', 0),
+        pricedOn,
+        pricingCardIds: oldPricingCardIds,
+      });
+
+      const paths: string[] = [];
+
+      const pricingClient = createTestScrydexClient(async input => {
+        const url = new URL(input instanceof Request ? input.url : input.toString());
+        paths.push(url.pathname);
+
+        return Response.json({
+          data: url.pathname.endsWith('/cards') ? [SLEEPTIDS] : SLEEPTIDS,
+        });
+      }, {});
+
+      const app = createApp({ pricingClient });
+      const path = `${SEARCH_PRICING_ROUTE_PATH}?game=${CARD_GAME_MAP.ONE_PIECE}&query=OP18-093&search_by=card`;
+      const first = await app.request(path, { headers: authenticatedHeaders });
+      expect(first.status).toBe(200);
+      const page = PricingSearchResponseSchema.parse(await first.json());
+      expect(page.next_cursor).toBeNull();
+      expect(page.entries).toMatchObject(
+        SLEEPTIDS_ILLUSTRATIONS.map(({ name, image, market }) => ({
+          variant_name: name,
+          image_url: proxyURLForOriginURL(image, 'http://localhost:8080'),
+          market: { market },
+        })),
+      );
+      expect(
+        await db.query.cardPriceSearch.findFirst({ where: { queryKey: searchPageKey('one_piece|v4|op18-093', 0) } }),
+      ).toMatchObject({ pricingCardIds: variantIDs });
+
+      const cached = await app.request(path, { headers: authenticatedHeaders });
+      expect(cached.status).toBe(200);
+      expect(PricingSearchResponseSchema.parse(await cached.json())).toEqual(page);
+      expect(paths).toEqual(['/onepiece/v1/cards']);
+
+      const selected = page.entries[1];
+      assert(selected != null);
+
+      const saved = await createTestCard(app, user.sessionToken, {
+        game: CARD_GAME_MAP.ONE_PIECE,
+        name: SLEEPTIDS.name,
+        set_name: SLEEPTIDS.expansion.name,
+        card_number: SLEEPTIDS.printed_number,
+        priced_card_id: selected.id,
+        purchases: [{ condition: 'near_mint', quantity: 1, purchase_price: null, currency: null }],
+      });
+
+      expect(await db.query.card.findFirst({ where: { id: saved.id } })).toMatchObject({
+        pricingCardId: 'OP18-093|variant|mangaillustration2',
+      });
+
+      await db.update(cardPrice).set({ pricedOn: '2025-01-01' }).where(eq(cardPrice.pricedOn, pricedOn));
+      const refreshed = await requestOwnedPrices(app, authenticatedHeaders, [saved.id]);
+      expect(refreshed.status).toBe(200);
+      expect(OwnedCardPricesSchema.parse(await refreshed.json()).prices).toMatchObject([
+        {
+          id: saved.id,
+          price: {
+            priced_card: { variant_name: 'mangaIllustration2', image_url: selected.image_url, market: { market: 2 } },
+          },
+        },
+      ]);
+      expect(paths).toEqual(['/onepiece/v1/cards', '/onepiece/v1/cards/OP18-093']);
+    },
+  );
+
+  integrationTest(
+    'leaves an unlinked One Piece card unlinked when only named variants match',
+    async ({ createApp, user, db, authenticatedHeaders }) => {
+      const search = createSearchApp({
+        createApp,
+        user,
+        game: CARD_GAME_MAP.ONE_PIECE,
+        expectedQuery: 'name:"Sleeptids" AND !id:OP18-093',
+        cards: [SLEEPTIDS],
+      });
+
+      const [unlinked] = await db
+        .insert(card)
+        .values({
+          userId: user.userId,
+          game: CARD_GAME_MAP.ONE_PIECE,
+          name: SLEEPTIDS.name,
+          cardNumber: SLEEPTIDS.printed_number,
+          setName: SLEEPTIDS.expansion.name,
+        })
+        .returning();
+
+      assert(unlinked != null);
+
+      const response = await requestOwnedPrices(search.app, authenticatedHeaders, [unlinked.id]);
+
+      expect(response.status).toBe(200);
+      expect(OwnedCardPricesSchema.parse(await response.json()).prices).toMatchObject([
+        { id: unlinked.id, price: { status: 'no_match' } },
+      ]);
+      expect(await db.query.card.findFirst({ where: { id: unlinked.id } })).toMatchObject({ pricingCardId: null });
+      expect(search.transport.queries).toEqual(['name:"Sleeptids" AND !id:OP18-093']);
     },
   );
 
@@ -576,7 +720,7 @@ describe('Scrydex search through the authenticated pricing API', () => {
         const search = createSearchApp({
           createApp,
           user,
-          game: 'one_piece',
+          game: CARD_GAME_MAP.ONE_PIECE,
           expectedQuery,
           cards: [LUFFY_PROMO],
         });
@@ -587,13 +731,13 @@ describe('Scrydex search through the authenticated pricing API', () => {
 
         const body = PricingSearchResponseSchema.parse(await response.json());
         expect(body.entries.map(match => match.variant_name)).toEqual([
-          undefined,
           'fourthAnniversaryStamp',
           'fourthAnniversaryWinnerStamp',
         ]);
         expect(body.entries.every(match => match.card_number === 'P-110')).toBe(true);
-        expect(body.entries[0]).not.toHaveProperty('market');
-        expect(body.entries[0]).not.toHaveProperty('headline');
+        expect(body.entries[0]?.market?.market).toBe(20);
+        expect(body.entries[1]).not.toHaveProperty('market');
+        expect(body.entries[1]).not.toHaveProperty('headline');
         expect(search.transport.paths).toEqual(['/onepiece/v1/cards']);
         expect(search.transport.queries).toEqual([expectedQuery]);
       },
@@ -604,7 +748,7 @@ describe('Scrydex search through the authenticated pricing API', () => {
     'bypasses the old empty promo cache and reuses the corrected result',
     async ({ createApp, user, db }) => {
       await db.insert(cardPriceSearch).values({
-        game: 'one_piece',
+        game: CARD_GAME_MAP.ONE_PIECE,
         pricingSource: 'scrydex_real',
         queryKey: searchPageKey('one_piece|v2|p-110', 0),
         pricedOn: todayUTC(),
@@ -614,7 +758,7 @@ describe('Scrydex search through the authenticated pricing API', () => {
       const search = createSearchApp({
         createApp,
         user,
-        game: 'one_piece',
+        game: CARD_GAME_MAP.ONE_PIECE,
         expectedQuery: '!id:P-110',
         cards: [LUFFY_PROMO],
       });
@@ -624,15 +768,12 @@ describe('Scrydex search through the authenticated pricing API', () => {
       expect(first.status).toBe(200);
 
       const body = PricingSearchResponseSchema.parse(await first.json());
-      expect(body.entries).toHaveLength(3);
-      expect(await db.query.cardPrice.findFirst({ where: { pricingCardId: 'P-110' } })).toMatchObject({
-        pricingSource: 'scrydex_real',
-        cardNumber: 'P-110',
-      });
+      expect(body.entries).toHaveLength(2);
+      expect(await db.query.cardPrice.findFirst({ where: { pricingCardId: 'P-110' } })).toBeUndefined();
       expect(
-        await db.query.cardPriceSearch.findFirst({ where: { queryKey: searchPageKey('one_piece|v3|p-110', 0) } }),
+        await db.query.cardPriceSearch.findFirst({ where: { queryKey: searchPageKey('one_piece|v4|p-110', 0) } }),
       ).toMatchObject({
-        pricingCardIds: ['P-110', 'P-110|variant|fourthanniversarystamp', 'P-110|variant|fourthanniversarywinnerstamp'],
+        pricingCardIds: ['P-110|variant|fourthanniversarystamp', 'P-110|variant|fourthanniversarywinnerstamp'],
       });
 
       const second = await search.request(' P-110 ', 'en');

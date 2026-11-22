@@ -4,6 +4,7 @@ import { z } from 'zod';
 
 import { createTestScrydexClient } from './utils.ts';
 import { RealScrydexClient } from '../scrydex/real-client.ts';
+import { CARD_GAME_MAP } from '../types.ts';
 
 describe('RealScrydexClient', () => {
   it.each([
@@ -255,11 +256,29 @@ describe('RealScrydexClient', () => {
   it('combines schema and normalization rejections while counting accepted cards without base variants', async () => {
     const withoutBaseVariant = { id: 'alt', name: 'Alternate', number: '2', variants: [{ name: 'mangaAltArt' }] };
     const client = makeClient(async () => jsonResponse({ data: [onePieceCard(), null, {}, withoutBaseVariant] }, 200));
-    const result = await client.searchCards('one_piece', 'query', { languages: [], searchBy: 'card' }, 1);
+    const result = await client.searchCards(CARD_GAME_MAP.ONE_PIECE, 'query', { languages: [], searchBy: 'card' }, 1);
     assert(result.isOk());
     expect(result.value).toMatchObject({ providerResultCount: 4, rejectedCount: 2, missingBaseVariantCount: 1 });
-    expect(result.value.records.map(record => record.card.id)).toEqual(['OP14-069', 'alt', 'alt|variant|mangaaltart']);
+    expect(result.value.records.map(record => record.card.id)).toEqual(['OP14-069', 'alt|variant|mangaaltart']);
     expect(result.value.records[1]?.raw).toEqual(withoutBaseVariant);
+  });
+
+  it('keeps a card-level One Piece result when variant names are unusable', async () => {
+    const card = { id: 'OP18-092', name: 'Roronoa Zoro', number: '92', variants: [{ name: ' ' }, { name: 42 }] };
+    const client = makeClient(async () => jsonResponse({ data: [card] }, 200));
+
+    const result = await client.searchCards(
+      CARD_GAME_MAP.ONE_PIECE,
+      'OP18-092',
+      { languages: [], searchBy: 'card' },
+      1,
+    );
+
+    assert(result.isOk());
+    expect(result.value.missingBaseVariantCount).toBe(1);
+    expect(result.value.records.map(record => record.card)).toEqual([
+      { id: 'OP18-092', name: 'Roronoa Zoro', cardNumber: '92', pricing: {} },
+    ]);
   });
 
   it('retains the successful provider HTTP status when a lookup cannot be normalized', async () => {

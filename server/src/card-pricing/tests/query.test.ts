@@ -1,6 +1,7 @@
 import { parseCardLanguages, normalizeCardLanguages } from '../languages.ts';
 import { PricingSearchQuerySchema } from '../schemas/params.ts';
 import { buildScrydexQuery } from '../scrydex/query.ts';
+import { CARD_GAME_MAP } from '../types.ts';
 import { buildSearchQuery, normalizeCardNumber, normalizeName, queryKey } from '../utils/query.ts';
 
 describe('card pricing query utilities', () => {
@@ -55,8 +56,8 @@ describe('card pricing query utilities', () => {
     expect(queryKey('pokemon', 'Shiftry', { languages: ['en', 'en'], searchBy: 'card' })).toBe(
       queryKey('pokemon', 'Shiftry', { languages: ['en'], searchBy: 'card' }),
     );
-    expect(queryKey('one_piece', 'Nami', { languages: ['en'], searchBy: 'card' })).toBe(
-      queryKey('one_piece', 'Nami', { languages: [], searchBy: 'card' }),
+    expect(queryKey(CARD_GAME_MAP.ONE_PIECE, 'Nami', { languages: ['en'], searchBy: 'card' })).toBe(
+      queryKey(CARD_GAME_MAP.ONE_PIECE, 'Nami', { languages: [], searchBy: 'card' }),
     );
   });
 
@@ -104,12 +105,12 @@ describe('card pricing query utilities', () => {
   });
 
   it('versions One Piece searches while sharing normalized promo cache keys', () => {
-    expect(queryKey('one_piece', 'p-110', { languages: [], searchBy: 'card' })).toBe('one_piece|v3|p-110');
-    expect(queryKey('one_piece', ' P-110 ', { languages: ['en'], searchBy: 'card' })).toBe(
-      queryKey('one_piece', 'p-110', { languages: [], searchBy: 'card' }),
+    expect(queryKey(CARD_GAME_MAP.ONE_PIECE, 'p-110', { languages: [], searchBy: 'card' })).toBe('one_piece|v4|p-110');
+    expect(queryKey(CARD_GAME_MAP.ONE_PIECE, ' P-110 ', { languages: ['en'], searchBy: 'card' })).toBe(
+      queryKey(CARD_GAME_MAP.ONE_PIECE, 'p-110', { languages: [], searchBy: 'card' }),
     );
-    expect(queryKey('one_piece', ' Monkey.D.Luffy   P-110 ', { languages: [], searchBy: 'card' })).toBe(
-      'one_piece|v3|monkey.d.luffy p-110',
+    expect(queryKey(CARD_GAME_MAP.ONE_PIECE, ' Monkey.D.Luffy   P-110 ', { languages: [], searchBy: 'card' })).toBe(
+      'one_piece|v4|monkey.d.luffy p-110',
     );
   });
 
@@ -189,6 +190,8 @@ describe('card pricing query utilities', () => {
 
   it('preserves standalone One Piece set-number searches with versioned cache keys', () => {
     expect(buildScrydexQuery('one_piece', 'OP14-069', { languages: [], searchBy: 'card' })).toBe('!id:OP14-069');
-    expect(queryKey('one_piece', ' OP14-069 ', { languages: [], searchBy: 'card' })).toBe('one_piece|v3|op14-069');
+    expect(queryKey(CARD_GAME_MAP.ONE_PIECE, ' OP14-069 ', { languages: [], searchBy: 'card' })).toBe(
+      'one_piece|v4|op14-069',
+    );
   });
 });
