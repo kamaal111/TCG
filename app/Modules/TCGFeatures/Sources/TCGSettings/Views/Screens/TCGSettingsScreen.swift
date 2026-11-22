@@ -38,13 +38,16 @@ public struct TCGSettingsScreen: View {
     private let templateAction: (@MainActor () -> Result<URL, CardsExportError>)?
     private let importAction: (@MainActor (URL) -> Void)?
     private let version: AppVersion
+    private let showsSignOut: Bool
 
     public init(
+        showsSignOut: Bool,
         onExport: (@MainActor () async -> Result<URL, CardsExportError>)?,
         onDownloadTemplate: (@MainActor () -> Result<URL, CardsExportError>)?,
         onImport: (@MainActor (URL) -> Void)?
     ) {
         version = .main
+        self.showsSignOut = showsSignOut
         exportAction = onExport
         templateAction = onDownloadTemplate
         importAction = onImport
@@ -57,6 +60,7 @@ public struct TCGSettingsScreen: View {
         onImport: (@MainActor (URL) -> Void)?
     ) {
         self.version = version
+        showsSignOut = true
         exportAction = onExport
         templateAction = onDownloadTemplate
         importAction = onImport
@@ -140,26 +144,28 @@ public struct TCGSettingsScreen: View {
                 }
                 .disabled(isWorking)
             }
-            Section {
-                Button(role: .destructive, action: { isConfirmingSignOut = true }) {
-                    Text("Sign Out", bundle: .module)
-                        .fontWeight(.bold)
-                        .foregroundStyle(.red)
-                        .frame(maxWidth: .infinity)
-                }
-                #if os(macOS)
-                    .buttonStyle(.borderless)
-                #endif
-                .disabled(isSigningOut || isWorking)
-                .confirmationDialog(
-                    Text("Sign out of Mintomo?", bundle: .module),
-                    isPresented: $isConfirmingSignOut,
-                    titleVisibility: .visible
-                ) {
-                    Button(role: .destructive) {
-                        signOut()
-                    } label: {
+            if showsSignOut {
+                Section {
+                    Button(role: .destructive, action: { isConfirmingSignOut = true }) {
                         Text("Sign Out", bundle: .module)
+                            .fontWeight(.bold)
+                            .foregroundStyle(.red)
+                            .frame(maxWidth: .infinity)
+                    }
+                    #if os(macOS)
+                        .buttonStyle(.borderless)
+                    #endif
+                    .disabled(isSigningOut || isWorking)
+                    .confirmationDialog(
+                        Text("Sign out of Mintomo?", bundle: .module),
+                        isPresented: $isConfirmingSignOut,
+                        titleVisibility: .visible
+                    ) {
+                        Button(role: .destructive) {
+                            signOut()
+                        } label: {
+                            Text("Sign Out", bundle: .module)
+                        }
                     }
                 }
             }

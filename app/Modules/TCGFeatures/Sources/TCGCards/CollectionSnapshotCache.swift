@@ -4,7 +4,7 @@ import TCGListSupport
 
 @MainActor
 final class CollectionSnapshotCache {
-    struct Scope: Codable, Hashable {
+    struct Scope: Codable, Hashable, Sendable {
         var collectionID: UUID?
         var pageID: UUID?
         var game: ClientCardGame?
@@ -16,14 +16,14 @@ final class CollectionSnapshotCache {
         static let allCards = Scope()
     }
 
-    struct Page: Codable {
+    struct Page: Codable, Sendable {
         let scope: Scope
         var cards: [CardWithPrice]
         var checkedAt: Date?
         var list: ListState?
     }
 
-    struct ListState: Codable {
+    struct ListState: Codable, Sendable {
         let nextCursor: String?
         let visitedCursors: Set<String>
         let pageCount: Int
@@ -32,12 +32,12 @@ final class CollectionSnapshotCache {
         let requiresPricing: Bool?
     }
 
-    private struct VerifiedCard: Codable {
+    private struct VerifiedCard: Codable, Sendable {
         let row: CardWithPrice
         let checkedAt: Date
     }
 
-    private struct Snapshot: Codable {
+    private struct Snapshot: Codable, Sendable {
         var summaries: [CardCollectionSummary] = []
         var selected: CardBinderCollection?
         var pages: [Page] = []
@@ -136,6 +136,30 @@ final class CollectionSnapshotCache {
 
     func rows(for scope: Scope) -> [CardWithPrice]? {
         snapshot.pages.first { $0.scope == scope }?.cards
+    }
+
+    func containsSnapshot(for account: String) -> Bool {
+        store.containsSnapshot(for: account)
+    }
+
+    func startupRows(for account: String) async -> (cards: [CardWithPrice], collections: [CardBinderCollection])? {
+        guard let saved = await store.read(account: account) else { return nil }
+
+        var rows: [CardWithPrice] = []
+        var positions: [UUID: Int] = [:]
+        for page in saved.pages {
+            for row in page.cards {
+                if let index = positions[row.card.id] {
+                    if row.card.updatedAt > rows[index].card.updatedAt { rows[index] = row }
+                } else {
+                    positions[row.card.id] = rows.count
+                    rows.append(row)
+                }
+            }
+        }
+        guard !rows.isEmpty else { return nil }
+
+        return (rows, saved.selected.map { [$0] } ?? [])
     }
 
     func save(_ cards: [CardWithPrice], for scope: Scope) {

@@ -59,6 +59,32 @@ public struct TCGClient: Sendable {
             && !credentials.authTokenWillExpireSoon()
     }
 
+    /// Identifies the cache eligible for device-unlocked browsing during session restore.
+    public var startupCacheAccount: String? {
+        guard let credentials = try? credentialsStore.credentials(forKey: credentialsKeychainKey),
+            !credentials.sessionHasExpired
+        else { return nil }
+
+        // These claims select a local cache. Live access still requires server authentication.
+        let segments = credentials.authToken.split(separator: ".", omittingEmptySubsequences: false)
+        guard segments.count == 3, segments.allSatisfy({ !$0.isEmpty }) else { return nil }
+
+        let base64 = segments[1].replacingOccurrences(of: "-", with: "+").replacingOccurrences(of: "_", with: "/")
+        let padding = String(repeating: "=", count: (4 - base64.count % 4) % 4)
+        guard let data = Data(base64Encoded: base64 + padding),
+            let claims = try? JSONDecoder().decode(StartupCacheClaims.self, from: data),
+            !claims.email.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+            Date(timeIntervalSince1970: claims.sessionExpiresAt) > .now
+        else { return nil }
+
+        return claims.email
+    }
+
+    private struct StartupCacheClaims: Decodable {
+        let email: String
+        let sessionExpiresAt: TimeInterval
+    }
+
     public static func `default`() -> TCGClient {
         `default`(transport: URLSessionTransport())
     }

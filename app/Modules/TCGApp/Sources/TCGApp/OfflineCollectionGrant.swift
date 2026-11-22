@@ -8,7 +8,7 @@ protocol OfflineCollectionAccess {
 
     func create(owner: String) throws
 
-    func unlock(reason: String) async throws -> String
+    func unlock(using context: LAContext, reason: String?) async throws -> String
 
     func remove() throws
 }
@@ -48,9 +48,8 @@ struct OfflineCollectionGrant: OfflineCollectionAccess {
         guard result == errSecSuccess || result == errSecDuplicateItem else { throw Failure.keychain(result) }
     }
 
-    func unlock(reason: String) async throws -> String {
-        let context = LAContext()
-        guard try await context.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: reason) else {
+    func unlock(using context: LAContext, reason: String?) async throws -> String {
+        if let reason, try await context.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: reason) == false {
             throw Failure.unavailable
         }
         var request = query

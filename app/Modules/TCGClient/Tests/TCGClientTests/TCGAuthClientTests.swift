@@ -971,6 +971,45 @@ struct TCGAuthClientTests {
         #expect(credentials.authToken == "refreshed-auth-token")
     }
 
+    @Test(arguments: [(4_102_444_800, "owner@example.test" as String?), (0, nil)])
+    func `Stored session claims select a cache only while the session is unexpired`(
+        scenario: (expiry: Int, expectedAccount: String?)
+    ) async throws {
+        let claims =
+            [
+                "email": "owner@example.test",
+                "sessionExpiresAt": scenario.expiry,
+            ] as [String: any Sendable]
+        let payload = try JSONSerialization.data(withJSONObject: claims)
+            .base64EncodedString()
+            .replacingOccurrences(of: "=", with: "")
+            .replacingOccurrences(of: "+", with: "-")
+            .replacingOccurrences(of: "/", with: "_")
+        let credential = Credentials(
+            authToken: "header.\(payload).signature",
+            authTokenExpiryDate: .distantPast,
+            sessionToken: "session-token",
+            sessionUpdateAge: 1800,
+            lastSessionUpdate: .distantPast,
+            sessionExpiryDate: nil
+        )
+        let store = try CredentialsStoreSpy(
+            initialData: JSONEncoder().encode(credential),
+            throwsOnDelete: false,
+            throwsOnGet: false,
+            throwsOnSet: false
+        )
+        let transport = RequestTransport.unauthorized()
+        let client = TCGClient.default(
+            transport: transport,
+            credentialsKeychainKey: "credentials-key",
+            credentialsStore: store
+        )
+
+        #expect(client.startupCacheAccount == scenario.expectedAccount)
+        #expect(await transport.requests.isEmpty)
+    }
+
     private func makeCredentials(
         expiryDate: Date,
         sessionUpdateAge: TimeInterval,

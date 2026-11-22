@@ -7,7 +7,13 @@
     "Automatic sync" : {
 
     },
+    "Card search" : {
+
+    },
     "Cards without a downloaded image" : {
+
+    },
+    "Checking your session…" : {
 
     },
     "Collections" : {
@@ -49,6 +55,9 @@
     "Search" : {
 
     },
+    "Search will be available after sign-in." : {
+
+    },
     "Set up a device passcode or password to download your collection." : {
 
     },
@@ -62,7 +71,28 @@
     "Sync now" : {
 
     },
+    "Unlock cached cards" : {
+
+    },
     "Unlock your downloaded collection" : {
+
+    },
+    "Unlock your saved cards" : {
+
+    },
+    "Use Face ID or your device passcode to browse saved cards, or wait for sign-in." : {
+
+    },
+    "Use Touch ID or your Mac password to browse saved cards, or wait for sign-in." : {
+
+    },
+    "Use Touch ID or your device passcode to browse saved cards, or wait for sign-in." : {
+
+    },
+    "Use your Mac password to browse saved cards, or wait for sign-in." : {
+
+    },
+    "Use your device passcode to browse saved cards, or wait for sign-in." : {
 
     },
     "When you’re back online, use Download now in Settings to save your collections." : {

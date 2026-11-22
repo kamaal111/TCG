@@ -1,7 +1,9 @@
 import Combine
 import KamaalAuth
+import LocalAuthentication
 import Network
 import SwiftUI
+import TCGCards
 import TCGClient
 
 enum OfflineCollectionRoute: Equatable {
@@ -23,14 +25,23 @@ enum OfflineCollectionRoute: Equatable {
 struct OfflineCollectionHost<Content: View>: View {
     private let auth: KamaalAuth
     private let offline: OfflineCollection
-    private let content: Content
+    private let content: (StartupCollection, @escaping () -> Void) -> Content
+    private let client = TCGClient.default()
+    @State private var startup = StartupCollection()
+    @Binding private var didPromptForStartupUnlock: Bool
     @Environment(\.scenePhase) private var scenePhase
     @State private var connection: OfflineConnection?
 
-    init(auth: KamaalAuth, offline: OfflineCollection, @ViewBuilder content: () -> Content) {
+    init(
+        auth: KamaalAuth,
+        offline: OfflineCollection,
+        didPromptForStartupUnlock: Binding<Bool>,
+        @ViewBuilder content: @escaping (StartupCollection, @escaping () -> Void) -> Content
+    ) {
         self.auth = auth
         self.offline = offline
-        self.content = content()
+        _didPromptForStartupUnlock = didPromptForStartupUnlock
+        self.content = content
     }
 
     var body: some View {
@@ -43,13 +54,7 @@ struct OfflineCollectionHost<Content: View>: View {
             case .checkingConnection:
                 ProgressView()
             case .live:
-                content
-                    .safeAreaInset(edge: .bottom) {
-                        if offline.hasDownload, !auth.isLoggedIn {
-                            OfflineCollectionOpenButton(download: offline)
-                                .padding()
-                        }
-                    }
+                content(startup, { Task { await unlockStartupCollection() } })
             case .unlock:
                 VStack(spacing: 12) {
                     Text("Offline collection", bundle: .module).font(.headline)
@@ -80,11 +85,31 @@ struct OfflineCollectionHost<Content: View>: View {
             }
         }
         .task { await trackOfflineNetwork() }
+        .task { await trackStartupSession() }
+        .task(id: canScheduleStartupUnlock) {
+            guard canScheduleStartupUnlock else { return }
+            guard (try? await Task.sleep(for: .seconds(1))) != nil, !Task.isCancelled else { return }
+            guard canScheduleStartupUnlock, let account = client.startupCacheAccount else { return }
+            guard
+                TCGCards.hasStartupCache(for: account)
+                    || offline.hasStartupDownload(for: account)
+            else { return }
+            guard startup.offer(for: account), !didPromptForStartupUnlock else { return }
+
+            didPromptForStartupUnlock = true
+            Task { await unlockStartupCollection() }
+        }
+        .onDisappear { startup.dismiss() }
+        .onChange(of: auth.initiallyValidatingToken) { _, validating in
+            if !validating { startup.cancelUnlock() }
+        }
         .onReceive(NotificationCenter.default.publisher(for: TCGClient.sessionRejected).receive(on: RunLoop.main)) {
             _ in
+            startup.dismiss()
             offline.remove()
         }
         .onChange(of: auth.session?.email, initial: true) { _, account in
+            if let account, account != startup.account { startup.dismiss() }
             offline.setAccount(account)
             if connection?.isConnected == false { offline.openWithFreshToken() }
             refreshOfflineDownload()
@@ -94,8 +119,52 @@ struct OfflineCollectionHost<Content: View>: View {
                 if connection?.isConnected == false { offline.openWithFreshToken() }
                 refreshOfflineDownload()
             }
-            if phase == .background { offline.close() }
+            if phase == .background {
+                startup.dismiss()
+                offline.close()
+            }
         }
+    }
+
+    private var canScheduleStartupUnlock: Bool {
+        canOfferStartupUnlock && scenePhase == .active && !startup.didOffer
+    }
+
+    private var canOfferStartupUnlock: Bool {
+        connection?.isConnected == true && scenePhase != .background && auth.initiallyValidatingToken
+            && startup.isCollectionsTabSelected
+    }
+
+    private func trackStartupSession() async {
+        for await state in auth.sessionStates() {
+            if case .unauthenticated = state { startup.dismiss() }
+        }
+    }
+
+    private func unlockStartupCollection() async {
+        await startup.unlock(load: loadStartupCollection) { account in
+            canOfferStartupUnlock && client.startupCacheAccount == account
+        }
+    }
+
+    private func loadStartupCollection(using context: LAContext, account: String) async throws
+        -> StartupCollection.Preview?
+    {
+        let reason = String(localized: "Unlock your saved cards", bundle: .module)
+        guard try await context.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: reason) else {
+            return nil
+        }
+        guard !Task.isCancelled, canOfferStartupUnlock, client.startupCacheAccount == account else { return nil }
+
+        if let cached = await TCGCards.startupCache(for: account) {
+            return .init(account: account, cards: cached.cards, collections: cached.collections)
+        }
+        guard !Task.isCancelled, canOfferStartupUnlock, client.startupCacheAccount == account else { return nil }
+
+        context.interactionNotAllowed = true
+        guard let download = try await offline.startupDownload(for: account, using: context) else { return nil }
+
+        return .init(account: account, cards: download.cards, collections: download.collections)
     }
 
     private func refreshOfflineDownload() {
@@ -107,7 +176,10 @@ struct OfflineCollectionHost<Content: View>: View {
         for await update in OfflineConnection.updates() {
             if connection?.isConnected == false, update.isConnected { offline.close() }
             connection = update
-            if !update.isConnected, scenePhase == .active { offline.openWithFreshToken() }
+            if !update.isConnected {
+                startup.dismiss()
+                if scenePhase == .active { offline.openWithFreshToken() }
+            }
             refreshOfflineDownload()
         }
     }

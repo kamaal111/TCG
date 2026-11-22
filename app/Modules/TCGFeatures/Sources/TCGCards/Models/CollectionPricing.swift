@@ -3,7 +3,7 @@ import TCGClient
 
 @MainActor
 final class CollectionPricing {
-    struct Key: Codable, Hashable {
+    struct Key: Codable, Hashable, Sendable {
         let cardID: UUID
         let revision: Date
         let currency: Currency?
