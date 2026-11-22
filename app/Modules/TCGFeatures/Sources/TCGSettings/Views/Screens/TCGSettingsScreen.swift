@@ -23,12 +23,9 @@ public struct TCGSettingsScreen: View {
     @Environment(\.cardArtworkCacheSettings) private var artworkCacheSettings
     @Environment(\.offlineCollectionSettings) private var offlineSettings
 
-    @State private var isConfirmingSignOut = false
     @State private var isSigningOut = false
 
     @State private var isWorking = false
-    @State private var isShowingImport = false
-    @State private var isShowingAppLogs = false
     @State private var isChoosingFile = false
     @State private var isExportingFile = false
     @State private var document: CSVFileDocument?
@@ -68,140 +65,18 @@ public struct TCGSettingsScreen: View {
     }
 
     public var body: some View {
-        Form {
-            if let pricePrivacy {
-                Section {
-                    Toggle(isOn: Binding(get: { pricePrivacy.hidePrices }, set: { pricePrivacy.hidePrices = $0 })) {
-                        Text("Hide prices", bundle: .module)
-                    }
-                } header: {
-                    Text("Privacy", bundle: .module)
-                } footer: {
-                    Text(
-                        "Hide prices and financial changes while browsing. Card quantities stay visible. Prices remain visible when adding or editing cards.",
-                        bundle: .module
-                    )
-                }
-            }
-            if let artworkCacheSettings {
-                Section { artworkCacheSettings }
-            }
-            offlineSettings?.content
-            if let currencyState {
-                Section {
-                    Picker(
-                        selection: Binding(
-                            get: { currencyState.preferredCurrency },
-                            set: { selected in
-                                Task { await currencyState.save(selected) }
-                            }
-                        )
-                    ) {
-                        ForEach(Currency.allCases, id: \.self) { currency in
-                            Text(verbatim: currency.rawValue).tag(currency)
-                        }
-                    } label: {
-                        Text("Preferred currency", bundle: .module)
-                    }
-                    .disabled(currencyState.isSaving || !currencyState.preferenceLoaded)
-                    if currencyState.isSaving { ProgressView() }
-                    if currencyState.saveFailed {
-                        Text("Couldn’t save your currency. Please try again.", bundle: .module).foregroundStyle(.red)
-                    }
-                } footer: {
-                    Text(
-                        "Used throughout the app. You can choose a different currency for each purchase.",
-                        bundle: .module
-                    )
-                }
-            }
-            if collections != nil {
-                Section {
-                    CollectionTransferControls()
-                } header: {
-                    Text("Collections and layouts", bundle: .module)
-                }
-            }
-            if exportAction != nil && templateAction != nil && importAction != nil {
-                Section {
-                    Button {
-                        exportCards()
-                    } label: {
-                        Text("Export Cards", bundle: .module)
-                    }
-                    Button {
-                        isShowingImport = true
-                    } label: {
-                        Text("Import Cards", bundle: .module)
-                    }
-                    if isWorking { ProgressView() }
-                } header: {
-                    Text("Data", bundle: .module)
-                } footer: {
-                    Text(
-                        "Export your entire collection to CSV, or review and import cards from a CSV file.",
-                        bundle: .module
-                    )
-                }
-                .disabled(isWorking)
-            }
-            if showsSignOut {
-                Section {
-                    Button(role: .destructive, action: { isConfirmingSignOut = true }) {
-                        Text("Sign Out", bundle: .module)
-                            .fontWeight(.bold)
-                            .foregroundStyle(.red)
-                            .frame(maxWidth: .infinity)
-                    }
-                    #if os(macOS)
-                        .buttonStyle(.borderless)
-                    #endif
-                    .disabled(isSigningOut || isWorking)
-                    .confirmationDialog(
-                        Text("Sign out of Mintomo?", bundle: .module),
-                        isPresented: $isConfirmingSignOut,
-                        titleVisibility: .visible
-                    ) {
-                        Button(role: .destructive) {
-                            signOut()
-                        } label: {
-                            Text("Sign Out", bundle: .module)
-                        }
-                    }
-                }
-            }
-
-            if auth.isLoggedIn || version.displayText != nil {
-                Section {
-                    if let versionText = version.displayText {
-                        LabeledContent {
-                            Text(versionText)
-                                .textSelection(.enabled)
-                        } label: {
-                            Text("Version", bundle: .module)
-                        }
-                    }
-                    if auth.isLoggedIn {
-                        Button {
-                            isShowingAppLogs = true
-                        } label: {
-                            Text("App Logs", bundle: .module)
-                        }
-                    }
-                } header: {
-                    Text("About", bundle: .module)
-                }
-            }
-        }
-        .formStyle(.grouped)
+        SettingsLayout.form(
+            auth: auth,
+            pricePrivacy: pricePrivacy,
+            artworkCache: artworkCacheSettings,
+            offlineCollection: offlineSettings?.content,
+            currency: currencyState,
+            showsCollectionTransfer: collections != nil,
+            cardTransfer: cardTransfer,
+            versionText: version.displayText,
+            sessionEnd: showsSignOut ? .init(isDisabled: isSigningOut || isWorking, action: signOut) : nil
+        )
         .navigationTitle(Text("Settings", bundle: .module))
-        .onChange(of: auth.isLoggedIn) { _, isLoggedIn in
-            if !isLoggedIn { isShowingAppLogs = false }
-        }
-        .sheet(isPresented: $isShowingAppLogs) {
-            if auth.isLoggedIn { TCGAppLogsScreen() }
-        }
-        .sheet(isPresented: $isShowingImport) { importIntroduction }
         .fileImporter(isPresented: $isChoosingFile, allowedContentTypes: [.commaSeparatedText, .plainText]) { result in
             switch result {
             case .success(let url):
@@ -249,14 +124,15 @@ public struct TCGSettingsScreen: View {
         }
     }
 
-    private var importIntroduction: some View {
-        TCGCSVImportIntroduction(
-            onDownloadTemplate: {
-                isShowingImport = false
+    private var cardTransfer: SettingsLayout.CardTransfer? {
+        guard exportAction != nil, let templateAction, importAction != nil else { return nil }
+        return SettingsLayout.CardTransfer(
+            isWorking: isWorking,
+            export: exportCards,
+            downloadTemplate: {
                 Task { @MainActor in
                     await Task.yield()
                     do {
-                        guard let templateAction else { return }
                         switch templateAction() {
                         case .success(let url): try prepareExport(url, filename: "mintomo-cards-template")
                         case .failure(let error): showFeedback(error.localizedDescription)
@@ -268,14 +144,12 @@ public struct TCGSettingsScreen: View {
                     }
                 }
             },
-            onChooseFile: {
-                isShowingImport = false
+            chooseFile: {
                 Task { @MainActor in
                     await Task.yield()
                     isChoosingFile = true
                 }
-            },
-            onClose: { isShowingImport = false }
+            }
         )
     }
 
