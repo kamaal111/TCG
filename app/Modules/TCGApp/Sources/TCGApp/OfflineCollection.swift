@@ -1,4 +1,5 @@
 import Foundation
+import LocalAuthentication
 import Observation
 import TCGClient
 
@@ -151,12 +152,30 @@ final class OfflineCollection {
     }
 
     private func unlockDownload(reason: String, attempt: UUID) async throws -> OfflineCollectionSnapshot {
-        let verifiedOwner = try await grant.unlock(reason: reason)
+        let verifiedOwner = try await grant.unlock(using: LAContext(), reason: reason)
         guard unlockAttempt == attempt, !Task.isCancelled else { throw CancellationError() }
+        return try unlockedDownload(for: verifiedOwner)
+    }
+
+    func hasStartupDownload(for account: String) -> Bool {
+        hasDownload && owner == "\(namespace)|\(account)"
+    }
+
+    func startupDownload(for account: String, using context: LAContext) async throws -> OfflineCollectionSnapshot? {
+        guard hasStartupDownload(for: account) else { return nil }
+
+        let verifiedOwner = try await grant.unlock(using: context, reason: nil)
+        guard !Task.isCancelled, hasStartupDownload(for: account) else { return nil }
+
+        return try unlockedDownload(for: verifiedOwner)
+    }
+
+    private func unlockedDownload(for verifiedOwner: String) throws -> OfflineCollectionSnapshot {
         guard let download = try store.read(.downloaded),
             download.grantIdentity == verifiedOwner,
             download.owner == owner
         else { throw Failure.incomplete }
+
         return download
     }
 

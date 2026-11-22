@@ -15,6 +15,7 @@ import TCGSearch
 
 public struct TCGScene: Scene {
     @State private var auth: KamaalAuth
+    @State private var didPromptForStartupUnlock = false
     @State private var currencyState = TCGCurrency(client: .default(), defaults: .standard)
     @State private var pricePrivacy = TCGPricePrivacy(defaults: .standard)
     @State private var cards = TCGCards.default()
@@ -50,7 +51,11 @@ public struct TCGScene: Scene {
 
     public var body: some Scene {
         WindowGroup {
-            OfflineCollectionHost(auth: auth, offline: offline) {
+            OfflineCollectionHost(
+                auth: auth,
+                offline: offline,
+                didPromptForStartupUnlock: $didPromptForStartupUnlock
+            ) { startup, unlock in
                 TCGAppTabs(
                     auth: auth,
                     cards: cards,
@@ -58,7 +63,9 @@ public struct TCGScene: Scene {
                     currencyState: currencyState,
                     search: search,
                     wishlist: wishlist,
-                    offline: offline
+                    offline: offline,
+                    startup: startup,
+                    unlockCachedCards: unlock
                 )
             }
             .maintainCardArtworkCache()
@@ -76,10 +83,8 @@ public struct TCGScene: Scene {
             }
             .commands {
                 CommandGroup(replacing: .appSettings) {
-                    if auth.isLoggedIn {
-                        SettingsLink { Text("Settings…") }
-                            .keyboardShortcut(",", modifiers: .command)
-                    }
+                    SettingsLink { Text("Settings…") }
+                        .keyboardShortcut(",", modifiers: .command)
                 }
             }
         #endif

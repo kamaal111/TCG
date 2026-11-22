@@ -71,6 +71,16 @@ public final class TCGCards {
 
     public static func `default`() -> TCGCards { TCGCards(client: .default()) }
 
+    public static func hasStartupCache(for account: String) -> Bool {
+        CollectionSnapshotCache(root: CollectionSnapshotCache.defaultRoot).containsSnapshot(for: account)
+    }
+
+    public static func startupCache(for account: String) async
+        -> (cards: [CardWithPrice], collections: [CardBinderCollection])?
+    {
+        await CollectionSnapshotCache(root: CollectionSnapshotCache.defaultRoot).startupRows(for: account)
+    }
+
     func useAccount(_ account: String?) {
         guard self.account != account else { return }
 
@@ -226,6 +236,7 @@ public final class TCGCards {
     func useDownloadedCards(_ cards: [CardWithPrice]) {
         downloadedCards = cards
         invalidateDisplayPrices()
+        setCards(cards)
     }
 
     func restoreCollection(_ collection: CardBinderCollection?) {

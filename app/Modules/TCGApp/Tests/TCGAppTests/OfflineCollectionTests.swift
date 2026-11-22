@@ -1,4 +1,5 @@
 import Foundation
+import LocalAuthentication
 import TCGClient
 import Testing
 
@@ -47,6 +48,22 @@ struct OfflineCollectionTests {
 
         #expect(fixture.download.opened?.accountID == "owner-id")
         #expect(!fixture.download.isUnlocking)
+    }
+
+    @Test func `Startup fallback requires the matching download and its device grant`() async throws {
+        let fixture = try makeFixture(hasFreshAuthToken: true)
+        defer { try? fixture.store.remove() }
+        #expect(!fixture.download.hasStartupDownload(for: "other@example.com"))
+        #expect(try await fixture.download.startupDownload(for: "other@example.com", using: LAContext()) == nil)
+
+        let attempt = Task {
+            try await fixture.download.startupDownload(for: "owner@example.com", using: LAContext())
+        }
+        let unlock = try #require(await fixture.grant.nextUnlock())
+        unlock.resume(returning: fixture.identity)
+
+        #expect(try await attempt.value?.accountID == "owner-id")
+        #expect(fixture.download.opened == nil)
     }
 
     @Test func `Closing during authentication discards a late unlock`() async throws {
@@ -131,7 +148,7 @@ private final class ControlledOfflineAccess: OfflineCollectionAccess {
 
     func create(owner: String) throws {}
 
-    func unlock(reason: String) async throws -> String {
+    func unlock(using context: LAContext, reason: String?) async throws -> String {
         try await withCheckedThrowingContinuation { continuation in
             stream.continuation.yield(continuation)
         }

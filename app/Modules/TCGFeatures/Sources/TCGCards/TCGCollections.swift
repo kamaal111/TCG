@@ -120,6 +120,10 @@ public final class TCGCollections {
         self.account == account
     }
 
+    public func hasDisplayableDestination(for account: String) -> Bool {
+        hasRestoredDestination(for: account) && (selectedID == nil || selected != nil)
+    }
+
     public func stopLiveLoading(using cards: TCGCards) {
         clearSession()
         cards.onCollectionNotFound = nil

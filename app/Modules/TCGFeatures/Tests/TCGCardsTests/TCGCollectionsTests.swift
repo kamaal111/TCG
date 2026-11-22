@@ -7,6 +7,33 @@ import Testing
 
 @MainActor
 struct TCGCollectionsTests {
+    @Test func `Startup cache restores rows across stored scopes for one account`() async throws {
+        let directory = URL.temporaryDirectory.appending(path: UUID().uuidString, directoryHint: .isDirectory)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let cache = CollectionSnapshotCache(root: directory)
+        let account = "owner@example.test"
+        let first = try #require(PreviewTCGCardsClient.sampleCards.first)
+        let second = try #require(PreviewTCGCardsClient.sampleCards.last)
+        let firstRow = CardWithPrice(card: first, price: nil, imageURL: nil)
+        let pricedFirst = CardWithPrice(card: first, price: PreviewTCGCardsClient.price(for: first), imageURL: nil)
+        let secondRow = CardWithPrice(card: second, price: nil, imageURL: nil)
+
+        cache.useAccount(account)
+        cache.save([firstRow], for: .allCards)
+        cache.save([secondRow], for: .init(query: second.name))
+        cache.save(
+            [pricedFirst, secondRow],
+            for: .init(collectionID: CardsTestIDs.primary, pageID: CardsTestIDs.secondary, revision: 1)
+        )
+        cache.invalidateReads()
+
+        #expect(cache.containsSnapshot(for: account))
+        #expect(!cache.containsSnapshot(for: "other@example.test"))
+        let preview = try #require(await cache.startupRows(for: account))
+        #expect(preview.cards == [pricedFirst, secondRow])
+        #expect(await cache.startupRows(for: "other@example.test") == nil)
+    }
+
     @Test func `Wishlist reopens by account and keeps card form context only within a session`() async throws {
         let suite = "TCG.collections.tests.\(UUID().uuidString)"
         let defaults = try #require(UserDefaults(suiteName: suite))

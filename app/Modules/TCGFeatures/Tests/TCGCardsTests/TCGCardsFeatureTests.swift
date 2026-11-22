@@ -148,12 +148,16 @@ struct TCGCardsFeatureTests {
             for: .allCards
         )
 
+        store.invalidateReads()
+
         let transport = PendingCollectionTransport(holdPrices: true)
         let feature = makePendingFeature(transport, snapshot: CollectionSnapshotCache(root: directory), now: { .now })
         feature.useAccount(account)
         let load = Task { await feature.load(game: nil, setNames: [], query: nil, illustrators: []) }
         await transport.waitForRequest("/app-api/cards")
         #expect(feature.cards.map(\.card.id) == [cached.id])
+        #expect(feature.cards.first?.price?.status == .noPrice)
+        #expect(!feature.isLoadingPrices)
 
         await transport.completePage("/app-api/cards", id: CardsTestIDs.cachedPokemon, cursor: nil)
         try await load.value.get()
@@ -231,6 +235,67 @@ struct TCGCardsFeatureTests {
         try await original.value.get()
         #expect(feature.cards.map(\.card.id) == [CardsTestIDs.oldCurrencyCard])
         #expect(feature.displayRefreshError == nil)
+    }
+
+    @Test
+    func `Cached prices stay visible until a revalidation price request finishes`() async throws {
+        let directory = URL.temporaryDirectory.appending(path: UUID().uuidString, directoryHint: .isDirectory)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let start = Date(timeIntervalSince1970: 1_784_548_800)
+        let revision = Date(timeIntervalSince1970: 1_784_543_400)
+        let clock = CollectionTestClock(now: start)
+        let transport = PendingCollectionTransport(holdPrices: true)
+        let feature = makePendingFeature(
+            transport,
+            snapshot: CollectionSnapshotCache(root: directory),
+            now: { clock.now }
+        )
+        feature.useAccount("cache@example.test")
+        let list = "/app-api/cards"
+        let prices = "/app-api/cards/prices"
+        let id = CardsTestIDs.cachedPokemon
+
+        let initial = Task { await feature.load(game: nil, setNames: [], query: nil, illustrators: []) }
+        await transport.waitForRequest(list)
+        await transport.completePage(list, id: id, cursor: nil)
+        try await initial.value.get()
+        await transport.waitForRequest(prices)
+        await transport.completePrice(id: id, updatedAt: revision, status: .noPrice)
+        await waitForPrices(in: feature)
+        #expect(feature.cards.first?.price?.status == .noPrice)
+
+        clock.now = start.addingTimeInterval(86_400)
+        let refresh = Task { await feature.refresh(force: false) }
+        await transport.waitForRequest(list)
+        #expect(feature.cards.map(\.card.id) == [id])
+        #expect(feature.cards.first?.price?.status == .noPrice)
+        await transport.completePage(list, id: id, cursor: nil)
+        await refresh.value
+        await transport.waitForRequest(prices)
+        #expect(feature.isLoadingPrices)
+        #expect(feature.cards.first?.price?.status == .noPrice)
+
+        await transport.completePrice(id: id, updatedAt: revision, status: .noMatch)
+        await waitForPrices(in: feature)
+        #expect(!feature.isLoadingPrices)
+        #expect(feature.cards.first?.price?.status == .noMatch)
+
+        clock.now = start.addingTimeInterval(2 * 86_400)
+        let retry = Task { await feature.refresh(force: false) }
+        await transport.waitForRequest(list)
+        await transport.completePage(list, id: id, cursor: nil)
+        await retry.value
+        await transport.waitForRequest(prices)
+        #expect(feature.isLoadingPrices)
+        await transport.complete(prices, status: .serviceUnavailable)
+        await waitForPrices(in: feature)
+        #expect(!feature.isLoadingPrices)
+        #expect(feature.cards.first?.price?.status == .noMatch)
+    }
+
+    private func waitForPrices(in feature: TCGCards) async {
+        let deadline = ContinuousClock.now.advanced(by: .seconds(5))
+        while feature.isLoadingPrices, ContinuousClock.now < deadline { await Task.yield() }
     }
 
     @Test
