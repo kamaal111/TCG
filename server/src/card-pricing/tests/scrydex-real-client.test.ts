@@ -176,7 +176,7 @@ describe('RealScrydexClient', () => {
 
     const requestURL = new URL(requestedURLs[0] ?? 'invalid:');
     expect(requestURL.pathname).toBe('/pokemon/v1/cards');
-    expect(requestURL.searchParams.get('q')).toBe('name:"Charizard ex" AND !number:199');
+    expect(requestURL.searchParams.get('q')).toBe('(name:"Charizard ex" OR name:"Charizard-ex") AND !number:199');
   });
 
   it('looks up Japanese provider identities through the multilingual endpoint', async () => {

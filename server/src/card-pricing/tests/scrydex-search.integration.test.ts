@@ -103,6 +103,7 @@ const CHI_YU_PAYLOAD = {
 
 const PRINTED_NUMBER_CASES = [
   {
+    nameQuery: '(name:"Giratina VSTAR" OR name:"Giratina-VSTAR")',
     providerCard: {
       id: 'swsh12pt5gg-GG69',
       name: 'Giratina VSTAR',
@@ -115,6 +116,7 @@ const PRINTED_NUMBER_CASES = [
     status: 'priced',
   },
   {
+    nameQuery: 'name:"Pikachu"',
     providerCard: {
       id: 'swsh11tg-TG05',
       name: 'Pikachu',
@@ -127,6 +129,7 @@ const PRINTED_NUMBER_CASES = [
     status: 'no_price',
   },
   {
+    nameQuery: 'name:"ダーテング"',
     providerCard: {
       ...SHIFTRY,
       expansion: { name: 'Wild Force' },
@@ -134,9 +137,57 @@ const PRINTED_NUMBER_CASES = [
     },
     status: 'priced',
   },
-] as const satisfies { providerCard: ScrydexRawCard; status: string }[];
+] as const satisfies { nameQuery: string; providerCard: ScrydexRawCard; status: string }[];
 
 describe('Scrydex search through the authenticated pricing API', () => {
+  integrationTest(
+    'finds the same printing through spaced and hyphenated names despite a cached miss',
+    async ({ createApp, user, db }) => {
+      const matchingCard = {
+        id: 'sm35-72',
+        name: 'Mewtwo-GX',
+        number: '72',
+        printed_number: '72/73',
+        language_code: 'EN',
+        expansion: { name: 'Shining Legends' },
+      } satisfies ScrydexRawCard;
+
+      const spaced = '((name:"Mewtwo GX" OR name:"Mewtwo-GX") AND !printed_number:"72/73") AND (!language_code:EN)';
+      const hyphenated = '((name:"Mewtwo-GX" OR name:"Mewtwo GX") AND !printed_number:"72/73") AND (!language_code:EN)';
+
+      const search = createSearchApp({
+        createApp,
+        user,
+        game: 'pokemon',
+        expectedQuery: [spaced, hyphenated],
+        cards: [matchingCard],
+      });
+
+      await db.insert(cardPriceSearch).values({
+        game: 'pokemon',
+        pricingSource: 'scrydex_real',
+        queryKey: searchPageKey('pokemon|v5|languages-v1|en|mewtwo gx 72/73', 0),
+        pricedOn: todayUTC(),
+        pricingCardIds: [],
+      });
+
+      const first = await search.request('Mewtwo GX 72/73', 'en');
+      const second = await search.request('Mewtwo-GX 72/73', 'en');
+      expect(first.status).toBe(200);
+      expect(second.status).toBe(200);
+
+      const results = PricingSearchResponseSchema.parse(await first.json());
+      const printing = PricedCardSchema.parse(results.entries[0]);
+      const alternateResults = PricingSearchResponseSchema.parse(await second.json());
+
+      expect(results.entries).toMatchObject([{ name: matchingCard.name, card_number: matchingCard.printed_number }]);
+      expect(alternateResults.entries).toMatchObject([
+        { id: printing.id, name: matchingCard.name, card_number: matchingCard.printed_number },
+      ]);
+      expect(search.transport.queries).toEqual([spaced, hyphenated]);
+    },
+  );
+
   integrationTest(
     'caches Zoro variants and refreshes the exact version saved to the collection',
     async ({ createApp, user, db, authenticatedHeaders }) => {
@@ -295,7 +346,7 @@ describe('Scrydex search through the authenticated pricing API', () => {
         })),
       );
       expect(
-        await db.query.cardPriceSearch.findFirst({ where: { queryKey: searchPageKey('one_piece|v4|op18-093', 0) } }),
+        await db.query.cardPriceSearch.findFirst({ where: { queryKey: searchPageKey('one_piece|v5|op18-093', 0) } }),
       ).toMatchObject({ pricingCardIds: variantIDs });
 
       const cached = await app.request(path, { headers: authenticatedHeaders });
@@ -374,14 +425,14 @@ describe('Scrydex search through the authenticated pricing API', () => {
     async ({ createApp, user, db }) => {
       const cards = Array.from({ length: 135 }, (_, index) => ({
         id: `pikachu-${index + 1}`,
-        name: 'Pikachu',
+        name: 'Pikachu VMAX',
         number: String(index + 1),
       }));
 
       await db.insert(cardPriceSearch).values({
         game: 'pokemon',
         pricingSource: 'scrydex_real',
-        queryKey: queryKey('pokemon', 'Pikachu', { languages: [], searchBy: 'card' }),
+        queryKey: queryKey('pokemon', 'Pikachu VMAX', { languages: [], searchBy: 'card' }),
         pricedOn: todayUTC(),
         pricingCardIds: cards.slice(0, 20).map(card => card.id),
       });
@@ -396,7 +447,7 @@ describe('Scrydex search through the authenticated pricing API', () => {
 
       const app = createApp({ pricingClient: createTestScrydexClient(transport, {}) });
       const headers = sessionHeaders(user.sessionToken);
-      const url = `${SEARCH_PRICING_ROUTE_PATH}?game=pokemon&query=Pikachu&search_by=card`;
+      const url = `${SEARCH_PRICING_ROUTE_PATH}?game=pokemon&query=Pikachu%20VMAX&search_by=card`;
 
       const first = await app.request(url, { headers });
       expect(first.status).toBe(200);
@@ -421,6 +472,10 @@ describe('Scrydex search through the authenticated pricing API', () => {
       );
 
       expect(requestedURLs.map(url => url.searchParams.get('page'))).toEqual(['1', '2']);
+      expect(requestedURLs.map(url => url.searchParams.get('q'))).toEqual([
+        '(name:"Pikachu VMAX" OR name:"Pikachu-VMAX")',
+        '(name:"Pikachu VMAX" OR name:"Pikachu-VMAX")',
+      ]);
 
       await expectValidationIssueForField(await app.request(`${url}&cursor=invalid!`, { headers }), 'cursor');
       await expectValidationIssueForField(await app.request(`${nextURL}&languages=ja`, { headers }), 'cursor');
@@ -541,17 +596,16 @@ describe('Scrydex search through the authenticated pricing API', () => {
     ]);
     expect(await db.query.card.findFirst({ where: { id: saved.id } })).toMatchObject({ pricingCardId: CHI_YU.id });
     expect(search.transport.queries).toEqual([
-      'name:"Chi\\-Yu ex" AND !printed_number:"259/193"',
+      '(name:"Chi-Yu ex" OR name:"Chi Yu ex" OR name:"Chi-Yu-ex" OR name:"Chi Yu-ex") AND !printed_number:"259/193"',
       '!printed_number:"259/193"',
     ]);
   });
 
-  for (const { providerCard, status } of PRINTED_NUMBER_CASES) {
+  for (const { nameQuery, providerCard, status } of PRINTED_NUMBER_CASES) {
     integrationTest(
       `preserves artwork when saving and listing ${providerCard.printed_number} with ${status} pricing`,
       async ({ createApp, user, db }) => {
-        const expectedQuery = `name:"${providerCard.name}" AND !printed_number:"${providerCard.printed_number}"`;
-        const nameQuery = `name:"${providerCard.name}"`;
+        const expectedQuery = `${nameQuery} AND !printed_number:"${providerCard.printed_number}"`;
 
         const search = createSearchApp({
           game: 'pokemon',
@@ -612,7 +666,7 @@ describe('Scrydex search through the authenticated pricing API', () => {
     integrationTest(
       `recovers an unlinked ${providerCard.printed_number} collection entry despite a v3 empty cache`,
       async ({ createApp, user, db }) => {
-        const expectedQuery = `name:"${providerCard.name}" AND !printed_number:"${providerCard.printed_number}"`;
+        const expectedQuery = `${nameQuery} AND !printed_number:"${providerCard.printed_number}"`;
         const search = createSearchApp({ game: 'pokemon', createApp, user, expectedQuery, cards: [providerCard] });
 
         const [owned] = await db
@@ -771,7 +825,7 @@ describe('Scrydex search through the authenticated pricing API', () => {
       expect(body.entries).toHaveLength(2);
       expect(await db.query.cardPrice.findFirst({ where: { pricingCardId: 'P-110' } })).toBeUndefined();
       expect(
-        await db.query.cardPriceSearch.findFirst({ where: { queryKey: searchPageKey('one_piece|v4|p-110', 0) } }),
+        await db.query.cardPriceSearch.findFirst({ where: { queryKey: searchPageKey('one_piece|v5|p-110', 0) } }),
       ).toMatchObject({
         pricingCardIds: ['P-110|variant|fourthanniversarystamp', 'P-110|variant|fourthanniversarywinnerstamp'],
       });
@@ -1111,7 +1165,7 @@ describe('Scrydex search through the authenticated pricing API', () => {
       ]);
       expect(search.transport.queries).toEqual([expectedQuery]);
       expect(
-        await db.query.cardPriceSearch.findFirst({ where: { queryKey: searchPageKey('pokemon|v5|265/s-p', 0) } }),
+        await db.query.cardPriceSearch.findFirst({ where: { queryKey: searchPageKey('pokemon|v6|265/s-p', 0) } }),
       ).toMatchObject({ pricingCardIds: ['swshp_ja-265'] });
     },
   );

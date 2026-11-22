@@ -100,7 +100,7 @@ describe('Illustrator search and owned filtering', () => {
       expect(byName.status).toBe(200);
       expect(queries).toEqual([
         '(artist:"Mitsuhiro Arita") AND (!language_code:EN)',
-        '(name:"Mitsuhiro Arita") AND (!language_code:EN)',
+        '((name:"Mitsuhiro Arita" OR name:"Mitsuhiro-Arita")) AND (!language_code:EN)',
       ]);
       expect(await db.query.cardPriceSearch.findMany()).toHaveLength(2);
       expect(await db.query.cardMetadata.findMany()).toMatchObject([

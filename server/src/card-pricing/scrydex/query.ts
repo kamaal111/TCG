@@ -31,6 +31,12 @@ const PROMO_EXPANSION_IDS = new Set(PROMO_EXPANSION_BY_SUFFIX.values());
 
 const RESERVED_CHARACTERS = /([+\-!(){}[\]^"~*?:\\/]|&&|\|\|)/g;
 
+const CARD_NAME_SEPARATOR = /(?<=[\p{L}\p{N}\p{M}])([ ‐‑-])(?=[\p{L}\p{N}\p{M}])/u;
+
+const MAX_CARD_NAME_PHRASES = 8;
+
+const MAX_ENCODED_CARD_NAME_LENGTH = 3500;
+
 export function buildScrydexQuery(game: CardGame, query: string, options: PricingSearchOptions): string {
   const search =
     options.searchBy === 'illustrator'
@@ -74,7 +80,7 @@ function buildCardQuery(game: CardGame, query: string): string {
   }
 
   if (!hasCardNumber) {
-    return `name:"${escapeScrydexValue(normalized)}"`;
+    return cardNameQuery(normalized);
   }
 
   const name = terms.slice(0, -1).join(' ');
@@ -85,7 +91,68 @@ function buildCardQuery(game: CardGame, query: string): string {
     return numberQuery;
   }
 
-  return `name:"${escapeScrydexValue(name)}" AND ${numberQuery}`;
+  return `${cardNameQuery(name)} AND ${numberQuery}`;
+}
+
+function cardNameQuery(name: string): string {
+  const parts = name.split(CARD_NAME_SEPARATOR);
+  const words = parts.filter((_, index) => index % 2 === 0).map(escapeScrydexValue);
+  const separators = parts.filter((_, index) => index % 2 !== 0).map(separator => (separator === ' ' ? ' ' : '-'));
+
+  const phrase = (separators: readonly string[]) => {
+    return `name:"${words.map((word, index) => `${separators[index - 1] ?? ''}${word}`).join('')}"`;
+  };
+
+  let query = phrase(separators);
+  const phrases = new Set([query]);
+
+  for (const alternative of alternateNameSeparators(separators)) {
+    const alternatePhrase = phrase(alternative);
+
+    if (phrases.has(alternatePhrase)) {
+      continue;
+    }
+
+    const grouped = `(${[...phrases, alternatePhrase].join(' OR ')})`;
+
+    if (new URLSearchParams({ q: grouped }).toString().length > MAX_ENCODED_CARD_NAME_LENGTH) {
+      break;
+    }
+
+    query = grouped;
+    phrases.add(alternatePhrase);
+
+    if (phrases.size === MAX_CARD_NAME_PHRASES) {
+      break;
+    }
+  }
+
+  return query;
+}
+
+function* alternateNameSeparators(separators: readonly string[]): Generator<readonly string[]> {
+  if (separators.length <= 3) {
+    const combinations = [separators];
+
+    for (const index of separators.keys()) {
+      const flipped = combinations.map(combination => flipNameSeparator(combination, index));
+      combinations.push(...flipped);
+      yield* flipped;
+    }
+
+    return;
+  }
+
+  yield separators.map(() => ' ');
+  yield separators.map(() => '-');
+
+  for (const index of separators.keys()) {
+    yield flipNameSeparator(separators, index);
+  }
+}
+
+function flipNameSeparator(separators: readonly string[], index: number): readonly string[] {
+  return separators.with(index, separators[index] === ' ' ? '-' : ' ');
 }
 
 function onePieceNumberQuery(number: string): string {
