@@ -54,18 +54,6 @@ export class PostgresCardPricingRepository implements CardPricingRepository {
     return this.db.query.cardPrice.findFirst({ where: { pricingSource, game, pricingCardId, pricedOn } });
   }
 
-  /**
-   * Gets a cached price by its internal price row ID.
-   *
-   * @param pricingSource Provider and client mode that produced the row.
-   * @param game Card game the price belongs to.
-   * @param id Card price row identifier.
-   * @returns The cached price row, or undefined when absent.
-   */
-  getCachedCardPriceById(pricingSource: PricingSource, game: CardGame, id: string): Promise<CardPriceRow | undefined> {
-    return this.db.query.cardPrice.findFirst({ where: { id, pricingSource, game } });
-  }
-
   getCachedCardPricesById(pricingSource: PricingSource, ids: readonly string[]): Promise<CardPriceRow[]> {
     if (ids.length === 0) {
       return Promise.resolve([]);

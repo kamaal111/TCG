@@ -89,7 +89,9 @@ export function normalizeScrydexSearch(
       missingBaseVariantCount += 1;
     }
 
-    for (const { card } of printings) {
+    const availablePrintings = base.hasBaseVariant || printings.length === 1 ? printings : printings.slice(1);
+
+    for (const { card } of availablePrintings) {
       records.push({ card, raw });
     }
   }

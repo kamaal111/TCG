@@ -4,6 +4,7 @@ import { compactMap } from '@kamaalio/kamaal/arrays';
 import { SCRYDEX_SEARCH_PAGE_SIZE } from '@tcg/scrydex';
 
 import type { PricingClient, PricingClientError, PricingSearchResult } from './client.ts';
+import { ONE_PIECE_VARIANT_SEPARATOR } from './constants.ts';
 import { CardPriceException, PricingProviderUnavailable } from './exceptions.ts';
 import { normalizeCardLanguages } from './languages.ts';
 import { type PricingLogFields, pricingLogger } from './logging.ts';
@@ -14,7 +15,7 @@ import {
   type OwnedCardPriceResponse,
   type PricedCardResponse,
 } from './schemas/responses.ts';
-import type { CardGame, PricingCardRecord, PricingSearchOptions } from './types.ts';
+import { CARD_GAME_MAP, type CardGame, type PricingCardRecord, type PricingSearchOptions } from './types.ts';
 import { imageKeyForOriginURL, storageKeyForImageKey } from '../card-images/keys.ts';
 import { imagesLogger } from '../card-images/logging.ts';
 import type { CardImageRow } from '../card-images/repository.ts';
@@ -311,29 +312,46 @@ export class CardPricingService {
     const query = buildSearchQuery(card.name, card.cardNumber);
     const search = await this.searchAndPrice(card.game, query, { languages: [], searchBy: 'card' }, 0);
     const normalizedNumber = normalizeCardNumber(card.cardNumber);
-
-    const numberMatch = search.matches.find(
-      candidate => normalizeCardNumber(candidate.card_number) === normalizedNumber,
-    );
-
     const normalizedName = normalizeName(card.name).toLowerCase();
 
+    const candidates = search.matches.filter(candidate => {
+      return (
+        normalizeCardNumber(candidate.card_number) === normalizedNumber ||
+        normalizeName(candidate.name).toLowerCase() === normalizedName
+      );
+    });
+
+    const rows = await this.repository.getCachedCardPricesById(
+      this.client.source,
+      candidates.map(candidate => candidate.id),
+    );
+
+    const rowsById = new Map(rows.map(row => [row.id, row]));
+
+    const eligibleMatches = candidates.flatMap(candidate => {
+      const row = rowsById.get(candidate.id);
+
+      if (
+        row == null ||
+        (card.game === CARD_GAME_MAP.ONE_PIECE && row.pricingCardId.includes(ONE_PIECE_VARIANT_SEPARATOR))
+      ) {
+        return [];
+      }
+
+      return [{ candidate, row }];
+    });
+
     const matched =
-      numberMatch ?? search.matches.find(candidate => normalizeName(candidate.name).toLowerCase() === normalizedName);
+      eligibleMatches.find(({ candidate }) => normalizeCardNumber(candidate.card_number) === normalizedNumber) ??
+      eligibleMatches[0];
 
     if (matched == null) {
       return { card_id: card.id, status: OWNED_CARD_PRICE_STATUSES.NO_MATCH };
     }
 
-    const matchedRow = await this.repository.getCachedCardPriceById(this.client.source, card.game, matched.id);
+    await this.repository.setOwnedCardPricingIdentity(card, matched.row.pricingCardId, this.client.source);
 
-    if (matchedRow == null) {
-      return { card_id: card.id, status: OWNED_CARD_PRICE_STATUSES.NO_MATCH };
-    }
-
-    await this.repository.setOwnedCardPricingIdentity(card, matchedRow.pricingCardId, this.client.source);
-
-    return serializeOwnedCardPrice(card.id, matched);
+    return serializeOwnedCardPrice(card.id, matched.candidate);
   }
 
   private async priceOwnedCardById(
