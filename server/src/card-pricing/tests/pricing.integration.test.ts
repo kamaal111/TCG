@@ -254,6 +254,40 @@ describe('Card pricing integration', () => {
   );
 
   integrationTest(
+    'recovers the sole unfamiliar Pokémon variant quote from the raw cache',
+    async ({ app, db, authenticatedHeaders, pricingClient }) => {
+      const providerSearch = vi.spyOn(pricingClient, 'searchCards');
+      const path = `${SEARCH_PRICING_ROUTE_PATH}?search_by=card&game=pokemon&query=Giratina`;
+      const fresh = await app.request(path, { headers: authenticatedHeaders });
+      expect(fresh.status).toBe(200);
+
+      const cached = await db.query.cardPrice.findFirst();
+      assert(cached != null);
+      await db.update(cardPrice).set({
+        prices: {},
+        raw: {
+          id: cached.pricingCardId,
+          name: cached.name,
+          number: cached.cardNumber,
+          variants: [
+            { name: 'futureFoil', prices: [{ type: 'raw', condition: 'NM', currency: 'JPY', market: 25_000 }] },
+          ],
+        },
+      });
+
+      const hit = await app.request(path, { headers: authenticatedHeaders });
+      expect(hit.status).toBe(200);
+      const body = PricingSearchResponseSchema.parse(await hit.json());
+      expect(body.entries).toHaveLength(1);
+      expect(body.entries[0]).toMatchObject({
+        id: cached.id,
+        condition_prices: [{ condition: 'near_mint', currency: 'JPY', market: 25_000 }],
+      });
+      expect(providerSearch).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  integrationTest(
     'registers images when serving legacy cached pricing results',
     async ({ app, db, authenticatedHeaders }) => {
       const path = `${SEARCH_PRICING_ROUTE_PATH}?search_by=card&game=pokemon&query=Giratina%20VSTAR%20GG69`;
