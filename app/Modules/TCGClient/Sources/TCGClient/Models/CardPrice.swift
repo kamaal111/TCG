@@ -322,6 +322,7 @@ public struct PricedCard: Codable, Hashable, Identifiable, Sendable {
     public let setName: String?
     public let cardNumber: String
     public let illustrator: String?
+    public let englishSearchAlias: String?
     public let variantName: String?
     public let rarity: String?
     public let imageURL: URL?
@@ -353,6 +354,7 @@ public struct PricedCard: Codable, Hashable, Identifiable, Sendable {
         setName: String?,
         rarity: String?,
         illustrator: String?,
+        englishSearchAlias: String?,
         variantName: String?,
         imageURL: URL?,
         headline: PriceHeadline?,
@@ -369,6 +371,7 @@ public struct PricedCard: Codable, Hashable, Identifiable, Sendable {
         self.game = game
         self.name = name
         self.illustrator = illustrator
+        self.englishSearchAlias = englishSearchAlias
         self.variantName = variantName
         self.cardNumber = cardNumber
         self.setName = setName
@@ -396,6 +399,7 @@ public struct PricedCard: Codable, Hashable, Identifiable, Sendable {
         case isWishlisted = "is_wishlisted"
         case setName = "set_name"
         case illustrator
+        case englishSearchAlias = "english_search_alias"
         case variantName = "variant_name"
         case cardNumber = "card_number"
         case imageURL = "image_url"

@@ -4,6 +4,24 @@ import TCGClient
 import TCGCurrency
 import TCGDesignSystem
 
+package struct CardEnglishNameRow: View {
+    let name: String?
+
+    package init(name: String?) {
+        self.name = name
+    }
+
+    package var body: some View {
+        if let name {
+            LabeledContent {
+                Text(verbatim: name)
+            } label: {
+                Text("English name", bundle: .module)
+            }
+        }
+    }
+}
+
 public struct CardDetailMetadata {
     let name: String
     let game: ClientCardGame
@@ -18,7 +36,7 @@ public struct CardDetailMetadata {
         game = card.game
         cardNumber = card.cardNumber
         illustrator = card.illustrator
-        englishName = nil
+        englishName = card.englishSearchAlias
         rarity = card.rarity
         imageURL = card.imageURL
     }
@@ -28,7 +46,7 @@ public struct CardDetailMetadata {
         game = ownedCard.card.game
         cardNumber = ownedCard.card.cardNumber
         illustrator = ownedCard.card.illustrator
-        englishName = ownedCard.card.englishSearchAlias
+        englishName = ownedCard.card.englishSearchAlias ?? ownedCard.price?.price?.englishSearchAlias
         rarity = ownedCard.price?.price?.rarity
         imageURL = ownedCard.imageURL
     }
@@ -83,13 +101,7 @@ public struct CardDetailContent<Supplemental: View>: View {
                             Text("Illustrator", bundle: .module)
                         }
                     }
-                    if let englishName = metadata.englishName {
-                        LabeledContent {
-                            Text(verbatim: englishName)
-                        } label: {
-                            Text("English name", bundle: .module)
-                        }
-                    }
+                    CardEnglishNameRow(name: metadata.englishName)
                     if let rarity = metadata.rarity {
                         LabeledContent {
                             Text(rarity)

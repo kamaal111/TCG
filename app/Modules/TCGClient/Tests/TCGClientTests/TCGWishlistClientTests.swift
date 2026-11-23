@@ -37,10 +37,11 @@ struct TCGWishlistClientTests {
                   "entries": [{
                     "id": "550e8400-e29b-41d4-a716-446655440000",
                     "printing_key": "\(Self.key)",
-                    "game": "one_piece",
-                    "name": "Monkey.D.Luffy",
-                    "card_number": "OP05-119",
-                    "variant_name": "Alternate Art",
+                    "game": "pokemon",
+                    "name": "ダーテング",
+                    "english_search_alias": "Shiftry",
+                    "card_number": "072/071",
+                    "variant_name": "holofoil",
                     "priced_on": "2026-11-17T00:00:00.000Z",
                     "fetched_at": "2026-11-17T10:00:00.000Z"
                   }],
@@ -50,9 +51,11 @@ struct TCGWishlistClientTests {
                 }
                 """
         )
-        let page = try await makeClient(transport).list(cursor: "previous", query: "Monkey D. Luffy").get()
+        let page = try await makeClient(transport).list(cursor: "previous", query: "Shiftry").get()
         #expect(page.entries.map(\.printingKey) == [Self.key])
-        #expect(page.entries.map(\.variantName) == ["Alternate Art"])
+        #expect(page.entries.map(\.variantName) == ["holofoil"])
+        #expect(page.entries.map(\.name) == ["ダーテング"])
+        #expect(page.entries.map(\.englishSearchAlias) == ["Shiftry"])
         #expect(page.nextCursor == "next")
         #expect(page.availableSetNames == ["Base Set", "Crown Zenith"])
         #expect(page.availableIllustrators == ["Mitsuhiro Arita"])
@@ -63,7 +66,7 @@ struct TCGWishlistClientTests {
         #expect(url.path == "/app-api/wishlist")
         #expect(
             url.queryItems == [
-                URLQueryItem(name: "query", value: "Monkey D. Luffy"),
+                URLQueryItem(name: "query", value: "Shiftry"),
                 URLQueryItem(name: "cursor", value: "previous"),
             ]
         )

@@ -268,6 +268,7 @@ struct TCGCardDetailScreenSnapshotTests {
             setName: nil,
             rarity: nil,
             illustrator: card.illustrator,
+            englishSearchAlias: card.englishSearchAlias,
             variantName: nil,
             imageURL: nil,
             headline: nil,

@@ -104,6 +104,50 @@ struct TCGSearchScreenSnapshotTests {
     }
 
     @Test
+    func `Renders the English name in saved Wishlist details`() async {
+        let search = TCGSearch(
+            client: .preview(hasValidCredentials: false),
+            history: TCGSearchHistoryStore(defaults: nil, now: Date.init)
+        )
+        let date = Date(timeIntervalSince1970: 0)
+        let card = PricedCard(
+            id: "wishlist-shiftry",
+            printingKey: nil,
+            isWishlisted: true,
+            game: .pokemon,
+            name: "ダーテング",
+            cardNumber: "072/071",
+            setName: "Wild Force",
+            rarity: nil,
+            illustrator: "Mitsuhiro Arita",
+            englishSearchAlias: "Shiftry",
+            variantName: nil,
+            imageURL: nil,
+            headline: nil,
+            market: nil,
+            conditionPrices: nil,
+            conditionValues: nil,
+            display: nil,
+            pricedOn: date,
+            fetchedAt: date
+        )
+        #expect(search.results.isEmpty)
+        await assertScreenSnapshot(testName: #function, fileID: #fileID, file: #filePath, line: #line, column: #column)
+        {
+            TCGSearchDetailView(
+                card: card,
+                variants: [],
+                isWishlistEntry: true,
+                onWishlistRemoval: nil,
+                addForm: { _, _ in EmptyView() }
+            )
+            .tcgSearch(search)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(.background)
+        }
+    }
+
+    @Test
     func `Renders Wishlist pricing without search results`() async {
         let search = TCGSearch(
             client: .preview(hasValidCredentials: false),
@@ -178,6 +222,7 @@ struct TCGSearchScreenSnapshotTests {
                 setName: "Awakening of the New Era",
                 rarity: nil,
                 illustrator: nil,
+                englishSearchAlias: nil,
                 variantName: "Alternate Art",
                 imageURL: nil,
                 headline: nil,
@@ -264,6 +309,7 @@ struct TCGSearchScreenSnapshotTests {
             setName: nil,
             rarity: nil,
             illustrator: source.illustrator,
+            englishSearchAlias: source.englishSearchAlias,
             variantName: nil,
             imageURL: source.imageURL,
             headline: source.headline,
@@ -579,6 +625,7 @@ struct TCGSearchScreenSnapshotTests {
             setName: nil,
             rarity: nil,
             illustrator: nil,
+            englishSearchAlias: nil,
             variantName: nil,
             imageURL: nil,
             headline: nil,
@@ -648,6 +695,7 @@ struct TCGSearchScreenSnapshotTests {
             setName: nil,
             rarity: "Special Art Rare",
             illustrator: "Shinji Kanda",
+            englishSearchAlias: nil,
             variantName: nil,
             imageURL: URL(string: "https://images.example.com/giratina.png")!,
             headline: PriceHeadline(amount: 420, currency: .usd, metric: .lowestNearMint),
@@ -702,6 +750,7 @@ struct TCGSearchScreenSnapshotTests {
             setName: nil,
             rarity: detailCard.rarity,
             illustrator: "Shinji Kanda",
+            englishSearchAlias: nil,
             variantName: nil,
             imageURL: detailCard.imageURL,
             headline: nil,

@@ -31,6 +31,7 @@ struct TCGPricingClientTests {
         #expect(match.id == "zoro-alt")
         #expect(match.variantName == "altArt")
         #expect(match.isWishlisted == true)
+        #expect(match.englishSearchAlias == nil)
         #expect(match.imageURL?.absoluteString == "https://images.example.com/zoro-alt.png")
     }
 
@@ -38,7 +39,8 @@ struct TCGPricingClientTests {
     func `Searches illustrators through the generated client and decodes their names`() async throws {
         let body = Data(
             """
-            {"entries":[{"id":"illustrator-card","game":"pokemon","name":"Giratina VSTAR","card_number":"GG69",
+            {"entries":[{"id":"illustrator-card","game":"pokemon","name":"ギラティナVSTAR","card_number":"GG69",
+              "english_search_alias":"Giratina VSTAR",
               "illustrator":"Akira Egawa","priced_on":"2026-10-16T00:00:00.000Z","fetched_at":"2026-10-16T10:00:00.000Z"}], "next_cursor": null}
             """.utf8
         )
@@ -53,6 +55,7 @@ struct TCGPricingClientTests {
                 == "/app-api/pricing/search?search_by=illustrator&languages=ja&game=pokemon&query=Akira%20Egawa"
         )
         #expect(result.matches.first?.illustrator == "Akira Egawa")
+        #expect(result.matches.first?.englishSearchAlias == "Giratina VSTAR")
     }
 
     @Test
@@ -291,6 +294,7 @@ private let expectedPricedCard = PricedCard(
     setName: "Crown Zenith",
     rarity: "Secret Rare",
     illustrator: nil,
+    englishSearchAlias: nil,
     variantName: nil,
     imageURL: nil,
     headline: .init(amount: 146.69, currency: .usd, metric: .lowestNearMint),

@@ -1,6 +1,7 @@
 import { ScrydexRawCardSchema } from '@tcg/scrydex';
 
 import { resolveConditionValues } from './conditions.ts';
+import { readEnglishSearchAlias } from './english-search-alias.ts';
 import { cachedIllustrator } from './illustrator.ts';
 import { printingKey } from './printing-key.ts';
 import { proxyURLForOriginURL } from '../../card-images/keys.ts';
@@ -111,6 +112,7 @@ export function pricedCardMetadata(row: CardPriceRow) {
     rarity: row.prices.rarity,
     variant_name: row.prices.variantName,
     illustrator: cachedIllustrator(row),
+    english_search_alias: readEnglishSearchAlias(row),
     priced_on: `${row.pricedOn}T00:00:00.000Z`,
     fetched_at: toISO8601String(row.fetchedAt),
   };
