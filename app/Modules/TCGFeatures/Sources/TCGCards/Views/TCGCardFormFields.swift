@@ -1,5 +1,6 @@
 import KamaalUI
 import SwiftUI
+import TCGCardDetails
 import TCGClient
 import TCGCurrency
 import TCGDesignSystem
@@ -138,6 +139,7 @@ struct TCGCardFormFields: View {
                     Text("Illustrator", bundle: .module)
                 }
             }
+            CardEnglishNameRow(name: values.englishSearchAlias)
         }
         .ktakeWidthEagerly(alignment: .leading)
         .textSelection(.enabled)

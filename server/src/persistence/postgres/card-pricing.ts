@@ -6,14 +6,13 @@ import { ONE_PIECE_VARIANT_SEPARATOR } from '../../card-pricing/constants.ts';
 import type { CardPricingRepository } from '../../card-pricing/repository.ts';
 import {
   CARD_GAME_MAP,
-  isScrydexPricingSource,
   type CardGame,
   type PricingSource,
   type CardPriceRow,
   type CardPriceSearchRow,
   type CardPriceUpsertValues,
 } from '../../card-pricing/types.ts';
-import { EnglishSearchAliasResponseSchema } from '../../card-pricing/utils/english-search-alias.ts';
+import { readEnglishSearchAlias } from '../../card-pricing/utils/english-search-alias.ts';
 import { cachedIllustrator } from '../../card-pricing/utils/illustrator.ts';
 import { normalizeCardNumber, normalizeName } from '../../card-pricing/utils/query.ts';
 import type { OwnedCard } from '../../cards/types.ts';
@@ -166,10 +165,7 @@ export class PostgresCardPricingRepository implements CardPricingRepository {
       for (const value of values) {
         const illustrator = cachedIllustrator({ prices: value.card.pricing, raw: value.raw });
 
-        const alias =
-          value.game === CARD_GAME_MAP.POKEMON && isScrydexPricingSource(value.pricingSource)
-            ? EnglishSearchAliasResponseSchema.safeParse(value.raw).data?.translation.en.name
-            : undefined;
+        const alias = readEnglishSearchAlias(value);
 
         if (illustrator == null && alias == null) {
           continue;

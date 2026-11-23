@@ -65,6 +65,7 @@ const listWishlistRoute = defineOpenAPIRoute<HonoEnvironment, typeof routeConfig
       return displayPricedCard(
         {
           ...card,
+          english_search_alias: card.english_search_alias ?? price.english_search_alias,
           headline: price.headline,
           market: price.market,
           condition_prices: price.condition_prices,

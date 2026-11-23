@@ -35,13 +35,17 @@ export class PostgresWishlistRepository implements WishlistRepository {
     const savedSet = sql<string | null>`${wishlist.card}->>'set_name'`;
     const credit = sql<string | null>`coalesce(${cardMetadata.illustrator}, ${wishlist.card}->>'illustrator')`;
 
+    const englishSearchAlias = sql<string | null>`coalesce(
+      ${cardMetadata.englishSearchAlias}, ${this.metadata.cachedEnglishSearchAlias(savedPrice)}, ${wishlist.card}->>'english_search_alias'
+    )`;
+
     const filters = cardListPredicates(
       {
         game: savedGame,
         setName: savedSet,
         illustrator: credit,
         name: sql`${wishlist.card}->>'name'`,
-        englishSearchAlias: sql`coalesce(${cardMetadata.englishSearchAlias}, ${this.metadata.cachedEnglishSearchAlias(savedPrice)})`,
+        englishSearchAlias,
         cardNumber: sql`${wishlist.card}->>'card_number'`,
       },
       { game, query, setNames: set_name ?? [], illustrators: illustrator ?? [] },
@@ -79,6 +83,7 @@ export class PostgresWishlistRepository implements WishlistRepository {
           .select({
             card: wishlist.card,
             illustrator: credit,
+            englishSearchAlias,
             pricingIdentity: {
               pricingSource: savedPrice.pricingSource,
               game: savedPrice.game,
@@ -107,17 +112,20 @@ export class PostgresWishlistRepository implements WishlistRepository {
         });
 
         return {
-          entries: page.map(({ card: { originImageURL, ...card }, illustrator, pricingIdentity }) => ({
-            card: {
-              ...card,
-              illustrator: illustrator ?? undefined,
-              image_url: originImageURL != null ? proxyURLForOriginURL(originImageURL, baseURL) : undefined,
-            },
-            pricingIdentity:
-              pricingIdentity != null && printingKey(pricingIdentity) === card.printing_key
-                ? pricingIdentity
-                : undefined,
-          })),
+          entries: page.map(
+            ({ card: { originImageURL, ...card }, illustrator, englishSearchAlias, pricingIdentity }) => ({
+              card: {
+                ...card,
+                illustrator: illustrator ?? undefined,
+                english_search_alias: englishSearchAlias ?? undefined,
+                image_url: originImageURL != null ? proxyURLForOriginURL(originImageURL, baseURL) : undefined,
+              },
+              pricingIdentity:
+                pricingIdentity != null && printingKey(pricingIdentity) === card.printing_key
+                  ? pricingIdentity
+                  : undefined,
+            }),
+          ),
           ...cardListChoices(sets, illustrators),
           nextCursor,
         };

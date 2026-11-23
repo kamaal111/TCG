@@ -133,6 +133,7 @@ export const PricedCardSchema = z
     set_name: z.string().optional().meta({ description: 'Set name when provided', example: 'Crown Zenith' }),
     card_number: z.string().meta({ description: 'Card number', example: 'GG69' }),
     illustrator: z.string().optional().meta({ description: 'Illustrator when provided', example: 'Mitsuhiro Arita' }),
+    english_search_alias: z.string().optional().meta({ description: 'English name when supplied for this printing' }),
     variant_name: z.string().optional().meta({ description: 'Collectible variant name when provided' }),
     rarity: z.string().optional().meta({ description: 'Card rarity when provided', example: 'Secret Rare' }),
     image_url: z.url().optional().meta({

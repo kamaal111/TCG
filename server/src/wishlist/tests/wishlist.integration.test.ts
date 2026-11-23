@@ -435,6 +435,7 @@ integrationTest(
     };
 
     expect(await search('Shiftry')).toEqual([]);
+    expect((await search('ダーテング'))[0]).not.toHaveProperty('english_search_alias');
     await db.insert(cardPrice).values([
       { ...printing, pricedOn: '2026-11-17', raw: { translation: { en: { name: 'Shiftry' } } } },
       {
@@ -452,7 +453,9 @@ integrationTest(
     ]);
 
     for (const query of ['  sHiFtRy  ', 'ダーテング', 'Cyber Judge', '072/071']) {
-      expect(await search(query)).toMatchObject([{ id: saved.id, name: 'ダーテング' }]);
+      expect(await search(query)).toMatchObject([
+        { id: saved.id, name: 'ダーテング', english_search_alias: 'Shiftry' },
+      ]);
     }
 
     expect(await search('Wrong alias')).toEqual([]);
@@ -462,7 +465,9 @@ integrationTest(
       pricingCardId: printing.pricingCardId,
       englishSearchAlias: 'Shiftry corrected',
     });
-    expect(await search('corrected')).toMatchObject([{ id: saved.id, name: 'ダーテング' }]);
+    expect(await search('corrected')).toMatchObject([
+      { id: saved.id, name: 'ダーテング', english_search_alias: 'Shiftry corrected' },
+    ]);
   },
 );
 

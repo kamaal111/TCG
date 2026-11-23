@@ -11,6 +11,7 @@ export const WishlistCardSchema = PricedCardSchema.pick({
   card_number: true,
   variant_name: true,
   illustrator: true,
+  english_search_alias: true,
   rarity: true,
   image_url: true,
   priced_on: true,

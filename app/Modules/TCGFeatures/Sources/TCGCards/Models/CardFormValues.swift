@@ -25,6 +25,7 @@ struct CardFormValues: Equatable {
     var defaultMarketCurrency: Currency?
     var marketPricedOn: Date?
     var illustrator: String?
+    var englishSearchAlias: String?
     var variantName: String?
 
     var quantities: [CardCondition: Int] {
@@ -89,6 +90,7 @@ struct CardFormValues: Equatable {
         cardNumber = card.cardNumber
         notes = card.notes ?? ""
         illustrator = card.illustrator
+        englishSearchAlias = card.englishSearchAlias
         batches = card.purchases.map { PurchaseBatchFormValue(batch: $0) }
     }
 
@@ -110,6 +112,7 @@ struct CardFormValues: Equatable {
         defaultMarketCurrency = pricedCard.market?.currency
         marketPricedOn = pricedCard.pricedOn
         illustrator = pricedCard.illustrator ?? illustrator
+        englishSearchAlias = pricedCard.englishSearchAlias ?? englishSearchAlias
         variantName = pricedCard.variantName ?? variantName
     }
 

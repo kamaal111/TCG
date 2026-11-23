@@ -3116,6 +3116,9 @@ components:
           type: string
           description: Illustrator when provided
           example: Mitsuhiro Arita
+        english_search_alias:
+          type: string
+          description: English name when supplied for this printing
         variant_name:
           type: string
           description: Collectible variant name when provided

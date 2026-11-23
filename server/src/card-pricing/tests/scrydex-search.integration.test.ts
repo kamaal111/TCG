@@ -960,6 +960,7 @@ describe('Scrydex search through the authenticated pricing API', () => {
         {
           game: 'pokemon',
           name: 'ダーテング',
+          english_search_alias: 'Shiftry',
           set_name: 'Wild Force',
           card_number: '072/071',
           headline: { amount: 800, currency: 'JPY' },
@@ -1046,6 +1047,7 @@ describe('Scrydex search through the authenticated pricing API', () => {
       const body = PricingSearchResponseSchema.parse(await response.json());
       expect(body.entries).toMatchObject([{ name: 'ダーテング', card_number: '072/071' }]);
       expect(body.entries[0]).not.toHaveProperty('headline');
+      expect(body.entries[0]).not.toHaveProperty('english_search_alias');
       expect(search.transport.queries).toEqual(['name:"ダーテング"']);
     },
   );
