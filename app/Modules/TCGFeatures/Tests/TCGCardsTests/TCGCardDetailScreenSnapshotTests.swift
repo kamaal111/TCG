@@ -101,6 +101,20 @@ struct TCGCardDetailScreenSnapshotTests {
     }
 
     @Test
+    func `Renders the English name below illustrator`() async {
+        let model = makeJapaneseCardModel(illustrator: "Mitsuhiro Arita")
+        await assertScreenSnapshot(testName: #function, fileID: #fileID, file: #filePath, line: #line, column: #column)
+        { makeScreen(model, isEditingCollection: false, cards: TCGCards(client: .preview(cardsOutcome: .empty))) }
+    }
+
+    @Test
+    func `Renders the English name when illustrator is unavailable`() async {
+        let model = makeJapaneseCardModel(illustrator: nil)
+        await assertScreenSnapshot(testName: #function, fileID: #fileID, file: #filePath, line: #line, column: #column)
+        { makeScreen(model, isEditingCollection: false, cards: TCGCards(client: .preview(cardsOutcome: .empty))) }
+    }
+
+    @Test
     func `Renders purchase batch costs`() async {
         let source = PreviewTCGCardsClient.sampleCards[0]
         let card = Card(
@@ -271,6 +285,34 @@ struct TCGCardDetailScreenSnapshotTests {
         {
             makeScreen(model, isEditingCollection: false, cards: TCGCards(client: .preview(cardsOutcome: .empty)))
         }
+    }
+
+    private func makeJapaneseCardModel(illustrator: String?) -> TCGCardDetailScreenModel {
+        let source = PreviewTCGCardsClient.sampleCards[1]
+        let card = Card(
+            id: source.id,
+            game: .pokemon,
+            name: "ダーテング",
+            setName: "Cyber Judge",
+            cardNumber: "072/071",
+            notes: nil,
+            createdAt: source.createdAt,
+            updatedAt: source.updatedAt,
+            purchases: [],
+            purchasePriceChangePercent: nil,
+            displayCurrency: nil,
+            collectionID: nil,
+            allocationAdjustments: nil,
+            illustrator: illustrator,
+            englishSearchAlias: "Shiftry"
+        )
+        return TCGCardDetailScreenModel(
+            card: .init(
+                card: card,
+                price: .init(cardId: card.id, status: .unavailable, price: nil, valuation: nil),
+                imageURL: nil
+            )
+        )
     }
 
     private func makeModel(status: OwnedCardPriceStatus) -> TCGCardDetailScreenModel {

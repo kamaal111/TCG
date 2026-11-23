@@ -9,6 +9,7 @@ public struct CardDetailMetadata {
     let game: ClientCardGame
     let cardNumber: String
     let illustrator: String?
+    fileprivate let englishName: String?
     let rarity: String?
     let imageURL: URL?
 
@@ -17,6 +18,7 @@ public struct CardDetailMetadata {
         game = card.game
         cardNumber = card.cardNumber
         illustrator = card.illustrator
+        englishName = nil
         rarity = card.rarity
         imageURL = card.imageURL
     }
@@ -26,6 +28,7 @@ public struct CardDetailMetadata {
         game = ownedCard.card.game
         cardNumber = ownedCard.card.cardNumber
         illustrator = ownedCard.card.illustrator
+        englishName = ownedCard.card.englishSearchAlias
         rarity = ownedCard.price?.price?.rarity
         imageURL = ownedCard.imageURL
     }
@@ -78,6 +81,13 @@ public struct CardDetailContent<Supplemental: View>: View {
                             Text(verbatim: illustrator)
                         } label: {
                             Text("Illustrator", bundle: .module)
+                        }
+                    }
+                    if let englishName = metadata.englishName {
+                        LabeledContent {
+                            Text(verbatim: englishName)
+                        } label: {
+                            Text("English name", bundle: .module)
                         }
                     }
                     if let rarity = metadata.rarity {
