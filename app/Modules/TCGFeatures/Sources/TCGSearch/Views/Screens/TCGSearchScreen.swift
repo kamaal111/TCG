@@ -3,6 +3,8 @@
 //  TCGFeatures
 //
 
+import KamaalExtensions
+import KamaalUI
 import SwiftUI
 import TCGClient
 import TCGDesignSystem
@@ -264,7 +266,7 @@ public struct TCGSearchScreen<AddForm: View>: View {
                 .listRowSeparator(.hidden)
             #endif
         }
-        if model.query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+        if model.query.trimmingByWhitespacesAndNewLines.isEmpty {
             if search.history.entries(for: model.game).isEmpty {
                 emptySearch
             } else {
@@ -300,7 +302,7 @@ public struct TCGSearchScreen<AddForm: View>: View {
             }
             if !search.isSearching, let cursor = search.nextCursor {
                 paginationFooter(cursor: cursor, canLoadAutomatically: !visibleResults.isEmpty)
-                    .frame(maxWidth: .infinity)
+                    .ktakeWidthEagerly()
             }
         }
     }

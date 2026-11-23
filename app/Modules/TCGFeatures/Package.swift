@@ -27,7 +27,7 @@ let package = Package(
         .package(path: "../TCGUtils"),
     ],
     targets: [
-        .target(name: "TCGListSupport"),
+        .target(name: "TCGListSupport", dependencies: [.product(name: "KamaalExtensions", package: "KamaalSwift")]),
         .target(
             name: "TCGCurrency",
             dependencies: [
@@ -39,7 +39,9 @@ let package = Package(
         ),
         .target(
             name: "TCGCardDetails",
-            dependencies: ["TCGClient", "TCGDesignSystem", "TCGCurrency"],
+            dependencies: [
+                .product(name: "KamaalUI", package: "KamaalSwift"), "TCGClient", "TCGDesignSystem", "TCGCurrency",
+            ],
             resources: [.process("Localizable.xcstrings")],
             swiftSettings: [
                 .enableUpcomingFeature("ApproachableConcurrency"),
@@ -69,6 +71,8 @@ let package = Package(
         .target(
             name: "TCGSearch",
             dependencies: [
+                .product(name: "KamaalExtensions", package: "KamaalSwift"),
+                .product(name: "KamaalUI", package: "KamaalSwift"),
                 "TCGListSupport",
                 "TCGCurrency",
                 .product(name: "Textual", package: "textual"),
@@ -87,6 +91,8 @@ let package = Package(
         .target(
             name: "TCGSettings",
             dependencies: [
+                .product(name: "KamaalExtensions", package: "KamaalSwift"),
+                .product(name: "KamaalUI", package: "KamaalSwift"),
                 "TCGCurrency",
                 .product(name: "KamaalAuth", package: "kamaal-auth"),
                 .product(name: "KamaalLogger", package: "KamaalSwift"),

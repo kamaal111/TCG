@@ -1,3 +1,4 @@
+import KamaalExtensions
 import SwiftUI
 import TCGClient
 import TCGDesignSystem
@@ -36,7 +37,7 @@ struct NewCollectionScreen: View {
                     Text("Create collection", bundle: .module)
                 }
             }
-            .disabled(isCreating || name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            .disabled(isCreating || name.trimmingByWhitespacesAndNewLines.isEmpty)
             .help(Text("Create collection", bundle: .module))
             .keyboardShortcut(.defaultAction)
         }
@@ -48,7 +49,7 @@ struct NewCollectionScreen: View {
         guard !isCreating else { return }
         isCreating = true
         error = nil
-        let result = await create(name.trimmingCharacters(in: .whitespacesAndNewlines))
+        let result = await create(name.trimmingByWhitespacesAndNewLines)
         isCreating = false
         switch result {
         case .success: dismiss()

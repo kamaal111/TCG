@@ -1,3 +1,4 @@
+import KamaalUI
 import SwiftUI
 import TCGClient
 import TCGCurrency
@@ -57,7 +58,7 @@ public struct CardDetailContent<Supplemental: View>: View {
                     url: metadata.imageURL,
                     onExplore: { presentedImageURL = metadata.imageURL }
                 )
-                .frame(maxWidth: .infinity)
+                .ktakeWidthEagerly()
                 .frame(height: 280)
 
                 VStack(alignment: .leading, spacing: 12) {
@@ -117,7 +118,7 @@ public struct CardDetailContent<Supplemental: View>: View {
             .textSelection(.enabled)
             .padding(24)
             .frame(maxWidth: 640)
-            .frame(maxWidth: .infinity)
+            .ktakeWidthEagerly()
         }
         .cardImage(url: $presentedImageURL)
     }

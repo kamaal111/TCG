@@ -2,6 +2,7 @@ import CryptoKit
 import Foundation
 import ImageIO
 import KamaalLogger
+import KamaalUtils
 import SwiftUI
 import Synchronization
 
@@ -492,10 +493,7 @@ private actor CardArtworkStorage {
     }
 
     private func prepareDirectory(for policy: CardArtworkCachePolicy) throws {
-        var directory = directory(for: policy)
-        if !FileManager.default.fileExists(atPath: directory.path) {
-            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        }
+        var directory = try FileClerk.getOrCreateDirectory(at: directory(for: policy))
         var resources = URLResourceValues()
         resources.isExcludedFromBackup = true
         try directory.setResourceValues(resources)

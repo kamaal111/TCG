@@ -286,8 +286,7 @@ struct PreviewTCGCardsClient: TCGCardsClient {
     func delete(ids: [UUID]) async -> Result<DeleteCardsResult, DeleteCardsErrors> {
         if case .serverUnavailable = outcome { return .failure(.unknown(status: 503, payload: nil, cause: nil)) }
         if case .validationErrors(let issues) = outcome { return .failure(.badRequest(validations: issues)) }
-        var seen = Set<UUID>()
-        let uniqueIDs = ids.filter { seen.insert($0).inserted }
+        let uniqueIDs = ids.uniques()
         if case .notFound = outcome {
             return .success(DeleteCardsResult(deletedIDs: [], notFoundIDs: uniqueIDs))
         }

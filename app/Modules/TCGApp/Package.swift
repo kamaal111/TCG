@@ -21,6 +21,8 @@ let package = Package(
         .target(
             name: "TCGApp",
             dependencies: [
+                .product(name: "KamaalExtensions", package: "KamaalSwift"),
+                .product(name: "KamaalUI", package: "KamaalSwift"),
                 .product(name: "TCGCards", package: "TCGFeatures"),
                 .product(name: "TCGCurrency", package: "TCGFeatures"),
                 .product(name: "TCGSearch", package: "TCGFeatures"),

@@ -1,3 +1,4 @@
+import KamaalExtensions
 import SwiftUI
 import TCGClient
 import TCGDesignSystem
@@ -75,7 +76,7 @@ struct TCGBinderScreen: View {
     }
 
     private var currentPage: BinderPage? {
-        collection.pages.indices.contains(pageIndex) ? collection.pages[pageIndex] : nil
+        pageIndex >= 0 ? collection.pages.at(pageIndex) : nil
     }
 
     private var canArrange: Bool {

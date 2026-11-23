@@ -1,3 +1,4 @@
+import KamaalExtensions
 import SwiftUI
 
 /// A Settings row that displays and manages saved card artwork.
@@ -12,7 +13,7 @@ public struct CardArtworkCacheSettings: View {
     public init() {}
 
     public var body: some View {
-        CardArtworkCacheRow(byteCount: artworks?.reduce(0) { $0 + $1.byteCount }) {
+        CardArtworkCacheRow(byteCount: artworks?.sum(by: \.byteCount)) {
             isShowingGallery = true
         }
         .task {

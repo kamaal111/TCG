@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import KamaalExtensions
 import TCGClient
 
 enum TCGCardsValidator {
@@ -14,7 +15,7 @@ enum TCGCardsValidator {
             notesIssue(values.notes),
             quantitiesIssue(values.quantities),
             batchesIssue(values.batches),
-        ].compactMap(\.self)
+        ].unpacked()
     }
 
     private static func notesIssue(_ notes: String) -> TCGCardsValidationIssue? {
@@ -33,7 +34,7 @@ enum TCGCardsValidator {
         }
         guard
             batches.allSatisfy({
-                $0.priceText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || $0.price != nil
+                $0.priceText.trimmingByWhitespacesAndNewLines.isEmpty || $0.price != nil
             })
         else {
             return .init(

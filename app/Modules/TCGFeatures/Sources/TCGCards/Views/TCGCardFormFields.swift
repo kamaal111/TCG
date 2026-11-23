@@ -1,3 +1,4 @@
+import KamaalUI
 import SwiftUI
 import TCGClient
 import TCGCurrency
@@ -84,7 +85,7 @@ struct TCGCardFormFields: View {
         }
         .frame(maxWidth: 520)
         .padding(24)
-        .frame(maxWidth: .infinity)
+        .ktakeWidthEagerly()
         .onSubmit {
             if submitsOnReturn && !model.isSubmitting { onSubmit() }
         }
@@ -138,7 +139,7 @@ struct TCGCardFormFields: View {
                 }
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .ktakeWidthEagerly(alignment: .leading)
         .textSelection(.enabled)
     }
 }

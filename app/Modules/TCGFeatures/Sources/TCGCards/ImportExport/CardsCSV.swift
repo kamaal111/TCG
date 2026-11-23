@@ -1,4 +1,5 @@
 import Foundation
+import KamaalExtensions
 import TCGClient
 import TCGUtils
 import TabularData
@@ -113,7 +114,7 @@ enum CardsCSV {
         }
         guard let header = records.first else { return .failure(.missingColumns(columns.map(\.rawValue))) }
         let names = header.fields.map {
-            $0.trimmingCharacters(in: .whitespacesAndNewlines).replacingOccurrences(of: "\u{FEFF}", with: "")
+            $0.trimmingByWhitespacesAndNewLines.replacingOccurrences(of: "\u{FEFF}", with: "")
         }
         guard Set(names).count == names.count else { return .failure(.duplicateColumns) }
         let missing = columns.filter { !names.contains($0.rawValue) }
@@ -416,7 +417,7 @@ enum CardsCSV {
     }
 
     private static func trimmed(_ value: String) -> String {
-        value.trimmingCharacters(in: .whitespacesAndNewlines)
+        value.trimmingByWhitespacesAndNewLines
     }
 
     private static func dateString(_ date: Date) -> String {

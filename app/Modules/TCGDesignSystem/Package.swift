@@ -19,6 +19,8 @@ let package = Package(
         .target(
             name: "TCGDesignSystem",
             dependencies: [
+                .product(name: "KamaalExtensions", package: "KamaalSwift"),
+                .product(name: "KamaalUtils", package: "KamaalSwift"),
                 .product(name: "KamaalPopUp", package: "KamaalSwift"),
                 .product(name: "KamaalLogger", package: "KamaalSwift"),
                 .product(name: "KamaalUI", package: "KamaalSwift"),

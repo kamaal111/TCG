@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import KamaalExtensions
 
 public enum ClientCardGame: String, Codable, Hashable, Sendable, CaseIterable {
     case onePiece = "one_piece"
@@ -114,7 +115,7 @@ public struct Card: Codable, Hashable, Identifiable, Sendable {
         self.updatedAt = updatedAt
     }
 
-    public var totalQuantity: Int { purchases.reduce(0) { $0 + $1.quantity } }
+    public var totalQuantity: Int { purchases.sum(by: \.quantity) }
 
     public var quantities: [CardConditionQuantity] {
         let totals = CardConditionQuantity.totals(

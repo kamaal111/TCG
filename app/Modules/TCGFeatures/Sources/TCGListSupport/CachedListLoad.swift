@@ -1,4 +1,5 @@
 import Foundation
+import KamaalExtensions
 
 package enum CachedListLoad {
     package static func isFresh(_ checkedAt: Date?, at now: Date) -> Bool {
@@ -19,7 +20,7 @@ package enum CachedListLoad {
         keeping pinned: Scope
     ) {
         entries.removeAll { $0[keyPath: scope] == entry[keyPath: scope] }
-        entries.insert(entry, at: 0)
+        entries.prepend(entry)
         let limit = entries.contains { $0[keyPath: scope] == pinned } ? 9 : 8
         if entries.count > limit, let last = entries.lastIndex(where: { $0[keyPath: scope] != pinned }) {
             entries.remove(at: last)

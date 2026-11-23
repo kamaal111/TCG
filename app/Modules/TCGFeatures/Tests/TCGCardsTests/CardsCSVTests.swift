@@ -70,6 +70,14 @@ struct CardsCSVTests {
         #expect(try CardsCSV.parse(contents).get().isEmpty)
     }
 
+    @Test(arguments: [["cards", "-1", "card_number"], ["cards", "0", "purchases", "-1", "quantity"]])
+    func `Negative validation indices never map to the last CSV row`(path: [String]) {
+        let issue = TCGClientValidationIssue(code: "invalid_value", path: path, message: "Invalid value")
+        let feedback = CSVImportValidationFeedback.rows(for: issue, submitted: [CardsCSVFixtures.draft])
+
+        #expect(feedback.isEmpty)
+    }
+
     @Test
     func `Malformed purchase is retained with actionable field feedback`() throws {
         var row = CardsCSVFixtures.rows[0]

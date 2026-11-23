@@ -6,6 +6,7 @@
 //
 
 import KamaalExtensions
+import KamaalUI
 import SwiftUI
 import TCGClient
 import TCGCurrency
@@ -88,7 +89,7 @@ struct CardRow: View {
                 }
             }
         }
-        .frame(maxWidth: .infinity)
+        .ktakeWidthEagerly()
         .contentShape(Rectangle())
     }
 

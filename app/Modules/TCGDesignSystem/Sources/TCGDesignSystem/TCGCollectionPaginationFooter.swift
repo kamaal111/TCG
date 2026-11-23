@@ -1,3 +1,4 @@
+import KamaalUI
 import SwiftUI
 
 public struct TCGCollectionPaginationFooter: View {
@@ -23,7 +24,7 @@ public struct TCGCollectionPaginationFooter: View {
             ProgressView {
                 Text("Loading more cards…", bundle: .module)
             }
-            .frame(maxWidth: .infinity)
+            .ktakeWidthEagerly()
             .padding()
         } else if let errorDescription {
             VStack(spacing: 8) {
@@ -37,7 +38,7 @@ public struct TCGCollectionPaginationFooter: View {
                 }
                 .buttonStyle(.bordered)
             }
-            .frame(maxWidth: .infinity)
+            .ktakeWidthEagerly()
             .padding()
         }
     }

@@ -1,4 +1,5 @@
 import Foundation
+import KamaalExtensions
 import TCGClient
 
 @MainActor
@@ -49,7 +50,7 @@ final class CollectionPricing {
         let needed = eligible(keys, retry: retry)
         let newKeys = needed.filter { pending[$0] == nil }
         for start in stride(from: 0, to: newKeys.count, by: 100) {
-            let batchKeys = Array(newKeys[start..<min(start + 100, newKeys.count)])
+            let batchKeys = Array(newKeys.ranged(from: start, to: start + 100))
             let batch = Task { await fetch(batchKeys, generation: token) }
             for key in batchKeys { pending[key] = batch }
         }

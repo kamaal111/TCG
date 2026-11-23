@@ -1,3 +1,5 @@
+import KamaalExtensions
+import KamaalUI
 import SwiftUI
 import TCGClient
 import TCGDesignSystem
@@ -64,7 +66,7 @@ struct BinderCardPicker: View {
                     }
                 }
             }
-            .task(id: query.trimmingCharacters(in: .whitespacesAndNewlines)) {
+            .task(id: query.trimmingByWhitespacesAndNewLines) {
                 guard let search = actions.search else { return }
                 do { try await Task.sleep(for: .milliseconds(250)) } catch { return }
                 await search()
@@ -101,7 +103,7 @@ struct BinderCardPicker: View {
                 } else {
                     EmptyMessage(
                         hasError: content.error != nil,
-                        hasQuery: !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                        hasQuery: !query.trimmingByWhitespacesAndNewLines.isEmpty
                     )
                 }
             }
@@ -143,7 +145,7 @@ struct BinderCardPicker: View {
                             .accessibilityHidden(true)
                     }
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .ktakeWidthEagerly(alignment: .leading)
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)

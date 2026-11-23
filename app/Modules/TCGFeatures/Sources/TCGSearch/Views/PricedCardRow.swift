@@ -3,6 +3,7 @@
 //  TCGFeatures
 //
 
+import KamaalUI
 import SwiftUI
 import TCGClient
 import TCGCurrency
@@ -34,7 +35,7 @@ struct PricedCardRow: View {
             VStack(alignment: .trailing, spacing: 8) {
                 Button(action: actions.showDetails) {
                     details
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .ktakeWidthEagerly(alignment: .leading)
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
