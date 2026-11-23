@@ -1,4 +1,5 @@
 import Foundation
+import KamaalExtensions
 
 public struct CardListFilters: Codable, Hashable, Sendable {
     public static let unfiltered = CardListFilters(game: nil, setNames: [], illustrators: [], query: nil)
@@ -17,7 +18,7 @@ public struct CardListFilters: Codable, Hashable, Sendable {
         self.game = game
         self.setNames = setNames
         self.illustrators = illustrators
-        let trimmed = query?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmed = query?.trimmingByWhitespacesAndNewLines
         self.query = trimmed == "" ? nil : trimmed
     }
 

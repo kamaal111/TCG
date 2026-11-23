@@ -118,6 +118,49 @@ struct OfflineCollectionTests {
     @Test func `A retried offline sync records one start and one completion`() async throws {
         let holder = LogHolder(max: 8)
         let transport = RetryingManifestTransport()
+        let fixture = try makeSyncFixture(transport: transport, holder: holder)
+        defer { try? fixture.store.remove() }
+
+        fixture.download.sync()
+
+        let expected = ["offline.sync.started", "offline.sync.completed"]
+        await waitForSync(fixture.download)
+        #expect(await holder.logs.map(\.message) == expected)
+        #expect(await holder.logs.last?.fields().map(\.value.displayText) == ["0"])
+        #expect(await transport.requestCount == 4)
+        #expect(!fixture.download.hasPendingDownload)
+        #expect(!fixture.download.failed)
+    }
+
+    @Test func `Downloads 101 changed records in ordered requests of 100 and 1`() async throws {
+        let ids = (1...101).map { String(format: "00000000-0000-4000-8000-%012d", $0) }
+        let transport = RecordBatchTransport(ids: ids)
+        let holder = LogHolder(max: 8)
+        let fixture = try makeSyncFixture(transport: transport, holder: holder)
+        defer { try? fixture.store.remove() }
+
+        fixture.download.sync()
+        await waitForSync(fixture.download)
+
+        #expect(await transport.batches == [Array(ids.prefix(100)), Array(ids.suffix(1))])
+        let downloaded = try fixture.store.read(.downloaded)
+        let saved = try #require(downloaded)
+        #expect(saved.entries.map { $0.id.uuidString.lowercased() } == ids)
+        #expect(saved.collections.count == 101)
+        #expect(await holder.logs.last?.message == "offline.sync.completed")
+    }
+
+    private func waitForSync(_ download: OfflineCollection) async {
+        let clock = ContinuousClock()
+        let deadline = clock.now.advanced(by: .seconds(2))
+        while download.progress != nil, clock.now < deadline {
+            await Task.yield()
+        }
+    }
+
+    private func makeSyncFixture(transport: any ClientTransport, holder: LogHolder) throws -> (
+        download: OfflineCollection, store: OfflineCollectionStore, grant: ControlledOfflineAccess, identity: String
+    ) {
         let credentials = Credentials(
             authToken: "auth-token",
             authTokenExpiryDate: .distantFuture,
@@ -131,26 +174,11 @@ struct OfflineCollectionTests {
             credentialsKeychainKey: credentialsKey,
             credentialsStore: InMemoryCredentialsStore(seed: try JSONEncoder().encode(credentials), key: credentialsKey)
         )
-        let fixture = try makeFixture(
+        return try makeFixture(
             hasFreshAuthToken: true,
             client: client,
             logger: KamaalLogger(from: OfflineCollection.self, holder: holder)
         )
-        defer { try? fixture.store.remove() }
-
-        fixture.download.sync()
-
-        let expected = ["offline.sync.started", "offline.sync.completed"]
-        let clock = ContinuousClock()
-        let deadline = clock.now.advanced(by: .seconds(2))
-        while await holder.logs.count < expected.count, clock.now < deadline {
-            await Task.yield()
-        }
-        #expect(await holder.logs.map(\.message) == expected)
-        #expect(await holder.logs.last?.fields().map(\.value.displayText) == ["0"])
-        #expect(await transport.requestCount == 4)
-        #expect(!fixture.download.hasPendingDownload)
-        #expect(!fixture.download.failed)
     }
 
     private func makeFixture(hasFreshAuthToken: Bool) throws -> (
@@ -231,5 +259,64 @@ private actor RetryingManifestTransport: ClientTransport {
             {"version":1,"account_id":"owner-id","entries":[],"needs_preparation":[]}
             """
         return (response, HTTPBody(manifest))
+    }
+}
+
+private actor RecordBatchTransport: ClientTransport {
+    private struct RecordsRequest: Decodable {
+        struct Entry: Decodable { let id: String }
+        let entries: [Entry]
+    }
+
+    private let ids: [String]
+    private(set) var batches: [[String]] = []
+    private var sentManifest = false
+
+    init(ids: [String]) {
+        self.ids = ids
+    }
+
+    func send(_ request: HTTPRequest, body: HTTPBody?, baseURL: URL, operationID: String) async throws -> (
+        HTTPResponse, HTTPBody?
+    ) {
+        let etag = "\"updated\""
+        let headers: HTTPFields = [.contentType: "application/json", .eTag: etag]
+        switch request.path {
+        case "/app-api/cards/offline/manifest":
+            guard !sentManifest else { return (HTTPResponse(status: .notModified, headerFields: headers), nil) }
+            sentManifest = true
+            let hash = String(repeating: "a", count: 64)
+            let entries =
+                ids
+                .map { id in
+                    """
+                    {"kind":"collection","id":"\(id)","hash":"\(hash)"}
+                    """
+                }
+                .joined(separator: ",")
+            let manifest = """
+                {"version":1,"account_id":"owner-id","entries":[\(entries)],"needs_preparation":[]}
+                """
+            return (HTTPResponse(status: .ok, headerFields: headers), HTTPBody(manifest))
+        case "/app-api/cards/offline/records":
+            let data = try await Data(collecting: #require(body), upTo: 100_000)
+            let request = try JSONDecoder().decode(RecordsRequest.self, from: data)
+            let batch = request.entries.map(\.id)
+            batches.append(batch)
+            let collections =
+                batch
+                .map { id in
+                    """
+                    {"id":"\(id)","name":"\(id)","is_unfiled":false,"revision":0,"columns":1,"rows":1,"pages":[]}
+                    """
+                }
+                .joined(separator: ",")
+            let records = """
+                {"cards":[],"collections":[\(collections)]}
+                """
+            return (HTTPResponse(status: .ok, headerFields: headers), HTTPBody(records))
+        default:
+            return (HTTPResponse(status: .notFound), nil)
+        }
     }
 }

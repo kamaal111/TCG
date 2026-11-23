@@ -1,4 +1,5 @@
 import Foundation
+import KamaalExtensions
 import KamaalLogger
 import Observation
 import TCGClient
@@ -49,7 +50,7 @@ final class TCGSearchHistoryStore {
         entries = storedEntries.sorted { $0.lastUsedAt > $1.lastUsedAt }
         var retained: [TCGSearchHistoryEntry] = []
         for entry in entries {
-            let query = entry.query.trimmingCharacters(in: .whitespacesAndNewlines)
+            let query = entry.query.trimmingByWhitespacesAndNewLines
             guard query.count >= 2 else { continue }
             guard retained.filter({ $0.game == entry.game }).count < 100 else { continue }
             guard
@@ -74,7 +75,7 @@ final class TCGSearchHistoryStore {
     func suggestions(for query: String, game: ClientCardGame, mode: ClientCardSearchMode)
         -> [TCGSearchHistoryEntry]
     {
-        let query = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        let query = query.trimmingByWhitespacesAndNewLines
         guard !query.isEmpty else { return [] }
         return Array(
             entries(for: game)
@@ -87,7 +88,7 @@ final class TCGSearchHistoryStore {
     }
 
     func record(query: String, game: ClientCardGame, mode: ClientCardSearchMode) {
-        let query = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        let query = query.trimmingByWhitespacesAndNewLines
         guard query.count >= 2 else { return }
         let existing = entries.first { $0.game == game && $0.mode == mode && Self.matches($0.query, query) }
         entries.removeAll { $0.game == game && $0.mode == mode && Self.matches($0.query, query) }

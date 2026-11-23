@@ -1,4 +1,5 @@
 import Foundation
+import KamaalExtensions
 import Observation
 import TCGClient
 
@@ -27,7 +28,7 @@ final class BinderSlotEditorModel {
 
     var availableCards: [CardWithPrice] { pages.cards }
     var hasMoreCards: Bool { pages.nextCursor != nil }
-    private var searchQuery: String { query.trimmingCharacters(in: .whitespacesAndNewlines) }
+    private var searchQuery: String { query.trimmingByWhitespacesAndNewLines }
 
     private(set) var selectedCard: CardWithPrice?
     private var moveFromUnfiledCardID: UUID?

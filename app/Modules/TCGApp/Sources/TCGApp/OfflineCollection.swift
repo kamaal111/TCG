@@ -1,4 +1,5 @@
 import Foundation
+import KamaalExtensions
 import KamaalLogger
 import LocalAuthentication
 import Observation
@@ -330,7 +331,7 @@ final class OfflineCollection {
         }
         if !current.needsPreparation.isEmpty {
             for offset in stride(from: 0, to: current.needsPreparation.count, by: 100) {
-                let batch = Array(current.needsPreparation[offset..<min(offset + 100, current.needsPreparation.count)])
+                let batch = Array(current.needsPreparation.ranged(from: offset, to: offset + 100))
                 do {
                     _ = try await client.prepare(batch)
                 } catch OfflineCollectionError.unauthorized {
@@ -396,7 +397,7 @@ final class OfflineCollection {
         let changes = manifest.entries.filter { !retained.contains($0) }
         for offset in stride(from: 0, to: changes.count, by: 100) {
             try Task.checkCancellation()
-            let batch = Array(changes[offset..<min(offset + 100, changes.count)])
+            let batch = Array(changes.ranged(from: offset, to: offset + 100))
             let records = try await client.records(batch)
             let expectedCards = Set(batch.filter { $0.kind == .card }.map(\.id))
             let expectedCollections = Set(batch.filter { $0.kind == .collection }.map(\.id))
@@ -435,7 +436,7 @@ final class OfflineCollection {
         for offset in stride(from: 0, to: missing.count, by: 2) {
             try check(token)
             try await withThrowingTaskGroup(of: (String, ArtworkDownload).self) { group in
-                for (key, url) in missing[offset..<min(offset + 2, missing.count)] {
+                for (key, url) in missing.ranged(from: offset, to: offset + 2) {
                     group.addTask { [session] in
                         do {
                             if let data = try await OfflineCollectionStore.fetchImage(url, session: session) {
@@ -470,7 +471,7 @@ final class OfflineCollection {
     private func updateStatus(_ download: OfflineCollectionSnapshot) {
         hasDownload = true
         lastSync = [download.checkedAt, defaults.object(forKey: "offlineCollectionLastCheck") as? Date]
-            .compactMap { $0 }
+            .unpacked()
             .max()
         missingImages = store.missingImageCount(for: download)
     }

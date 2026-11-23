@@ -4,6 +4,7 @@
 //
 
 import Foundation
+import KamaalExtensions
 import Observation
 import TCGClient
 import TCGDesignSystem
@@ -84,13 +85,13 @@ final class TCGSearchScreenModel {
     @ObservationIgnored private let debounce: Duration
 
     func updateQuery(_ value: String, using search: TCGSearch) {
-        let previousQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
-        let normalizedQuery = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        let previousQuery = query.trimmingByWhitespacesAndNewLines
+        let normalizedQuery = value.trimmingByWhitespacesAndNewLines
         if previousQuery == normalizedQuery {
             query = value
             return
         }
-        if value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+        if value.trimmingByWhitespacesAndNewLines.isEmpty {
             finishEditing(using: search)
         }
         setNames = []
@@ -159,7 +160,7 @@ final class TCGSearchScreenModel {
 
     func scheduleSearch(using search: TCGSearch) {
         invalidateSearch(using: search)
-        let normalizedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        let normalizedQuery = query.trimmingByWhitespacesAndNewLines
         guard normalizedQuery.count >= 2 else { return }
 
         let request = SearchRequest(
@@ -179,7 +180,7 @@ final class TCGSearchScreenModel {
 
     func performSearch(using search: TCGSearch) async {
         invalidateSearch(using: search)
-        let normalizedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        let normalizedQuery = query.trimmingByWhitespacesAndNewLines
         guard normalizedQuery.count >= 2 else { return }
         let request = SearchRequest(
             game: game,
@@ -195,7 +196,7 @@ final class TCGSearchScreenModel {
     func selectHistory(_ entry: TCGSearchHistoryEntry, using search: TCGSearch) async {
         finishEditing(using: search)
         if mode != entry.mode || game != entry.game
-            || query.trimmingCharacters(in: .whitespacesAndNewlines) != entry.query
+            || query.trimmingByWhitespacesAndNewLines != entry.query
         {
             setNames = []
         }

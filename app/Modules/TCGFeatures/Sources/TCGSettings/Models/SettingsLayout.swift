@@ -1,4 +1,6 @@
 import KamaalAuth
+import KamaalExtensions
+import KamaalUI
 import SwiftUI
 import TCGCards
 import TCGClient
@@ -95,7 +97,7 @@ enum SettingsLayout {
             sessionEnd.map(signOutSection),
         ]
 
-        return SettingsForm(sections: sections.compactMap { $0 }) { row in
+        return SettingsForm(sections: sections.unpacked()) { row in
             rowContent(row, artworkCache: artworkCache)
         } embedded: {
             offlineCollection
@@ -333,7 +335,7 @@ private struct SignOutSettingsButton: View {
             Text("Sign Out", bundle: .module)
                 .fontWeight(.bold)
                 .foregroundStyle(.red)
-                .frame(maxWidth: .infinity)
+                .ktakeWidthEagerly()
         }
         #if os(macOS)
             .buttonStyle(.borderless)

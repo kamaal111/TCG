@@ -119,7 +119,7 @@ public final class TCGCards {
             game: collectionState.game,
             sets: collectionState.setNames.sorted(),
             illustrators: collectionState.illustrators.map { $0.lowercased() }.sorted(),
-            query: collectionState.query?.trimmingCharacters(in: .whitespacesAndNewlines)
+            query: collectionState.query?.trimmingByWhitespacesAndNewLines
         )
     }
 
@@ -394,7 +394,7 @@ public final class TCGCards {
             }
             availableSetNames = Set(scoped.map(\.card.setName))
             availableIllustrators = Set(scoped.filter { $0.card.game == .pokemon }.compactMap(\.card.illustrator))
-            let query = request.query?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            let query = request.query?.trimmingByWhitespacesAndNewLines ?? ""
             setCards(query.isEmpty ? scoped : scoped.filter { $0.card.matchesSearch(query) })
             collectionState.status = .loaded
             logger.info(
@@ -778,7 +778,7 @@ public final class TCGCards {
                 guard entry.card.game == game else { return false }
             }
 
-            if let query = collectionState.query?.trimmingCharacters(in: .whitespacesAndNewlines),
+            if let query = collectionState.query?.trimmingByWhitespacesAndNewLines,
                 !query.isEmpty, !entry.card.matchesSearch(query)
             {
                 return false

@@ -1,5 +1,6 @@
 import Foundation
 import KamaalAuth
+import KamaalExtensions
 import KamaalLogger
 import Observation
 import SwiftUI
@@ -324,7 +325,7 @@ public final class TCGCollections {
     func create(name: String) async -> Result<CardBinderCollection, CollectionsError> {
         await mutate(
             operation: .create,
-            action: { await client.create(name: name.trimmingCharacters(in: .whitespacesAndNewlines)) },
+            action: { await client.create(name: name.trimmingByWhitespacesAndNewLines) },
             apply: { collections.append($0.summary) }
         )
     }

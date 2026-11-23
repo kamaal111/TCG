@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import KamaalExtensions
 import TCGClient
 import TCGUtils
 
@@ -130,7 +131,7 @@ struct CardFormValues: Equatable {
             && lhs.cardNumber == rhs.cardNumber && lhs.notes == rhs.notes && lhs.batches == rhs.batches
     }
 
-    private var trimmedNotes: String { notes.trimmingCharacters(in: .whitespacesAndNewlines) }
+    private var trimmedNotes: String { notes.trimmingByWhitespacesAndNewLines }
 }
 
 struct PurchaseBatchFormValue: Equatable, Identifiable {
@@ -203,7 +204,7 @@ struct PurchaseBatchFormValue: Equatable, Identifiable {
     }
 
     var price: Decimal? {
-        let normalized = priceText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let normalized = priceText.trimmingByWhitespacesAndNewLines
             .replacingOccurrences(of: TCGLocales.current.decimalSeparator ?? ".", with: ".")
         guard normalized.range(of: #"^(?:0|[1-9]\d{0,13})(?:\.\d{1,6})?$"#, options: .regularExpression) != nil else {
             return nil

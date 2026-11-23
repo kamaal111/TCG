@@ -1,3 +1,4 @@
+import KamaalExtensions
 import TCGClient
 
 enum CSVImportValidationFeedback {
@@ -12,18 +13,18 @@ enum CSVImportValidationFeedback {
         guard path.first.flatMap(CollectionField.init(rawValue:)) == .cards else { return [] }
         guard path.count >= 3 else { return [] }
         guard let cardIndex = Int(path[1]) else { return [] }
-        guard submitted.indices.contains(cardIndex) else { return [] }
+        guard cardIndex >= 0, let card = submitted.at(cardIndex) else { return [] }
 
-        let rows = submitted[cardIndex].rows.filter(\.isIncluded)
+        let rows = card.rows.filter(\.isIncluded)
         let affected: [CSVImportRow]
         let column: CardsCSV.Column
         if CollectionField(rawValue: path[2]) == .purchases {
             guard path.count == 5 else { return [] }
             guard let purchaseIndex = Int(path[3]) else { return [] }
-            guard rows.indices.contains(purchaseIndex) else { return [] }
+            guard purchaseIndex >= 0, let row = rows.at(purchaseIndex) else { return [] }
             guard let field = CardsCSV.Column(rawValue: path[4]) else { return [] }
 
-            affected = [rows[purchaseIndex]]
+            affected = [row]
             column = field == .id ? .purchaseID : field
         } else {
             guard path.count == 3 else { return [] }

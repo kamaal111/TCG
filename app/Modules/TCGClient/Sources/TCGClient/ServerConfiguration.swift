@@ -1,4 +1,5 @@
 import Foundation
+import KamaalExtensions
 
 struct ServerConfiguration: Sendable {
     let url: URL
@@ -18,7 +19,7 @@ struct ServerConfiguration: Sendable {
         }
 
         guard let baseURL = sourceURL else { throw .missingURL }
-        guard baseURL == baseURL.trimmingCharacters(in: .whitespacesAndNewlines) else { throw .invalidURL }
+        guard baseURL == baseURL.trimmingByWhitespacesAndNewLines else { throw .invalidURL }
         guard !baseURL.contains("$(") else { throw .invalidURL }
         guard var components = URLComponents(string: baseURL) else { throw .invalidURL }
         guard let scheme = components.scheme?.lowercased() else { throw .invalidURL }

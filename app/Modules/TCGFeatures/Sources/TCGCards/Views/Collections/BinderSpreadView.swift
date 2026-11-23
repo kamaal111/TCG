@@ -1,3 +1,4 @@
+import KamaalUI
 import SwiftUI
 import TCGClient
 import TCGCurrency
@@ -111,7 +112,7 @@ struct BinderSpreadView: View {
                 .frame(width: visiblePages.count > 1 ? layout.pageSize.width : nil)
             }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .ktakeSizeEagerly()
     }
 
     private func navigate(_ direction: BinderPageDirection) {

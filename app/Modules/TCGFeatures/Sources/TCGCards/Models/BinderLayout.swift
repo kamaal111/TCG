@@ -1,4 +1,5 @@
 import Foundation
+import KamaalExtensions
 import TCGClient
 
 enum BinderLayout {
@@ -101,9 +102,8 @@ enum BinderLayout {
                 if slot.row <= rows && slot.column <= columns { kept.append(slot) } else { moved.append(slot) }
             }
             updated.pages.append(BinderPage(id: page.id, slots: kept))
-            for start in stride(from: 0, to: moved.count, by: capacity) {
-                let end = min(start + capacity, moved.count)
-                let slots = moved[start..<end].enumerated()
+            for overflow in moved.chunked(capacity) {
+                let slots = overflow.enumerated()
                     .map { index, slot in
                         BinderSlot(
                             row: index / columns + 1,

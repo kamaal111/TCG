@@ -1,4 +1,5 @@
 import Foundation
+import KamaalExtensions
 import TCGClient
 
 enum TCGSearchHelpDocument {
@@ -23,7 +24,7 @@ enum TCGSearchHelpDocument {
 
         do {
             let markdown = try String(contentsOf: url, encoding: .utf8)
-            guard !markdown.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            guard !markdown.trimmingByWhitespacesAndNewLines.isEmpty else {
                 return .failure(.unavailable)
             }
             return .success(markdown)

@@ -1,3 +1,5 @@
+import KamaalExtensions
+import KamaalUI
 import SwiftUI
 import TCGClient
 import TCGCurrency
@@ -145,11 +147,11 @@ public struct TCGWishlistScreen<AddForm: View>: View {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(card.name).font(.headline)
                         Text(
-                            [card.setName, card.cardNumber, card.variantName].compactMap { $0 }.joined(separator: " · ")
+                            [card.setName, card.cardNumber, card.variantName].unpacked().joined(separator: " · ")
                         )
                         .foregroundStyle(.secondary)
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .ktakeWidthEagerly(alignment: .leading)
                     if pricePrivacy?.hidePrices != true {
                         if let currency, let display = card.display,
                             display.preferredCurrency != currency.preferredCurrency

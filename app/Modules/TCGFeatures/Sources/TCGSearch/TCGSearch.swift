@@ -4,6 +4,7 @@
 //
 
 import Foundation
+import KamaalExtensions
 import KamaalLogger
 import Observation
 import TCGClient
@@ -33,7 +34,7 @@ public final class TCGSearch {
             let game = request.game
             self.mode = request.mode
             self.game = game
-            self.query = request.query.trimmingCharacters(in: .whitespacesAndNewlines)
+            self.query = request.query.trimmingByWhitespacesAndNewLines
             self.languages = ClientCardLanguage.normalized(request.languages, for: game)
         }
     }

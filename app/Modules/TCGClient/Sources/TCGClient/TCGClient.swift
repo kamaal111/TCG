@@ -7,6 +7,7 @@
 
 import Foundation
 import KamaalAuth
+import KamaalExtensions
 import KamaalLogger
 import OpenAPIRuntime
 import OpenAPIURLSession
@@ -73,7 +74,7 @@ public struct TCGClient: Sendable {
         let padding = String(repeating: "=", count: (4 - base64.count % 4) % 4)
         guard let data = Data(base64Encoded: base64 + padding),
             let claims = try? JSONDecoder().decode(StartupCacheClaims.self, from: data),
-            !claims.email.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+            !claims.email.trimmingByWhitespacesAndNewLines.isEmpty,
             Date(timeIntervalSince1970: claims.sessionExpiresAt) > .now
         else { return nil }
 

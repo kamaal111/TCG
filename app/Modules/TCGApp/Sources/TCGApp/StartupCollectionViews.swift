@@ -1,3 +1,4 @@
+import KamaalUI
 import LocalAuthentication
 import SwiftUI
 import TCGCards
@@ -74,7 +75,7 @@ struct StartupCollectionPreview: View {
 
             TCGDownloadedCollectionScreen(cards: preview.cards, collections: preview.collections)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .ktakeSizeEagerly()
         .background(.background)
     }
 }

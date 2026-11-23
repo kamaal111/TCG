@@ -4,6 +4,7 @@
 //
 
 import Foundation
+import KamaalExtensions
 
 /// Direction a card's market price has moved over a reported period.
 ///
@@ -404,7 +405,7 @@ public struct PricedCard: Codable, Hashable, Identifiable, Sendable {
 
     public var displayHeadline: PriceHeadline? { display?.headline ?? headline }
     public var displayConditionPrices: [MarketPrice] {
-        display?.conditionPrices ?? conditionPrices ?? [displayMarket].compactMap { $0 }
+        display?.conditionPrices ?? conditionPrices ?? [displayMarket].unpacked()
     }
     public var displayConditionValues: [ConditionValue]? { display?.conditionValues ?? conditionValues }
     public var displayMarket: MarketPrice? { display?.market ?? market }

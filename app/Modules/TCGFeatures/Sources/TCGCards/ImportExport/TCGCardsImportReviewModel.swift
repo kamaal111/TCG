@@ -1,4 +1,5 @@
 import Foundation
+import KamaalExtensions
 import Observation
 import TCGClient
 
@@ -60,7 +61,7 @@ final class TCGCardsImportReviewModel {
         }
     }
 
-    var selectedPurchaseCount: Int { selectedCards.reduce(0) { $0 + $1.purchases.count } }
+    var selectedPurchaseCount: Int { selectedCards.sum(by: \.purchases.count) }
 
     var invalidRowCount: Int {
         cards.filter(\.isIncluded)
@@ -77,8 +78,7 @@ final class TCGCardsImportReviewModel {
     }
 
     var lookupTask: LookupTask {
-        var seen: Set<CSVPrintingQuery> = []
-        let queries = cards.compactMap { query(for: $0) }.filter { seen.insert($0).inserted }
+        let queries = cards.compactMap { query(for: $0) }.uniques()
         return .init(queries: queries, revision: lookupRevision)
     }
 

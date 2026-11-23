@@ -1,3 +1,4 @@
+import KamaalUI
 import SwiftUI
 import TCGClient
 import TCGDesignSystem
@@ -47,7 +48,7 @@ public struct TCGCardsImportReviewScreen: View {
             }
             .padding(24)
             .frame(maxWidth: 720)
-            .frame(maxWidth: .infinity)
+            .ktakeWidthEagerly()
         }
         .tcgSheet(
             Text("Review Import", bundle: .module),

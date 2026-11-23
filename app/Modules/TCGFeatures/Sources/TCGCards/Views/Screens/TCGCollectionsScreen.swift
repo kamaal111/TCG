@@ -1,3 +1,4 @@
+import KamaalExtensions
 import SwiftUI
 import TCGClient
 
@@ -64,7 +65,7 @@ public struct TCGCollectionsScreen<Wishlist: View>: View {
             } label: {
                 Text("Save", bundle: .module)
             }
-            .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            .disabled(name.trimmingByWhitespacesAndNewLines.isEmpty)
             Button(role: .cancel) {
             } label: {
                 Text("Cancel", bundle: .module)
@@ -168,7 +169,7 @@ public struct TCGCollectionsScreen<Wishlist: View>: View {
     private func saveName() async {
         guard !isRenaming || isEditingCollection else { return }
         guard let collections else { return }
-        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmed = name.trimmingByWhitespacesAndNewLines
         if isRenaming, var collection = collections.selected {
             collection.name = trimmed
             _ = await collections.update(collection, using: cards)

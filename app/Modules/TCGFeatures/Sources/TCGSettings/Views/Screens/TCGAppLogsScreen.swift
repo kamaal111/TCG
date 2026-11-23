@@ -1,4 +1,5 @@
 import KamaalLogger
+import KamaalUI
 import SwiftUI
 import TCGDesignSystem
 
@@ -64,7 +65,7 @@ struct TCGAppLogsContent: View {
             }
         } else {
             ProgressView()
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .ktakeSizeEagerly()
         }
     }
 
@@ -82,7 +83,7 @@ struct TCGAppLogsContent: View {
                         .foregroundStyle(.secondary)
                 }
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .ktakeWidthEagerly(alignment: .leading)
             Image(systemName: "chevron.forward")
                 .font(.caption)
                 .foregroundStyle(.secondary)
@@ -110,7 +111,7 @@ struct TCGAppLogDetail: View {
                     fieldRow(fields[index], index: index)
                 }
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .ktakeWidthEagerly(alignment: .leading)
             .padding()
         }
         .navigationTitle(Text("Log Details", bundle: .module))
@@ -132,7 +133,7 @@ struct TCGAppLogDetail: View {
                     .textSelection(.enabled)
                     .fixedSize(horizontal: false, vertical: true)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .ktakeWidthEagerly(alignment: .leading)
 
             Button {
                 if Self.copy(field.value) { copiedField = index }

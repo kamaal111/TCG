@@ -1,3 +1,4 @@
+import KamaalUI
 import SwiftUI
 import TCGClient
 import TCGDesignSystem
@@ -44,7 +45,7 @@ struct TCGSearchHelpView: View {
                     Text("Search help could not be loaded.", bundle: .module)
                 }
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .ktakeWidthEagerly(alignment: .leading)
             .padding(24)
         }
     }
