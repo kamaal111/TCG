@@ -57,10 +57,10 @@ export function normalizeScrydexCard(game: CardGame, raw: ScrydexRawCard): Scryd
           return name != null && POKEMON_BASE_VARIANT_NAMES.includes(name);
         });
 
-  const firstEdition =
-    game === CARD_GAME_MAP.POKEMON && raw.variants?.length === 1 ? findVariant(raw, 'firstedition') : undefined;
+  const solePokemonVariant = game === CARD_GAME_MAP.POKEMON && raw.variants?.length === 1 ? raw.variants[0] : undefined;
+  const namedVariant = stringValue(solePokemonVariant?.name) != null ? solePokemonVariant : undefined;
 
-  return normalizePrinting(game, raw, baseVariant ?? firstEdition);
+  return normalizePrinting(game, raw, baseVariant ?? namedVariant);
 }
 
 export function normalizeScrydexSearch(

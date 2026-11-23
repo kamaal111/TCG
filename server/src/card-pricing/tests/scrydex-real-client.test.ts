@@ -7,49 +7,84 @@ import { RealScrydexClient } from '../scrydex/real-client.ts';
 import { CARD_GAME_MAP } from '../types.ts';
 
 describe('RealScrydexClient', () => {
+  const nearMintPrice = { type: 'raw', condition: 'NM', currency: 'JPY', low: 25_000, market: 25_000 };
+  const nearMintMarket = { condition: 'near_mint', currency: 'JPY', low: 25_000, market: 25_000 };
+
   it.each([
     {
-      variant: 'firstEdition',
-      expectedMarket: { condition: 'near_mint', currency: 'JPY', low: 180_000, market: 180_000 },
+      scenario: 'sole first edition',
+      variants: [
+        {
+          name: 'firstEdition',
+          prices: [nearMintPrice, { ...nearMintPrice, currency: 'USD', low: 999.99, market: 999.99 }],
+        },
+      ],
+      market: nearMintMarket,
     },
-    { variant: 'reverseHolofoil', expectedMarket: undefined },
-  ])(
-    'normalizes Pokémon pricing for a sole $variant variant in search and lookup',
-    async ({ variant, expectedMarket }) => {
-      const card = {
-        id: 'vs1_ja-97',
-        name: 'ワタルのリザードン',
-        number: '97',
-        variants: [
-          {
-            name: variant,
-            prices: [
-              { type: 'raw', condition: 'NM', currency: 'JPY', low: 180_000, market: 180_000 },
-              { type: 'raw', condition: 'NM', currency: 'USD', low: 999.99, market: 999.99 },
-            ],
-          },
-        ],
-      };
-
-      const client = makeClient(async input => {
-        return jsonResponse(
-          new URL(stringifyRequestURL(input)).pathname.endsWith('/cards') ? { data: [card] } : { data: card },
-          200,
-        );
-      });
-
-      const search = await client.searchCards('pokemon', 'Lance’s Charizard', { languages: [], searchBy: 'card' }, 1);
-      assert(search.isOk());
-      expect(search.value.records).toHaveLength(1);
-      expect(search.value.records[0]?.card.id).toBe(card.id);
-      expect(search.value.records[0]?.card.pricing.market).toEqual(expectedMarket);
-
-      const lookup = await client.getCardById('pokemon', card.id);
-      assert(lookup.isOk());
-      expect(lookup.value?.card.id).toBe(card.id);
-      expect(lookup.value?.card.pricing.market).toEqual(expectedMarket);
+    {
+      scenario: 'sole first edition holofoil',
+      variants: [{ name: 'firstEditionHolofoil', prices: [nearMintPrice] }],
+      market: nearMintMarket,
     },
-  );
+    {
+      scenario: 'sole reverse holofoil',
+      variants: [{ name: 'reverseHolofoil', prices: [nearMintPrice] }],
+      market: nearMintMarket,
+    },
+    {
+      scenario: 'sole unfamiliar finish',
+      variants: [{ name: 'futureFoil', prices: [nearMintPrice] }],
+      market: nearMintMarket,
+    },
+    {
+      scenario: 'multi-variant card with a recognized default',
+      variants: [
+        { name: 'firstEditionHolofoil', prices: [{ ...nearMintPrice, low: 50_000, market: 50_000 }] },
+        { name: 'unlimitedHolofoil', prices: [nearMintPrice] },
+      ],
+      market: nearMintMarket,
+    },
+    {
+      scenario: 'multi-variant card without a recognized default',
+      variants: [
+        { name: 'firstEditionHolofoil', prices: [nearMintPrice] },
+        { name: 'reverseHolofoil', prices: [] },
+      ],
+      market: undefined,
+    },
+    { scenario: 'blank variant name', variants: [{ name: ' ', prices: [nearMintPrice] }], market: undefined },
+    {
+      scenario: 'sole variant without a usable quote',
+      variants: [{ name: 'futureFoil', prices: [{ ...nearMintPrice, type: 'graded' }] }],
+      market: undefined,
+    },
+  ])('normalizes Pokémon pricing for $scenario in search and lookup', async ({ variants, market }) => {
+    const card = {
+      id: 'vs1_ja-95',
+      name: 'R団のエンテイ',
+      number: '95',
+      printed_number: '095/141',
+      variants,
+    };
+
+    const client = makeClient(async input => {
+      return jsonResponse(
+        new URL(stringifyRequestURL(input)).pathname.endsWith('/cards') ? { data: [card] } : { data: card },
+        200,
+      );
+    });
+
+    const search = await client.searchCards('pokemon', 'Rocket’s Entei', { languages: [], searchBy: 'card' }, 1);
+    assert(search.isOk());
+    expect(search.value.records).toHaveLength(1);
+    expect(search.value.records[0]?.card.id).toBe(card.id);
+    expect(search.value.records[0]?.card.pricing.market).toEqual(market);
+
+    const lookup = await client.getCardById('pokemon', card.id);
+    assert(lookup.isOk());
+    expect(lookup.value?.card.id).toBe(card.id);
+    expect(lookup.value?.card.pricing.market).toEqual(market);
+  });
 
   it('searches lowercase promo numbers without escaping the provider identity', async () => {
     const requestedURLs: string[] = [];
