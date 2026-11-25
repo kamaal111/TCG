@@ -1,4 +1,7 @@
-import App from './runtime/node/app.ts';
+import './env.ts';
+
+// Validate the environment before loading the server runtime and its dependencies.
+const { default: App } = await import('./runtime/node/app.ts');
 
 const app = new App({});
 
