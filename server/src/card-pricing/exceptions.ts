@@ -6,12 +6,14 @@ import { RETRY_AFTER_SECONDS } from '../constants/time.ts';
 type CardPricingExceptionCode = (typeof CARD_PRICING_EXCEPTION_CODES)[keyof typeof CARD_PRICING_EXCEPTION_CODES];
 
 export const CARD_PRICING_EXCEPTION_CODES = {
+  PRICING_CATALOG_UNAVAILABLE: 'PRICING_CATALOG_UNAVAILABLE',
   PRICING_LOCK_TIMEOUT: 'PRICING_LOCK_TIMEOUT',
   PRICING_LOCK_UNAVAILABLE: 'PRICING_LOCK_UNAVAILABLE',
   PRICING_PROVIDER_UNAVAILABLE: 'PRICING_PROVIDER_UNAVAILABLE',
 } as const;
 
 const MESSAGE_BY_CODE: Record<CardPricingExceptionCode, string> = {
+  PRICING_CATALOG_UNAVAILABLE: 'Card search is temporarily unavailable; try again shortly.',
   PRICING_LOCK_TIMEOUT: 'Pricing is busy; try again shortly.',
   PRICING_LOCK_UNAVAILABLE: 'Card pricing is temporarily unavailable; try again shortly.',
   PRICING_PROVIDER_UNAVAILABLE: 'Card pricing data is temporarily unavailable; try again shortly.',
@@ -74,3 +76,9 @@ export type PricingLockError =
   | PricingLockUnavailable
   | PricingProviderUnavailable
   | PricingOperationFailed;
+
+export class PricingCatalogUnavailable extends CardPriceException {
+  constructor(c: ExceptionContext) {
+    super(c, { code: CARD_PRICING_EXCEPTION_CODES.PRICING_CATALOG_UNAVAILABLE });
+  }
+}

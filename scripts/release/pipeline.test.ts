@@ -189,7 +189,7 @@ test('resuming an unhealthy installed image offers an approved redeployment befo
   expect(options.deploy).toHaveBeenCalledOnce();
   expect(options.check).toHaveBeenCalledTimes(2);
   expect(options.prompts.confirm).toHaveBeenCalledWith(
-    'Deploy this release? The application will restart briefly.',
+    'Deploy this release? It prepares any missing card search catalog before restarting the application.',
     false,
     expect.objectContaining({ kind: 'deploy' }),
   );

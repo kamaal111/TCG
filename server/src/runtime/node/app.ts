@@ -10,13 +10,16 @@ import { CardImageWarmer } from './warmer.ts';
 import { createApp } from '../../app.ts';
 import { CardImageMaterializer } from '../../card-images/materializer.ts';
 import { HttpCardImageOriginClient } from '../../card-images/origin-client.ts';
+import { CardCatalog } from '../../card-pricing/catalog.ts';
 import { createPricingClient } from '../../card-pricing/scrydex/factory.ts';
-import { ApplicationConfigSchema } from '../../config.ts';
+import { RealScrydexClient } from '../../card-pricing/scrydex/real-client.ts';
+import { PRICING_CLIENT_MODES } from '../../constants/common.ts';
 import type { HonoEnvironment, InjectedContext } from '../../context.ts';
 import { createDatabase, type Database } from '../../db/index.ts';
-import env from '../../env.ts';
+import env, { applicationConfig } from '../../env.ts';
 import { EcbForexClient } from '../../forex/client.ts';
 import { createAuth } from '../../persistence/postgres/auth-client.ts';
+import { PostgresCardCatalog } from '../../persistence/postgres/card-catalog.ts';
 import { createPostgresPersistence } from '../../persistence/postgres/index.ts';
 import { createConfiguredObjectStorage } from '../../storage/config.ts';
 
@@ -95,7 +98,7 @@ function assertObjectStorageIsConfigured() {
 
 export function createNodeApplication(overrides: AppOverrides) {
   initializeNodeLogging();
-  const config = overrides.config ?? ApplicationConfigSchema.parse(env);
+  const config = overrides.config ?? applicationConfig;
 
   const db =
     overrides.db ??
@@ -109,6 +112,13 @@ export function createNodeApplication(overrides: AppOverrides) {
   const persistence = createPostgresPersistence(db, config.PRICING_LOCK_TIMEOUT_MS, config);
   const forexClient = overrides.forexClient ?? new EcbForexClient({});
   const pricingClient = overrides.pricingClient ?? createPricingClient(config);
+
+  const cardCatalog =
+    overrides.cardCatalog ??
+    (config.SCRYDEX_CLIENT === PRICING_CLIENT_MODES.REAL && pricingClient instanceof RealScrydexClient
+      ? new CardCatalog(new PostgresCardCatalog(db, pricingClient.source), pricingClient)
+      : undefined);
+
   const storageClient = overrides.storageClient ?? createConfiguredObjectStorage(env);
 
   const imageOriginClient =
@@ -139,6 +149,7 @@ export function createNodeApplication(overrides: AppOverrides) {
     persistence,
     auth,
     pricingClient,
+    cardCatalog,
     storageClient,
     imageOriginClient,
     cardImageMaterializer,
@@ -147,16 +158,26 @@ export function createNodeApplication(overrides: AppOverrides) {
 
   const app = createApp(dependencies);
 
-  const lifecycle: Lifecycle | undefined = config.CARD_IMAGE_WORKER_ENABLED
-    ? { start: () => cardImageWarmer.start({}), stop: () => cardImageWarmer.stop() }
-    : undefined;
+  const lifecycle: Lifecycle = {
+    start: () => {
+      if (config.CARD_IMAGE_WORKER_ENABLED) {
+        cardImageWarmer.start({});
+      }
+
+      cardCatalog?.start();
+    },
+    stop: () => {
+      cardImageWarmer.stop();
+      cardCatalog?.stop();
+    },
+  };
 
   return {
     app,
     dependencies,
     lifecycle,
     dispose: async () => {
-      await cardImageWarmer.idle();
+      await Promise.all([cardImageWarmer.idle(), cardCatalog?.idle()]);
       await persistence.close();
 
       if (overrides.db == null) {

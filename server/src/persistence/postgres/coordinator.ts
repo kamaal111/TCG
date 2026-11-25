@@ -9,7 +9,7 @@ import {
   type PricingCoordinator,
   type PricingIdentity,
 } from '../../card-pricing/coordinator.ts';
-import type { PricingLogFields } from '../../card-pricing/logging.ts';
+import { PRICING_EVENT_MAP, type PricingLogFields } from '../../card-pricing/logging.ts';
 import { classifyPostgresError } from '../../db/errors.ts';
 import type { Database } from '../../db/index.ts';
 import { appRelations } from '../../db/schema/index.ts';
@@ -31,7 +31,7 @@ export class PostgresPricingCoordinator implements PricingCoordinator {
 
     pool.on('error', err => {
       getProcessLogger<PricingLogFields>().error(
-        { event: 'pricing.lock.pool_error', outcome: 'failure', error_code: 'PRICING_LOCK_UNAVAILABLE', err },
+        { event: PRICING_EVENT_MAP.LOCK_POOL_ERROR, outcome: 'failure', error_code: 'PRICING_LOCK_UNAVAILABLE', err },
         'Lost an idle pricing lock connection.',
       );
     });

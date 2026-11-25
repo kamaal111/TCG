@@ -166,6 +166,11 @@ squash-migrations: prepare-server
 fetch-daily-currencies database-url=DATABASE_URL:
     @DATABASE_URL="$1" node scripts/fetch-daily-currencies.ts
 
+# Backfill Pokémon and One Piece search metadata from Scrydex
+[working-directory("server")]
+sync-card-catalog:
+    node scripts/sync-card-catalog.ts
+
 # Install the macOS daily currency job using an explicit environment file
 [positional-arguments]
 install-currency-schedule env-file:

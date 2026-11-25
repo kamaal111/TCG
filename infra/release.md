@@ -57,6 +57,13 @@ Production host setup requires the live provider and both credentials. Server
 startup rejects static mode when `NODE_ENV=production`, including when
 `SCRYDEX_CLIENT` is omitted. Static mode is limited to development and tests.
 
+## Card search catalog
+
+After migrations, `just release-server` imports any missing Pokémon and One
+Piece catalog before replacing the running application. A failed import leaves
+the running release in place. Devportal server releases use the same deployment
+step after host setup.
+
 ## If a release fails
 
 Fix the reported problem and run `just release-server` again. The CLI offers to

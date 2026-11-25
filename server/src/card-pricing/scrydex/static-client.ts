@@ -13,6 +13,7 @@ import {
   type CardGame,
   type PricingCardRecord,
   type PricingSearchOptions,
+  PRICING_SEARCH_MODE_MAP,
   PRICING_SOURCES,
 } from '../types.ts';
 import { normalizeScrydexLookup, normalizeScrydexSearch, splitScrydexPricingId } from './normalize.ts';
@@ -163,7 +164,7 @@ export class StaticScrydexClient implements PricingClient {
 
     const matches = CANNED_CARDS[game].filter(card => {
       const haystack =
-        options.searchBy === 'illustrator'
+        options.searchBy === PRICING_SEARCH_MODE_MAP.ILLUSTRATOR
           ? IllustratorNameSchema.catch('').parse(card.artist).toLowerCase()
           : `${String(card.name)} ${String(card.number)} ${String(card.printed_number)}`.toLowerCase();
 
@@ -171,7 +172,9 @@ export class StaticScrydexClient implements PricingClient {
     });
 
     const rawCards =
-      matches.length > 0 || options.searchBy === 'illustrator' ? matches : [makeSyntheticCard(game, query)];
+      matches.length > 0 || options.searchBy === PRICING_SEARCH_MODE_MAP.ILLUSTRATOR
+        ? matches
+        : [makeSyntheticCard(game, query)];
 
     const selected = normalizeCardLanguages(game, options.languages);
 

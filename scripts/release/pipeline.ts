@@ -162,7 +162,7 @@ export async function runRelease(options: Pipeline): Promise<void> {
     options.stage?.('deploy');
 
     const reviewed = await approve(options, {
-      message: 'Deploy this release? The application will restart briefly.',
+      message: 'Deploy this release? It prepares any missing card search catalog before restarting the application.',
       kind: 'deploy',
     });
 

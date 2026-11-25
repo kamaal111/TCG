@@ -6,7 +6,9 @@ export type { Env } from './config.ts';
 
 const env = EnvSchema.parse(process.env);
 
+export const applicationConfig = createApplicationConfig(env);
+
 export default {
   ...env,
-  ...createApplicationConfig(env),
+  ...applicationConfig,
 };

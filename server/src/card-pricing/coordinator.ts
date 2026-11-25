@@ -4,11 +4,17 @@ import type { ResultAsync } from 'neverthrow';
 
 import type { CardGame } from './types.ts';
 import { RETRY_AFTER_SECONDS } from '../constants/time.ts';
+import type { GetRecordValues } from '../utils/type-utils.ts';
+
+export const PRICING_LOCK_KEY_TYPE_MAP = {
+  CARD: 'card',
+  SEARCH: 'search',
+} as const;
 
 export interface PricingIdentity {
   game: CardGame;
   key: string;
-  keyType: 'card' | 'search';
+  keyType: GetRecordValues<typeof PRICING_LOCK_KEY_TYPE_MAP>;
   pricedOn: string;
 }
 

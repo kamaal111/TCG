@@ -2,6 +2,8 @@ import type { Result } from 'neverthrow';
 
 import type { ScrydexRawCard } from './schemas.ts';
 
+export const SCRYDEX_FIRST_PAGE = 1;
+
 export const SCRYDEX_SEARCH_PAGE_SIZE = 100;
 
 export const SCRYDEX_PRICE_TYPE_MAP = {
@@ -17,7 +19,20 @@ export const SCRYDEX_RAW_CONDITION_MAP = {
   DAMAGED: 'DM',
 } as const;
 
-export type ScrydexGame = 'pokemon' | 'one_piece';
+export const SCRYDEX_GAME_MAP = {
+  POKEMON: 'pokemon',
+  ONE_PIECE: 'one_piece',
+} as const;
+
+export type ScrydexGame = (typeof SCRYDEX_GAME_MAP)[keyof typeof SCRYDEX_GAME_MAP];
+
+export const SCRYDEX_CATALOG_COLLECTION_MAP = {
+  CARDS: 'cards',
+  EXPANSIONS: 'expansions',
+} as const;
+
+export type ScrydexCatalogCollection =
+  (typeof SCRYDEX_CATALOG_COLLECTION_MAP)[keyof typeof SCRYDEX_CATALOG_COLLECTION_MAP];
 
 export const SCRYDEX_ERROR_REASONS = {
   HTTP_ERROR: 'http_error',
@@ -39,6 +54,7 @@ export type ScrydexClientResult<T> = Result<T, ScrydexClientError>;
 export interface ScrydexSearchResult {
   readonly cards: ScrydexRawCard[];
   readonly providerResultCount: number;
+  readonly catalogTotal?: number;
   readonly hasMore: boolean;
   readonly rejectedCount: number;
 }

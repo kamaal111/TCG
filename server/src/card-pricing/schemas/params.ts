@@ -3,7 +3,8 @@ import { z } from 'zod';
 import { CARD_GAMES } from '../../cards/types.ts';
 import { paginationCursor } from '../../utils/pagination.ts';
 import { CardLanguageSchema, parseCardLanguages, SUPPORTED_CARD_LANGUAGES } from '../languages.ts';
-import { decodeSearchCursor, searchCursorIdentity } from '../utils/pagination.ts';
+import { CARD_GAME_MAP, PRICING_SEARCH_MODE_MAP } from '../types.ts';
+import { CATALOG_SEARCH_CURSOR_VERSION, decodeSearchCursor, searchCursorIdentity } from '../utils/pagination.ts';
 import { queryKey } from '../utils/query.ts';
 
 export type PricingSearchQuery = z.infer<typeof PricingSearchQuerySchema>;
@@ -11,7 +12,7 @@ export type PricingSearchQuery = z.infer<typeof PricingSearchQuerySchema>;
 export const PricingSearchQuerySchema = z
   .object({
     search_by: z
-      .enum(['card', 'illustrator'])
+      .enum(PRICING_SEARCH_MODE_MAP)
       .meta({ description: 'Search card names/numbers, or illustrator names for Pokémon only' }),
     languages: z.string().optional().meta({
       description:
@@ -29,7 +30,7 @@ export const PricingSearchQuerySchema = z
     }),
   })
   .superRefine(({ cursor, game, languages, query, search_by }, ctx) => {
-    if (search_by === 'illustrator' && game !== 'pokemon') {
+    if (search_by === PRICING_SEARCH_MODE_MAP.ILLUSTRATOR && game !== CARD_GAME_MAP.POKEMON) {
       ctx.addIssue({
         code: 'custom',
         path: ['search_by'],
@@ -52,7 +53,10 @@ export const PricingSearchQuerySchema = z
     if (cursor != null) {
       const key = queryKey(game, query, { languages: parseCardLanguages(languages), searchBy: search_by });
 
-      if (cursor.identity !== searchCursorIdentity(key)) {
+      if (
+        cursor.identity !== searchCursorIdentity(key) ||
+        (cursor.version === CATALOG_SEARCH_CURSOR_VERSION && search_by !== PRICING_SEARCH_MODE_MAP.CARD)
+      ) {
         ctx.addIssue({ code: 'custom', path: ['cursor'], message: 'Invalid pagination cursor for this search' });
       }
     }
