@@ -1,5 +1,7 @@
 import z from 'zod';
 
+import { SCRYDEX_PRICE_TYPE_MAP } from './types.ts';
+
 export const ScrydexImageSchema = z
   .object({
     type: z.unknown().optional(),
@@ -33,11 +35,44 @@ export const ScrydexRawPriceSchema = z
   })
   .catchall(z.unknown());
 
+const NonEmptyStringSchema = z.string().trim().nonempty();
+
+export const ScrydexGradedPriceSchema = z.looseObject({
+  type: z.literal(SCRYDEX_PRICE_TYPE_MAP.GRADED),
+  grade: NonEmptyStringSchema,
+  company: NonEmptyStringSchema,
+  currency: z.string(),
+  is_perfect: z.boolean().optional(),
+  is_signed: z.boolean().optional(),
+  is_error: z.boolean().optional(),
+  low: z.number().nullish(),
+  market: z.number().nullish(),
+});
+
+const PopulationGradeSchema = z.looseObject({ grade: NonEmptyStringSchema, count: z.int().nonnegative() });
+
+const PopulationReportSchema = z.looseObject({
+  company: NonEmptyStringSchema,
+  total: z.int().nonnegative().optional(),
+  grade_total: z.int().nonnegative().optional(),
+  qualified_grade_total: z.int().nonnegative().optional(),
+  half_grade_total: z.int().nonnegative().optional(),
+  external_id: z.string().optional(),
+  grades: z
+    .array(PopulationGradeSchema.optional().catch(undefined))
+    .transform(grades => grades.filter(grade => grade != null)),
+});
+
 export const ScrydexVariantSchema = z
   .object({
     name: z.unknown().optional(),
     images: z.array(ScrydexImageSchema).optional(),
     prices: z.array(ScrydexRawPriceSchema).optional(),
+    pop_reports: z
+      .array(PopulationReportSchema.optional().catch(undefined))
+      .transform(reports => reports.filter(report => report != null))
+      .optional()
+      .catch(undefined),
   })
   .catchall(z.unknown());
 

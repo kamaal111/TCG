@@ -16,10 +16,19 @@ import {
   PricedCardSchema,
 } from '../schemas/responses.ts';
 import { normalizeScrydexLookup, splitScrydexPricingId } from '../scrydex/normalize.ts';
-import { type CardGame, isScrydexPricingSource, type NormalizedConditionPrice } from '../types.ts';
+import {
+  type CardGame,
+  isScrydexPricingSource,
+  type NormalizedConditionPrice,
+  type NormalizedPricing,
+} from '../types.ts';
 
 export function serializePricedCard(game: CardGame, row: CardPriceRow, baseURL: string): PricedCardResponse {
-  const quotes = cachedConditionPrices(row);
+  const recovered =
+    row.prices.conditionPrices == null || row.prices.gradedPrices == null ? recoverScrydexPricing(row) : undefined;
+
+  const quotes = cachedConditionPrices(row.prices, recovered);
+  const gradedPrices = row.prices.gradedPrices ?? recovered?.gradedPrices;
   const conditionPrices = quotes.map(serializeConditionPrice);
   const nearMint = quotes.find(quote => quote.condition === CARD_CONDITION_MAP.NEAR_MINT);
 
@@ -45,6 +54,7 @@ export function serializePricedCard(game: CardGame, row: CardPriceRow, baseURL: 
     market,
     condition_prices: conditionPrices,
     condition_values: resolveConditionValues(conditionPrices),
+    graded_prices: gradedPrices?.length ? gradedPrices : undefined,
   });
 }
 
@@ -73,32 +83,35 @@ function serializeConditionPrice(quote: NormalizedConditionPrice) {
   };
 }
 
-function cachedConditionPrices(row: CardPriceRow): readonly NormalizedConditionPrice[] {
-  if (row.prices.conditionPrices != null) {
-    return row.prices.conditionPrices;
+function cachedConditionPrices(
+  pricing: NormalizedPricing,
+  recovered: NormalizedPricing | undefined,
+): readonly NormalizedConditionPrice[] {
+  if (pricing.conditionPrices != null) {
+    return pricing.conditionPrices;
   }
 
-  const legacy = row.prices.market == null ? [] : [row.prices.market];
+  const legacy = pricing.market == null ? [] : [pricing.market];
+  const prices = recovered?.conditionPrices ?? [];
 
+  return prices.some(price => price.condition === CARD_CONDITION_MAP.NEAR_MINT) ? prices : [...legacy, ...prices];
+}
+
+function recoverScrydexPricing(row: CardPriceRow): NormalizedPricing | undefined {
   if (!isScrydexPricingSource(row.pricingSource)) {
-    return legacy;
+    return undefined;
   }
 
   const raw = ScrydexRawCardSchema.safeParse(row.raw);
 
   if (!raw.success) {
-    return legacy;
+    return undefined;
   }
 
   const { providerId, variantName } = splitScrydexPricingId(row.game, row.pricingCardId);
   const recovered = normalizeScrydexLookup(row.game, raw.data, variantName)?.card;
 
-  const prices =
-    recovered?.id === row.pricingCardId && String(raw.data.id) === providerId
-      ? (recovered.pricing.conditionPrices ?? [])
-      : [];
-
-  return prices.some(price => price.condition === CARD_CONDITION_MAP.NEAR_MINT) ? prices : [...legacy, ...prices];
+  return recovered?.id === row.pricingCardId && String(raw.data.id) === providerId ? recovered.pricing : undefined;
 }
 
 export function pricedCardMetadata(row: CardPriceRow) {

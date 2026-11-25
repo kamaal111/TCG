@@ -1,6 +1,51 @@
-import { ScrydexRawCardSchema, ScrydexCardResponseSchema, ScrydexSearchResponseSchema } from '../src/index.ts';
+import {
+  ScrydexRawCardSchema,
+  ScrydexCardResponseSchema,
+  ScrydexGradedPriceSchema,
+  ScrydexSearchResponseSchema,
+} from '../src/index.ts';
 
 describe('Scrydex provider card schemas', () => {
+  it('decodes the provider’s string grade, nullable condition and numeric prices', () => {
+    const quote = {
+      type: 'graded',
+      grade: '9.5',
+      company: 'BGS',
+      currency: 'USD',
+      condition: null,
+      is_perfect: false,
+      is_signed: false,
+      is_error: false,
+      low: 80,
+      market: 100,
+    };
+
+    expect(ScrydexGradedPriceSchema.parse(quote)).toEqual(quote);
+    expect(ScrydexGradedPriceSchema.safeParse({ ...quote, grade: 9.5 }).success).toBe(false);
+  });
+
+  it('retains provider population labels and counts alongside card prices', () => {
+    const report = {
+      company: 'PSA',
+      total: 200,
+      grade_total: 198,
+      qualified_grade_total: 1,
+      half_grade_total: 10,
+      external_id: '544028',
+      grades: [
+        { grade: 'auth', count: 1 },
+        { grade: '1Q', count: 1 },
+        { grade: '9.5', count: 10 },
+      ],
+    };
+
+    const card = ScrydexRawCardSchema.parse({
+      variants: [{ name: 'holofoil', prices: [], pop_reports: [null, report] }],
+    });
+
+    expect(card.variants).toEqual([{ name: 'holofoil', prices: [], pop_reports: [report] }]);
+  });
+
   it('retains provider fields throughout images, variants, prices, and trends', () => {
     const card = {
       id: 'card',

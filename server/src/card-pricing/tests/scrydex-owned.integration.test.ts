@@ -43,7 +43,7 @@ describe('Scrydex owned-card pricing', () => {
         const url = new URL(input instanceof Request ? input.url : input.toString());
 
         expect(url.pathname).toBe('/pokemon/v1/cards/m6_ja-88');
-        expect(url.searchParams.get('include')).toBe('prices');
+        expect(url.searchParams.get('include')).toBe('prices,pop_reports');
 
         return Response.json({ status: 'success', data: providerCard });
       }, {});
@@ -63,6 +63,42 @@ describe('Scrydex owned-card pricing', () => {
       expect(second.status).toBe(200);
       expect(OwnedCardPricesSchema.parse(await second.json())).toEqual(body);
       expect(calls).toBe(1);
+    },
+  );
+
+  integrationTest(
+    'returns graded-only quotes without assigning an owned raw valuation',
+    async ({ app, db, createApp, user, authenticatedHeaders }) => {
+      const created = await createTestCard(app, user.sessionToken, validCardPayload);
+      await db
+        .update(card)
+        .set({ game: 'pokemon', pricingCardId: providerCard.id, pricingSource: 'scrydex_real' })
+        .where(eq(card.id, created.id));
+
+      const data = {
+        ...providerCard,
+        variants: [
+          { name: 'holofoil', prices: [{ type: 'graded', company: 'PSA', grade: '10', currency: 'JPY', low: 1200 }] },
+        ],
+      };
+
+      const pricingClient = createTestScrydexClient(async () => Response.json({ data }), {});
+      const realApp = createApp({ pricingClient });
+
+      const response = await requestOwnedPrices(realApp, authenticatedHeaders, [created.id]);
+      expect(response.status).toBe(200);
+      const body = OwnedCardPricesSchema.parse(await response.json());
+      expect(body.prices[0]?.price).toMatchObject({
+        status: 'no_price',
+        priced_card: {
+          condition_values: [],
+          graded_prices: [{ company: 'PSA', grade: 10, currency: 'JPY', low: 1200 }],
+        },
+      });
+      expect(body.prices[0]?.price.valuation).toBeUndefined();
+      expect(await db.query.cardPrice.findFirst({ where: { pricingSource: 'scrydex_real' } })).toMatchObject({
+        prices: { gradedPrices: [{ company: 'PSA', grade: 10, currency: 'JPY', low: 1200 }] },
+      });
     },
   );
 

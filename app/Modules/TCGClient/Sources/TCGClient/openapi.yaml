@@ -3056,6 +3056,33 @@ components:
         - amount
         - basis
       title: Condition Value
+    GradedPrice:
+      type: object
+      properties:
+        company:
+          type: string
+          minLength: 1
+        grade:
+          type: number
+          exclusiveMinimum: 0
+        currency:
+          $ref: '#/components/schemas/Currency'
+        low:
+          type: number
+          minimum: 0
+        market:
+          type: number
+          minimum: 0
+        population:
+          type: integer
+          minimum: 0
+          maximum: 9007199254740991
+          description: Number of cards reported at this grade
+      required:
+        - company
+        - grade
+        - currency
+      title: Graded Price
     PricedCardDisplay:
       type: object
       properties:
@@ -3075,6 +3102,10 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ConditionValue'
+        graded_prices:
+          type: array
+          items:
+            $ref: '#/components/schemas/GradedPrice'
       required:
         - preferred_currency
         - conversion_unavailable
@@ -3143,6 +3174,10 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ConditionValue'
+        graded_prices:
+          type: array
+          items:
+            $ref: '#/components/schemas/GradedPrice'
         display:
           $ref: '#/components/schemas/PricedCardDisplay'
         priced_on:

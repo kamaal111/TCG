@@ -53,6 +53,7 @@ public struct CardDetailMetadata {
 }
 
 public struct CardDetailContent<Supplemental: View>: View {
+    @Environment(\.locale) private var locale
     @Environment(\.tcgPricePrivacy) private var pricePrivacy
     @State private var presentedImageURL: URL?
     private let metadata: CardDetailMetadata
@@ -114,27 +115,7 @@ public struct CardDetailContent<Supplemental: View>: View {
                 supplemental
 
                 if pricePrivacy?.hidePrices != true, let card {
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Pricing", bundle: .module).font(.title2.bold()).accessibilityAddTraits(.isHeader)
-                        if let ownedQuantities, let values = card.displayConditionValues {
-                            ownedPricing(ownedQuantities, values: values)
-                        } else if ownedQuantities == nil,
-                            card.conditionPrices != nil || card.displayConditionValues != nil
-                        {
-                            conditionPricing(card.displayConditionPrices, values: card.displayConditionValues ?? [])
-                        } else if card.conditionPrices != nil {
-                            if !card.displayConditionPrices.contains(where: { $0.low != nil || $0.market != nil }) {
-                                Text("No price", bundle: .module).foregroundStyle(.secondary)
-                            }
-                            ForEach(card.displayConditionPrices, id: \.condition) { quote in
-                                conditionQuote(quote)
-                            }
-                        } else {
-                            legacyPricing(card)
-                        }
-                    }
-
-                    pricingDates(card)
+                    pricing(card)
                 }
             }
             .textSelection(.enabled)
@@ -143,6 +124,66 @@ public struct CardDetailContent<Supplemental: View>: View {
             .ktakeWidthEagerly()
         }
         .cardImage(url: $presentedImageURL)
+    }
+
+    @ViewBuilder
+    private func pricing(_ card: PricedCard) -> some View {
+        let gradedPrices = card.displayGradedPrices
+        if gradedPrices.isEmpty || card.displayHeadline != nil || !card.displayConditionPrices.isEmpty
+            || card.displayConditionValues?.isEmpty == false
+        {
+            rawPricing(card)
+        }
+        if !gradedPrices.isEmpty {
+            gradedPricing(gradedPrices)
+        }
+        pricingDates(card)
+    }
+
+    private func rawPricing(_ card: PricedCard) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Pricing", bundle: .module).font(.title2.bold()).accessibilityAddTraits(.isHeader)
+            if let ownedQuantities, let values = card.displayConditionValues {
+                ownedPricing(ownedQuantities, values: values)
+            } else if ownedQuantities == nil, card.conditionPrices != nil || card.displayConditionValues != nil {
+                conditionPricing(card.displayConditionPrices, values: card.displayConditionValues ?? [])
+            } else if card.conditionPrices != nil {
+                if !card.displayConditionPrices.contains(where: { $0.low != nil || $0.market != nil }) {
+                    Text("No price", bundle: .module).foregroundStyle(.secondary)
+                }
+                ForEach(card.displayConditionPrices, id: \.condition) { quote in
+                    conditionQuote(quote)
+                }
+            } else {
+                legacyPricing(card)
+            }
+        }
+    }
+
+    private func gradedPricing(_ quotes: [GradedPrice]) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Graded prices", bundle: .module).font(.title2.bold()).accessibilityAddTraits(.isHeader)
+            ForEach(Array(quotes.enumerated()), id: \.offset) { _, quote in
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(verbatim: "\(quote.company) \(quote.grade.formatted(.number.locale(locale)))")
+                        .font(.headline)
+                        .accessibilityAddTraits(.isHeader)
+                    quoteAmounts(
+                        low: quote.low,
+                        market: quote.market,
+                        currency: quote.currency,
+                        conversionUnavailable: conversionUnavailable(for: quote.currency)
+                    )
+                    if let population = quote.population {
+                        LabeledContent {
+                            Text(population, format: .number).monospacedDigit()
+                        } label: {
+                            Text("Population", bundle: .module)
+                        }
+                    }
+                }
+            }
+        }
     }
 
     private func legacyPricing(_ card: PricedCard) -> some View {
@@ -243,14 +284,14 @@ public struct CardDetailContent<Supplemental: View>: View {
                     Text("No price", bundle: .module).foregroundStyle(.secondary)
                 }
                 if let quote {
-                    quoteMovements(quote, conversionUnavailable: conversionUnavailable(for: quote))
+                    quoteMovements(quote, conversionUnavailable: conversionUnavailable(for: quote.currency))
                 }
             }
         }
     }
 
     private func catalogQuoteAmount(_ quote: MarketPrice, amount: Double) -> some View {
-        let conversionUnavailable = conversionUnavailable(for: quote)
+        let conversionUnavailable = conversionUnavailable(for: quote.currency)
         let currencyAmount: CurrencyAmount
         if let low = quote.low, let market = quote.market {
             currencyAmount = CurrencyAmount(
@@ -277,19 +318,31 @@ public struct CardDetailContent<Supplemental: View>: View {
     private func conditionQuote(_ quote: MarketPrice) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             conditionHeading(quote.condition)
-            quoteAmounts(quote, conversionUnavailable: conversionUnavailable(for: quote))
+            quoteAmounts(quote, conversionUnavailable: conversionUnavailable(for: quote.currency))
         }
     }
 
     @ViewBuilder
     private func quoteAmounts(_ quote: MarketPrice, conversionUnavailable: Bool) -> some View {
-        if let low = quote.low {
-            price("Low", amount: low, currency: quote.currency, conversionUnavailable: conversionUnavailable)
-        }
-        if let amount = quote.market {
-            price("Market", amount: amount, currency: quote.currency, conversionUnavailable: conversionUnavailable)
-        }
+        quoteAmounts(
+            low: quote.low,
+            market: quote.market,
+            currency: quote.currency,
+            conversionUnavailable: conversionUnavailable
+        )
         quoteMovements(quote, conversionUnavailable: conversionUnavailable)
+    }
+
+    @ViewBuilder
+    private func quoteAmounts(low: Double?, market: Double?, currency: Currency, conversionUnavailable: Bool)
+        -> some View
+    {
+        if let low {
+            price("Low", amount: low, currency: currency, conversionUnavailable: conversionUnavailable)
+        }
+        if let market {
+            price("Market", amount: market, currency: currency, conversionUnavailable: conversionUnavailable)
+        }
     }
 
     @ViewBuilder
@@ -312,9 +365,9 @@ public struct CardDetailContent<Supplemental: View>: View {
         }
     }
 
-    private func conversionUnavailable(for quote: MarketPrice) -> Bool {
+    private func conversionUnavailable(for currency: Currency) -> Bool {
         guard let display = card?.display else { return false }
-        return quote.currency != display.preferredCurrency
+        return currency != display.preferredCurrency
     }
 
     private func price(

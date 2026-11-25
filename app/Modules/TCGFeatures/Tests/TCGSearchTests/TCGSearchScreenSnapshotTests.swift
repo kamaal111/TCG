@@ -271,11 +271,13 @@ struct TCGSearchScreenSnapshotTests {
     func `Hides financial sections in search details`() async {
         let privacy = TCGPricePrivacy(defaults: nil)
         privacy.hidePrices = true
-        #expect(catalogConditionCard.displayConditionValues?.contains { $0.basis == .interpolated } == true)
+        let card = catalogConditionCard(gradedPrices: gradedPrices)
+        #expect(card.displayConditionValues?.contains { $0.basis == .interpolated } == true)
+        #expect(card.displayGradedPrices.count == 2)
         await assertScreenSnapshot(testName: #function, fileID: #fileID, file: #filePath, line: #line, column: #column)
         {
             TCGSearchDetailView(
-                card: catalogConditionCard,
+                card: card,
                 variants: [],
                 isWishlistEntry: false,
                 onWishlistRemoval: nil,
@@ -594,7 +596,7 @@ struct TCGSearchScreenSnapshotTests {
         await assertScreenSnapshot(testName: #function, fileID: #fileID, file: #filePath, line: #line, column: #column)
         {
             TCGSearchDetailView(
-                card: catalogConditionCard,
+                card: catalogConditionCard(gradedPrices: nil),
                 variants: [],
                 isWishlistEntry: false,
                 onWishlistRemoval: nil,
@@ -720,7 +722,7 @@ struct TCGSearchScreenSnapshotTests {
         await assertScreenSnapshot(testName: #function, fileID: #fileID, file: #filePath, line: #line, column: #column)
         {
             TCGSearchDetailView(
-                card: catalogConditionCard,
+                card: catalogConditionCard(gradedPrices: nil),
                 variants: [],
                 isWishlistEntry: true,
                 onWishlistRemoval: nil,
@@ -739,7 +741,72 @@ struct TCGSearchScreenSnapshotTests {
         }
     }
 
-    private var catalogConditionCard: PricedCard {
+    @Test
+    func `Renders graded-only search details`() async {
+        await assertScreenSnapshot(testName: #function, fileID: #fileID, file: #filePath, line: #line, column: #column)
+        {
+            makeGradedDetail(isWishlistEntry: false)
+        }
+    }
+
+    @Test
+    func `Renders graded-only Wishlist details`() async {
+        await assertScreenSnapshot(testName: #function, fileID: #fileID, file: #filePath, line: #line, column: #column)
+        {
+            makeGradedDetail(isWishlistEntry: true)
+        }
+    }
+
+    private var gradedPrices: [GradedPrice] {
+        [
+            .init(company: "BGS", grade: 9.5, currency: .usd, low: nil, market: 90, population: nil),
+            .init(company: "PSA", grade: 10, currency: .usd, low: 80, market: 100, population: 125),
+        ]
+    }
+
+    private func makeGradedDetail(isWishlistEntry: Bool) -> some View {
+        let pricedOn = Date(timeIntervalSince1970: 1_750_000_000)
+        let card = PricedCard(
+            id: "graded-only",
+            printingKey: nil,
+            isWishlisted: nil,
+            game: .pokemon,
+            name: "Giratina V",
+            cardNumber: "186/196",
+            setName: nil,
+            rarity: nil,
+            illustrator: nil,
+            englishSearchAlias: nil,
+            variantName: nil,
+            imageURL: nil,
+            headline: nil,
+            market: nil,
+            conditionPrices: [],
+            conditionValues: [],
+            gradedPrices: gradedPrices,
+            display: nil,
+            pricedOn: pricedOn,
+            fetchedAt: pricedOn
+        )
+        return TCGSearchDetailView(
+            card: card,
+            variants: [],
+            isWishlistEntry: isWishlistEntry,
+            onWishlistRemoval: nil,
+            addForm: { _, _ in EmptyView() }
+        )
+        .tcgSearch(
+            TCGSearch(
+                client: .preview(hasValidCredentials: false),
+                history: TCGSearchHistoryStore(defaults: nil, now: Date.init)
+            )
+        )
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(.background)
+        .environment(\.timeZone, TimeZone(secondsFromGMT: 0)!)
+    }
+
+    private func catalogConditionCard(gradedPrices: [GradedPrice]?) -> PricedCard {
         PricedCard(
             id: "catalog-condition-prices",
             printingKey: nil,
@@ -797,6 +864,7 @@ struct TCGSearchScreenSnapshotTests {
                     conversionUnavailable: nil
                 ),
             ],
+            gradedPrices: gradedPrices,
             display: nil,
             pricedOn: Date(timeIntervalSince1970: 1_750_000_000),
             fetchedAt: Date(timeIntervalSince1970: 1_750_000_000)

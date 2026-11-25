@@ -65,6 +65,7 @@ integrationTest(
               { condition: 'near_mint', currency: 'USD', low: 25, market: 30 },
               { condition: 'good', currency: 'USD', market: 20 },
             ],
+            gradedPrices: [{ company: 'PSA', grade: 10, currency: 'USD', low: 80, market: 100 }],
           },
         },
         raw: null,
@@ -107,10 +108,12 @@ integrationTest(
           { condition: 'near_mint', currency: 'USD', low: 25, market: 30 },
           { condition: 'good', currency: 'USD', market: 20 },
         ],
+        graded_prices: [{ company: 'PSA', grade: 10, currency: 'USD', low: 80, market: 100 }],
         display: {
           preferred_currency: 'EUR',
           conversion_unavailable: true,
           headline: { amount: 25, currency: 'USD' },
+          graded_prices: [{ company: 'PSA', grade: 10, currency: 'USD', low: 80, market: 100 }],
         },
       },
     ]);
@@ -128,6 +131,7 @@ integrationTest(
           ],
           headline: { amount: 20, currency: 'EUR' },
           market: { market: 24, currency: 'EUR' },
+          graded_prices: [{ company: 'PSA', grade: 10, currency: 'EUR', low: 64, market: 80 }],
         },
       },
     ]);

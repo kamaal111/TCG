@@ -40,17 +40,17 @@ export function displayPricedCard(card: PricedCardResponse, context: ForexDispla
       ? { ...card.headline, amount: headlineAmount, currency: context.currency }
       : card.headline;
 
-  const displayQuote = <Quote extends ConditionPriceResponse>(market: Quote) => {
-    const low = market?.low != null ? convert(market.low, market.currency) : undefined;
-    const average = market?.market != null ? convert(market.market, market.currency) : undefined;
-    const change7d = market?.trend_7d != null ? convert(market.trend_7d.price_change, market.currency) : undefined;
-    const change30d = market?.trend_30d != null ? convert(market.trend_30d.price_change, market.currency) : undefined;
+  const displayQuote = <Quote extends Omit<ConditionPriceResponse, 'condition'>>(market: Quote) => {
+    const low = market.low != null ? convert(market.low, market.currency) : undefined;
+    const average = market.market != null ? convert(market.market, market.currency) : undefined;
+    const change7d = market.trend_7d != null ? convert(market.trend_7d.price_change, market.currency) : undefined;
+    const change30d = market.trend_30d != null ? convert(market.trend_30d.price_change, market.currency) : undefined;
 
     const unavailable = [
-      [market?.low, low],
-      [market?.market, average],
-      [market?.trend_7d?.price_change, change7d],
-      [market?.trend_30d?.price_change, change30d],
+      [market.low, low],
+      [market.market, average],
+      [market.trend_7d?.price_change, change7d],
+      [market.trend_30d?.price_change, change30d],
     ].some(([original, converted]) => original != null && converted == null);
 
     return {
@@ -92,6 +92,7 @@ export function displayPricedCard(card: PricedCardResponse, context: ForexDispla
       market: market?.quote,
       condition_prices: conditionPrices,
       condition_values: conditionValues,
+      graded_prices: card.graded_prices?.map(quote => displayQuote(quote).quote),
     },
   };
 }

@@ -195,6 +195,7 @@ struct TCGSearchDetailView<AddForm: View>: View {
             let hasPrice =
                 card.headline != nil || card.market != nil || !card.displayConditionPrices.isEmpty
                 || card.displayConditionValues?.isEmpty == false
+                || !card.displayGradedPrices.isEmpty
             return card.display != nil || hasPrice ? card : nil
         }
         let card = selectedCard
