@@ -3,7 +3,7 @@ import { SERVER_EVENTS } from '@tcg/http/server-logging';
 
 import { AUTH_PREFERENCES_EVENTS } from '../../auth/logging.ts';
 import { IMAGES_EVENTS } from '../../card-images/logging.ts';
-import { PRICING_EVENTS } from '../../card-pricing/logging.ts';
+import { PRICING_EVENT_MAP } from '../../card-pricing/logging.ts';
 import { CARDS_EVENTS } from '../../cards/logging.ts';
 import { FOREX_EVENTS } from '../../forex/logging.ts';
 
@@ -15,7 +15,7 @@ const EVENT_CATALOGUE: [domain: string, events: readonly string[]][] = [
   ['forex', FOREX_EVENTS],
   ['cards', CARDS_EVENTS],
   ['images', IMAGES_EVENTS],
-  ['pricing', PRICING_EVENTS],
+  ['pricing', Object.values(PRICING_EVENT_MAP)],
   ['request', REQUEST_EVENTS],
   ['server', SERVER_EVENTS],
 ];

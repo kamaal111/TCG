@@ -40,7 +40,10 @@ if (args[0] === 'pull') console.log('Digest: sha256:fixture-image-download');
 if (args[0] === 'inspect') console.log(JSON.stringify([{Id: 'container-123', Image: 'sha256:actual', Config: {Image: process.env.RUNNING_RUNTIME || ${JSON.stringify('ghcr.io/example/tcg-server@sha256:' + 'c'.repeat(64))}, Labels: {'org.opencontainers.image.revision': 'd'.repeat(40)}}, State: {Status: 'running'}}]));
 if (args.includes('ps')) console.log('container-123');
 if (args.includes('--json')) console.log(JSON.stringify({protocol: 1, status: 'ready', pending: 0}));
-if (args[0] === 'image') console.log((process.env.MISMATCH && command.includes('-migrations@') ? 'e' : 'd').repeat(40));
+if (args[0] === 'image') {
+  if (command.includes('io.tcg.card-catalog-backfill')) console.log(process.env.CATALOG_IMAGE || '<no value>');
+  else console.log((process.env.MISMATCH && command.includes('-migrations@') ? 'e' : 'd').repeat(40));
+}
 if (process.env.FAIL_PHASE && command.includes(process.env.FAIL_PHASE)) {
   const marker = process.env.COMMAND_LOG + '.failed';
   if (process.env.FAIL_ONCE !== '1' || !fs.existsSync(marker)) {
@@ -130,6 +133,38 @@ test('a private deployment records immutable images and can be repeated', async 
   expect(await f.release()).toBe(`TCG_RUNTIME_IMAGE=${runtime}\nTCG_MIGRATION_IMAGE=${migration}\n`);
   expect(await fs.readdir(f.root)).not.toContain('.deployment-lock');
   expect(await f.log()).not.toContain('scripts/migrate.ts');
+});
+
+test('prepares a missing catalog before restarting when supported by the image', async t => {
+  const f = await fixture(t);
+  const result = f.run(['release', runtime, migration, 'private', 'false'], { CATALOG_IMAGE: 'true' });
+
+  expect(result.status).toBe(0);
+  const commands = await f.log();
+  const backfill = commands.indexOf('"scripts/sync-card-catalog.ts","--if-missing"');
+
+  expect(backfill).toBeGreaterThan(commands.indexOf('scripts/check-migrations.ts'));
+  expect(backfill).toBeLessThan(commands.indexOf('"up"'));
+});
+
+test('an older image can deploy without preparing a catalog', async t => {
+  const f = await fixture(t);
+
+  expect(f.run(['release', runtime, migration, 'private', 'false'], {}).status).toBe(0);
+  expect(await f.log()).not.toContain('scripts/sync-card-catalog.ts');
+});
+
+test('a failed catalog backfill preserves the current release', async t => {
+  const f = await fixture(t);
+
+  const result = f.run(['release', runtime, migration, 'private', 'false'], {
+    CATALOG_IMAGE: 'true',
+    FAIL_PHASE: 'scripts/sync-card-catalog.ts',
+  });
+
+  expect(result.status).toBe(1);
+  expect(await f.log()).not.toContain('"up"');
+  expect(await f.release()).toBe(oldRelease);
 });
 
 test('migrations run only through the explicit operation without restarting the application', async t => {

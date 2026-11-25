@@ -33,7 +33,12 @@ export interface PriceMovement {
   percentChange: number;
 }
 
-export type PricingSearchMode = 'card' | 'illustrator';
+export const PRICING_SEARCH_MODE_MAP = {
+  CARD: 'card',
+  ILLUSTRATOR: 'illustrator',
+} as const;
+
+export type PricingSearchMode = GetRecordValues<typeof PRICING_SEARCH_MODE_MAP>;
 
 export interface PricingSearchOptions {
   languages: readonly CardLanguage[];

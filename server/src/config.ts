@@ -245,7 +245,7 @@ export const EnvSchema = BaseEnvSchema.superRefine((value, context) => {
 
 export type Env = z.infer<typeof EnvSchema>;
 
-const ApplicationEnvironmentSchema = BaseEnvSchema.omit({
+const RUNTIME_ONLY_ENV_FIELDS = {
   DATABASE_URL: true,
   BETTER_AUTH_SECRET: true,
   OBJECT_STORAGE_ENDPOINT: true,
@@ -256,7 +256,9 @@ const ApplicationEnvironmentSchema = BaseEnvSchema.omit({
   OBJECT_STORAGE_FORCE_PATH_STYLE: true,
   OBJECT_STORAGE_REQUEST_TIMEOUT_MS: true,
   OBJECT_STORAGE_MAX_ATTEMPTS: true,
-}).extend({
+} as const;
+
+const ApplicationEnvironmentSchema = BaseEnvSchema.omit(RUNTIME_ONLY_ENV_FIELDS).extend({
   CARD_IMAGE_WORKER_ENABLED: z
     .union([z.boolean(), z.stringbool()])
     .default(DEFAULT_APPLICATION_CONFIG.CARD_IMAGE_WORKER_ENABLED),
@@ -267,19 +269,37 @@ const ApplicationEnvironmentSchema = BaseEnvSchema.omit({
 
 type ApplicationConfigInput = z.infer<typeof ApplicationEnvironmentSchema>;
 
+type RuntimeOnlyEnvField = keyof typeof RUNTIME_ONLY_ENV_FIELDS;
+
 export type ApplicationConfig = ApplicationConfigInput & {
   BASE_URL: string;
   PUBLIC_BASE_URL: string;
   IS_TEST: boolean;
 };
 
-export function createApplicationConfig(value: ApplicationConfigInput): ApplicationConfig {
+export function createApplicationConfig(
+  value: ApplicationConfigInput & Partial<Pick<Env, RuntimeOnlyEnvField>>,
+): ApplicationConfig {
+  const {
+    DATABASE_URL: _databaseURL,
+    BETTER_AUTH_SECRET: _authSecret,
+    OBJECT_STORAGE_ENDPOINT: _storageEndpoint,
+    OBJECT_STORAGE_REGION: _storageRegion,
+    OBJECT_STORAGE_BUCKET: _storageBucket,
+    OBJECT_STORAGE_ACCESS_KEY_ID: _storageAccessKeyId,
+    OBJECT_STORAGE_SECRET_ACCESS_KEY: _storageSecretAccessKey,
+    OBJECT_STORAGE_FORCE_PATH_STYLE: _storageForcePathStyle,
+    OBJECT_STORAGE_REQUEST_TIMEOUT_MS: _storageRequestTimeoutMs,
+    OBJECT_STORAGE_MAX_ATTEMPTS: _storageMaxAttempts,
+    ...settings
+  } = value;
+
   return {
-    ...value,
+    ...settings,
     BASE_URL: value.BETTER_AUTH_URL,
     PUBLIC_BASE_URL: value.PUBLIC_BASE_URL ?? value.BETTER_AUTH_URL,
     IS_TEST: value.MODE === SERVER_MODES.TEST,
-  };
+  } satisfies ApplicationConfig & Partial<Record<RuntimeOnlyEnvField, never>>;
 }
 
 export const ApplicationConfigSchema = ApplicationEnvironmentSchema.transform(createApplicationConfig);

@@ -17,6 +17,17 @@ test('builds trusted configuration with the same defaults as validated environme
   expect(config.IS_TEST).toBe(false);
 });
 
+test('builds application configuration from validated environment settings without runtime-only fields', () => {
+  const env = EnvSchema.parse({
+    DATABASE_URL: 'postgresql://localhost/tcg',
+    BETTER_AUTH_URL: 'https://tcg.example.com',
+    BETTER_AUTH_SECRET: 'fixture-auth-secret',
+    OBJECT_STORAGE_SECRET_ACCESS_KEY: 'fixture-storage-secret',
+  });
+
+  expect(createApplicationConfig(env)).toStrictEqual(ApplicationConfigSchema.parse(env));
+});
+
 test('preserves explicit typed settings and derives test mode and public URL', () => {
   const config = createApplicationConfig({
     ...DEFAULT_APPLICATION_CONFIG,

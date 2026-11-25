@@ -106,6 +106,9 @@ a temporary assertion keeps the display and system awake for the release. See th
 
 ## Server release behavior
 
+An approved Server release prepares any missing card search catalog before
+restarting the app. A failed import leaves the current release running.
+
 The dashboard lists every commit on freshly fetched remote `main` absent from the
 running server, including app-only commits. Review fixes the exact selected SHA.
 The service runs the same checks, image publishing, migration readiness checks,

@@ -10,7 +10,7 @@ import {
   PricingOperationFailed,
   type PricingLockError,
 } from './exceptions.ts';
-import { pricingLogger } from './logging.ts';
+import { PRICING_EVENT_MAP, pricingLogger } from './logging.ts';
 import { toError } from '../utils/results.ts';
 
 export class PricingOperation {
@@ -97,7 +97,7 @@ export class PricingOperation {
     | { outcome: 'failure'; errorCode: string; failure: PricingLockError }
   )) {
     const fields = {
-      event: 'pricing.lock.completed',
+      event: PRICING_EVENT_MAP.LOCK_COMPLETED,
       game: lock.game,
       lock_key_type: lock.keyType,
       lock_status: lockStatus,

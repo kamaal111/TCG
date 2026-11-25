@@ -110,6 +110,23 @@ Caches include provider source in their keys, so static and live
 results are separate. Search and per-card prices are cached per UTC day;
 PostgreSQL advisory locks coordinate concurrent misses.
 
+### Catalog search
+
+With the real Scrydex client, interactive Cards queries search locally
+across card names, translations, and set names or codes. Every word must match
+the same printing. The final word can be a prefix, such as `rom` in `nami rom`.
+Exact card numbers and language filters still apply. Pokémon set names made
+entirely of digits, such as `151`, can also match the corresponding set.
+
+Both `just release-server` and Devportal prepare any missing catalog after
+migrations and before restarting the app. For local development with the real
+Scrydex client, use `just sync-card-catalog` to import the catalog manually.
+The server checks weekly refresh eligibility hourly and uses the last complete
+catalog during a refresh. If no complete catalog exists for the selected game,
+search waits briefly for the shared build and returns a retryable 503 if the
+index is still unavailable. A newly entered query uses the full active catalog
+immediately and only requests Scrydex prices for uncached matches.
+
 ### Search formats
 
 The app's information button beside the search field explains these formats.

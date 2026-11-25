@@ -11,10 +11,15 @@ import { logDisplayPrices } from '../../forex/logging.ts';
 import { serializePage } from '../../schemas/pagination.ts';
 import { PRICING_OPENAPI_TAG, PRICING_ROUTE_NAME } from '../constants.ts';
 import { parseCardLanguages } from '../languages.ts';
-import { pricingLogger } from '../logging.ts';
+import { PRICING_EVENT_MAP, pricingLogger } from '../logging.ts';
 import { PricingSearchQuerySchema } from '../schemas/params.ts';
 import { PricingSearchResponseSchema } from '../schemas/responses.ts';
-import { encodeNextSearchCursor } from '../utils/pagination.ts';
+import { PRICING_SEARCH_MODE_MAP } from '../types.ts';
+import {
+  CATALOG_SEARCH_CURSOR_VERSION,
+  encodeCatalogSearchCursor,
+  encodeNextSearchCursor,
+} from '../utils/pagination.ts';
 import { queryKey } from '../utils/query.ts';
 
 const routeConfig = createRoute({
@@ -55,10 +60,31 @@ const searchPricingRoute = defineOpenAPIRoute<HonoEnvironment, typeof routeConfi
     const options = { languages: parseCardLanguages(languages), searchBy: search_by };
     const offset = cursor?.offset ?? 0;
 
-    const [result, display] = await Promise.all([
-      c.get('cardPricingService').searchAndPrice(game, query, options, offset),
-      c.get('forexService').displayContext(),
-    ]);
+    const service = c.get('cardPricingService');
+    const key = queryKey(game, query, options);
+
+    const catalogSearch =
+      cursor?.version === CATALOG_SEARCH_CURSOR_VERSION ||
+      (cursor == null && search_by === PRICING_SEARCH_MODE_MAP.CARD && c.get('cardCatalog') != null);
+
+    const results = async () => {
+      if (catalogSearch) {
+        const generation = cursor?.version === CATALOG_SEARCH_CURSOR_VERSION ? cursor.generation : undefined;
+        const result = await service.searchCatalogAndPrice(game, query, options, offset, generation);
+
+        return {
+          matches: result.matches,
+          nextCursor:
+            result.nextOffset != null ? encodeCatalogSearchCursor(key, result.generation, result.nextOffset) : null,
+        };
+      }
+
+      const result = await service.searchAndPrice(game, query, options, offset);
+
+      return { matches: result.matches, nextCursor: result.hasMore ? encodeNextSearchCursor(key, offset) : null };
+    };
+
+    const [result, display] = await Promise.all([results(), c.get('forexService').displayContext()]);
 
     if (display.isErr()) {
       throw display.error;
@@ -73,12 +99,12 @@ const searchPricingRoute = defineOpenAPIRoute<HonoEnvironment, typeof routeConfi
         ...displayPricedCard(card, display.value),
         is_wishlisted: card.printing_key != null && savedKeys.has(card.printing_key),
       })),
-      result.hasMore ? encodeNextSearchCursor(queryKey(game, query, options), offset) : null,
+      result.nextCursor,
     );
 
     logDisplayPrices(c, display.value, response.entries);
     pricingLogger(c).info(
-      { event: 'pricing.search.completed', outcome: 'success', result_count: response.entries.length, game },
+      { event: PRICING_EVENT_MAP.SEARCH_COMPLETED, outcome: 'success', result_count: response.entries.length, game },
       'Completed a card pricing search.',
     );
 

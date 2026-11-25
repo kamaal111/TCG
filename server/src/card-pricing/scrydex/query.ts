@@ -1,33 +1,13 @@
 import { normalizeCardLanguages } from '../languages.ts';
 import type { PricingSearchOptions } from '../types.ts';
 import type { CardGame } from '../types.ts';
-import { CARD_GAME_MAP } from '../types.ts';
-
-const ONE_PIECE_CARD_NUMBER = /^(?:[A-Z]{2}\d{2}|P)-\d{3}$/i;
-
-const POKEMON_EXPANSION_ID = /^(?:[a-z]{1,4}\d[a-z0-9]*|mep)(?:_[a-z]{2})?$/i;
-
-const NUMERIC_CARD_NUMBER = /^\d+$/;
-
-const PRINTED_CARD_NUMBER = /^[A-Z]*\d+\/[A-Z]*\d+$/i;
-
-const SET_SUFFIX_CARD_NUMBER = /^([A-Z]*\d+)\/([A-Z][A-Z0-9]*(?:-[A-Z0-9]+)*)$/;
-
-const PROMO_EXPANSION_BY_SUFFIX = new Map([
-  ['ADV-P', 'advp_ja'],
-  ['PCG-P', 'pcgp_ja'],
-  ['DP-P', 'dpp_ja'],
-  ['DPT-P', 'ptp_ja'],
-  ['L-P', 'lp_ja'],
-  ['BW-P', 'bwp_ja'],
-  ['XY-P', 'xyp_ja'],
-  ['SM-P', 'smp_ja'],
-  ['S-P', 'swshp_ja'],
-  ['SV-P', 'svp_ja'],
-  ['M-P', 'mp_ja'],
-]);
-
-const PROMO_EXPANSION_IDS = new Set(PROMO_EXPANSION_BY_SUFFIX.values());
+import { CARD_GAME_MAP, PRICING_SEARCH_MODE_MAP } from '../types.ts';
+import {
+  normalizeCollectorNumber,
+  ONE_PIECE_CARD_NUMBER,
+  pokemonPrintedNumber,
+  pokemonSetAndNumber,
+} from '../utils/identifiers.ts';
 
 const RESERVED_CHARACTERS = /([+\-!(){}[\]^"~*?:\\/]|&&|\|\|)/g;
 
@@ -35,11 +15,11 @@ const CARD_NAME_SEPARATOR = /(?<=[\p{L}\p{N}\p{M}])([ ‐‑-])(?=[\p{L}\p{N}\p{
 
 const MAX_CARD_NAME_PHRASES = 8;
 
-const MAX_ENCODED_CARD_NAME_LENGTH = 3500;
+export const MAX_ENCODED_SCRYDEX_QUERY_LENGTH = 3500;
 
 export function buildScrydexQuery(game: CardGame, query: string, options: PricingSearchOptions): string {
   const search =
-    options.searchBy === 'illustrator'
+    options.searchBy === PRICING_SEARCH_MODE_MAP.ILLUSTRATOR
       ? `artist:"${escapeScrydexValue(query.trim().replace(/\s+/g, ' '))}"`
       : buildCardQuery(game, query);
 
@@ -61,22 +41,13 @@ function buildCardQuery(game: CardGame, query: string): string {
   const lastTerm = terms.at(-1);
   const hasCardNumber = lastTerm != null && /\d/.test(lastTerm);
 
-  const expansionId = terms[0]?.toLowerCase();
-  const hasSetSuffix = lastTerm != null && SET_SUFFIX_CARD_NUMBER.test(lastTerm.toUpperCase());
+  const setAndNumber = game === CARD_GAME_MAP.POKEMON ? pokemonSetAndNumber(terms) : undefined;
 
-  if (
-    game === CARD_GAME_MAP.POKEMON &&
-    terms.length === 2 &&
-    expansionId != null &&
-    lastTerm != null &&
-    (POKEMON_EXPANSION_ID.test(expansionId) || (hasSetSuffix && PROMO_EXPANSION_IDS.has(expansionId))) &&
-    (NUMERIC_CARD_NUMBER.test(lastTerm) || PRINTED_CARD_NUMBER.test(lastTerm) || hasSetSuffix)
-  ) {
-    const expansionQuery = /_[a-z]{2}$/.test(expansionId)
-      ? `!expansion.id:${expansionId}`
-      : `(!expansion.id:${expansionId} OR !expansion.id:${expansionId}_ja)`;
+  if (setAndNumber != null) {
+    const expansions = setAndNumber.expansionIds.map(id => `!expansion.id:${id}`);
+    const expansionQuery = expansions.length > 1 ? `(${expansions.join(' OR ')})` : expansions[0];
 
-    return `${expansionQuery} AND ${pokemonNumberQuery(lastTerm)}`;
+    return `${expansionQuery} AND ${pokemonNumberQuery(setAndNumber.number)}`;
   }
 
   if (!hasCardNumber) {
@@ -115,7 +86,7 @@ function cardNameQuery(name: string): string {
 
     const grouped = `(${[...phrases, alternatePhrase].join(' OR ')})`;
 
-    if (new URLSearchParams({ q: grouped }).toString().length > MAX_ENCODED_CARD_NAME_LENGTH) {
+    if (new URLSearchParams({ q: grouped }).toString().length > MAX_ENCODED_SCRYDEX_QUERY_LENGTH) {
       break;
     }
 
@@ -162,32 +133,23 @@ function onePieceNumberQuery(number: string): string {
 }
 
 function pokemonNumberQuery(number: string): string {
-  const uppercased = number.toUpperCase();
+  const printed = pokemonPrintedNumber(number);
 
-  if (PRINTED_CARD_NUMBER.test(number)) {
-    return `!printed_number:"${uppercased}"`;
+  if (printed == null) {
+    return pokemonCollectorNumberQuery(number);
   }
 
-  const [, collectorNumber, suffix] = SET_SUFFIX_CARD_NUMBER.exec(uppercased) ?? [];
+  const printedQuery = `!printed_number:"${printed.number}"`;
 
-  if (collectorNumber != null && suffix != null) {
-    const printedQuery = `!printed_number:"${uppercased}"`;
-    const expansionId = PROMO_EXPANSION_BY_SUFFIX.get(suffix);
-
-    return expansionId == null
-      ? printedQuery
-      : `(${printedQuery} OR (!expansion.id:${expansionId} AND ${pokemonCollectorNumberQuery(collectorNumber)}))`;
-  }
-
-  return pokemonCollectorNumberQuery(number);
+  return printed.promo?.expansionId != null
+    ? `(${printedQuery} OR (!expansion.id:${printed.promo.expansionId} AND ${pokemonCollectorNumberQuery(printed.promo.collectorNumber)}))`
+    : printedQuery;
 }
 
 function pokemonCollectorNumberQuery(number: string): string {
-  const normalized = NUMERIC_CARD_NUMBER.test(number) ? number.replace(/^0+(?=\d)/, '') : number;
-
-  return `!number:${escapeScrydexValue(normalized)}`;
+  return `!number:${escapeScrydexValue(normalizeCollectorNumber(number))}`;
 }
 
-function escapeScrydexValue(value: string): string {
+export function escapeScrydexValue(value: string): string {
   return value.replace(RESERVED_CHARACTERS, '\\$1');
 }

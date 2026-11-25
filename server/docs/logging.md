@@ -43,7 +43,7 @@ vocabulary are supplied by `@kamaalio/kamaal-auth-hono`, which receives the requ
 | Module                                 | Events                       | Accessor                                                                      |
 | -------------------------------------- | ---------------------------- | ----------------------------------------------------------------------------- |
 | `server/src/cards/logging.ts`          | `cards.*`                    | `cardsLogger(c)`                                                              |
-| `server/src/card-pricing/logging.ts`   | `pricing.*`                  | `pricingLogger(c)`                                                            |
+| `server/src/card-pricing/logging.ts`   | `pricing.*`                  | `pricingLogger(c)` / `catalogLogger()`                                        |
 | `server/src/card-images/logging.ts`    | `images.*`                   | `imagesLogger(c)` / `processImagesLogger()`                                   |
 | `packages/http/src/request-logging.ts` | `request.*`                  | `requestLogger(c)`                                                            |
 | `server/src/forex/logging.ts`          | `forex.*`                    | `forexProcessLogger()` for collection; `forexLogger(c)` for snapshot requests |

@@ -3,6 +3,13 @@ import type { Result } from 'neverthrow';
 import type { CardGame, PricingCardRecord, PricingSource, PricingSearchOptions } from './types.ts';
 import type { GetRecordValues } from '../utils/type-utils.ts';
 
+export const PRICING_PROVIDER_OPERATION_MAP = {
+  SEARCH: 'search',
+  CARD_LOOKUP: 'card_lookup',
+} as const;
+
+export type PricingProviderOperation = GetRecordValues<typeof PRICING_PROVIDER_OPERATION_MAP>;
+
 export const PRICING_CLIENT_ERROR_REASONS = {
   HTTP_ERROR: 'http_error',
   INVALID_RESPONSE: 'invalid_response',

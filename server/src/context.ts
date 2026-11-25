@@ -13,6 +13,7 @@ import type { CardImageOriginClient } from './card-images/origin-client.ts';
 import type { CardImageRepository } from './card-images/repository.ts';
 import type { CardImageScheduler } from './card-images/scheduler.ts';
 import { CardImageService } from './card-images/service.ts';
+import type { CardCatalog } from './card-pricing/catalog.ts';
 import type { PricingClient } from './card-pricing/client.ts';
 import type { CardPricingRepository } from './card-pricing/repository.ts';
 import { CardPricingService } from './card-pricing/service.ts';
@@ -33,6 +34,7 @@ export interface InjectedContext {
   persistence: Persistence;
   auth: Auth;
   pricingClient: PricingClient;
+  cardCatalog?: CardCatalog;
   storageClient: ObjectStorageClient;
   imageOriginClient: CardImageOriginClient;
   cardImageWarmer: CardImageScheduler;
@@ -82,6 +84,7 @@ export function injectRequestContext({
   persistence,
   auth,
   pricingClient,
+  cardCatalog,
   storageClient,
   imageOriginClient,
   cardImageWarmer,
@@ -93,6 +96,7 @@ export function injectRequestContext({
     c.set('forexClient', forexClient);
     c.set('auth', auth);
     c.set('pricingClient', pricingClient);
+    c.set('cardCatalog', cardCatalog);
     c.set('storageClient', storageClient);
     c.set('imageOriginClient', imageOriginClient);
     c.set('cardImageWarmer', cardImageWarmer);

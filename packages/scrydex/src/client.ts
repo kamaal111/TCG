@@ -6,14 +6,28 @@ import {
   ScrydexSearchResponseSchema,
   type ScrydexRawCard,
 } from './schemas.ts';
-import type { ScrydexGame, ScrydexClientResult, ScrydexSearchResult, ScrydexLookupResult } from './types.ts';
-import { SCRYDEX_ERROR_REASONS, SCRYDEX_SEARCH_PAGE_SIZE } from './types.ts';
+import {
+  SCRYDEX_CATALOG_COLLECTION_MAP,
+  SCRYDEX_ERROR_REASONS,
+  SCRYDEX_GAME_MAP,
+  SCRYDEX_SEARCH_PAGE_SIZE,
+  type ScrydexCatalogCollection,
+  type ScrydexClientResult,
+  type ScrydexGame,
+  type ScrydexLookupResult,
+  type ScrydexSearchResult,
+} from './types.ts';
+
+const SCRYDEX_OPERATION_MAP = {
+  SEARCH: 'search',
+  CARD_LOOKUP: 'card lookup',
+} as const;
 
 export type ScrydexFetch = (input: string | URL | Request, init?: RequestInit) => Promise<Response>;
 
 const CARD_INCLUDES = {
-  pokemon: 'prices,pop_reports',
-  one_piece: 'prices',
+  [SCRYDEX_GAME_MAP.POKEMON]: 'prices,pop_reports',
+  [SCRYDEX_GAME_MAP.ONE_PIECE]: 'prices',
 } satisfies Record<ScrydexGame, string>;
 
 export interface ScrydexClientOptions {
@@ -40,17 +54,40 @@ export class ScrydexClient {
   }
 
   async searchCards(game: ScrydexGame, query: string, page: number): Promise<ScrydexClientResult<ScrydexSearchResult>> {
+    return this.list(game, SCRYDEX_CATALOG_COLLECTION_MAP.CARDS, page, {
+      q: query,
+      include: CARD_INCLUDES[game],
+    });
+  }
+
+  listCatalog(game: ScrydexGame, collection: ScrydexCatalogCollection, page: number) {
+    return this.list(game, collection, page, {
+      orderBy: 'id',
+      select:
+        collection === SCRYDEX_CATALOG_COLLECTION_MAP.CARDS
+          ? 'id,name,number,printed_number,language_code,expansion,translation,variants'
+          : 'id,name,code,translation',
+    });
+  }
+
+  private async list(
+    game: ScrydexGame,
+    collection: ScrydexCatalogCollection,
+    page: number,
+    parameters: Record<string, string>,
+  ): Promise<ScrydexClientResult<ScrydexSearchResult>> {
     const headers = this.headers();
 
     if (headers.isErr()) {
       return err(headers.error);
     }
 
-    const url = this.makeURL(game, '/cards');
-    url.searchParams.set('q', query);
-    url.searchParams.set('include', CARD_INCLUDES[game]);
-    url.searchParams.set('page', String(page));
-    url.searchParams.set('page_size', String(SCRYDEX_SEARCH_PAGE_SIZE));
+    const url = this.makeURL(game, `/${collection}`);
+    url.search = new URLSearchParams({
+      ...parameters,
+      page: String(page),
+      page_size: String(SCRYDEX_SEARCH_PAGE_SIZE),
+    }).toString();
     const responseResult = await this.request(url, headers.value);
 
     if (responseResult.isErr()) {
@@ -60,10 +97,10 @@ export class ScrydexClient {
     const response = responseResult.value;
 
     if (!response.ok) {
-      return err(this.httpError('search', response.status));
+      return err(this.httpError(SCRYDEX_OPERATION_MAP.SEARCH, response.status));
     }
 
-    const bodyResult = await this.readJSON(response, 'search');
+    const bodyResult = await this.readJSON(response, SCRYDEX_OPERATION_MAP.SEARCH);
 
     if (bodyResult.isErr()) {
       return err(bodyResult.error);
@@ -92,14 +129,16 @@ export class ScrydexClient {
     const total = parsed.data.totalCount ?? parsed.data.total_count;
     const rawCount = parsed.data.data.length;
 
-    return ok({
+    const result: ScrydexSearchResult = {
       cards,
       providerResultCount: total ?? rawCount,
       hasMore:
         rawCount > 0 &&
         (total == null ? rawCount === SCRYDEX_SEARCH_PAGE_SIZE : page * SCRYDEX_SEARCH_PAGE_SIZE < total),
       rejectedCount,
-    });
+    };
+
+    return ok(parameters.include == null ? { ...result, catalogTotal: total } : result);
   }
 
   async getCardById(game: ScrydexGame, id: string): Promise<ScrydexClientResult<ScrydexLookupResult | null>> {
@@ -109,7 +148,7 @@ export class ScrydexClient {
       return err(headers.error);
     }
 
-    const url = this.makeURL(game, `/cards/${encodeURIComponent(id)}`);
+    const url = this.makeURL(game, `/${SCRYDEX_CATALOG_COLLECTION_MAP.CARDS}/${encodeURIComponent(id)}`);
     url.searchParams.set('include', CARD_INCLUDES[game]);
     const responseResult = await this.request(url, headers.value);
 
@@ -124,10 +163,10 @@ export class ScrydexClient {
     }
 
     if (!response.ok) {
-      return err(this.httpError('card lookup', response.status));
+      return err(this.httpError(SCRYDEX_OPERATION_MAP.CARD_LOOKUP, response.status));
     }
 
-    const bodyResult = await this.readJSON(response, 'card lookup');
+    const bodyResult = await this.readJSON(response, SCRYDEX_OPERATION_MAP.CARD_LOOKUP);
 
     if (bodyResult.isErr()) {
       return err(bodyResult.error);
@@ -182,7 +221,7 @@ export class ScrydexClient {
   }
 
   private makeURL(game: ScrydexGame, suffix: string): URL {
-    const path = game === 'pokemon' ? 'pokemon/v1' : 'onepiece/v1';
+    const path = game === SCRYDEX_GAME_MAP.POKEMON ? 'pokemon/v1' : 'onepiece/v1';
 
     return new URL(`${path}${suffix}`, `${this.baseURL.replace(/\/$/, '')}/`);
   }

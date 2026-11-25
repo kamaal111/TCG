@@ -110,6 +110,11 @@ if [[ "$exposure" == public ]]; then
     candidate run --rm --no-deps proxy caddy validate --config /etc/caddy/Caddyfile
 fi
 candidate run --rm --no-deps tools node scripts/check-migrations.ts
+catalog_backfill="$(docker image inspect --format '{{index .Config.Labels "io.tcg.card-catalog-backfill"}}' "$migration")"
+if [[ "$catalog_backfill" == true ]]; then
+    echo 'Preparing the card search catalog before startup.'
+    candidate run --rm --no-deps tools node scripts/sync-card-catalog.ts --if-missing
+fi
 
 if [[ -f release.env ]]; then
     cp release.env "$temporary/previous.env"
