@@ -87,8 +87,22 @@ test.each(['SCRYDEX_API_KEY', 'SCRYDEX_TEAM_ID'])('production rejects missing li
   ).toBe(false);
 });
 
-test('the production server process exits before serving with static pricing', () => {
-  const result = childProcess.spawnSync(process.execPath, ['server/src/index.ts'], {
+test('the production entry point rejects static pricing before loading the server runtime', () => {
+  const traceRuntimeImport = `
+    import { registerHooks } from 'node:module';
+    registerHooks({
+      load(url, context, nextLoad) {
+        if (url.endsWith('/server/src/runtime/node/app.ts')) {
+          process.stderr.write('Loaded the Node server runtime\\n');
+        }
+        return nextLoad(url, context);
+      },
+    });
+  `;
+
+  const preload = `data:text/javascript,${encodeURIComponent(traceRuntimeImport)}`;
+
+  const result = childProcess.spawnSync(process.execPath, ['--import', preload, 'server/src/index.ts'], {
     env: {
       NODE_ENV: 'production',
       DATABASE_URL: 'postgresql://unused:unused@127.0.0.1:1/unused',
@@ -99,6 +113,8 @@ test('the production server process exits before serving with static pricing', (
     timeout: 10_000,
   });
 
+  expect(result.error).toBeUndefined();
   expect(result.status).toBe(1);
   expect(result.stderr).toContain('Production requires SCRYDEX_CLIENT=real');
+  expect(result.stderr).not.toContain('Loaded the Node server runtime');
 });
