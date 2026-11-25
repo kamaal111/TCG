@@ -16,10 +16,10 @@ const operations = [
 afterEach(() => vi.restoreAllMocks());
 
 describe('Scrydex request construction', () => {
-  it.each<{ game: ScrydexGame; path: string }>([
-    { game: 'pokemon', path: '/pokemon/v1/cards' },
-    { game: 'one_piece', path: '/onepiece/v1/cards' },
-  ])('authenticates $game searches and sends the provider query unchanged', async ({ game, path }) => {
+  it.each<{ game: ScrydexGame; path: string; includes: string }>([
+    { game: 'pokemon', path: '/pokemon/v1/cards', includes: 'prices,pop_reports' },
+    { game: 'one_piece', path: '/onepiece/v1/cards', includes: 'prices' },
+  ])('authenticates $game searches and sends the provider query unchanged', async ({ game, path, includes }) => {
     const transport = vi.fn<ScrydexFetch>().mockResolvedValue(Response.json({ data: [] }));
     const timeout = vi.spyOn(AbortSignal, 'timeout');
     const query = '(name:"ダーテング + V") AND (!language_code:JA)';
@@ -32,7 +32,7 @@ describe('Scrydex request construction', () => {
     expect(input.pathname).toBe(path);
     expect(Object.fromEntries(input.searchParams)).toEqual({
       q: query,
-      include: 'prices',
+      include: includes,
       page: '1',
       page_size: '100',
     });
@@ -57,10 +57,10 @@ describe('Scrydex request construction', () => {
     },
   );
 
-  it.each<{ game: ScrydexGame; path: string }>([
-    { game: 'pokemon', path: '/pokemon/v1/cards/set%2Fcard%20%3F%23' },
-    { game: 'one_piece', path: '/onepiece/v1/cards/set%2Fcard%20%3F%23' },
-  ])('encodes $game lookup IDs as a single path segment', async ({ game, path }) => {
+  it.each<{ game: ScrydexGame; path: string; includes: string }>([
+    { game: 'pokemon', path: '/pokemon/v1/cards/set%2Fcard%20%3F%23', includes: 'prices,pop_reports' },
+    { game: 'one_piece', path: '/onepiece/v1/cards/set%2Fcard%20%3F%23', includes: 'prices' },
+  ])('encodes $game lookup IDs as a single path segment', async ({ game, path, includes }) => {
     const transport = vi.fn<ScrydexFetch>().mockResolvedValue(Response.json({ data: card }, { status: 201 }));
     const result = await makeClient(transport, {}).getCardById(game, 'set/card ?#');
     assert(result.isOk());
@@ -68,7 +68,7 @@ describe('Scrydex request construction', () => {
     const [input, init] = transport.mock.calls[0] ?? [];
     assert(input instanceof URL);
     expect(input.pathname).toBe(path);
-    expect(Object.fromEntries(input.searchParams)).toEqual({ include: 'prices' });
+    expect(Object.fromEntries(input.searchParams)).toEqual({ include: includes });
     expect(new Headers(init?.headers).get('X-Api-Key')).toBe('test-key');
     expect(new Headers(init?.headers).get('X-Team-ID')).toBe('test-team');
   });

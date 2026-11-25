@@ -45,6 +45,7 @@ enum PricedCardMapper {
             market: card.market.map(makeMarket),
             conditionPrices: card.conditionPrices?.map(makeConditionPrice),
             conditionValues: card.conditionValues?.map(makeConditionValue),
+            gradedPrices: card.gradedPrices?.map(makeGradedPrice),
             display: card.display.map {
                 PricedCardDisplay(
                     preferredCurrency: makeCurrency($0.preferredCurrency),
@@ -52,6 +53,7 @@ enum PricedCardMapper {
                     market: $0.market.map(makeMarket),
                     conditionPrices: $0.conditionPrices?.map(makeConditionPrice),
                     conditionValues: $0.conditionValues?.map(makeConditionValue),
+                    gradedPrices: $0.gradedPrices?.map(makeGradedPrice),
                     conversionUnavailable: $0.conversionUnavailable
                 )
             },
@@ -62,6 +64,17 @@ enum PricedCardMapper {
 
     private static func makeHeadline(_ price: Components.Schemas.PriceHeadline) -> PriceHeadline {
         PriceHeadline(amount: price.amount, currency: makeCurrency(price.currency), metric: makeMetric(price.metric))
+    }
+
+    private static func makeGradedPrice(_ price: Components.Schemas.GradedPrice) -> GradedPrice {
+        GradedPrice(
+            company: price.company,
+            grade: price.grade,
+            currency: makeCurrency(price.currency),
+            low: price.low,
+            market: price.market,
+            population: price.population
+        )
     }
 
     private static func makeMarket(_ market: Components.Schemas.MarketPrice) -> MarketPrice {

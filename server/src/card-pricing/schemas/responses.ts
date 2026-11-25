@@ -83,6 +83,17 @@ const ConditionPriceSchema = z
   })
   .meta({ $id: 'ConditionPrice', title: 'Condition Price' });
 
+const GradedPriceSchema = z
+  .object({
+    company: z.string().nonempty(),
+    grade: z.number().positive(),
+    currency: CurrencySchema,
+    low: AmountSchema.optional(),
+    market: AmountSchema.optional(),
+    population: z.int().nonnegative().optional().meta({ description: 'Number of cards reported at this grade' }),
+  })
+  .meta({ $id: 'GradedPrice', title: 'Graded Price' });
+
 const ConditionValueSchema = z
   .object({
     condition: z.enum(CARD_CONDITIONS),
@@ -103,9 +114,10 @@ const OwnedValuationSchema = z
   })
   .meta({ $id: 'OwnedValuation', title: 'Owned Valuation' });
 
-const conditionPricingFields = {
+const quotePricingFields = {
   condition_prices: z.array(ConditionPriceSchema).optional(),
   condition_values: z.array(ConditionValueSchema).optional(),
+  graded_prices: z.array(GradedPriceSchema).optional(),
 };
 
 export const PricedCardDisplaySchema = z
@@ -114,7 +126,7 @@ export const PricedCardDisplaySchema = z
     conversion_unavailable: z.boolean(),
     headline: PriceHeadlineSchema.optional(),
     market: MarketPriceSchema.optional(),
-    ...conditionPricingFields,
+    ...quotePricingFields,
   })
   .meta({ $id: 'PricedCardDisplay', title: 'Priced Card Display' });
 
@@ -143,7 +155,7 @@ export const PricedCardSchema = z
     }),
     headline: PriceHeadlineSchema.optional(),
     market: MarketPriceSchema.optional(),
-    ...conditionPricingFields,
+    ...quotePricingFields,
     display: PricedCardDisplaySchema.optional(),
     priced_on: ApiCommonDatetime.meta({
       description: 'UTC pricing date',

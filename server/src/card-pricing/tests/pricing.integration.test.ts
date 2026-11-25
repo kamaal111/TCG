@@ -203,7 +203,7 @@ describe('Card pricing integration', () => {
   );
 
   integrationTest(
-    'recovers condition quotes from the selected variant on a legacy cache hit without a provider call',
+    'recovers raw and standard graded quotes for the selected variant on a legacy cache hit',
     async ({ app, db, authenticatedHeaders, pricingClient }) => {
       const providerSearch = vi.spyOn(pricingClient, 'searchCards');
       const path = `${SEARCH_PRICING_ROUTE_PATH}?search_by=card&game=pokemon&query=Giratina`;
@@ -213,8 +213,9 @@ describe('Card pricing integration', () => {
 
       const cached = await db.query.cardPrice.findFirst();
       assert(cached != null);
-      const { conditionPrices, ...legacy } = cached.prices;
+      const { conditionPrices, gradedPrices, ...legacy } = cached.prices;
       expect(conditionPrices).toHaveLength(1);
+      expect(gradedPrices).toEqual([]);
       await db.update(cardPrice).set({
         prices: legacy,
         raw: {
@@ -222,12 +223,39 @@ describe('Card pricing integration', () => {
           name: cached.name,
           number: cached.cardNumber,
           variants: [
-            { name: 'reverseHolofoil', prices: [{ type: 'raw', condition: 'MP', currency: 'USD', market: 99 }] },
+            {
+              name: 'reverseHolofoil',
+              prices: [
+                { type: 'raw', condition: 'MP', currency: 'USD', market: 99 },
+                { type: 'graded', company: 'PSA', grade: '10', currency: 'USD', market: 999 },
+              ],
+              pop_reports: [{ company: 'PSA', grades: [{ grade: '9.5', count: 999 }] }],
+            },
             {
               name: 'normal',
               prices: [
                 { type: 'raw', condition: 'LP', currency: 'USD', market: 20 },
                 { type: 'raw', condition: 'HP', currency: 'USD', market: 12 },
+                { type: 'graded', company: ' psa ', grade: '9.5', currency: 'USD', market: 70 },
+                { type: 'graded', company: 'PSA', grade: '10', currency: 'USD', market: 100, low: 80 },
+                { type: 'graded', company: 'PSA', grade: '10', currency: 'USD', low: 1 },
+                { type: 'graded', company: 'CGC', grade: '10', currency: 'USD', market: 300, is_perfect: true },
+                { type: 'graded', company: 'PSA', grade: '10', currency: 'USD', market: 600, is_signed: true },
+                { type: 'graded', company: 'PSA', grade: '10', currency: 'USD', market: 400, is_error: true },
+                { type: 'graded', company: 'BGS', grade: 'unknown', currency: 'USD', market: 95 },
+                { type: 'graded', company: 'BGS', grade: '9.5', currency: 'USD', low: -30 },
+              ],
+              pop_reports: [
+                { company: 'CGC', grades: [{ grade: '9.5', count: 240 }] },
+                {
+                  company: ' psa ',
+                  total: 1500,
+                  grades: [
+                    { grade: '10Q', count: 12 },
+                    { grade: '9.5', count: -10 },
+                    { grade: '10', count: 125 },
+                  ],
+                },
               ],
             },
           ],
@@ -237,6 +265,10 @@ describe('Card pricing integration', () => {
       const hit = await app.request(path, { headers: authenticatedHeaders });
       expect(hit.status).toBe(200);
       const body = PricingSearchResponseSchema.parse(await hit.json());
+      expect(body.entries[0]?.graded_prices).toEqual([
+        { company: 'PSA', grade: 10, currency: 'USD', market: 100, low: 80, population: 125 },
+        { company: 'PSA', grade: 9.5, currency: 'USD', market: 70 },
+      ]);
       expect(body.entries[0]?.condition_prices?.map(quote => quote.condition)).toEqual([
         'near_mint',
         'excellent',

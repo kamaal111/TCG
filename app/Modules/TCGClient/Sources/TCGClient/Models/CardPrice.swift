@@ -266,12 +266,31 @@ public struct ConditionValue: Codable, Hashable, Sendable {
     }
 }
 
+public struct GradedPrice: Codable, Hashable, Sendable {
+    public let company: String
+    public let grade: Double
+    public let currency: Currency
+    public let low: Double?
+    public let market: Double?
+    public let population: Int?
+
+    public init(company: String, grade: Double, currency: Currency, low: Double?, market: Double?, population: Int?) {
+        self.company = company
+        self.grade = grade
+        self.currency = currency
+        self.low = low
+        self.market = market
+        self.population = population
+    }
+}
+
 public struct PricedCardDisplay: Codable, Hashable, Sendable {
     public let preferredCurrency: Currency
     public let headline: PriceHeadline?
     public let market: MarketPrice?
     public let conditionPrices: [MarketPrice]?
     public let conditionValues: [ConditionValue]?
+    public let gradedPrices: [GradedPrice]?
     public let conversionUnavailable: Bool
 
     public init(
@@ -282,11 +301,32 @@ public struct PricedCardDisplay: Codable, Hashable, Sendable {
         conditionValues: [ConditionValue]?,
         conversionUnavailable: Bool
     ) {
+        self.init(
+            preferredCurrency: preferredCurrency,
+            headline: headline,
+            market: market,
+            conditionPrices: conditionPrices,
+            conditionValues: conditionValues,
+            gradedPrices: nil,
+            conversionUnavailable: conversionUnavailable
+        )
+    }
+
+    public init(
+        preferredCurrency: Currency,
+        headline: PriceHeadline?,
+        market: MarketPrice?,
+        conditionPrices: [MarketPrice]?,
+        conditionValues: [ConditionValue]?,
+        gradedPrices: [GradedPrice]?,
+        conversionUnavailable: Bool
+    ) {
         self.preferredCurrency = preferredCurrency
         self.headline = headline
         self.market = market
         self.conditionPrices = conditionPrices
         self.conditionValues = conditionValues
+        self.gradedPrices = gradedPrices
         self.conversionUnavailable = conversionUnavailable
     }
 
@@ -295,6 +335,7 @@ public struct PricedCardDisplay: Codable, Hashable, Sendable {
         case headline, market
         case conditionPrices = "condition_prices"
         case conditionValues = "condition_values"
+        case gradedPrices = "graded_prices"
         case conversionUnavailable = "conversion_unavailable"
     }
 }
@@ -330,6 +371,7 @@ public struct PricedCard: Codable, Hashable, Identifiable, Sendable {
     public let market: MarketPrice?
     public let conditionPrices: [MarketPrice]?
     public let conditionValues: [ConditionValue]?
+    public let gradedPrices: [GradedPrice]?
     public let display: PricedCardDisplay?
     public let pricedOn: Date
     public let fetchedAt: Date
@@ -365,6 +407,52 @@ public struct PricedCard: Codable, Hashable, Identifiable, Sendable {
         pricedOn: Date,
         fetchedAt: Date
     ) {
+        self.init(
+            id: id,
+            printingKey: printingKey,
+            isWishlisted: isWishlisted,
+            game: game,
+            name: name,
+            cardNumber: cardNumber,
+            setName: setName,
+            rarity: rarity,
+            illustrator: illustrator,
+            englishSearchAlias: englishSearchAlias,
+            variantName: variantName,
+            imageURL: imageURL,
+            headline: headline,
+            market: market,
+            conditionPrices: conditionPrices,
+            conditionValues: conditionValues,
+            gradedPrices: nil,
+            display: display,
+            pricedOn: pricedOn,
+            fetchedAt: fetchedAt
+        )
+    }
+
+    public init(
+        id: String,
+        printingKey: String?,
+        isWishlisted: Bool?,
+        game: ClientCardGame,
+        name: String,
+        cardNumber: String,
+        setName: String?,
+        rarity: String?,
+        illustrator: String?,
+        englishSearchAlias: String?,
+        variantName: String?,
+        imageURL: URL?,
+        headline: PriceHeadline?,
+        market: MarketPrice?,
+        conditionPrices: [MarketPrice]?,
+        conditionValues: [ConditionValue]?,
+        gradedPrices: [GradedPrice]?,
+        display: PricedCardDisplay?,
+        pricedOn: Date,
+        fetchedAt: Date
+    ) {
         self.id = id
         self.printingKey = printingKey
         self.isWishlisted = isWishlisted
@@ -381,6 +469,7 @@ public struct PricedCard: Codable, Hashable, Identifiable, Sendable {
         self.market = market
         self.conditionPrices = conditionPrices
         self.conditionValues = conditionValues
+        self.gradedPrices = gradedPrices
         self.display = display
         self.pricedOn = pricedOn
         self.fetchedAt = fetchedAt
@@ -394,6 +483,7 @@ public struct PricedCard: Codable, Hashable, Identifiable, Sendable {
         case market, display
         case conditionPrices = "condition_prices"
         case conditionValues = "condition_values"
+        case gradedPrices = "graded_prices"
         case id
         case printingKey = "printing_key"
         case isWishlisted = "is_wishlisted"
@@ -412,6 +502,7 @@ public struct PricedCard: Codable, Hashable, Identifiable, Sendable {
         display?.conditionPrices ?? conditionPrices ?? [displayMarket].unpacked()
     }
     public var displayConditionValues: [ConditionValue]? { display?.conditionValues ?? conditionValues }
+    public var displayGradedPrices: [GradedPrice] { display?.gradedPrices ?? gradedPrices ?? [] }
     public var displayMarket: MarketPrice? { display?.market ?? market }
     public var conversionUnavailable: Bool { display?.conversionUnavailable ?? false }
 }

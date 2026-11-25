@@ -11,6 +11,11 @@ import { SCRYDEX_ERROR_REASONS, SCRYDEX_SEARCH_PAGE_SIZE } from './types.ts';
 
 export type ScrydexFetch = (input: string | URL | Request, init?: RequestInit) => Promise<Response>;
 
+const CARD_INCLUDES = {
+  pokemon: 'prices,pop_reports',
+  one_piece: 'prices',
+} satisfies Record<ScrydexGame, string>;
+
 export interface ScrydexClientOptions {
   apiKey?: string;
   baseURL?: string;
@@ -43,7 +48,7 @@ export class ScrydexClient {
 
     const url = this.makeURL(game, '/cards');
     url.searchParams.set('q', query);
-    url.searchParams.set('include', 'prices');
+    url.searchParams.set('include', CARD_INCLUDES[game]);
     url.searchParams.set('page', String(page));
     url.searchParams.set('page_size', String(SCRYDEX_SEARCH_PAGE_SIZE));
     const responseResult = await this.request(url, headers.value);
@@ -105,7 +110,7 @@ export class ScrydexClient {
     }
 
     const url = this.makeURL(game, `/cards/${encodeURIComponent(id)}`);
-    url.searchParams.set('include', 'prices');
+    url.searchParams.set('include', CARD_INCLUDES[game]);
     const responseResult = await this.request(url, headers.value);
 
     if (responseResult.isErr()) {

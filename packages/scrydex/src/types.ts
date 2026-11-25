@@ -6,6 +6,7 @@ export const SCRYDEX_SEARCH_PAGE_SIZE = 100;
 
 export const SCRYDEX_PRICE_TYPE_MAP = {
   RAW: 'raw',
+  GRADED: 'graded',
 } as const;
 
 export const SCRYDEX_RAW_CONDITION_MAP = {

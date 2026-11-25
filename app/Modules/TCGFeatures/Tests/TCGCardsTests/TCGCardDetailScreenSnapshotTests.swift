@@ -288,6 +288,41 @@ struct TCGCardDetailScreenSnapshotTests {
         }
     }
 
+    @Test
+    func `Renders graded-only owned details`() async {
+        let card = PreviewTCGCardsClient.sampleCards[0]
+        let pricedOn = Date(timeIntervalSince1970: 1_750_000_000)
+        let priced = PricedCard(
+            id: "graded-only",
+            printingKey: nil,
+            isWishlisted: nil,
+            game: card.game,
+            name: card.name,
+            cardNumber: card.cardNumber,
+            setName: nil,
+            rarity: nil,
+            illustrator: nil,
+            englishSearchAlias: nil,
+            variantName: nil,
+            imageURL: nil,
+            headline: nil,
+            market: nil,
+            conditionPrices: [],
+            conditionValues: [],
+            gradedPrices: [.init(company: "PSA", grade: 10, currency: .usd, low: 80, market: 100, population: nil)],
+            display: nil,
+            pricedOn: pricedOn,
+            fetchedAt: pricedOn
+        )
+        let price = OwnedCardPrice(cardId: card.id, status: .noPrice, price: priced, valuation: nil)
+        let model = TCGCardDetailScreenModel(card: .init(card: card, price: price, imageURL: nil))
+
+        await assertScreenSnapshot(testName: #function, fileID: #fileID, file: #filePath, line: #line, column: #column)
+        {
+            makeScreen(model, isEditingCollection: false, cards: TCGCards(client: .preview(cardsOutcome: .empty)))
+        }
+    }
+
     private func makeJapaneseCardModel(illustrator: String?) -> TCGCardDetailScreenModel {
         let source = PreviewTCGCardsClient.sampleCards[1]
         let card = Card(

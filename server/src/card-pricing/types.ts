@@ -64,12 +64,22 @@ export interface NormalizedConditionPrice {
   trend30d?: PriceMovement;
 }
 
+export interface NormalizedGradedPrice {
+  company: string;
+  grade: number;
+  currency: Currency;
+  low?: number;
+  market?: number;
+  population?: number;
+}
+
 export interface NormalizedPricing {
   illustrator?: string;
   variantName?: string;
   setName?: string;
   market?: NormalizedConditionPrice & { condition: typeof CARD_CONDITION_MAP.NEAR_MINT };
   conditionPrices?: NormalizedConditionPrice[];
+  gradedPrices?: NormalizedGradedPrice[];
   image?: string;
   rarity?: string;
 }

@@ -56,6 +56,8 @@ struct TCGPricingClientTests {
         )
         #expect(result.matches.first?.illustrator == "Akira Egawa")
         #expect(result.matches.first?.englishSearchAlias == "Giratina VSTAR")
+        #expect(result.matches.first?.gradedPrices == nil)
+        #expect(result.matches.first?.displayGradedPrices == [])
     }
 
     @Test
@@ -68,10 +70,14 @@ struct TCGPricingClientTests {
               "market":{"condition":"near_mint","currency":"USD","market":25},
               "condition_prices":[{"condition":"excellent","currency":"USD","market":20}],
               "condition_values":[{"condition":"good","currency":"USD","amount":18,"basis":"adjusted"}],
+              "graded_prices":[{"company":"PSA","grade":10,"currency":"USD","low":80,"market":100,"population":125},
+                {"company":"BGS","grade":9.5,"currency":"CAD","market":90}],
               "display":{"preferred_currency":"EUR","conversion_unavailable":false,
                 "headline":{"amount":10,"currency":"EUR","metric":"lowest_near_mint"},
                 "condition_prices":[{"condition":"excellent","currency":"EUR","market":16}],
                 "condition_values":[{"condition":"good","currency":"EUR","amount":14.4,"basis":"adjusted"}],
+                "graded_prices":[{"company":"PSA","grade":10,"currency":"EUR","low":64,"market":80,"population":125},
+                  {"company":"BGS","grade":9.5,"currency":"CAD","market":90}],
                 "market":{"condition":"near_mint","currency":"EUR","market":20,
                   "trend_7d":{"price_change":-2,"percent_change":-10}}},
               "priced_on":"2026-10-16T00:00:00.000Z","fetched_at":"2026-10-16T10:00:00.000Z"
@@ -96,6 +102,18 @@ struct TCGPricingClientTests {
         #expect(card.displayConditionPrices.first?.market == 16)
         #expect(card.conditionValues?.first?.basis == .adjusted)
         #expect(card.displayConditionValues?.first?.amount == 14.4)
+        #expect(
+            card.gradedPrices == [
+                GradedPrice(company: "PSA", grade: 10, currency: .usd, low: 80, market: 100, population: 125),
+                GradedPrice(company: "BGS", grade: 9.5, currency: .cad, low: nil, market: 90, population: nil),
+            ]
+        )
+        #expect(
+            card.displayGradedPrices == [
+                GradedPrice(company: "PSA", grade: 10, currency: .eur, low: 64, market: 80, population: 125),
+                GradedPrice(company: "BGS", grade: 9.5, currency: .cad, low: nil, market: 90, population: nil),
+            ]
+        )
         #expect(!card.conversionUnavailable)
     }
 

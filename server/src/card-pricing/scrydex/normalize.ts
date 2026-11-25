@@ -1,6 +1,7 @@
 import {
   SCRYDEX_PRICE_TYPE_MAP,
   SCRYDEX_RAW_CONDITION_MAP,
+  ScrydexGradedPriceSchema,
   type ScrydexRawCard,
   type ScrydexRawPrice,
 } from '@tcg/scrydex';
@@ -14,6 +15,7 @@ import type {
   CardGame,
   Currency,
   NormalizedConditionPrice,
+  NormalizedGradedPrice,
   NormalizedPricingCard,
   PriceMovement,
   PricingCardRecord,
@@ -29,6 +31,12 @@ const RequiredCardSchema = z.object({
 const NonEmptyStringSchema = z.string().trim().nonempty();
 
 const FiniteNumberSchema = z.number();
+
+const NumericGradeSchema = z
+  .string()
+  .regex(/^\d+(?:\.\d+)?$/)
+  .transform(Number)
+  .pipe(z.number().positive());
 
 const SCRYDEX_CONDITIONS = {
   [CARD_CONDITION_MAP.NEAR_MINT]: SCRYDEX_RAW_CONDITION_MAP.NEAR_MINT,
@@ -214,8 +222,9 @@ function normalizePrinting(
     pricing.setName = raw.expansion.name;
   }
 
-  if (conditionPrices.length > 0) {
+  if (variant?.prices != null) {
     pricing.conditionPrices = conditionPrices;
+    pricing.gradedPrices = normalizeGradedPrices(variant.prices, variant.pop_reports);
   }
 
   if (market != null) {
@@ -239,6 +248,83 @@ function normalizePrinting(
     },
     hasBaseVariant: variant != null,
   };
+}
+
+function normalizeGradedPrices(
+  prices: readonly ScrydexRawPrice[],
+  reports: RawVariant['pop_reports'],
+): NormalizedGradedPrice[] {
+  const populations = gradedPopulations(reports);
+  const quotes = new Map<string, NormalizedGradedPrice>();
+
+  for (const raw of prices) {
+    if (raw.type !== SCRYDEX_PRICE_TYPE_MAP.GRADED) {
+      continue;
+    }
+
+    const parsed = ScrydexGradedPriceSchema.safeParse(raw);
+
+    if (!parsed.success) {
+      continue;
+    }
+
+    const price = parsed.data;
+
+    if (price.is_perfect || price.is_signed || price.is_error) {
+      continue;
+    }
+
+    const company = price.company.toUpperCase();
+    const grade = NumericGradeSchema.safeParse(price.grade);
+    const currency = normalizeCurrency(price.currency);
+    const low = finiteNonnegativeNumber(price.low);
+    const market = finiteNonnegativeNumber(price.market);
+
+    if (!grade.success || currency == null || (low == null && market == null)) {
+      continue;
+    }
+
+    const key = JSON.stringify([company, grade.data, currency]);
+
+    if (!quotes.has(key)) {
+      quotes.set(key, {
+        company,
+        grade: grade.data,
+        currency,
+        low,
+        market,
+        population: populations.get(company)?.get(grade.data),
+      });
+    }
+  }
+
+  return Array.from(quotes.values()).sort((left, right) => {
+    return (
+      left.company.localeCompare(right.company) ||
+      right.grade - left.grade ||
+      left.currency.localeCompare(right.currency)
+    );
+  });
+}
+
+function gradedPopulations(reports: RawVariant['pop_reports']): Map<string, Map<number, number>> {
+  const populations = new Map<string, Map<number, number>>();
+
+  for (const report of reports ?? []) {
+    const company = report.company.toUpperCase();
+    const counts = populations.get(company) ?? new Map<number, number>();
+    populations.set(company, counts);
+
+    for (const { grade, count } of report.grades) {
+      const numericGrade = NumericGradeSchema.safeParse(grade);
+
+      if (numericGrade.success && !counts.has(numericGrade.data)) {
+        counts.set(numericGrade.data, count);
+      }
+    }
+  }
+
+  return populations;
 }
 
 function normalizeRawPrice(
