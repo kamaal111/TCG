@@ -180,16 +180,18 @@ test('plan outputs describe and hash the exact private saved plan', async t => {
 test('a local release verifies archived main sources and deploys both immutable Linux images', async t => {
   const f = await fixture(t);
   const result = f.localRelease({}, []);
+  const commands = await f.commands();
 
   expect(result.status).toBe(0);
-  expect(await f.commands()).toContain(`"--is-ancestor","${sha}","origin/main"`);
-  expect(await f.commands()).toContain('"archive","--format=tar"');
-  expect(await f.commands()).toContain('"contextFiles":["mise.toml","node_modules"]');
-  expect(await f.commands()).toContain('"install","--frozen-lockfile"');
-  expect(await f.commands()).toContain('"args":["ready-server"]');
-  expect(await f.commands()).toContain('"--platform","linux/amd64"');
-  expect(await f.commands()).toContain(`"--tag","ghcr.io/example/tcg-server:${sha}"`);
-  expect(await f.commands()).toContain(
+  expect(commands).toContain(`"--is-ancestor","${sha}","origin/main"`);
+  expect(commands).toContain('"archive","--format=tar"');
+  expect(commands).toContain('"contextFiles":["mise.toml","node_modules"]');
+  expect(commands).toContain('"install","--frozen-lockfile"');
+  expect(commands).toContain('"args":["ready-server"]');
+  expect(commands).toContain('"--platform","linux/amd64"');
+  expect(commands).toContain(`"--tag","ghcr.io/example/tcg-server:${sha}"`);
+  expect(commands).toMatch(/"tool":"ssh","args":\[[^\n]*"-o","ServerAliveInterval=15","-o","ServerAliveCountMax=8"/);
+  expect(commands).toContain(
     `release ghcr.io/example/tcg-server@sha256:${'a'.repeat(64)} ghcr.io/example/tcg-server-migrations@sha256:${'b'.repeat(64)} private false`,
   );
   expect(await fs.readdir(f.runner)).toStrictEqual([]);

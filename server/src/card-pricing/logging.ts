@@ -9,6 +9,7 @@ import type { GetRecordValues } from '../utils/type-utils.ts';
 export const PRICING_EVENT_MAP = {
   SEARCH_COMPLETED: 'pricing.search.completed',
   CATALOG_COMPLETED: 'pricing.catalog.completed',
+  CATALOG_PROGRESS: 'pricing.catalog.progress',
   SEARCH_CACHE: 'pricing.search.cache',
   OWNED_CACHE: 'pricing.owned.cache',
   LOCK_COMPLETED: 'pricing.lock.completed',

@@ -17,6 +17,8 @@ cleanup() {
     rmdir "$lock"
 }
 trap cleanup EXIT
+trap 'exit 129' HUP
+trap 'exit 143' TERM
 
 if [[ "${1:-}" == release-checked && $# == 6 ]]; then
     python3 "$status_tool" "$6"
@@ -104,6 +106,32 @@ migration_revision="$(docker image inspect --format '{{index .Config.Labels "org
 candidate() {
     docker compose --env-file host.env --env-file "$temporary/release.env" "$@"
 }
+
+wait_for_catalog() {
+    local job="$1" status
+    docker container logs --follow "$job"
+    status="$(docker container wait "$job")"
+    docker container rm "$job" >/dev/null
+    [[ "$status" == 0 ]] || fail "Card catalog backfill exited with status $status."
+}
+
+prepare_catalog() {
+    local job=tcg-card-catalog-backfill running
+    if running="$(docker container inspect --format '{{.State.Running}}' "$job" 2>/dev/null)"; then
+        if [[ "$running" == true ]]; then
+            echo 'Waiting for the card search catalog job already running on the server.'
+            wait_for_catalog "$job"
+        else
+            docker container rm "$job" >/dev/null
+        fi
+    fi
+
+    # Run against the candidate configuration even after following a previous job.
+    # The command skips each catalog that is already published.
+    candidate run --detach --no-deps --name "$job" tools node scripts/sync-card-catalog.ts --if-missing >/dev/null
+    wait_for_catalog "$job"
+}
+
 candidate config --quiet
 candidate run --rm --no-deps tools node scripts/check-deployment.ts
 if [[ "$exposure" == public ]]; then
@@ -113,7 +141,7 @@ candidate run --rm --no-deps tools node scripts/check-migrations.ts
 catalog_backfill="$(docker image inspect --format '{{index .Config.Labels "io.tcg.card-catalog-backfill"}}' "$migration")"
 if [[ "$catalog_backfill" == true ]]; then
     echo 'Preparing the card search catalog before startup.'
-    candidate run --rm --no-deps tools node scripts/sync-card-catalog.ts --if-missing
+    prepare_catalog
 fi
 
 if [[ -f release.env ]]; then
