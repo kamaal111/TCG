@@ -316,7 +316,7 @@ class CatalogTransport {
       }
 
       const query = url.searchParams.get('q') ?? '';
-      const ids = [...query.matchAll(/!id:"([^"]+)"/g)].map(match => match[1]?.replaceAll('\\', ''));
+      const ids = [...query.matchAll(/!id:([\w-]+)(?: OR |$)/g)].map(match => match[1]);
       const data = cards.filter(card => ids.includes(String(card.id)));
 
       return Response.json({ data, totalCount: data.length });

@@ -10,6 +10,43 @@ describe('RealScrydexClient', () => {
   const nearMintPrice = { type: 'raw', condition: 'NM', currency: 'JPY', low: 25_000, market: 25_000 };
   const nearMintMarket = { condition: 'near_mint', currency: 'JPY', low: 25_000, market: 25_000 };
 
+  it('hydrates ordinary catalog IDs in one exact batch and routes punctuation through card lookup', async () => {
+    const cards = [
+      { id: 'ex4-91', name: 'Entei ex', number: '91' },
+      { id: 'swsh12a_ja-19', name: 'エンテイV', number: '19' },
+    ];
+
+    const punctuationCard = { id: 'ex10-?', name: 'Unown', number: '?' };
+
+    const fetcher = vi.fn<typeof fetch>(async input => {
+      const url = new URL(stringifyRequestURL(input));
+
+      return url.pathname.endsWith('/cards')
+        ? jsonResponse({ data: cards, totalCount: cards.length }, 200)
+        : jsonResponse({ data: punctuationCard }, 200);
+    });
+
+    const client = makeClient(fetcher);
+    const result = await client.priceCatalogCards(CARD_GAME_MAP.POKEMON, ['ex4-91', 'swsh12a_ja-19', 'ex10-?']);
+    assert(result.isOk());
+    expect(result.value.records.map(row => row.card.id)).toEqual(['ex4-91', 'swsh12a_ja-19', 'ex10-?']);
+
+    const urls = fetcher.mock.calls.map(([input]) => new URL(stringifyRequestURL(input)));
+
+    expect(urls.map(url => ({ path: url.pathname, query: url.searchParams.get('q') }))).toEqual([
+      { path: '/pokemon/v1/cards', query: '!id:ex4-91 OR !id:swsh12a_ja-19' },
+      { path: '/pokemon/v1/cards/ex10-%3F', query: null },
+    ]);
+  });
+
+  it('rejects a successful provider response that omits requested catalog cards', async () => {
+    const client = makeClient(async () => jsonResponse({ data: [], totalCount: 0 }, 200));
+    const result = await client.priceCatalogCards(CARD_GAME_MAP.POKEMON, ['ex4-91']);
+
+    assert(result.isErr());
+    expect(result.error).toMatchObject({ reason: 'invalid_response', isRetryable: true });
+  });
+
   it.each([
     {
       scenario: 'sole first edition',
