@@ -4,7 +4,6 @@ import util from 'node:util';
 
 import { InternalServerError } from '@tcg/http/exceptions';
 import { ScrydexClient } from '@tcg/scrydex';
-import { Client } from 'pg';
 import { z } from 'zod';
 
 import { writeCatalog } from './card-catalog-file.ts';
@@ -13,37 +12,13 @@ import { CatalogPrintingSchema } from '../src/card-pricing/catalog.ts';
 
 const ExportRowSchema = CatalogPrintingSchema.extend({ printingCount: z.int().positive() });
 
-async function exportRows(databaseURL: string) {
-  const client = new Client({ connectionString: databaseURL, connectionTimeoutMillis: 8000 });
-
-  try {
-    await client.connect();
-    await client.query('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY');
-
-    const result = await client.query(`
-      SELECT g.game, g.printing_count AS "printingCount", p.pricing_id AS "pricingId", p.provider_id AS "providerId",
-        p.language, p.names, p.name_tokens AS "nameTokens", p.set_tokens AS "setTokens", p.set_ids AS "setIds",
-        p.set_key AS "setKey", p.set_name AS "setName", p.primary_set AS "primarySet",
-        p.collector_number AS "collectorNumber", p.printed_number AS "printedNumber"
-      FROM card_catalog_generation g JOIN card_catalog_printing p ON p.generation = g.id
-      WHERE g.superseded_at IS NULL AND g.source = 'scrydex_real' ORDER BY g.game, p.pricing_id, p.set_key
-    `);
-
-    await client.query('ROLLBACK');
-
-    return z.array(ExportRowSchema).parse(result.rows);
-  } finally {
-    await client.end();
-  }
-}
-
 function validateExport(rows: readonly z.infer<typeof ExportRowSchema>[]) {
   for (const game of CatalogPrintingSchema.shape.game.options) {
     const gameRows = rows.filter(row => row.game === game);
 
     if (gameRows.length === 0 || gameRows.some(row => row.printingCount !== gameRows.length)) {
       throw new InternalServerError(undefined, {
-        diagnosticMessage: `Incomplete production catalog export for ${game}`,
+        diagnosticMessage: `Incomplete catalog export for ${game}`,
       });
     }
   }
@@ -55,7 +30,6 @@ const options = util.parseArgs({
   options: {
     output: { type: 'string' },
     export: { type: 'string' },
-    postgres: { type: 'boolean' },
     parent: { type: 'string' },
     delta: { type: 'string' },
     game: { type: 'string' },
@@ -75,7 +49,7 @@ const cards = options.card ?? [];
 const expansions = options.expansion ?? [];
 const fetchRequested = cards.length + expansions.length > 0;
 
-if (options.parent && !options.export && !options.postgres && (options.delta || fetchRequested)) {
+if (options.parent && !options.export && (options.delta || fetchRequested)) {
   const delta = options.delta
     ? z
         .array(CatalogPrintingSchema)
@@ -100,22 +74,15 @@ if (options.parent && !options.export && !options.postgres && (options.delta || 
 
   await writeCatalog(output, [...(fetched?.rows ?? []), ...delta], options.parent);
   console.log(`Catalog written with ${fetched?.requests ?? 0} Scrydex requests.`);
-} else if (
-  !options.parent &&
-  !options.delta &&
-  !fetchRequested &&
-  Boolean(options.export) !== Boolean(options.postgres)
-) {
-  const rows = options.export
-    ? (await fs.readFile(options.export, 'utf8'))
-        .trim()
-        .split('\n')
-        .map(line => ExportRowSchema.parse(JSON.parse(line)))
-    : await exportRows(z.string().nonempty().parse(process.env.DATABASE_URL));
+} else if (options.export && !options.parent && !options.delta && !fetchRequested) {
+  const rows = (await fs.readFile(options.export, 'utf8'))
+    .trim()
+    .split('\n')
+    .map(line => ExportRowSchema.parse(JSON.parse(line)));
 
   await writeCatalog(output, validateExport(rows));
 } else {
   throw new InternalServerError(undefined, {
-    diagnosticMessage: 'Specify --postgres, --export FILE, or --parent FILE --delta FILE',
+    diagnosticMessage: 'Specify --export FILE, or --parent FILE with a delta or scoped provider data',
   });
 }

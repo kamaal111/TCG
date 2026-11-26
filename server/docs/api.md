@@ -135,8 +135,8 @@ For data unavailable locally, explicitly select provider card IDs or
 expansions and set the maximum number of Scrydex requests. For example,
 `just build-card-catalog --parent server/catalog.sqlite --game one_piece --expansion PRB01 --request-limit 3 --output next.sqlite`.
 The request limit includes expansion metadata and each page. Failed updates
-leave the parent unchanged. The initial snapshot can be built using
-`--postgres` with a read-only production connection in `DATABASE_URL`.
+leave the parent unchanged. Use `--export FILE` to rebuild from an archived
+catalog export.
 
 Run `just publish-card-catalog next.sqlite release-2026-11-26` to push
 to the private catalog repository and print the new pin. Review the pin
