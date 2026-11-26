@@ -16,7 +16,9 @@ import {
 } from '../client.ts';
 import { type CardGame, type PricingCardRecord, type PricingSearchOptions, PRICING_SOURCES } from '../types.ts';
 import { normalizeScrydexLookup, normalizeScrydexSearch, splitScrydexPricingId } from './normalize.ts';
-import { buildScrydexQuery, escapeScrydexValue, MAX_ENCODED_SCRYDEX_QUERY_LENGTH } from './query.ts';
+import { buildScrydexQuery, MAX_ENCODED_SCRYDEX_QUERY_LENGTH } from './query.ts';
+
+const CATALOG_BATCH_ID_PATTERN = /^[A-Za-z0-9_-]+$/;
 
 export class RealScrydexClient implements PricingClient {
   readonly source = PRICING_SOURCES.SCRYDEX_REAL;
@@ -49,14 +51,15 @@ export class RealScrydexClient implements PricingClient {
     game: CardGame,
     providerIds: readonly string[],
   ): Promise<PricingClientResult<PricingSearchResult>> {
-    const batches = this.catalogPriceBatches(providerIds);
+    const requestedIds = new Set(providerIds);
+    const lookups = this.catalogPriceLookups(requestedIds);
     const cards = new Map<string, ScrydexRawCard>();
 
-    if (batches == null) {
+    if (lookups == null) {
       return this.invalidPriceBatch();
     }
 
-    for (const { query, ids } of batches) {
+    for (const { query, ids } of lookups.batches) {
       const result = await this.client.searchCards(game, query, SCRYDEX_FIRST_PAGE);
 
       if (result.isErr()) {
@@ -66,7 +69,8 @@ export class RealScrydexClient implements PricingClient {
       if (
         result.value.hasMore ||
         result.value.rejectedCount > 0 ||
-        result.value.providerResultCount !== result.value.cards.length
+        result.value.providerResultCount !== result.value.cards.length ||
+        result.value.cards.length !== ids.size
       ) {
         return this.invalidPriceBatch();
       }
@@ -80,6 +84,20 @@ export class RealScrydexClient implements PricingClient {
 
         cards.set(id, card);
       }
+    }
+
+    for (const id of lookups.directIds) {
+      const result = await this.client.getCardById(game, id);
+
+      if (result.isErr()) {
+        return err(result.error);
+      }
+
+      if (result.value?.card.id !== id) {
+        return this.invalidPriceBatch();
+      }
+
+      cards.set(id, result.value.card);
     }
 
     const normalized = normalizeScrydexSearch(game, [...cards.values()], {
@@ -121,13 +139,19 @@ export class RealScrydexClient implements PricingClient {
     return ok({ card: normalized.card, raw: result.value.card });
   }
 
-  private catalogPriceBatches(providerIds: readonly string[]) {
+  private catalogPriceLookups(providerIds: ReadonlySet<string>) {
     const batches: { query: string; ids: ReadonlySet<string> }[] = [];
+    const directIds: string[] = [];
     let query = '';
     let ids = new Set<string>();
 
     for (const id of providerIds) {
-      const clause = `!id:"${escapeScrydexValue(id)}"`;
+      if (!CATALOG_BATCH_ID_PATTERN.test(id)) {
+        directIds.push(id);
+        continue;
+      }
+
+      const clause = `!id:${id}`;
       const combined = query.length > 0 ? `${query} OR ${clause}` : clause;
 
       if (new URLSearchParams({ q: combined }).toString().length > MAX_ENCODED_SCRYDEX_QUERY_LENGTH) {
@@ -148,7 +172,7 @@ export class RealScrydexClient implements PricingClient {
       batches.push({ query, ids });
     }
 
-    return batches;
+    return { batches, directIds };
   }
 
   private invalidPriceBatch(): PricingClientResult<PricingSearchResult> {
