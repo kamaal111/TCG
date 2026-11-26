@@ -44,6 +44,13 @@ if (args[0] === 'image') {
   if (command.includes('io.tcg.card-catalog-backfill')) console.log(process.env.CATALOG_IMAGE || '<no value>');
   else console.log((process.env.MISMATCH && command.includes('-migrations@') ? 'e' : 'd').repeat(40));
 }
+if (args[0] === 'container') {
+  if (args[1] === 'inspect') {
+    if (process.env.CATALOG_ALREADY_RUNNING !== '1') process.exit(1);
+    console.log('true');
+  }
+  if (args[1] === 'wait') console.log(process.env.CATALOG_EXIT_CODE || '0');
+}
 if (process.env.FAIL_PHASE && command.includes(process.env.FAIL_PHASE)) {
   const marker = process.env.COMMAND_LOG + '.failed';
   if (process.env.FAIL_ONCE !== '1' || !fs.existsSync(marker)) {
@@ -142,9 +149,29 @@ test('prepares a missing catalog before restarting when supported by the image',
   expect(result.status).toBe(0);
   const commands = await f.log();
   const backfill = commands.indexOf('"scripts/sync-card-catalog.ts","--if-missing"');
+  const wait = commands.indexOf('"container","wait","tcg-card-catalog-backfill"');
 
+  expect(commands).toContain('"run","--detach","--no-deps","--name","tcg-card-catalog-backfill"');
   expect(backfill).toBeGreaterThan(commands.indexOf('scripts/check-migrations.ts'));
-  expect(backfill).toBeLessThan(commands.indexOf('"up"'));
+  expect(wait).toBeGreaterThan(backfill);
+  expect(wait).toBeLessThan(commands.indexOf('"up"'));
+});
+
+test('a release retry follows the running VM backfill before checking the candidate', async t => {
+  const f = await fixture(t);
+
+  const result = f.run(['release', runtime, migration, 'private', 'false'], {
+    CATALOG_IMAGE: 'true',
+    CATALOG_ALREADY_RUNNING: '1',
+  });
+
+  const commands = await f.log();
+
+  expect(result.status).toBe(0);
+  expect(result.stdout).toContain('already running on the server');
+  expect(commands.indexOf('"container","wait","tcg-card-catalog-backfill"')).toBeLessThan(
+    commands.indexOf('"scripts/sync-card-catalog.ts","--if-missing"'),
+  );
 });
 
 test('an older image can deploy without preparing a catalog', async t => {
@@ -159,10 +186,11 @@ test('a failed catalog backfill preserves the current release', async t => {
 
   const result = f.run(['release', runtime, migration, 'private', 'false'], {
     CATALOG_IMAGE: 'true',
-    FAIL_PHASE: 'scripts/sync-card-catalog.ts',
+    CATALOG_EXIT_CODE: '1',
   });
 
   expect(result.status).toBe(1);
+  expect(result.stderr).toContain('Card catalog backfill exited with status 1.');
   expect(await f.log()).not.toContain('"up"');
   expect(await f.release()).toBe(oldRelease);
 });

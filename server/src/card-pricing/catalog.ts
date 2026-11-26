@@ -22,6 +22,7 @@ const REFRESH_AFTER_MS = ONE_WEEK_IN_HOURS * ONE_HOUR_IN_MS;
 const BUILD_WAIT_SECONDS = 10;
 const FAILED_BUILD_RETRY_MS = ONE_MINUTE_IN_MS;
 const READINESS_POLL_MS = 250;
+const CATALOG_PROGRESS_PAGE_INTERVAL = 25;
 const MIN_USABLE_CATALOG_CARD_RATIO = 0.95;
 const MIN_REFRESH_PRINTING_RATIO = 0.95;
 
@@ -242,6 +243,23 @@ export class CardCatalog {
         throw new InternalServerError(undefined, {
           diagnosticMessage: 'Scrydex catalog count did not match its pages',
         });
+      }
+
+      if (
+        collection === SCRYDEX_CATALOG_COLLECTION_MAP.CARDS &&
+        hasMore &&
+        page % CATALOG_PROGRESS_PAGE_INTERVAL === 0
+      ) {
+        catalogLogger().info(
+          {
+            event: PRICING_EVENT_MAP.CATALOG_PROGRESS,
+            outcome: 'success',
+            game,
+            result_count: ids.size,
+            provider_result_count: catalogTotal,
+          },
+          'Read card metadata for the search catalog.',
+        );
       }
 
       yield cards;
