@@ -12,8 +12,6 @@ export * from './cards.ts';
 
 export * from './card-pricing.ts';
 
-export * from './card-catalog.ts';
-
 export * from './card-images.ts';
 
 export * from './wishlist.ts';
