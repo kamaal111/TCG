@@ -209,6 +209,35 @@ describe('Catalog search through the authenticated pricing API', () => {
     expect(response.headers.get('Retry-After')).not.toBeNull();
     expect(feed.priceRequests).toBe(0);
   });
+
+  integrationTest(
+    'publishes an initial catalog with an isolated card missing both numbers',
+    async ({ createApp, user }) => {
+      const feed = new CatalogTransport();
+      const numberless = { ...UNRELATED, id: 'numberless-entei', number: null, printed_number: null };
+
+      const fillers = Array.from({ length: 15 }, (_, index) => {
+        return pokemonCard(VSTAR, String(index), String(index), 'Other card', 'JA', undefined);
+      });
+
+      feed.cards = [...fillers, numberless, ...ENTEI_CARDS];
+      const app = createApp({ config, pricingClient: createTestScrydexClient(feed.fetch, {}) });
+
+      const result = await page(searchAs(user.sessionToken)(app, 'entei vs', CARD_GAME_MAP.POKEMON));
+      expect(result.entries.map(card => card.card_number)).toEqual(['91/95', '095/141', '019/172', '213/172']);
+    },
+  );
+
+  integrationTest('rejects an initial catalog with too many unsearchable cards', async ({ createApp, user }) => {
+    const feed = new CatalogTransport();
+    feed.cards = [UNRELATED, { ...UNRELATED, id: 'numberless-entei', number: null, printed_number: null }];
+    const app = createApp({ config, pricingClient: createTestScrydexClient(feed.fetch, {}) });
+
+    const response = await searchAs(user.sessionToken)(app, 'entei', CARD_GAME_MAP.POKEMON);
+    expect(response.status).toBe(503);
+    expect(await response.json()).toMatchObject({ code: 'PRICING_CATALOG_UNAVAILABLE' });
+    expect(feed.priceRequests).toBe(0);
+  });
 });
 
 function pokemonCard(
