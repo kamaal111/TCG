@@ -35,11 +35,11 @@ USER node
 EXPOSE 8080
 
 FROM base AS migration
-LABEL io.tcg.card-catalog-backfill=true
 COPY server/drizzle ./server/drizzle
-COPY server/scripts/migrate.ts server/scripts/check-deployment.ts server/scripts/check-migrations.ts server/scripts/deployment-database.ts server/scripts/sync-card-catalog.ts ./server/scripts/
+COPY server/scripts/migrate.ts server/scripts/check-deployment.ts server/scripts/check-migrations.ts server/scripts/deployment-database.ts ./server/scripts/
 WORKDIR /app/server
 CMD ["node", "--help"]
 
 FROM base AS runtime
+COPY --from=card-catalog --chmod=0444 /catalog.sqlite ./server/catalog.sqlite
 CMD ["node", "server/src/index.ts"]

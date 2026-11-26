@@ -1,7 +1,7 @@
 import z from 'zod';
 
 import type { Host } from './contracts.ts';
-import { RELEASE_DEPLOY_RESULT_MAP, runRelease } from './pipeline.ts';
+import { runRelease } from './pipeline.ts';
 import { InfraFailure } from '../infra/errors.ts';
 import type { Prompts } from '../infra/prompts.ts';
 
@@ -50,7 +50,7 @@ function fixture() {
       .fn<Parameters<typeof runRelease>[0]['migrations']>()
       .mockResolvedValue({ status: 'ready', pending: 0 }),
     migrate: vi.fn<Parameters<typeof runRelease>[0]['migrate']>().mockResolvedValue(undefined),
-    deploy: vi.fn<Parameters<typeof runRelease>[0]['deploy']>().mockResolvedValue(RELEASE_DEPLOY_RESULT_MAP.DEPLOYED),
+    deploy: vi.fn<Parameters<typeof runRelease>[0]['deploy']>().mockResolvedValue(undefined),
     check: vi.fn<Parameters<typeof runRelease>[0]['check']>().mockResolvedValue(undefined),
     complete: vi.fn<Parameters<typeof runRelease>[0]['complete']>().mockResolvedValue(undefined),
   };
@@ -75,35 +75,6 @@ test('declining final deployment leaves the host unchanged', async () => {
   await expect(runRelease(options)).rejects.toThrow('Stopped before');
   expect(options.deploy).not.toHaveBeenCalled();
   expect(options.migrate).not.toHaveBeenCalled();
-});
-
-test('a terminal status check returns before building images when the VM backfill is running', async () => {
-  const options = fixture();
-  options.host.mockResolvedValue({ ...installed, catalogBackfillRunning: true });
-
-  await runRelease({ ...options, mode: 'terminal' });
-
-  expect(options.prompts.note).toHaveBeenCalledWith(
-    expect.stringContaining(`just release-server ${sha}`),
-    expect.anything(),
-  );
-  expect(options.prompts.confirm).not.toHaveBeenCalled();
-  expect(options.artifacts).not.toHaveBeenCalled();
-  expect(options.deploy).not.toHaveBeenCalled();
-});
-
-test('a deferred backfill leaves the release incomplete until the next run', async () => {
-  const options = fixture();
-  options.deploy.mockResolvedValue(RELEASE_DEPLOY_RESULT_MAP.CATALOG_PENDING);
-
-  await runRelease({ ...options, mode: 'terminal' });
-
-  expect(options.prompts.note).toHaveBeenCalledWith(
-    expect.stringContaining(`just release-server ${sha}`),
-    expect.anything(),
-  );
-  expect(options.check).not.toHaveBeenCalled();
-  expect(options.complete).not.toHaveBeenCalled();
 });
 
 test('applies pending migrations only after approval, then checks readiness again', async () => {
@@ -218,7 +189,7 @@ test('resuming an unhealthy installed image offers an approved redeployment befo
   expect(options.deploy).toHaveBeenCalledOnce();
   expect(options.check).toHaveBeenCalledTimes(2);
   expect(options.prompts.confirm).toHaveBeenCalledWith(
-    'Deploy this release? It prepares any missing card search catalog before restarting the application.',
+    'Deploy this release?',
     false,
     expect.objectContaining({ kind: 'deploy' }),
   );

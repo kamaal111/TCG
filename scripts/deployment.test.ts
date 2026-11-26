@@ -41,15 +41,7 @@ if (args[0] === 'inspect') console.log(JSON.stringify([{Id: 'container-123', Ima
 if (args.includes('ps')) console.log('container-123');
 if (args.includes('--json')) console.log(JSON.stringify({protocol: 1, status: 'ready', pending: 0}));
 if (args[0] === 'image') {
-  if (command.includes('io.tcg.card-catalog-backfill')) console.log(process.env.CATALOG_IMAGE || '<no value>');
-  else console.log((process.env.MISMATCH && command.includes('-migrations@') ? 'e' : 'd').repeat(40));
-}
-if (args[0] === 'container') {
-  if (args[1] === 'inspect') {
-    if (process.env.CATALOG_ALREADY_RUNNING !== '1') process.exit(1);
-    console.log('true');
-  }
-  if (args[1] === 'wait') console.log(process.env.CATALOG_EXIT_CODE || '0');
+  console.log((process.env.MISMATCH && command.includes('-migrations@') ? 'e' : 'd').repeat(40));
 }
 if (process.env.FAIL_PHASE && command.includes(process.env.FAIL_PHASE)) {
   const marker = process.env.COMMAND_LOG + '.failed';
@@ -58,16 +50,6 @@ if (process.env.FAIL_PHASE && command.includes(process.env.FAIL_PHASE)) {
     process.exit(1);
   }
 }
-`,
-    { mode: 0o755 },
-  );
-  await fs.writeFile(
-    path.join(bin, 'timeout'),
-    `#!/bin/sh
-printf '%s\\n' "$*" >> "$COMMAND_LOG"
-[ -z "$CATALOG_DEFERRED" ] || exit 124
-shift
-exec "$@"
 `,
     { mode: 0o755 },
   );
@@ -150,81 +132,6 @@ test('a private deployment records immutable images and can be repeated', async 
   expect(await f.release()).toBe(`TCG_RUNTIME_IMAGE=${runtime}\nTCG_MIGRATION_IMAGE=${migration}\n`);
   expect(await fs.readdir(f.root)).not.toContain('.deployment-lock');
   expect(await f.log()).not.toContain('scripts/migrate.ts');
-});
-
-test('prepares a missing catalog before restarting when supported by the image', async t => {
-  const f = await fixture(t);
-  const result = f.run(['release', runtime, migration, 'private', 'false'], { CATALOG_IMAGE: 'true' });
-
-  expect(result.status).toBe(0);
-  const commands = await f.log();
-  const backfill = commands.indexOf('"scripts/sync-card-catalog.ts","--if-missing"');
-  const wait = commands.indexOf('"container","wait","tcg-card-catalog-backfill"');
-
-  expect(commands).toContain('"run","--detach","--no-deps","--name","tcg-card-catalog-backfill"');
-  expect(backfill).toBeGreaterThan(commands.indexOf('scripts/check-migrations.ts'));
-  expect(wait).toBeGreaterThan(backfill);
-  expect(wait).toBeLessThan(commands.indexOf('"up"'));
-});
-
-test('a release retry follows the running VM backfill before checking the candidate', async t => {
-  const f = await fixture(t);
-
-  const result = f.run(['release', runtime, migration, 'private', 'false'], {
-    CATALOG_IMAGE: 'true',
-    CATALOG_ALREADY_RUNNING: '1',
-  });
-
-  const commands = await f.log();
-
-  expect(result.status).toBe(0);
-  expect(result.stdout).toContain('already running on the server');
-  expect(commands.indexOf('"container","wait","tcg-card-catalog-backfill"')).toBeLessThan(
-    commands.indexOf('"scripts/sync-card-catalog.ts","--if-missing"'),
-  );
-});
-
-test('a checked release hands off after five minutes and keeps the detached job', async t => {
-  const f = await fixture(t);
-  const before = JSON.parse(f.run(['status'], {}).stdout);
-
-  const result = f.run(
-    ['release-checked', runtime, migration, 'private', 'false', before.fingerprint, 'defer-catalog'],
-    {
-      CATALOG_IMAGE: 'true',
-      CATALOG_DEFERRED: '1',
-    },
-  );
-
-  const commands = await f.log();
-  expect(result.status).toBe(75);
-  expect(result.stdout).toContain('The card search catalog is still building on the server.');
-  expect(commands).toContain('300 docker container logs --follow tcg-card-catalog-backfill');
-  expect(commands).not.toContain('"container","rm","tcg-card-catalog-backfill"');
-  expect(commands).not.toContain('"up"');
-  expect(await f.release()).toBe(oldRelease);
-  expect(await fs.readdir(f.root)).not.toContain('.deployment-lock');
-});
-
-test('an older image can deploy without preparing a catalog', async t => {
-  const f = await fixture(t);
-
-  expect(f.run(['release', runtime, migration, 'private', 'false'], {}).status).toBe(0);
-  expect(await f.log()).not.toContain('scripts/sync-card-catalog.ts');
-});
-
-test('a failed catalog backfill preserves the current release', async t => {
-  const f = await fixture(t);
-
-  const result = f.run(['release', runtime, migration, 'private', 'false'], {
-    CATALOG_IMAGE: 'true',
-    CATALOG_EXIT_CODE: '1',
-  });
-
-  expect(result.status).toBe(1);
-  expect(result.stderr).toContain('Card catalog backfill exited with status 1.');
-  expect(await f.log()).not.toContain('"up"');
-  expect(await f.release()).toBe(oldRelease);
 });
 
 test('migrations run only through the explicit operation without restarting the application', async t => {

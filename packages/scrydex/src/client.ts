@@ -60,8 +60,9 @@ export class ScrydexClient {
     });
   }
 
-  listCatalog(game: ScrydexGame, collection: ScrydexCatalogCollection, page: number) {
+  listCatalog(game: ScrydexGame, collection: ScrydexCatalogCollection, query: string, page: number) {
     return this.list(game, collection, page, {
+      q: query,
       orderBy: 'id',
       select:
         collection === SCRYDEX_CATALOG_COLLECTION_MAP.CARDS

@@ -82,6 +82,9 @@ dev-server: prepare-server start-services migrate fetch-daily-currencies
     #!/usr/bin/env zsh
 
     export DEBUG=true
+    if [[ "${SCRYDEX_CLIENT:-static}" == real ]]; then
+        node ../scripts/stage-card-catalog.ts pinned .
+    fi
 
     {{ PNR }} dev
 
@@ -166,10 +169,19 @@ squash-migrations: prepare-server
 fetch-daily-currencies database-url=DATABASE_URL:
     @DATABASE_URL="$1" node scripts/fetch-daily-currencies.ts
 
-# Backfill Pokémon and One Piece search metadata from Scrydex
-[working-directory("server")]
-sync-card-catalog:
-    node scripts/sync-card-catalog.ts
+# Download the pinned SQLite search catalog without contacting Scrydex
+fetch-card-catalog: prepare-server
+    node scripts/stage-card-catalog.ts pinned server
+
+# Publish a verified catalog and print its immutable release pin
+[positional-arguments]
+publish-card-catalog file tag:
+    node scripts/publish-card-catalog.ts "$@"
+
+# Build a new catalog from a read-only export or merge an explicit delta
+[positional-arguments]
+build-card-catalog *args: prepare-server
+    node server/scripts/build-card-catalog.ts "$@"
 
 # Install the macOS daily currency job using an explicit environment file
 [positional-arguments]
@@ -460,8 +472,9 @@ _test-server:
     {{ PNR }} test
 
 # Build the production server image
-build-server-image:
-    node scripts/build-server-image.ts
+[positional-arguments]
+build-server-image mode="runtime":
+    node scripts/build-server-image.ts "$@"
 
 # Build the migration runner from the same Dockerfile and production dependencies
 build-migration-image:
@@ -472,7 +485,7 @@ test-migration-image: build-migration-image
     bash scripts/test-migration-image.sh
 
 # Smoke test the production server image
-test-server-image: build-server-image
+test-server-image: (build-server-image "fixture")
     #!/usr/bin/env bash
     set -euo pipefail
 

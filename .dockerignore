@@ -14,7 +14,7 @@ server/scripts/*
 !server/scripts/check-deployment.ts
 !server/scripts/check-migrations.ts
 !server/scripts/deployment-database.ts
-!server/scripts/sync-card-catalog.ts
+server/catalog.sqlite
 infra
 deploy
 server/src/tests

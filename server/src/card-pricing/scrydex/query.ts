@@ -1,3 +1,5 @@
+import { SCRYDEX_SEARCH_PAGE_SIZE } from '@tcg/scrydex';
+
 import { normalizeCardLanguages } from '../languages.ts';
 import type { PricingSearchOptions } from '../types.ts';
 import type { CardGame } from '../types.ts';
@@ -15,7 +17,40 @@ const CARD_NAME_SEPARATOR = /(?<=[\p{L}\p{N}\p{M}])([ ‐‑-])(?=[\p{L}\p{N}\p{
 
 const MAX_CARD_NAME_PHRASES = 8;
 
-export const MAX_ENCODED_SCRYDEX_QUERY_LENGTH = 3500;
+const MAX_ENCODED_SCRYDEX_QUERY_LENGTH = 3500;
+
+export function buildScrydexIdBatches(providerIds: readonly string[]) {
+  const batches: { query: string; ids: ReadonlySet<string> }[] = [];
+  let query = '';
+  let ids = new Set<string>();
+
+  for (const id of providerIds) {
+    const clause = `!id:${id}`;
+    const combined = query.length > 0 ? `${query} OR ${clause}` : clause;
+
+    if (
+      ids.size === SCRYDEX_SEARCH_PAGE_SIZE ||
+      new URLSearchParams({ q: combined }).toString().length > MAX_ENCODED_SCRYDEX_QUERY_LENGTH
+    ) {
+      if (new URLSearchParams({ q: clause }).toString().length > MAX_ENCODED_SCRYDEX_QUERY_LENGTH) {
+        return undefined;
+      }
+
+      batches.push({ query, ids });
+      query = clause;
+      ids = new Set([id]);
+    } else {
+      query = combined;
+      ids.add(id);
+    }
+  }
+
+  if (ids.size > 0) {
+    batches.push({ query, ids });
+  }
+
+  return batches;
+}
 
 export function buildScrydexQuery(game: CardGame, query: string, options: PricingSearchOptions): string {
   const search =

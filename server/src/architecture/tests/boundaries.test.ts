@@ -7,6 +7,8 @@ const SOURCE_ROOT = url.fileURLToPath(new URL('../../', import.meta.url));
 const IMPORT_PATTERN =
   /(?:import|export)\s+(?:type\s+)?[^;]*?from\s+['"]([^'"]+)['"]|import\s*\(\s*['"]([^'"]+)['"]\s*\)/g;
 
+const PERSISTENCE_PROVIDER = /^persistence\/(?:postgres|sqlite)\//;
+
 async function boundaryViolations(): Promise<string[]> {
   const files = await fs.readdir(SOURCE_ROOT, { recursive: true });
   const violations: string[] = [];
@@ -16,8 +18,7 @@ async function boundaryViolations(): Promise<string[]> {
   )) {
     const source = await fs.readFile(path.join(SOURCE_ROOT, file), 'utf8');
 
-    const provider =
-      file.startsWith('persistence/postgres/') || file.startsWith('db/') || file === 'storage/s3-client.ts';
+    const provider = PERSISTENCE_PROVIDER.test(file) || file.startsWith('db/') || file === 'storage/s3-client.ts';
 
     const runtime = file.startsWith('runtime/node/');
 
@@ -30,14 +31,15 @@ async function boundaryViolations(): Promise<string[]> {
 
       const databaseDependency =
         /^(drizzle-orm|pg)(\/|$)/.test(target) ||
+        target === 'node:sqlite' ||
         target.startsWith('db/') ||
-        target.startsWith('persistence/postgres/');
+        PERSISTENCE_PROVIDER.test(target);
 
       if (!provider && !runtime && databaseDependency) {
         violations.push(`${file} imports provider ${dependency}`);
       }
 
-      if (file.startsWith('persistence/postgres/') && (/^hono(\/|$)/.test(target) || target === 'context.ts')) {
+      if (PERSISTENCE_PROVIDER.test(file) && (/^hono(\/|$)/.test(target) || target === 'context.ts')) {
         violations.push(`${file} imports HTTP boundary ${dependency}`);
       }
 

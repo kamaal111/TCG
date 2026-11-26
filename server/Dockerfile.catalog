@@ -1,0 +1,4 @@
+FROM scratch
+LABEL org.opencontainers.image.source=https://github.com/kamaal111/TCG
+COPY --chmod=0444 catalog.sqlite /catalog.sqlite
+CMD ["/catalog.sqlite"]

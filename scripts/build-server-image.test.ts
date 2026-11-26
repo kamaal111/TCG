@@ -81,7 +81,10 @@ process.exit(Number(process.env.DOCKER_EXIT || 0));
     },
     observe: async () => ObservationSchema.parse(JSON.parse(await fs.readFile(observation, 'utf8'))),
     run: (overrides: NodeJS.ProcessEnv) => {
-      return childProcess.spawnSync(process.execPath, [script], { env: { ...env, ...overrides }, encoding: 'utf8' });
+      return childProcess.spawnSync(process.execPath, [script, 'fixture'], {
+        env: { ...env, ...overrides },
+        encoding: 'utf8',
+      });
     },
   };
 }
@@ -119,6 +122,8 @@ test('builds with an isolated editor-free config while preserving credentials an
   expect(observed.configMode).toBe(0o600);
   expect(observed.args).toEqual([
     'build',
+    '--build-context',
+    expect.stringContaining('card-catalog='),
     '--build-arg',
     'NODE_VERSION=26',
     '--build-arg',

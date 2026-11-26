@@ -1,17 +1,21 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
 
 import type { ScrydexRawCard } from '@tcg/scrydex';
 
 import { createTestScrydexClient } from './utils.ts';
+import { writeCatalog } from '../../../scripts/card-catalog-file.ts';
 import { ApplicationConfigSchema } from '../../config.ts';
 import { PRICING_CLIENT_MODES } from '../../constants/common.ts';
-import { PostgresCardCatalog } from '../../persistence/postgres/card-catalog.ts';
+import { SQLiteCardCatalog } from '../../persistence/sqlite/card-catalog.ts';
 import { sessionHeaders } from '../../tests/auth.ts';
 import { integrationTest } from '../../tests/fixtures.ts';
-import { CardCatalog, CATALOG_BUILD_STATUS_MAP } from '../catalog.ts';
+import { catalogExpansions, catalogPrintings } from '../catalog-metadata.ts';
 import { SEARCH_PRICING_ROUTE_PATH } from '../routes/search-pricing.ts';
 import { PricingSearchResponseSchema } from '../schemas/responses.ts';
-import { CARD_GAME_MAP, PRICING_SEARCH_MODE_MAP, type CardGame } from '../types.ts';
+import { CARD_GAME_MAP, PRICING_SEARCH_MODE_MAP, PRICING_SOURCES, type CardGame } from '../types.ts';
 
 const VSTAR = { id: 'swsh12a_ja', code: 'S12A', name: 'VSTAR Universe' };
 const VS = { id: 'vs1_ja', name: 'Pokémon VS' };
@@ -54,29 +58,26 @@ const config = ApplicationConfigSchema.parse({
 
 describe('Catalog search through the authenticated pricing API', () => {
   integrationTest(
-    'shares the first build across replicas and searches new terms across names and sets',
+    'searches the packaged catalog across names and sets without catalog API requests',
     async ({ createApp, user }) => {
       const feed = new CatalogTransport();
-      const requested = Promise.withResolvers<undefined>();
-      const resume = Promise.withResolvers<undefined>();
-      feed.pause = () => {
-        requested.resolve(undefined);
+      const catalog = await openCatalog(feed.cards);
+      const first = createApp({ config, pricingClient: createTestScrydexClient(feed.fetch, {}), cardCatalog: catalog });
 
-        return resume.promise;
-      };
+      const second = createApp({
+        config,
+        pricingClient: createTestScrydexClient(feed.fetch, {}),
+        cardCatalog: catalog,
+      });
 
-      const first = createApp({ config, pricingClient: createTestScrydexClient(feed.fetch, {}) });
-      const second = createApp({ config, pricingClient: createTestScrydexClient(feed.fetch, {}) });
       const search = searchAs(user.sessionToken);
       const firstResponse = search(first, 'entei vs', CARD_GAME_MAP.POKEMON);
-      await requested.promise;
       const secondResponse = search(second, 'entei vs', CARD_GAME_MAP.POKEMON);
-      resume.resolve(undefined);
 
       const [firstPage, secondPage] = await Promise.all([page(firstResponse), page(secondResponse)]);
       expect(firstPage.entries.map(card => card.card_number)).toEqual(['91/95', '095/141', '019/172', '213/172']);
       expect(secondPage.entries).toEqual(firstPage.entries);
-      expect(feed.metadataRequests).toBe(2);
+      expect(feed.metadataRequests).toBe(0);
       expect(feed.priceRequests).toBe(1);
 
       const japanese = await page(search(second, 'entei vs', CARD_GAME_MAP.POKEMON, { languages: 'ja' }));
@@ -114,7 +115,8 @@ describe('Catalog search through the authenticated pricing API', () => {
 
   integrationTest('keeps set-specific One Piece artwork and exact lookups', async ({ createApp, user }) => {
     const feed = new CatalogTransport();
-    const app = createApp({ config, pricingClient: createTestScrydexClient(feed.fetch, {}) });
+    const cardCatalog = await openCatalog(feed.cards);
+    const app = createApp({ config, pricingClient: createTestScrydexClient(feed.fetch, {}), cardCatalog });
     const search = searchAs(user.sessionToken);
 
     expect((await page(search(app, 'nami rom', CARD_GAME_MAP.ONE_PIECE))).entries).toMatchObject([
@@ -129,8 +131,8 @@ describe('Catalog search through the authenticated pricing API', () => {
   });
 
   integrationTest(
-    'keeps continuation on its generation across refresh and retries price failures',
-    async ({ createApp, db, user }) => {
+    'retries price failures and expires a cursor when the catalog changes',
+    async ({ createApp, user }) => {
       const feed = new CatalogTransport();
       feed.cards = Array.from({ length: 21 }, (_, index) => {
         const number = String(index + 30);
@@ -138,7 +140,7 @@ describe('Catalog search through the authenticated pricing API', () => {
         return pokemonCard(VSTAR, number, number, 'Entei V', 'JA', undefined);
       });
       const client = createTestScrydexClient(feed.fetch, {});
-      const catalog = new CardCatalog(new PostgresCardCatalog(db, client.source), client);
+      const catalog = await openCatalog(feed.cards);
       const app = createApp({ config, pricingClient: client, cardCatalog: catalog });
       const search = searchAs(user.sessionToken);
 
@@ -147,7 +149,6 @@ describe('Catalog search through the authenticated pricing API', () => {
       const options = { cursor: first.next_cursor };
       expect(first.entries).toHaveLength(20);
       feed.cards = [pokemonCard(VSTAR, '29', '29', 'Entei V', 'JA', undefined), ...feed.cards];
-      expect(await catalog.refresh(CARD_GAME_MAP.POKEMON, true)).toBe(CATALOG_BUILD_STATUS_MAP.READY);
 
       feed.failPrices = true;
       const unavailable = await search(app, 'entei vstar', CARD_GAME_MAP.POKEMON, options);
@@ -159,86 +160,36 @@ describe('Catalog search through the authenticated pricing API', () => {
       expect(second.entries.map(card => card.card_number)).toEqual(['50']);
       expect(second.next_cursor).toBeNull();
       expect((await search(app, 'entei vs', CARD_GAME_MAP.POKEMON, options)).status).toBe(400);
-      expect((await page(search(app, 'entei vstar', CARD_GAME_MAP.POKEMON))).entries[0]?.card_number).toBe('29');
+      const updatedCatalog = await openCatalog(feed.cards);
+      const updated = createApp({ config, pricingClient: client, cardCatalog: updatedCatalog });
 
-      feed.failMetadata = true;
-      expect(await catalog.refresh(CARD_GAME_MAP.POKEMON, true)).toBe(CATALOG_BUILD_STATUS_MAP.FAILED);
-      expect((await page(search(app, 'entei vstar', CARD_GAME_MAP.POKEMON))).entries[0]?.card_number).toBe('29');
+      expect((await search(updated, 'entei vstar', CARD_GAME_MAP.POKEMON, options)).status).toBe(400);
+      expect((await page(search(updated, 'entei vstar', CARD_GAME_MAP.POKEMON))).entries[0]?.card_number).toBe('29');
     },
   );
-
-  integrationTest('a disconnected search leaves the shared build running', async ({ createApp, user }) => {
-    const feed = new CatalogTransport();
-    const requested = Promise.withResolvers<undefined>();
-    const resume = Promise.withResolvers<undefined>();
-
-    feed.pause = () => {
-      requested.resolve(undefined);
-
-      return resume.promise;
-    };
-
-    const app = createApp({ config, pricingClient: createTestScrydexClient(feed.fetch, {}) });
-    const search = searchAs(user.sessionToken);
-    const controller = new AbortController();
-    const waiting = search(app, 'entei vs', CARD_GAME_MAP.POKEMON, { signal: controller.signal });
-    await requested.promise;
-    controller.abort();
-
-    try {
-      const unavailable = await waiting;
-
-      expect(unavailable.status).toBe(503);
-      expect(feed.priceRequests).toBe(0);
-    } finally {
-      resume.resolve(undefined);
-    }
-
-    expect((await page(search(app, 'entei vs', CARD_GAME_MAP.POKEMON))).entries).toHaveLength(4);
-    expect(feed.metadataRequests).toBe(2);
-  });
-
-  integrationTest('returns a retryable error when the initial catalog build fails', async ({ createApp, user }) => {
-    const feed = new CatalogTransport();
-    feed.failMetadata = true;
-    const app = createApp({ config, pricingClient: createTestScrydexClient(feed.fetch, {}) });
-    const response = await searchAs(user.sessionToken)(app, 'entei vs', CARD_GAME_MAP.POKEMON);
-
-    expect(response.status).toBe(503);
-    expect(await response.json()).toMatchObject({ code: 'PRICING_CATALOG_UNAVAILABLE' });
-    expect(response.headers.get('Retry-After')).not.toBeNull();
-    expect(feed.priceRequests).toBe(0);
-  });
-
-  integrationTest(
-    'publishes an initial catalog with an isolated card missing both numbers',
-    async ({ createApp, user }) => {
-      const feed = new CatalogTransport();
-      const numberless = { ...UNRELATED, id: 'numberless-entei', number: null, printed_number: null };
-
-      const fillers = Array.from({ length: 15 }, (_, index) => {
-        return pokemonCard(VSTAR, String(index), String(index), 'Other card', 'JA', undefined);
-      });
-
-      feed.cards = [...fillers, numberless, ...ENTEI_CARDS];
-      const app = createApp({ config, pricingClient: createTestScrydexClient(feed.fetch, {}) });
-
-      const result = await page(searchAs(user.sessionToken)(app, 'entei vs', CARD_GAME_MAP.POKEMON));
-      expect(result.entries.map(card => card.card_number)).toEqual(['91/95', '095/141', '019/172', '213/172']);
-    },
-  );
-
-  integrationTest('rejects an initial catalog with too many unsearchable cards', async ({ createApp, user }) => {
-    const feed = new CatalogTransport();
-    feed.cards = [UNRELATED, { ...UNRELATED, id: 'numberless-entei', number: null, printed_number: null }];
-    const app = createApp({ config, pricingClient: createTestScrydexClient(feed.fetch, {}) });
-
-    const response = await searchAs(user.sessionToken)(app, 'entei', CARD_GAME_MAP.POKEMON);
-    expect(response.status).toBe(503);
-    expect(await response.json()).toMatchObject({ code: 'PRICING_CATALOG_UNAVAILABLE' });
-    expect(feed.priceRequests).toBe(0);
-  });
 });
+
+async function openCatalog(cards: readonly ScrydexRawCard[]) {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'tcg-test-catalog-'));
+  const file = path.join(directory, 'catalog.sqlite');
+  const sets = catalogExpansions([VSTAR, VS, MAGMA, WILD_FORCE, SET_151, ROMANCE, HEROINES]);
+
+  const pokemon = cards.flatMap(card => {
+    return catalogPrintings(CARD_GAME_MAP.POKEMON, PRICING_SOURCES.SCRYDEX_REAL, card, sets);
+  });
+
+  const onePiece = catalogPrintings(CARD_GAME_MAP.ONE_PIECE, PRICING_SOURCES.SCRYDEX_REAL, NAMI, sets);
+
+  await writeCatalog(file, [...pokemon, ...onePiece]);
+  const catalog = new SQLiteCardCatalog(file);
+
+  onTestFinished(async () => {
+    catalog[Symbol.dispose]();
+    await fs.rm(directory, { recursive: true, force: true });
+  });
+
+  return catalog;
+}
 
 function pokemonCard(
   expansion: { id: string; name: string },
@@ -294,12 +245,9 @@ async function page(pending: Response | Promise<Response>) {
 }
 
 class CatalogTransport {
-  readonly expansions = [VSTAR, VS, MAGMA, WILD_FORCE, SET_151];
   cards = [...ENTEI_CARDS, SHIFTRY, CHARIZARD, UNRELATED];
-  pause: (() => Promise<void>) | undefined;
   metadataRequests = 0;
   priceRequests = 0;
-  failMetadata = false;
   failPrices = false;
 
   readonly fetch: typeof fetch = async input => {
@@ -323,15 +271,7 @@ class CatalogTransport {
     }
 
     this.metadataRequests += 1;
-    await this.pause?.();
 
-    if (this.failMetadata) {
-      return new Response(null, { status: 503 });
-    }
-
-    const expansions = onePiece ? [ROMANCE, HEROINES] : this.expansions;
-    const data = url.pathname.endsWith('/expansions') ? expansions : cards;
-
-    return Response.json({ data, totalCount: data.length });
+    return new Response(null, { status: 503 });
   };
 }

@@ -97,6 +97,11 @@ if (tool === 'just' && args.includes('--justfile')) {
  const result = cp.spawnSync(process.env.TCG_TEST_JUST, args, {stdio:'inherit'}); process.exit(result.status);
 }
 if (tool === 'mise') {
+  if (args.includes('scripts/stage-card-catalog.ts')) {
+    fs.mkdirSync(args.at(-1), { recursive: true });
+    fs.writeFileSync(path.join(args.at(-1), 'catalog.sqlite'), 'fixture catalog');
+    process.exit(0);
+  }
  const index = args.indexOf('--');
  const result = cp.spawnSync(args[index+1],args.slice(index+2),{stdio:'inherit'}); process.exit(result.status);
 }
@@ -125,11 +130,6 @@ if (tool === 'ssh') {
  if (request[0] === 'migration-status') console.log(JSON.stringify({protocol:1,status:'ready',pending:0}));
  if (request[0] === 'release-checked') {
    if (process.env.TCG_TEST_FAIL_DEPLOY) {console.error('Fixture deployment failure');process.exit(1);}
-   if (process.env.TCG_TEST_DEFER_CATALOG && request.at(-1) === 'defer-catalog') {
-     state.catalogBackfillRunning=true; fs.writeFileSync(process.env.TCG_TEST_STATE,JSON.stringify(state));
-     console.log('The card search catalog is still building on the server.');
-     process.exit(75);
-   }
    state.runtime=request[1]; state.revision=process.env.TCG_TEST_SHA; fs.writeFileSync(process.env.TCG_TEST_STATE,JSON.stringify(state));
  }
  if (request[0] === 'check') console.log('Release checks passed.');
@@ -416,22 +416,8 @@ test('application-only release skips infrastructure prompts and uses the shared 
   f.confirm.mockResolvedValue(true);
   await f.run(f.sha, 'application');
   expect(await f.deployed()).toHaveLength(1);
-  expect((await f.deployed())[0]?.args.at(-1)).not.toContain('defer-catalog');
   expect((await f.commands()).some(command => ['terraform', 'ansible-playbook'].includes(command.tool))).toBe(false);
   expect(f.confirm).not.toHaveBeenCalledWith('Review an infrastructure plan?', expect.anything());
-}, 15_000);
-
-test('a terminal release reports a pending backfill and a retry checks status without deploying again', async t => {
-  const f = await fixture(t);
-  vi.stubEnv('TCG_TEST_DEFER_CATALOG', '1');
-
-  await f.run(f.sha, 'terminal');
-  await f.run(f.sha, 'terminal');
-
-  expect(await f.deployed()).toHaveLength(1);
-  expect(await f.published()).toHaveLength(2);
-  expect(f.note.mock.calls.filter(([message]) => message.includes(`just release-server ${f.sha}`))).toHaveLength(2);
-  expect(f.note.mock.calls.some(([, title]) => title === 'Released')).toBe(false);
 }, 15_000);
 
 test('application-only release blocks older host tools before building or configuring', async t => {
