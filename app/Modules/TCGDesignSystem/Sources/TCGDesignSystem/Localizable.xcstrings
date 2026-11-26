@@ -62,6 +62,9 @@
     "Error: %@" : {
 
     },
+    "Expires %@" : {
+
+    },
     "Explore image" : {
 
     },
@@ -84,6 +87,9 @@
 
     },
     "No cached card images" : {
+
+    },
+    "No expiry" : {
 
     },
     "No image available" : {

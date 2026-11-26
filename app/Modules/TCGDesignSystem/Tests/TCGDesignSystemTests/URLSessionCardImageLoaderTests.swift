@@ -287,14 +287,18 @@ struct URLSessionCardImageLoaderTests {
         let timestamp = try #require(
             file.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate
         )
+        let deadline = timestamp.addingTimeInterval(86_400)
+        #expect(try await loader.inventory().first?.expiresAt == deadline)
         let reopened = makeLoader(now: now, retryDelay: { _, _ in })
         clock.set(timestamp.addingTimeInterval(86_399))
 
         #expect(await reopened.image(for: url, policy: .search) != nil)
+        #expect(try await reopened.inventory().first?.expiresAt == deadline)
         #expect(requests.value == 1)
-        clock.set(timestamp.addingTimeInterval(86_400))
+        clock.set(deadline)
 
         #expect(reopened.cachedImage(for: url, policy: .search) == nil)
+        #expect(try await reopened.inventory().isEmpty)
         #expect(await makeLoader(now: now, retryDelay: { _, _ in }).image(for: url, policy: .search) != nil)
         #expect(requests.value == 2)
     }
@@ -320,6 +324,8 @@ struct URLSessionCardImageLoaderTests {
         #expect(await loader.image(for: url, policy: .collection) != nil)
         #expect(!FileManager.default.fileExists(atPath: file.path))
         #expect(FileManager.default.fileExists(atPath: legacyFile.path))
+        let promoted = try #require(try await loader.inventory().first { $0.id == key })
+        #expect(promoted.expiresAt == nil)
 
         clock.set(Date.now.addingTimeInterval(86_401))
         await loader.removeExpiredArtwork()
@@ -328,6 +334,26 @@ struct URLSessionCardImageLoaderTests {
         #expect(try await loader.inventory().map(\.id) == [key])
         #expect(await makeLoader(now: now, retryDelay: { _, _ in }).image(for: url, policy: .search) != nil)
         #expect(requests.value == 1)
+    }
+
+    @Test
+    func `Inventory prefers collection artwork when both copies exist`() async throws {
+        StubURLProtocol.handler = { _ in
+            .http(status: 200, headers: [:], body: Self.png)
+        }
+        let loader = makeLoader(now: Date.init, retryDelay: { _, _ in })
+        let url = try #require(URL(string: "https://images.example.com/duplicate.png"))
+        let key = URLSessionCardImageLoader.key(for: url)
+        #expect(await loader.image(for: url, policy: .collection) != nil)
+
+        let searchCopy = Self.png + Data(repeating: 0, count: 4096)
+        try searchCopy.write(to: root.appending(path: key))
+
+        let inventory = try await loader.inventory()
+        #expect(inventory.map(\.id) == [key])
+        let artwork = try #require(inventory.first)
+        #expect(artwork.byteCount == Int64(Self.png.count))
+        #expect(artwork.expiresAt == nil)
     }
 
     private func makeLoader(
