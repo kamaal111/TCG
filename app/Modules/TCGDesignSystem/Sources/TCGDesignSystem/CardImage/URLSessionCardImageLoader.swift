@@ -237,6 +237,7 @@ final class URLSessionCardImageLoader: CardImageLoader {
 struct CachedCardArtwork: Identifiable, Sendable {
     let id: String
     let byteCount: Int64
+    let expiresAt: Date?
 }
 
 private struct DownloadedCardArtwork: Sendable {
@@ -311,7 +312,7 @@ private actor CardArtworkStorage {
         }
 
         let searchFile = file(for: key, policy: .search)
-        guard let expiry = expiration(of: searchFile), now() < expiry,
+        guard let expiry = freshExpiration(of: searchFile, at: now()),
             let image = decodeFile(searchFile)
         else { return nil }
 
@@ -360,13 +361,13 @@ private actor CardArtworkStorage {
         _ = try? freshSearchFiles()
     }
 
-    private func freshSearchFiles() throws -> [URL] {
-        var fresh: [URL] = []
+    private func freshSearchFiles() throws -> [(url: URL, expiresAt: Date)] {
+        var fresh: [(url: URL, expiresAt: Date)] = []
         var removed = false
         let time = now()
         for file in try artworkFiles(for: .search) {
-            if isFresh(file, at: time) {
-                fresh.append(file)
+            if let expiresAt = freshExpiration(of: file, at: time) {
+                fresh.append((file, expiresAt))
                 continue
             }
             do {
@@ -385,20 +386,24 @@ private actor CardArtworkStorage {
 
     func inventory() throws -> [CachedCardArtwork] {
         var artwork: [String: CachedCardArtwork] = [:]
-        for url in try freshSearchFiles() {
-            let cached = try inventoryEntry(for: url)
+        for (url, expiresAt) in try freshSearchFiles() {
+            let cached = try inventoryEntry(for: url, expiresAt: expiresAt)
             artwork[cached.id] = cached
         }
         for url in try artworkFiles(for: .collection) {
-            let cached = try inventoryEntry(for: url)
+            let cached = try inventoryEntry(for: url, expiresAt: nil)
             artwork[cached.id] = cached
         }
         return artwork.values.sorted { $0.id < $1.id }
     }
 
-    private func inventoryEntry(for url: URL) throws -> CachedCardArtwork {
+    private func inventoryEntry(for url: URL, expiresAt: Date?) throws -> CachedCardArtwork {
         let values = try url.resourceValues(forKeys: Self.fileKeys)
-        return CachedCardArtwork(id: url.lastPathComponent, byteCount: Int64(values.fileSize ?? 0))
+        return CachedCardArtwork(
+            id: url.lastPathComponent,
+            byteCount: Int64(values.fileSize ?? 0),
+            expiresAt: expiresAt
+        )
     }
 
     private func artworkFiles(for policy: CardArtworkCachePolicy) throws -> [URL] {
@@ -420,9 +425,9 @@ private actor CardArtworkStorage {
         return values?.contentModificationDate?.addingTimeInterval(Self.searchLifetime)
     }
 
-    private func isFresh(_ url: URL, at time: Date) -> Bool {
-        guard let expiry = expiration(of: url) else { return false }
-        return time < expiry
+    private func freshExpiration(of url: URL, at time: Date) -> Date? {
+        guard let expiry = expiration(of: url), time < expiry else { return nil }
+        return expiry
     }
 
     func changes() -> AsyncStream<Void> {
@@ -440,7 +445,7 @@ private actor CardArtworkStorage {
         let collectionFile = file(for: artwork.id, policy: .collection)
         let searchFile = file(for: artwork.id, policy: .search)
         let searchSource = { () -> CGImageSource? in
-            guard self.isFresh(searchFile, at: self.now()) else { return nil }
+            guard self.freshExpiration(of: searchFile, at: self.now()) != nil else { return nil }
             return CGImageSourceCreateWithURL(searchFile as CFURL, nil)
         }
         guard let source = CGImageSourceCreateWithURL(collectionFile as CFURL, nil) ?? searchSource() else {

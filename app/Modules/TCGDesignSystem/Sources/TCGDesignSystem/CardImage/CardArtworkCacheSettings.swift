@@ -94,7 +94,7 @@ public struct CardArtworkCacheSettings: View {
 
     private func artworkGrid(_ artworks: [CachedCardArtwork]) -> some View {
         ScrollView {
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 92), spacing: 12)], spacing: 16) {
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 92), spacing: 12, alignment: .top)], spacing: 16) {
                 ForEach(artworks) { artwork in
                     VStack(spacing: 8) {
                         CachedCardArtworkThumbnail(artwork: artwork, loader: loader)
@@ -111,6 +111,11 @@ public struct CardArtworkCacheSettings: View {
                             .accessibilityLabel(Text("Delete cached image", bundle: .module))
                             .disabled(isDeleting)
                         }
+                        artwork.expiryMessage
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .frame(maxWidth: .infinity, alignment: .leading)
                     }
                 }
             }
@@ -132,6 +137,14 @@ public struct CardArtworkCacheSettings: View {
                 deletionFailed = true
             }
         }
+    }
+}
+
+extension CachedCardArtwork {
+    fileprivate var expiryMessage: Text {
+        expiresAt.map { date in
+            Text("Expires \(date, format: .dateTime.month(.abbreviated).day().hour().minute())", bundle: .module)
+        } ?? Text("No expiry", bundle: .module)
     }
 }
 
