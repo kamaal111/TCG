@@ -9,11 +9,7 @@ case "$action" in
         exec /usr/local/sbin/tcg-release release "$runtime" "$migration" "$exposure" "$rollback"
         ;;
     release-checked)
-        [[ "${fingerprint:-}" =~ ^[a-f0-9]{64}$ ]] || exit 64
-        if [[ "${extra:-}" == defer-catalog ]]; then
-            exec /usr/local/sbin/tcg-release release-checked "$runtime" "$migration" "$exposure" "$rollback" "$fingerprint" "$extra"
-        fi
-        [[ -z "${extra:-}" ]] || exit 64
+        [[ -z "${extra:-}" && "${fingerprint:-}" =~ ^[a-f0-9]{64}$ ]] || exit 64
         exec /usr/local/sbin/tcg-release release-checked "$runtime" "$migration" "$exposure" "$rollback" "$fingerprint"
         ;;
     migrate-checked)

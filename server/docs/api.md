@@ -118,14 +118,30 @@ the same printing. The final word can be a prefix, such as `rom` in `nami rom`.
 Exact card numbers and language filters still apply. Pokémon set names made
 entirely of digits, such as `151`, can also match the corresponding set.
 
-Both `just release-server` and Devportal prepare any missing catalog after
-migrations and before restarting the app. For local development with the real
-Scrydex client, use `just sync-card-catalog` to import the catalog manually.
-The server checks weekly refresh eligibility hourly and uses the last complete
-catalog during a refresh. If no complete catalog exists for the selected game,
-search waits briefly for the shared build and returns a retryable 503 if the
-index is still unavailable. A newly entered query uses the full active catalog
-immediately and only requests Scrydex prices for uncached matches.
+Both `just release-server` and Devportal package the verified SQLite catalog
+pinned in `server/card-catalog.json`. The server opens it read-only before
+starting. For local real-mode development, `just dev-server` fetches the
+same artifact from private GHCR. Catalog searches only call Scrydex for
+uncached prices. Catalog updates are explicit operator actions.
+
+To build a new snapshot locally, start from the file staged by
+`just fetch-card-catalog` and merge validated printing rows:
+
+```sh
+just build-card-catalog --parent server/catalog.sqlite --delta printings.json --output next.sqlite
+```
+
+For data unavailable locally, explicitly select provider card IDs or
+expansions and set the maximum number of Scrydex requests. For example,
+`just build-card-catalog --parent server/catalog.sqlite --game one_piece --expansion PRB01 --request-limit 3 --output next.sqlite`.
+The request limit includes expansion metadata and each page. Failed updates
+leave the parent unchanged. The initial snapshot can be built using
+`--postgres` with a read-only production connection in `DATABASE_URL`.
+
+Run `just publish-card-catalog next.sqlite release-2026-11-26` to push
+to the private catalog repository and print the new pin. Review the pin
+and update `server/card-catalog.json` in Git. The selected release revision
+determines the artifact shipped with the server.
 
 ### Search formats
 

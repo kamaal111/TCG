@@ -48,13 +48,19 @@ describe('Scrydex request construction', () => {
     { collection: 'expansions', select: 'id,name,code,translation' },
   ] as const)('paginates catalog $collection in stable order without prices', async ({ collection, select }) => {
     const transport = vi.fn<ScrydexFetch>().mockResolvedValue(Response.json({ data: [card], totalCount: 201 }));
-    const result = await makeClient(transport, {}).listCatalog('pokemon', collection, 2);
+    const result = await makeClient(transport, {}).listCatalog('pokemon', collection, '!id:sv5m', 2);
     assert(result.isOk());
     expect(result.value).toMatchObject({ cards: [card], catalogTotal: 201, hasMore: true });
     const [input] = transport.mock.calls[0] ?? [];
     assert(input instanceof URL);
     expect(input.pathname).toBe(`/pokemon/v1/${collection}`);
-    expect(Object.fromEntries(input.searchParams)).toEqual({ orderBy: 'id', select, page: '2', page_size: '100' });
+    expect(Object.fromEntries(input.searchParams)).toEqual({
+      q: '!id:sv5m',
+      orderBy: 'id',
+      select,
+      page: '2',
+      page_size: '100',
+    });
   });
 
   it.each(['https://scrydex.test/proxy', 'https://scrydex.test/proxy/'])(

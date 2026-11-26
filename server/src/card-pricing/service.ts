@@ -178,27 +178,18 @@ export class CardPricingService {
       throw new PricingCatalogUnavailable(this.c);
     }
 
-    const generation =
-      requestedGeneration == null
-        ? await catalog.readyGeneration(game, this.c.req.raw.signal)
-        : (await catalog.repository.generation(game, requestedGeneration))?.id;
+    const generation = catalog.version;
 
-    if (generation == null) {
-      if (requestedGeneration != null) {
-        throw new InvalidValidation(this.c, [
-          { path: ['cursor'], message: 'Search cursor has expired. Search again.' },
-        ]);
-      }
-
-      throw new PricingCatalogUnavailable(this.c);
+    if (requestedGeneration != null && requestedGeneration !== generation) {
+      throw new InvalidValidation(this.c, [{ path: ['cursor'], message: 'Search cursor has expired. Search again.' }]);
     }
 
-    const page = await catalog.repository.search(
-      generation,
-      buildCatalogQuery(game, query),
-      normalizeCardLanguages(game, options.languages),
+    const page = catalog.search({
+      game,
+      query: buildCatalogQuery(game, query),
+      languages: normalizeCardLanguages(game, options.languages),
       offset,
-    );
+    });
 
     const ids = page.printings.map(printing => printing.pricingId);
 

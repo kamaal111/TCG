@@ -5,13 +5,6 @@ import type { Prompts } from '../infra/prompts.ts';
 
 export type ReleaseStage = 'build' | 'migrations' | 'deploy' | 'verify';
 
-export const RELEASE_DEPLOY_RESULT_MAP = {
-  DEPLOYED: 'deployed',
-  CATALOG_PENDING: 'catalog_pending',
-} as const;
-
-type ReleaseDeployResult = (typeof RELEASE_DEPLOY_RESULT_MAP)[keyof typeof RELEASE_DEPLOY_RESULT_MAP];
-
 interface Pipeline {
   mode?: 'terminal' | 'application';
   stage?(stage: ReleaseStage): void;
@@ -28,7 +21,7 @@ interface Pipeline {
   verify(artifacts: Artifacts): Promise<void>;
   migrations(image: string): Promise<{ status: 'ready' | 'pending'; pending: number }>;
   migrate(image: string, fingerprint: string): Promise<void>;
-  deploy(artifacts: Artifacts, host: Host): Promise<ReleaseDeployResult>;
+  deploy(artifacts: Artifacts, host: Host): Promise<void>;
   check(): Promise<void>;
   complete(): Promise<void>;
 }
@@ -88,13 +81,6 @@ async function approve(
   }
 }
 
-function noteCatalogBackfillPending(prompts: Prompts, sha: string): void {
-  prompts.note(
-    `The card search catalog is building on the VM. The first build can take 10 minutes or longer. Run just release-server ${sha} to check again and continue once it is ready.`,
-    'Card search catalog is still building',
-  );
-}
-
 export async function runRelease(options: Pipeline): Promise<void> {
   const { prompts } = options;
   let host = await options.host();
@@ -114,15 +100,7 @@ export async function runRelease(options: Pipeline): Promise<void> {
     host = await options.host();
   }
 
-  const currentHost = available(host, options.repository);
-
-  if (options.mode === 'terminal' && currentHost.catalogBackfillRunning) {
-    noteCatalogBackfillPending(prompts, options.sha);
-
-    return;
-  }
-
-  prompts.note(await options.commits(currentHost));
+  prompts.note(await options.commits(available(host, options.repository)));
 
   if (
     options.mode !== 'application' &&
@@ -184,16 +162,11 @@ export async function runRelease(options: Pipeline): Promise<void> {
     options.stage?.('deploy');
 
     const reviewed = await approve(options, {
-      message: 'Deploy this release? It prepares any missing card search catalog before restarting the application.',
+      message: 'Deploy this release?',
       kind: 'deploy',
     });
 
-    if ((await options.deploy(artifacts, reviewed)) === RELEASE_DEPLOY_RESULT_MAP.CATALOG_PENDING) {
-      noteCatalogBackfillPending(prompts, options.sha);
-
-      return;
-    }
-
+    await options.deploy(artifacts, reviewed);
     options.stage?.('verify');
     await options.check();
   }

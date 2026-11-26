@@ -2,7 +2,7 @@ import type { ScrydexRawCard } from '@tcg/scrydex';
 import { z } from 'zod';
 
 import { catalogTerms } from './catalog-query.ts';
-import type { CatalogPrintingRow } from './catalog-repository.ts';
+import type { CatalogPrinting } from './catalog.ts';
 import { normalizeScrydexSearch } from './scrydex/normalize.ts';
 import { CARD_GAME_MAP, type CardGame, type PricingSource } from './types.ts';
 import { readEnglishSearchAlias } from './utils/english-search-alias.ts';
@@ -53,7 +53,7 @@ export function catalogPrintings(
   source: PricingSource,
   raw: ScrydexRawCard,
   expansions: ReadonlyMap<string, Expansion>,
-): CatalogPrintingRow[] {
+): CatalogPrinting[] {
   const metadata = CardSchema.parse(raw);
   const translatedName = readEnglishSearchAlias({ game, pricingSource: source, raw });
   const names = [metadata.name, ...(translatedName == null ? [] : [translatedName])];
@@ -80,7 +80,7 @@ export function catalogPrintings(
 
     const variantSets = PrintingCodesSchema.parse(variant?.printings);
     const setKeys = game === CARD_GAME_MAP.ONE_PIECE && variantSets?.length ? variantSets : [catalogBase?.id ?? ''];
-    const sets = new Map<string, CatalogPrintingRow>();
+    const sets = new Map<string, CatalogPrinting>();
 
     for (const code of setKeys) {
       const expansion = expansions.get(code.toLowerCase()) ?? (code === catalogBase?.id ? catalogBase : undefined);
@@ -95,6 +95,7 @@ export function catalogPrintings(
       const setKey = expansion?.id.toLowerCase() ?? code.toLowerCase();
 
       sets.set(setKey, {
+        game,
         providerId: metadata.id,
         pricingId: card.id,
         language: metadata.language_code.toLowerCase(),

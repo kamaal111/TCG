@@ -1,10 +1,4 @@
-import {
-  SCRYDEX_FIRST_PAGE,
-  ScrydexClient,
-  type ScrydexCatalogCollection,
-  type ScrydexClientOptions,
-  type ScrydexRawCard,
-} from '@tcg/scrydex';
+import { SCRYDEX_FIRST_PAGE, ScrydexClient, type ScrydexClientOptions, type ScrydexRawCard } from '@tcg/scrydex';
 import { err, ok } from 'neverthrow';
 import { z } from 'zod';
 
@@ -16,7 +10,7 @@ import {
 } from '../client.ts';
 import { type CardGame, type PricingCardRecord, type PricingSearchOptions, PRICING_SOURCES } from '../types.ts';
 import { normalizeScrydexLookup, normalizeScrydexSearch, splitScrydexPricingId } from './normalize.ts';
-import { buildScrydexQuery, MAX_ENCODED_SCRYDEX_QUERY_LENGTH } from './query.ts';
+import { buildScrydexIdBatches, buildScrydexQuery } from './query.ts';
 
 const CATALOG_BATCH_ID_PATTERN = /^[A-Za-z0-9_-]+$/;
 
@@ -41,10 +35,6 @@ export class RealScrydexClient implements PricingClient {
     }
 
     return ok(normalizeScrydexSearch(game, result.value.cards, result.value));
-  }
-
-  catalogPage(game: CardGame, collection: ScrydexCatalogCollection, page: number) {
-    return this.client.listCatalog(game, collection, page);
   }
 
   async priceCatalogCards(
@@ -140,39 +130,20 @@ export class RealScrydexClient implements PricingClient {
   }
 
   private catalogPriceLookups(providerIds: ReadonlySet<string>) {
-    const batches: { query: string; ids: ReadonlySet<string> }[] = [];
+    const exactIds: string[] = [];
     const directIds: string[] = [];
-    let query = '';
-    let ids = new Set<string>();
 
     for (const id of providerIds) {
-      if (!CATALOG_BATCH_ID_PATTERN.test(id)) {
-        directIds.push(id);
-        continue;
-      }
-
-      const clause = `!id:${id}`;
-      const combined = query.length > 0 ? `${query} OR ${clause}` : clause;
-
-      if (new URLSearchParams({ q: combined }).toString().length > MAX_ENCODED_SCRYDEX_QUERY_LENGTH) {
-        if (new URLSearchParams({ q: clause }).toString().length > MAX_ENCODED_SCRYDEX_QUERY_LENGTH) {
-          return undefined;
-        }
-
-        batches.push({ query, ids });
-        query = clause;
-        ids = new Set([id]);
+      if (CATALOG_BATCH_ID_PATTERN.test(id)) {
+        exactIds.push(id);
       } else {
-        query = combined;
-        ids.add(id);
+        directIds.push(id);
       }
     }
 
-    if (ids.size > 0) {
-      batches.push({ query, ids });
-    }
+    const batches = buildScrydexIdBatches(exactIds);
 
-    return { batches, directIds };
+    return batches != null ? { batches, directIds } : undefined;
   }
 
   private invalidPriceBatch(): PricingClientResult<PricingSearchResult> {

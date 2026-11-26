@@ -69,11 +69,16 @@ echo 'Verifying against isolated test services. Production migrations require a 
     export HUSKY=0 MISE_TRUSTED_CONFIG_PATHS="$context"
     mise exec --locked node pnpm -- pnpm install --frozen-lockfile
     mise exec --locked node pnpm -- just ready-server
+    mise exec --locked node -- node scripts/stage-card-catalog.ts pinned "$temporary/catalog"
 )
 
 publish() {
     local target="$1" repository="$2" metadata="$temporary/$1.json"
-    docker buildx build --platform linux/amd64 --target "$target" --push \
+    local args=(--platform linux/amd64 --target "$target" --push)
+    if [[ "$target" == runtime ]]; then
+        args+=(--build-context "card-catalog=$temporary/catalog")
+    fi
+    docker buildx build "${args[@]}" \
         --tag "$repository:$sha" --label "org.opencontainers.image.revision=$sha" \
         --build-arg "NODE_VERSION=$node_version" --build-arg "PNPM_VERSION=$pnpm_version" \
         --metadata-file "$metadata" "$context"

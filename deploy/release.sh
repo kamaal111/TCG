@@ -20,10 +20,8 @@ trap cleanup EXIT
 trap 'exit 129' HUP
 trap 'exit 143' TERM
 
-catalog_wait_seconds=0
-if [[ "${1:-}" == release-checked && ( $# == 6 || ( $# == 7 && "$7" == defer-catalog ) ) ]]; then
+if [[ "${1:-}" == release-checked && $# == 6 ]]; then
     python3 "$status_tool" "$6"
-    if [[ $# == 7 ]]; then catalog_wait_seconds=300; fi
     set -- release "$2" "$3" "$4" "$5"
 elif [[ "${1:-}" == migrate-checked && $# == 3 ]]; then
     python3 "$status_tool" "$3"
@@ -109,56 +107,12 @@ candidate() {
     docker compose --env-file host.env --env-file "$temporary/release.env" "$@"
 }
 
-defer_catalog() {
-    echo 'The card search catalog is still building on the server.'
-    exit 75
-}
-
-wait_for_catalog() {
-    local job="$1" status
-    if [[ "$catalog_wait_seconds" == 0 ]]; then
-        docker container logs --follow "$job"
-    elif timeout "$catalog_wait_seconds" docker container logs --follow "$job"; then
-        :
-    else
-        status=$?
-        [[ "$status" != 124 ]] || defer_catalog
-        return "$status"
-    fi
-    status="$(docker container wait "$job")"
-    docker container rm "$job" >/dev/null
-    [[ "$status" == 0 ]] || fail "Card catalog backfill exited with status $status."
-}
-
-prepare_catalog() {
-    local job=tcg-card-catalog-backfill running
-    if running="$(docker container inspect --format '{{.State.Running}}' "$job" 2>/dev/null)"; then
-        if [[ "$running" == true ]]; then
-            [[ "$catalog_wait_seconds" == 0 ]] || defer_catalog
-            echo 'Waiting for the card search catalog job already running on the server.'
-            wait_for_catalog "$job"
-        else
-            docker container rm "$job" >/dev/null
-        fi
-    fi
-
-    # Run against the candidate configuration even after following a previous job.
-    # The command skips each catalog that is already published.
-    candidate run --detach --no-deps --name "$job" tools node scripts/sync-card-catalog.ts --if-missing >/dev/null
-    wait_for_catalog "$job"
-}
-
 candidate config --quiet
 candidate run --rm --no-deps tools node scripts/check-deployment.ts
 if [[ "$exposure" == public ]]; then
     candidate run --rm --no-deps proxy caddy validate --config /etc/caddy/Caddyfile
 fi
 candidate run --rm --no-deps tools node scripts/check-migrations.ts
-catalog_backfill="$(docker image inspect --format '{{index .Config.Labels "io.tcg.card-catalog-backfill"}}' "$migration")"
-if [[ "$catalog_backfill" == true ]]; then
-    echo 'Preparing the card search catalog before startup.'
-    prepare_catalog
-fi
 
 if [[ -f release.env ]]; then
     cp release.env "$temporary/previous.env"

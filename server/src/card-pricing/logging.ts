@@ -1,4 +1,4 @@
-import { type DomainLogFields, type DomainLogger, getDomainLogger, getProcessLogger } from '@tcg/http/logging';
+import { type DomainLogFields, type DomainLogger, getDomainLogger } from '@tcg/http/logging';
 
 import type { PricingProviderOperation } from './client.ts';
 import type { PricingIdentity } from './coordinator.ts';
@@ -8,8 +8,6 @@ import type { GetRecordValues } from '../utils/type-utils.ts';
 
 export const PRICING_EVENT_MAP = {
   SEARCH_COMPLETED: 'pricing.search.completed',
-  CATALOG_COMPLETED: 'pricing.catalog.completed',
-  CATALOG_PROGRESS: 'pricing.catalog.progress',
   SEARCH_CACHE: 'pricing.search.cache',
   OWNED_CACHE: 'pricing.owned.cache',
   LOCK_COMPLETED: 'pricing.lock.completed',
@@ -46,5 +44,3 @@ export type PricingLogFields = DomainLogFields<GetRecordValues<typeof PRICING_EV
 };
 
 export const pricingLogger = (c: HonoContext): DomainLogger<PricingLogFields> => getDomainLogger(c);
-
-export const catalogLogger = (): DomainLogger<PricingLogFields> => getProcessLogger<PricingLogFields>();

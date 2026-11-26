@@ -395,3 +395,6 @@ app-store-connect.json
 
 # Private distribution certificates, keychain secrets and provisioning profiles
 app-signing/
+
+# Local copy of the private search catalog
+/server/catalog.sqlite

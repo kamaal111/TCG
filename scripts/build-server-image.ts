@@ -41,17 +41,19 @@ function isEditorHelper(helper: string | undefined): boolean {
 }
 
 async function buildServerImage(): Promise<number> {
-  const [target = 'runtime', ...extra] = process.argv.slice(2);
+  const [mode = 'runtime', ...extra] = process.argv.slice(2);
   assert(
-    (target === 'runtime' || target === 'migration') && extra.length === 0,
-    'Expected runtime or migration image target.',
+    (mode === 'runtime' || mode === 'migration' || mode === 'fixture') && extra.length === 0,
+    'Expected runtime, migration, or fixture image target.',
   );
+  const target = mode === 'migration' ? 'migration' : 'runtime';
   const tools = await parseMiseTools(path.join(repoRoot, 'mise.toml'));
 
   if (tools.node === undefined || tools.pnpm === undefined) {
     throw new Error('Building the server image requires Node and pnpm versions in mise.toml.');
   }
 
+  let catalogContext: string | undefined;
   let temporaryConfig: string | undefined;
   let env = process.env;
 
@@ -93,10 +95,24 @@ async function buildServerImage(): Promise<number> {
       }
     }
 
+    if (target === 'runtime') {
+      catalogContext = await fs.mkdtemp(path.join(os.tmpdir(), 'tcg-catalog-fixture-'));
+      childProcess.execFileSync(
+        process.execPath,
+        ['scripts/stage-card-catalog.ts', mode === 'fixture' ? 'fixture' : 'pinned', catalogContext],
+        {
+          cwd: repoRoot,
+          stdio: 'inherit',
+          env,
+        },
+      );
+    }
+
     const result = childProcess.spawnSync(
       'docker',
       [
         'build',
+        ...(catalogContext == null ? [] : ['--build-context', `card-catalog=${catalogContext}`]),
         ...(target === 'migration' ? ['--target', 'migration'] : []),
         '--build-arg',
         `NODE_VERSION=${tools.node}`,
@@ -115,6 +131,10 @@ async function buildServerImage(): Promise<number> {
 
     return result.status ?? 1;
   } finally {
+    if (catalogContext) {
+      await fs.rm(catalogContext, { recursive: true, force: true });
+    }
+
     if (temporaryConfig) {
       await fs.rm(temporaryConfig, { recursive: true, force: true });
     }

@@ -56,12 +56,15 @@ jobs:
         id: names
         shell: bash
         run: node scripts/release-metadata.ts names
+      - name: Verify the pinned card catalog
+        run: node scripts/stage-card-catalog.ts pinned "$RUNNER_TEMP/tcg-card-catalog"
       - name: Build and publish runtime
         id: runtime
         uses: docker/build-push-action@v7
         with:
           context: .
           target: runtime
+          build-contexts: card-catalog=${{ runner.temp }}/tcg-card-catalog
           platforms: linux/amd64
           push: true
           tags: ${{ steps.names.outputs.repository }}:${{ steps.names.outputs.sha }}

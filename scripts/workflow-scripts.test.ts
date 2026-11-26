@@ -101,6 +101,11 @@ if (tool === 'docker' && args[1] === 'build') {
   fs.writeFileSync(args[args.indexOf('--metadata-file') + 1], JSON.stringify({ 'containerimage.digest': process.env.INVALID_DIGEST || 'sha256:' + (target === 'runtime' ? 'a' : 'b').repeat(64) }));
 }
 if (tool === 'mise') {
+  if (args.includes('scripts/stage-card-catalog.ts')) {
+    fs.mkdirSync(args.at(-1), { recursive: true });
+    fs.writeFileSync(path.join(args.at(-1), 'catalog.sqlite'), 'fixture catalog');
+    process.exit(0);
+  }
   const separator = args.indexOf('--');
   const result = require('node:child_process').spawnSync(args[separator + 1], args.slice(separator + 2), { stdio: 'inherit' });
   process.exit(result.status);
@@ -188,6 +193,8 @@ test('a local release verifies archived main sources and deploys both immutable 
   expect(commands).toContain('"contextFiles":["mise.toml","node_modules"]');
   expect(commands).toContain('"install","--frozen-lockfile"');
   expect(commands).toContain('"args":["ready-server"]');
+  expect(commands).toContain('scripts/stage-card-catalog.ts');
+  expect(commands).toContain('card-catalog=');
   expect(commands).toContain('"--platform","linux/amd64"');
   expect(commands).toContain(`"--tag","ghcr.io/example/tcg-server:${sha}"`);
   expect(commands).toMatch(/"tool":"ssh","args":\[[^\n]*"-o","ServerAliveInterval=15","-o","ServerAliveCountMax=8"/);

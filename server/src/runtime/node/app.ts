@@ -10,7 +10,6 @@ import { CardImageWarmer } from './warmer.ts';
 import { createApp } from '../../app.ts';
 import { CardImageMaterializer } from '../../card-images/materializer.ts';
 import { HttpCardImageOriginClient } from '../../card-images/origin-client.ts';
-import { CardCatalog } from '../../card-pricing/catalog.ts';
 import { createPricingClient } from '../../card-pricing/scrydex/factory.ts';
 import { RealScrydexClient } from '../../card-pricing/scrydex/real-client.ts';
 import { PRICING_CLIENT_MODES } from '../../constants/common.ts';
@@ -19,8 +18,8 @@ import { createDatabase, type Database } from '../../db/index.ts';
 import env, { applicationConfig } from '../../env.ts';
 import { EcbForexClient } from '../../forex/client.ts';
 import { createAuth } from '../../persistence/postgres/auth-client.ts';
-import { PostgresCardCatalog } from '../../persistence/postgres/card-catalog.ts';
 import { createPostgresPersistence } from '../../persistence/postgres/index.ts';
+import { CARD_CATALOG_PATH, SQLiteCardCatalog } from '../../persistence/sqlite/card-catalog.ts';
 import { createConfiguredObjectStorage } from '../../storage/config.ts';
 
 type AppOverrides = Partial<Omit<InjectedContext, 'persistence' | 'auth' | 'cardImageWarmer'>> & {
@@ -113,11 +112,15 @@ export function createNodeApplication(overrides: AppOverrides) {
   const forexClient = overrides.forexClient ?? new EcbForexClient({});
   const pricingClient = overrides.pricingClient ?? createPricingClient(config);
 
-  const cardCatalog =
-    overrides.cardCatalog ??
-    (config.SCRYDEX_CLIENT === PRICING_CLIENT_MODES.REAL && pricingClient instanceof RealScrydexClient
-      ? new CardCatalog(new PostgresCardCatalog(db, pricingClient.source), pricingClient)
-      : undefined);
+  const ownedCardCatalog =
+    overrides.cardCatalog == null &&
+    !config.IS_TEST &&
+    config.SCRYDEX_CLIENT === PRICING_CLIENT_MODES.REAL &&
+    pricingClient instanceof RealScrydexClient
+      ? new SQLiteCardCatalog(CARD_CATALOG_PATH)
+      : undefined;
+
+  const cardCatalog = overrides.cardCatalog ?? ownedCardCatalog;
 
   const storageClient = overrides.storageClient ?? createConfiguredObjectStorage(env);
 
@@ -163,12 +166,9 @@ export function createNodeApplication(overrides: AppOverrides) {
       if (config.CARD_IMAGE_WORKER_ENABLED) {
         cardImageWarmer.start({});
       }
-
-      cardCatalog?.start();
     },
     stop: () => {
       cardImageWarmer.stop();
-      cardCatalog?.stop();
     },
   };
 
@@ -177,7 +177,10 @@ export function createNodeApplication(overrides: AppOverrides) {
     dependencies,
     lifecycle,
     dispose: async () => {
-      await Promise.all([cardImageWarmer.idle(), cardCatalog?.idle()]);
+      await cardImageWarmer.idle();
+
+      ownedCardCatalog?.[Symbol.dispose]();
+
       await persistence.close();
 
       if (overrides.db == null) {
