@@ -22,6 +22,7 @@ const REFRESH_AFTER_MS = ONE_WEEK_IN_HOURS * ONE_HOUR_IN_MS;
 const BUILD_WAIT_SECONDS = 10;
 const FAILED_BUILD_RETRY_MS = ONE_MINUTE_IN_MS;
 const READINESS_POLL_MS = 250;
+const MIN_USABLE_CATALOG_CARD_RATIO = 0.95;
 const MIN_REFRESH_PRINTING_RATIO = 0.95;
 
 export const CATALOG_BUILD_STATUS_MAP = {
@@ -121,7 +122,13 @@ export class CardCatalog {
           return;
         }
 
-        const printings = await this.loadPrintings(game);
+        const { printings, providerResultCount, rejectedCount } = await this.loadPrintings(game);
+
+        if (providerResultCount - rejectedCount < providerResultCount * MIN_USABLE_CATALOG_CARD_RATIO) {
+          throw new InternalServerError(undefined, {
+            diagnosticMessage: `Scrydex catalog has too many numberless cards (${rejectedCount} of ${providerResultCount})`,
+          });
+        }
 
         if (
           printings.length === 0 ||
@@ -138,9 +145,11 @@ export class CardCatalog {
             outcome: 'success',
             game,
             result_count: printings.length,
+            provider_result_count: providerResultCount,
+            rejected_count: rejectedCount,
             duration_ms: Math.round(performance.now() - started),
           },
-          'Published a complete card catalog.',
+          'Published a card search catalog.',
         );
       });
 
@@ -163,7 +172,7 @@ export class CardCatalog {
     }
   }
 
-  private async loadPrintings(game: CardGame): Promise<CatalogPrintingRow[]> {
+  private async loadPrintings(game: CardGame) {
     const expansionRecords: ScrydexRawCard[] = [];
 
     for await (const page of this.pages(game, SCRYDEX_CATALOG_COLLECTION_MAP.EXPANSIONS)) {
@@ -172,20 +181,29 @@ export class CardCatalog {
 
     const expansions = catalogExpansions(expansionRecords);
     const printings: CatalogPrintingRow[] = [];
+    let providerResultCount = 0;
+    let rejectedCount = 0;
 
     for await (const page of this.pages(game, SCRYDEX_CATALOG_COLLECTION_MAP.CARDS)) {
+      providerResultCount += page.length;
+
       for (const raw of page) {
         const cardPrintings = catalogPrintings(game, this.client.source, raw, expansions);
 
         if (cardPrintings.length === 0) {
-          throw new InternalServerError(undefined, { diagnosticMessage: 'A Scrydex card had no usable printing' });
+          if (raw.number != null || raw.printed_number != null) {
+            throw new InternalServerError(undefined, { diagnosticMessage: 'A Scrydex card had no usable printing' });
+          }
+
+          rejectedCount += 1;
+          continue;
         }
 
         printings.push(...cardPrintings);
       }
     }
 
-    return printings;
+    return { printings, providerResultCount, rejectedCount };
   }
 
   private async *pages(game: CardGame, collection: ScrydexCatalogCollection) {
