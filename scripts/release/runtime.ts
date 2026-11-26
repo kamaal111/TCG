@@ -19,7 +19,7 @@ import {
   type Artifacts,
 } from './contracts.ts';
 import { acquireReleaseLock } from './lock.ts';
-import { runRelease, type ReleaseStage } from './pipeline.ts';
+import { RELEASE_DEPLOY_RESULT_MAP, runRelease, type ReleaseStage } from './pipeline.ts';
 import { confirmServerSetup, inspectServerSetup, PORTAL_SETUP_REQUIRED } from './server-setup.ts';
 import { readSettingsFile } from '../infra/config.ts';
 import { credentials } from '../infra/credentials.ts';
@@ -27,6 +27,7 @@ import { InfraFailure } from '../infra/errors.ts';
 import type { Prompts } from '../infra/prompts.ts';
 
 const execute = util.promisify(childProcess.execFile);
+const CATALOG_PENDING_EXIT_CODE = 75;
 
 const CheckpointSchema = z.object({
   version: z.literal(1),
@@ -50,6 +51,7 @@ const ToolchainSchema = z.object({ Config: z.object({ Labels: z.record(z.string(
 interface CommandOptions {
   cwd: string;
   env: NodeJS.ProcessEnv;
+  allowCatalogPending?: boolean;
 }
 
 export interface RuntimeOptions {
@@ -96,7 +98,11 @@ export async function runReleaseRuntime({
   await fs.writeFile(log, '', { mode: 0o600 });
   prompts.note(`Detailed output is saved privately in ${log}.`);
 
-  async function runCommand(program: string, args: string[], { cwd, env }: CommandOptions): Promise<string> {
+  async function runCommand(
+    program: string,
+    args: string[],
+    { cwd, env, allowCatalogPending }: CommandOptions,
+  ): Promise<string> {
     const heartbeat = setInterval(() => console.log('Still running. This step can take several minutes.'), 30_000);
 
     await fs.appendFile(log, `\n${program} ${JSON.stringify(args)}\n`);
@@ -111,6 +117,10 @@ export async function runReleaseRuntime({
 
       if (result.success) {
         await fs.appendFile(log, result.data.stdout + result.data.stderr);
+
+        if (allowCatalogPending && result.data.code === CATALOG_PENDING_EXIT_CODE) {
+          return RELEASE_DEPLOY_RESULT_MAP.CATALOG_PENDING;
+        }
 
         if (/unauthorized|denied|authentication|expired/i.test(result.data.stderr)) {
           prompts.note('A credential may have expired. Run just rotate-keys, then retry this release.');
@@ -247,12 +257,16 @@ export async function runReleaseRuntime({
     return opsRoot;
   }
 
-  async function remote(request: string): Promise<string> {
+  async function remote(request: string, allowCatalogPending?: boolean): Promise<string> {
     if (request.startsWith('release-checked ') || request.startsWith('migrate-checked ')) {
       await assertSettings();
     }
 
-    return command('bash', [path.join(root, 'scripts/deployment-ssh.sh'), request]);
+    return runCommand('bash', [path.join(root, 'scripts/deployment-ssh.sh'), request], {
+      cwd: root,
+      env: environment,
+      allowCatalogPending,
+    });
   }
 
   let infrastructureEnvironment: NodeJS.ProcessEnv | undefined;
@@ -452,9 +466,17 @@ export async function runReleaseRuntime({
       },
       deploy: async (images, reviewed) => {
         prompts.note('Deploying and checking application health.', '5. Deploy');
-        await remote(
-          `release-checked ${images.runtime} ${images.migration} ${reviewed.hostname ? 'public' : 'private'} false ${reviewed.fingerprint}`,
+
+        const deferCatalog = mode === 'terminal';
+
+        const result = await remote(
+          `release-checked ${images.runtime} ${images.migration} ${reviewed.hostname ? 'public' : 'private'} false ${reviewed.fingerprint}${deferCatalog ? ' defer-catalog' : ''}`,
+          deferCatalog,
         );
+
+        return result === RELEASE_DEPLOY_RESULT_MAP.CATALOG_PENDING
+          ? RELEASE_DEPLOY_RESULT_MAP.CATALOG_PENDING
+          : RELEASE_DEPLOY_RESULT_MAP.DEPLOYED;
       },
       check: async () => {
         await remote('check');

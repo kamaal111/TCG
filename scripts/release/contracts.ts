@@ -19,6 +19,7 @@ export const HostSchema = z.object({
   runtime: digest.nullable(),
   revision: ShaSchema.nullable(),
   operationsRevision: z.union([z.literal(''), ShaSchema]),
+  catalogBackfillRunning: z.boolean().optional(),
   fingerprint: z.string().regex(/^[a-f0-9]{64}$/),
 });
 
