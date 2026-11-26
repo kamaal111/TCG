@@ -20,8 +20,10 @@ trap cleanup EXIT
 trap 'exit 129' HUP
 trap 'exit 143' TERM
 
-if [[ "${1:-}" == release-checked && $# == 6 ]]; then
+catalog_wait_seconds=0
+if [[ "${1:-}" == release-checked && ( $# == 6 || ( $# == 7 && "$7" == defer-catalog ) ) ]]; then
     python3 "$status_tool" "$6"
+    if [[ $# == 7 ]]; then catalog_wait_seconds=300; fi
     set -- release "$2" "$3" "$4" "$5"
 elif [[ "${1:-}" == migrate-checked && $# == 3 ]]; then
     python3 "$status_tool" "$3"
@@ -107,9 +109,22 @@ candidate() {
     docker compose --env-file host.env --env-file "$temporary/release.env" "$@"
 }
 
+defer_catalog() {
+    echo 'The card search catalog is still building on the server.'
+    exit 75
+}
+
 wait_for_catalog() {
     local job="$1" status
-    docker container logs --follow "$job"
+    if [[ "$catalog_wait_seconds" == 0 ]]; then
+        docker container logs --follow "$job"
+    elif timeout "$catalog_wait_seconds" docker container logs --follow "$job"; then
+        :
+    else
+        status=$?
+        [[ "$status" != 124 ]] || defer_catalog
+        return "$status"
+    fi
     status="$(docker container wait "$job")"
     docker container rm "$job" >/dev/null
     [[ "$status" == 0 ]] || fail "Card catalog backfill exited with status $status."
@@ -119,6 +134,7 @@ prepare_catalog() {
     local job=tcg-card-catalog-backfill running
     if running="$(docker container inspect --format '{{.State.Running}}' "$job" 2>/dev/null)"; then
         if [[ "$running" == true ]]; then
+            [[ "$catalog_wait_seconds" == 0 ]] || defer_catalog
             echo 'Waiting for the card search catalog job already running on the server.'
             wait_for_catalog "$job"
         else

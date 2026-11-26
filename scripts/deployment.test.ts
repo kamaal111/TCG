@@ -62,6 +62,16 @@ if (process.env.FAIL_PHASE && command.includes(process.env.FAIL_PHASE)) {
     { mode: 0o755 },
   );
   await fs.writeFile(
+    path.join(bin, 'timeout'),
+    `#!/bin/sh
+printf '%s\\n' "$*" >> "$COMMAND_LOG"
+[ -z "$CATALOG_DEFERRED" ] || exit 124
+shift
+exec "$@"
+`,
+    { mode: 0o755 },
+  );
+  await fs.writeFile(
     path.join(bin, 'curl'),
     `#!/bin/sh
 printf '%s\\n' "$*" >> "$COMMAND_LOG"
@@ -172,6 +182,28 @@ test('a release retry follows the running VM backfill before checking the candid
   expect(commands.indexOf('"container","wait","tcg-card-catalog-backfill"')).toBeLessThan(
     commands.indexOf('"scripts/sync-card-catalog.ts","--if-missing"'),
   );
+});
+
+test('a checked release hands off after five minutes and keeps the detached job', async t => {
+  const f = await fixture(t);
+  const before = JSON.parse(f.run(['status'], {}).stdout);
+
+  const result = f.run(
+    ['release-checked', runtime, migration, 'private', 'false', before.fingerprint, 'defer-catalog'],
+    {
+      CATALOG_IMAGE: 'true',
+      CATALOG_DEFERRED: '1',
+    },
+  );
+
+  const commands = await f.log();
+  expect(result.status).toBe(75);
+  expect(result.stdout).toContain('The card search catalog is still building on the server.');
+  expect(commands).toContain('300 docker container logs --follow tcg-card-catalog-backfill');
+  expect(commands).not.toContain('"container","rm","tcg-card-catalog-backfill"');
+  expect(commands).not.toContain('"up"');
+  expect(await f.release()).toBe(oldRelease);
+  expect(await fs.readdir(f.root)).not.toContain('.deployment-lock');
 });
 
 test('an older image can deploy without preparing a catalog', async t => {

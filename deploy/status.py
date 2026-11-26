@@ -41,6 +41,10 @@ try:
             digest.update(file.read_bytes())
     digest.update(json.dumps({"container": container, "runtime": image, "revision": revision}, sort_keys=True).encode())
     hostname = next((line.split("=", 1)[1] for line in read("host.env").decode().splitlines() if line.startswith("API_HOSTNAME=")), "")
+    catalog_job = subprocess.run(
+        ["docker", "container", "inspect", "--format", "{{.State.Running}}", "tcg-card-catalog-backfill"],
+        capture_output=True, text=True,
+    )
     status = {
         "protocol": 1,
         "busy": (root / ".deployment-lock").exists(),
@@ -49,6 +53,7 @@ try:
         "runtime": image,
         "revision": revision,
         "operationsRevision": read("operations-revision").decode().strip(),
+        "catalogBackfillRunning": catalog_job.returncode == 0 and catalog_job.stdout.strip() == "true",
         "fingerprint": digest.hexdigest(),
     }
     if len(sys.argv) == 2:

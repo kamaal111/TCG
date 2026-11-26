@@ -5,6 +5,13 @@ import type { Prompts } from '../infra/prompts.ts';
 
 export type ReleaseStage = 'build' | 'migrations' | 'deploy' | 'verify';
 
+export const RELEASE_DEPLOY_RESULT_MAP = {
+  DEPLOYED: 'deployed',
+  CATALOG_PENDING: 'catalog_pending',
+} as const;
+
+type ReleaseDeployResult = (typeof RELEASE_DEPLOY_RESULT_MAP)[keyof typeof RELEASE_DEPLOY_RESULT_MAP];
+
 interface Pipeline {
   mode?: 'terminal' | 'application';
   stage?(stage: ReleaseStage): void;
@@ -21,7 +28,7 @@ interface Pipeline {
   verify(artifacts: Artifacts): Promise<void>;
   migrations(image: string): Promise<{ status: 'ready' | 'pending'; pending: number }>;
   migrate(image: string, fingerprint: string): Promise<void>;
-  deploy(artifacts: Artifacts, host: Host): Promise<void>;
+  deploy(artifacts: Artifacts, host: Host): Promise<ReleaseDeployResult>;
   check(): Promise<void>;
   complete(): Promise<void>;
 }
@@ -81,6 +88,13 @@ async function approve(
   }
 }
 
+function noteCatalogBackfillPending(prompts: Prompts, sha: string): void {
+  prompts.note(
+    `The card search catalog is building on the VM. The first build can take 10 minutes or longer. Run just release-server ${sha} to check again and continue once it is ready.`,
+    'Card search catalog is still building',
+  );
+}
+
 export async function runRelease(options: Pipeline): Promise<void> {
   const { prompts } = options;
   let host = await options.host();
@@ -100,7 +114,15 @@ export async function runRelease(options: Pipeline): Promise<void> {
     host = await options.host();
   }
 
-  prompts.note(await options.commits(available(host, options.repository)));
+  const currentHost = available(host, options.repository);
+
+  if (options.mode === 'terminal' && currentHost.catalogBackfillRunning) {
+    noteCatalogBackfillPending(prompts, options.sha);
+
+    return;
+  }
+
+  prompts.note(await options.commits(currentHost));
 
   if (
     options.mode !== 'application' &&
@@ -166,7 +188,12 @@ export async function runRelease(options: Pipeline): Promise<void> {
       kind: 'deploy',
     });
 
-    await options.deploy(artifacts, reviewed);
+    if ((await options.deploy(artifacts, reviewed)) === RELEASE_DEPLOY_RESULT_MAP.CATALOG_PENDING) {
+      noteCatalogBackfillPending(prompts, options.sha);
+
+      return;
+    }
+
     options.stage?.('verify');
     await options.check();
   }
