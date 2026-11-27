@@ -7,25 +7,48 @@ import TCGListSupport
 @MainActor
 @Observable
 public final class TCGWishlist {
-    struct Snapshot: Codable {
+    package struct Snapshot: Codable {
         let query: String?
         let game: ClientCardGame?
         let setNames: Set<String>?
         let illustrators: Set<String>?
-        let availableSetNames: Set<String>?
-        let availableIllustrators: Set<String>?
-        var entries: [PricedCard]
-        let pagination: CursorPagination
-        var checkedAt: Date?
-        let currency: Currency?
-        var version: UUID
+        package let availableSetNames: Set<String>?
+        package let availableIllustrators: Set<String>?
+        package var entries: [PricedCard]
+        package let pagination: CursorPagination
+        package var checkedAt: Date?
+        package let currency: Currency?
+        package var version: UUID
+
+        package init(
+            filters: CardListFilters,
+            availableSetNames: Set<String>?,
+            availableIllustrators: Set<String>?,
+            entries: [PricedCard],
+            pagination: CursorPagination,
+            checkedAt: Date?,
+            currency: Currency?,
+            version: UUID
+        ) {
+            query = filters.query
+            game = filters.game
+            setNames = filters.setNames
+            illustrators = filters.illustrators
+            self.availableSetNames = availableSetNames
+            self.availableIllustrators = availableIllustrators
+            self.entries = entries
+            self.pagination = pagination
+            self.checkedAt = checkedAt
+            self.currency = currency
+            self.version = version
+        }
 
         var filters: CardListFilters {
             .init(game: game, setNames: setNames ?? [], illustrators: illustrators ?? [], query: query)
         }
     }
 
-    struct ReadContext: Equatable {
+    package struct ReadContext: Equatable {
         let session: UUID
         let revision: UUID
     }
@@ -33,12 +56,12 @@ public final class TCGWishlist {
     private let client: TCGWishlistClient
     private let accountID: (() -> String?)?
     private let store: AccountSnapshotStore<[Snapshot]>?
-    let now: () -> Date
+    package let now: () -> Date
 
     @ObservationIgnored private var account: String?
     @ObservationIgnored private var session = UUID()
     @ObservationIgnored private var snapshots: [Snapshot] = []
-    private(set) var revision = UUID()
+    package private(set) var revision = UUID()
 
     public convenience init(client: TCGWishlistClient, accountID: (() -> String?)?) {
         self.init(
@@ -49,7 +72,7 @@ public final class TCGWishlist {
         )
     }
 
-    init(client: TCGWishlistClient, accountID: (() -> String?)?, cacheRoot: URL, now: @escaping () -> Date) {
+    package init(client: TCGWishlistClient, accountID: (() -> String?)?, cacheRoot: URL, now: @escaping () -> Date) {
         self.client = client
         self.accountID = accountID
         self.now = now
@@ -67,33 +90,33 @@ public final class TCGWishlist {
         snapshots = store?.open(account: current) ?? []
     }
 
-    func readContextAfterAccountSync() -> ReadContext? {
+    package func readContextAfterAccountSync() -> ReadContext? {
         updateAccount()
         guard accountID == nil || account != nil else { return nil }
         return ReadContext(session: session, revision: revision)
     }
 
-    func snapshot(for filters: CardListFilters) -> Snapshot? {
+    package func snapshot(for filters: CardListFilters) -> Snapshot? {
         snapshots.first { $0.filters == filters }
     }
 
-    func saveSnapshot(_ snapshot: Snapshot, replacing version: UUID?) -> Bool {
+    package func saveSnapshot(_ snapshot: Snapshot, replacing version: UUID?) -> Bool {
         guard store != nil, self.snapshot(for: snapshot.filters)?.version == version else { return false }
         CachedListLoad.store(snapshot, in: &snapshots, keyedBy: \.filters, keeping: .unfiltered)
         store?.write(snapshots)
         return true
     }
 
-    func clearSnapshots() {
+    package func clearSnapshots() {
         snapshots = []
         store?.write(snapshots)
     }
 
-    func page(_ request: WishlistListQuery) async -> Result<WishlistPage, WishlistError> {
+    package func page(_ request: WishlistListQuery) async -> Result<WishlistPage, WishlistError> {
         await client.list(request)
     }
 
-    func save(pricedCardID: String) async -> Result<Void, WishlistError> {
+    package func save(pricedCardID: String) async -> Result<Void, WishlistError> {
         guard let context = readContextAfterAccountSync() else { return .failure(.unauthorized) }
         let result = await client.save(.init(pricedCardID: pricedCardID))
         guard readContextAfterAccountSync()?.session == context.session else { return .failure(.unauthorized) }
@@ -101,7 +124,7 @@ public final class TCGWishlist {
         return result
     }
 
-    func remove(printingKey: String) async -> Result<Void, WishlistError> {
+    package func remove(printingKey: String) async -> Result<Void, WishlistError> {
         guard let context = readContextAfterAccountSync() else { return .failure(.unauthorized) }
         let result = await client.remove(printingKey: printingKey)
         guard readContextAfterAccountSync()?.session == context.session else { return .failure(.unauthorized) }

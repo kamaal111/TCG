@@ -11,8 +11,16 @@ export type ResolvedCSVCard = Omit<ImportCard, 'game' | 'name' | 'set_name' | 'c
   sourceIndex: number;
 };
 
+export interface SetOwnershipCard {
+  pricingCardId: string | null;
+  pricingSource: string | null;
+  setName: string;
+  cardNumber: string;
+}
+
 /** Each mutation is atomic; collection pages and set choices share a snapshot. */
 export interface CardRepository {
+  listSetOwnership(game: CardGame): Promise<SetOwnershipCard[]>;
   listCollection(
     options: CardsPaginationQuery & {
       game?: CardGame;

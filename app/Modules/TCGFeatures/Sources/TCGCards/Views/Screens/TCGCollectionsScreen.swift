@@ -33,7 +33,7 @@ public struct TCGCollectionsScreen<Wishlist: View>: View {
                     }
                 #else
                     NavigationStack {
-                        destination(collections)
+                        destination(collections).tcgRootSettingsButton()
                     }
                 #endif
             } else {

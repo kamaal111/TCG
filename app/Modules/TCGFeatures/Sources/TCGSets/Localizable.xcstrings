@@ -1,0 +1,58 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "%lld of %lld collected" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld of %2$lld collected"
+          }
+        }
+      }
+    },
+    "All" : {
+
+    },
+    "All sets" : {
+
+    },
+    "Card pricing is unavailable" : {
+
+    },
+    "Done" : {
+
+    },
+    "In progress" : {
+
+    },
+    "Load more" : {
+
+    },
+    "Missing" : {
+
+    },
+    "No cards in this view" : {
+
+    },
+    "No sets found" : {
+
+    },
+    "Owned" : {
+
+    },
+    "Ownership" : {
+
+    },
+    "Retry" : {
+
+    },
+    "Set name or code" : {
+
+    },
+    "Sets" : {
+
+    }
+  },
+  "version" : "1.0"
+}

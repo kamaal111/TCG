@@ -28,6 +28,7 @@ public final class TCGCards {
     private let pricing: CollectionPricing
     private let listReads = SharedCollectionReads<ListCardsQuery, Result<CardCollectionPage, ListCardsErrors>>()
     private let detailReads = SharedCollectionReads<UUID, Result<CardWithPrice, OwnedCardReadError>>()
+    public private(set) var collectionRevision = 0
     private(set) var deletedCardIDs: Set<UUID> = []
     private(set) var isLoadingPrices = false
     private var priceTasks: [UUID: Task<Void, Never>] = [:]
@@ -733,6 +734,7 @@ public final class TCGCards {
     }
 
     func invalidateCollectionReads() {
+        collectionRevision += 1
         snapshot.invalidateReads()
         accountGeneration = UUID()
         collectionState.generation += 1

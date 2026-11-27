@@ -19,6 +19,8 @@ export { CurrencySchema } from '../../forex/currencies.ts';
 
 const AmountSchema = z.number().nonnegative();
 
+const CatalogSetReferenceSchema = z.object({ id: z.string(), name: z.string() });
+
 export const PriceHeadlineSchema = z
   .object({
     amount: AmountSchema.meta({ description: 'Headline market amount', example: 146.69 }),
@@ -139,6 +141,7 @@ export const PricedCardSchema = z
       example: '550e8400-e29b-41d4-a716-446655440000',
     }),
     printing_key: PrintingKeySchema.optional(),
+    catalog_sets: z.array(CatalogSetReferenceSchema).optional(),
     is_wishlisted: z.boolean().optional().meta({ description: 'Whether the search result is saved by this account' }),
     game: z.enum(CARD_GAMES).meta({ description: 'Trading card game', example: 'pokemon' }),
     name: z.string().meta({ description: 'Card name', example: 'Giratina VSTAR' }),

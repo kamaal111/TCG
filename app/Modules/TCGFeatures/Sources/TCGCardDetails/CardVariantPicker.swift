@@ -3,8 +3,8 @@ import TCGClient
 import TCGCurrency
 import TCGDesignSystem
 
-struct SearchVariantPicker: View {
-    enum Purpose {
+package struct CardVariantPicker: View {
+    package enum Purpose {
         case add
         case details
         case artwork
@@ -18,7 +18,7 @@ struct SearchVariantPicker: View {
     var selectedID: String?
     let onSelect: (PricedCard) -> Void
 
-    var body: some View {
+    package var body: some View {
         VStack(spacing: 0) {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 12) {
@@ -51,7 +51,7 @@ struct SearchVariantPicker: View {
         HStack(spacing: 12) {
             CardImageView(url: variant.imageURL)
             VStack(alignment: .leading) {
-                SearchVariantLabel(card: variant)
+                CardVariantLabel(card: variant)
                 if let illustrator = variant.illustrator {
                     Text(illustrator).foregroundStyle(.secondary)
                 }
@@ -90,21 +90,6 @@ struct SearchVariantPicker: View {
             )
         } else {
             Text("No price", bundle: .module).foregroundStyle(.secondary)
-        }
-    }
-}
-
-struct SearchVariantLabel: View {
-    let card: PricedCard
-
-    var body: some View {
-        if let name = card.variantName {
-            Text(
-                name.replacingOccurrences(of: "([a-z0-9])([A-Z])", with: "$1 $2", options: .regularExpression)
-                    .capitalized
-            )
-        } else {
-            Text("Standard", bundle: .module)
         }
     }
 }

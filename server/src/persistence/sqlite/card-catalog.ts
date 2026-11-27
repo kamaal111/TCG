@@ -10,12 +10,14 @@ import { z } from 'zod';
 
 import { CATALOG_IDENTIFIER_FIELD_MAP } from '../../card-pricing/catalog-query.ts';
 import { CatalogPrintingSchema, type CardCatalog, type CatalogSearch } from '../../card-pricing/catalog.ts';
-import { CARD_GAME_MAP } from '../../card-pricing/types.ts';
+import { CARD_GAME_MAP, type CardGame } from '../../card-pricing/types.ts';
 import { CATALOG_PAGE_SIZE } from '../../card-pricing/utils/pagination.ts';
+import { SetExpansionSchema, SetPrintingSchema, type SetInventory } from '../../sets/catalog.ts';
 
 export const CARD_CATALOG_PATH = url.fileURLToPath(new URL('../../../catalog.sqlite', import.meta.url));
 
-const CATALOG_SCHEMA_VERSION = 1;
+const LEGACY_CATALOG_SCHEMA_VERSION = 1;
+const CATALOG_SCHEMA_VERSION = 2;
 const PAGE_LOOKAHEAD = 1;
 const MIN_PREFIX_LENGTH = 2;
 
@@ -51,9 +53,22 @@ const CatalogResultSchema = z.array(
   }),
 );
 
+const CatalogVersionSchema = z.uuid();
+
+const ExpansionAliasesJSONSchema = z.string();
+
 export function initializeCatalogSchema(db: sqlite.DatabaseSync): void {
-  db.exec(`PRAGMA user_version = ${CATALOG_SCHEMA_VERSION}`);
   db.exec(fs.readFileSync(new URL('./card-catalog.sql', import.meta.url), 'utf8'));
+  upgradeCatalogSchema(db);
+}
+
+export function upgradeCatalogSchema(db: sqlite.DatabaseSync): void {
+  if (db.prepare('PRAGMA user_version').get()?.user_version === CATALOG_SCHEMA_VERSION) {
+    return;
+  }
+
+  db.exec(fs.readFileSync(new URL('./set-catalog.sql', import.meta.url), 'utf8'));
+  db.exec(`PRAGMA user_version = ${CATALOG_SCHEMA_VERSION}`);
 }
 
 function containsTerm(column: SQLWrapper, term: string) {
@@ -82,6 +97,8 @@ function matchCatalog(query: string) {
 
 export class SQLiteCardCatalog implements CardCatalog, Disposable {
   readonly version: string;
+  private readonly hasSetSchema: boolean;
+  private readonly setInventories = new Map<CardGame, SetInventory>();
   private readonly db: ReturnType<typeof drizzle>;
 
   constructor(path: string) {
@@ -89,11 +106,11 @@ export class SQLiteCardCatalog implements CardCatalog, Disposable {
 
     try {
       const schema = this.db.$client.prepare('PRAGMA user_version').get()?.user_version;
-      const version = z.uuid().parse(this.db.select().from(catalogVersionTable).get()?.id);
+      const version = CatalogVersionSchema.parse(this.db.select().from(catalogVersionTable).get()?.id);
       const games = this.db.selectDistinct({ game: catalogPrintingTable.game }).from(catalogPrintingTable).all();
 
       if (
-        schema !== CATALOG_SCHEMA_VERSION ||
+        (schema !== CATALOG_SCHEMA_VERSION && schema !== LEGACY_CATALOG_SCHEMA_VERSION) ||
         games.length !== Object.keys(CARD_GAME_MAP).length ||
         this.db.$client.prepare('PRAGMA quick_check').get()?.quick_check !== 'ok'
       ) {
@@ -102,6 +119,12 @@ export class SQLiteCardCatalog implements CardCatalog, Disposable {
 
       this.db.select().from(catalogFtsTable).where(matchCatalog('catalog')).limit(1).get();
       this.version = version;
+      this.hasSetSchema = schema === CATALOG_SCHEMA_VERSION;
+
+      if (this.hasSetSchema) {
+        this.db.$client.prepare('SELECT id FROM expansion LIMIT 1').get();
+        this.db.$client.prepare('SELECT set_id FROM set_printing LIMIT 1').get();
+      }
     } catch (cause) {
       this.db.$client.close();
 
@@ -111,6 +134,43 @@ export class SQLiteCardCatalog implements CardCatalog, Disposable {
 
   [Symbol.dispose](): void {
     this.db.$client.close();
+  }
+
+  setInventory(game: CardGame): SetInventory | undefined {
+    if (!this.hasSetSchema) {
+      return undefined;
+    }
+
+    const cached = this.setInventories.get(game);
+
+    if (cached != null) {
+      return cached;
+    }
+
+    const expansions = this.db.$client
+      .prepare(`SELECT game, id, name, aliases, code, language, release_date AS releaseDate, logo, symbol
+        FROM expansion WHERE game = ?`)
+      .all(game)
+      .map(row => {
+        const aliases = JSON.parse(ExpansionAliasesJSONSchema.parse(row.aliases));
+
+        return SetExpansionSchema.parse({ ...row, aliases });
+      });
+
+    if (expansions.length === 0) {
+      return undefined;
+    }
+
+    const printings = this.db.$client
+      .prepare(`SELECT game, set_id AS setId, pricing_id AS pricingId, number, name,
+        printed_number AS printedNumber, image FROM set_printing WHERE game = ?`)
+      .all(game)
+      .map(row => SetPrintingSchema.parse(row));
+
+    const inventory = { expansions, printings };
+    this.setInventories.set(game, inventory);
+
+    return inventory;
   }
 
   search({ game, query, languages, offset }: CatalogSearch) {

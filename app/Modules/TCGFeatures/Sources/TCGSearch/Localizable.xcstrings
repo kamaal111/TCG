@@ -39,22 +39,13 @@
     "Add %@ to collection" : {
 
     },
-    "Add to Wishlist" : {
-
-    },
-    "Added to Wishlist" : {
+    "All" : {
 
     },
     "All languages" : {
 
     },
-    "Artwork unavailable" : {
-
-    },
     "Cancel" : {
-
-    },
-    "Card details" : {
 
     },
     "Card name or number" : {
@@ -70,9 +61,6 @@
 
     },
     "Change your set filter to see more cards." : {
-
-    },
-    "Choose a variant" : {
 
     },
     "Clear history" : {
@@ -108,9 +96,6 @@
     "Explore image of %@" : {
 
     },
-    "Explore variant artwork" : {
-
-    },
     "Game" : {
 
     },
@@ -124,12 +109,6 @@
 
     },
     "Japanese" : {
-
-    },
-    "Keep on Wishlist" : {
-
-    },
-    "Keep this card on your wishlist?" : {
 
     },
     "Languages" : {
@@ -165,9 +144,6 @@
     "Remove from history" : {
 
     },
-    "Removed from Wishlist" : {
-
-    },
     "Retry" : {
 
     },
@@ -198,9 +174,6 @@
     "See all" : {
 
     },
-    "Standard" : {
-
-    },
     "Tap the heart in a search result’s details to save the card." : {
 
     },
@@ -219,10 +192,10 @@
     "Try an illustrator name, like Mitsuhiro Arita." : {
 
     },
-    "Wishlist" : {
+    "View set checklist" : {
 
     },
-    "Wishlist unavailable" : {
+    "Wishlist" : {
 
     },
     "Your wishlist is empty" : {

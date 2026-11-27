@@ -17,10 +17,34 @@
     "7-day change" : {
 
     },
+    "Add %@ to collection" : {
+
+    },
+    "Add to Wishlist" : {
+
+    },
+    "Added to Wishlist" : {
+
+    },
+    "Artwork unavailable" : {
+
+    },
+    "Cancel" : {
+
+    },
+    "Card details" : {
+
+    },
     "Card number" : {
 
     },
+    "Choose a variant" : {
+
+    },
     "Condition" : {
+
+    },
+    "Done" : {
 
     },
     "English name" : {
@@ -32,6 +56,9 @@
     "Estimated price" : {
 
     },
+    "Explore variant artwork" : {
+
+    },
     "Game" : {
 
     },
@@ -39,6 +66,12 @@
 
     },
     "Illustrator" : {
+
+    },
+    "Keep on Wishlist" : {
+
+    },
+    "Keep this card on your wishlist?" : {
 
     },
     "Last fetched" : {
@@ -72,6 +105,21 @@
 
     },
     "Rarity" : {
+
+    },
+    "Remove from Wishlist" : {
+
+    },
+    "Removed from Wishlist" : {
+
+    },
+    "Retry" : {
+
+    },
+    "Standard" : {
+
+    },
+    "Wishlist unavailable" : {
 
     }
   },

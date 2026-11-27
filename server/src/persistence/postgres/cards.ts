@@ -74,6 +74,25 @@ export class PostgresCardRepository implements CardRepository {
     return this.identity.requireUserId();
   }
 
+  async listSetOwnership(game: typeof card.$inferSelect.game) {
+    return await this.db
+      .selectDistinct({
+        pricingCardId: card.pricingCardId,
+        pricingSource: card.pricingSource,
+        setName: card.setName,
+        cardNumber: card.cardNumber,
+      })
+      .from(card)
+      .where(
+        and(
+          eq(card.userId, this.userId),
+          eq(card.game, game),
+          sql`EXISTS (SELECT 1 FROM ${cardConditionQuantity}
+          WHERE ${cardConditionQuantity.cardId} = ${card.id} AND ${cardConditionQuantity.quantity} > 0)`,
+        ),
+      );
+  }
+
   /**
    * Returns one owned-card page and all game-scoped set choices from one
    * database snapshot. Set choices do not depend on the set filter or cursor.

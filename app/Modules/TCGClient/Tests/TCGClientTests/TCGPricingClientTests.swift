@@ -19,6 +19,7 @@ struct TCGPricingClientTests {
             """
             {"entries":[{"id":"zoro-alt","game":"one_piece","name":"Roronoa Zoro","card_number":"OP01-025",
               "variant_name":"altArt","image_url":"https://images.example.com/zoro-alt.png","is_wishlisted":true,
+              "catalog_sets":[{"id":"op01","name":"Romance Dawn"},{"id":"prb01","name":"The Best"}],
               "priced_on":"2026-10-16T00:00:00.000Z","fetched_at":"2026-10-16T10:00:00.000Z"}], "next_cursor": null}
             """.utf8
         )
@@ -31,6 +32,7 @@ struct TCGPricingClientTests {
         #expect(match.id == "zoro-alt")
         #expect(match.variantName == "altArt")
         #expect(match.isWishlisted == true)
+        #expect(match.catalogSets?.map(\.id) == ["op01", "prb01"])
         #expect(match.englishSearchAlias == nil)
         #expect(match.imageURL?.absoluteString == "https://images.example.com/zoro-alt.png")
     }

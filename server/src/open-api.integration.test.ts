@@ -122,6 +122,9 @@ describe('OpenAPI specification integration', () => {
       '/app-api/collections/{collectionId}/layout',
       '/app-api/collections/{collectionId}/pages/{pageId}',
       '/app-api/pricing/search',
+      '/app-api/sets',
+      '/app-api/sets/{game}/{set_id}/cards',
+      '/app-api/sets/{game}/{set_id}/cards/{number}',
       '/app-api/wishlist',
       '/app-api/wishlist/{printingKey}',
     ]);

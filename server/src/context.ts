@@ -26,6 +26,7 @@ import type { Currency } from './forex/currencies.ts';
 import type { ForexRepository } from './forex/repository.ts';
 import { ForexService } from './forex/service.ts';
 import type { Persistence } from './persistence/contracts.ts';
+import { SetsService } from './sets/service.ts';
 import type { ObjectStorageClient } from './storage/client.ts';
 
 export interface InjectedContext {
@@ -56,6 +57,7 @@ interface ServiceVariables {
   forexService: ForexService;
   cardPricingService: CardPricingService;
   cardImageService: CardImageService;
+  setsService: SetsService;
 }
 
 interface LoggingVariables {
@@ -123,6 +125,7 @@ export function injectRequestContext({
     c.set('forexService', new ForexService(c));
     c.set('cardPricingService', new CardPricingService(c));
     c.set('cardImageService', new CardImageService(c));
+    c.set('setsService', new SetsService(c));
     await next();
   };
 }

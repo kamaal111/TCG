@@ -4,6 +4,7 @@ import SwiftUI
 import TCGClient
 import TCGCurrency
 import TCGDesignSystem
+import TCGWishlist
 
 public struct TCGWishlistScreen<AddForm: View>: View {
     @Environment(\.tcgWishlist) private var wishlist

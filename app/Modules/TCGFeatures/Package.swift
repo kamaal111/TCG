@@ -11,8 +11,11 @@ let package = Package(
         .library(name: "TCGSnapshotTesting", targets: ["TCGSnapshotTesting"]),
         .library(name: "TCGCurrency", targets: ["TCGCurrency"]),
         .library(name: "TCGCards", targets: ["TCGCards"]),
+        .library(name: "TCGListSupport", targets: ["TCGListSupport"]),
         .library(name: "TCGSearch", targets: ["TCGSearch"]),
+        .library(name: "TCGSets", targets: ["TCGSets"]),
         .library(name: "TCGSettings", targets: ["TCGSettings"]),
+        .library(name: "TCGWishlist", targets: ["TCGWishlist"]),
     ],
     dependencies: [
         .package(url: "https://github.com/gonzalezreal/textual", .upToNextMinor(from: "0.5.0")),
@@ -27,7 +30,10 @@ let package = Package(
         .package(path: "../TCGUtils"),
     ],
     targets: [
-        .target(name: "TCGListSupport", dependencies: [.product(name: "KamaalExtensions", package: "KamaalSwift")]),
+        .target(
+            name: "TCGListSupport",
+            dependencies: ["TCGClient", .product(name: "KamaalExtensions", package: "KamaalSwift")]
+        ),
         .target(
             name: "TCGCurrency",
             dependencies: [
@@ -41,6 +47,7 @@ let package = Package(
             name: "TCGCardDetails",
             dependencies: [
                 .product(name: "KamaalUI", package: "KamaalSwift"), "TCGClient", "TCGDesignSystem", "TCGCurrency",
+                "TCGWishlist",
             ],
             resources: [.process("Localizable.xcstrings")],
             swiftSettings: [
@@ -81,8 +88,26 @@ let package = Package(
                 "TCGCardDetails",
                 "TCGClient",
                 "TCGModels",
+                "TCGWishlist",
             ],
             resources: [.process("Resources")],
+            swiftSettings: [
+                .enableUpcomingFeature("ApproachableConcurrency"),
+                .treatAllWarnings(as: .error),
+            ],
+        ),
+        .target(
+            name: "TCGSets",
+            dependencies: ["TCGCardDetails", "TCGClient", "TCGDesignSystem", "TCGListSupport", "TCGModels"],
+            resources: [.process("Localizable.xcstrings")],
+            swiftSettings: [
+                .enableUpcomingFeature("ApproachableConcurrency"),
+                .treatAllWarnings(as: .error),
+            ],
+        ),
+        .target(
+            name: "TCGWishlist",
+            dependencies: ["TCGClient", "TCGListSupport"],
             swiftSettings: [
                 .enableUpcomingFeature("ApproachableConcurrency"),
                 .treatAllWarnings(as: .error),
@@ -153,13 +178,25 @@ let package = Package(
                 "TCGCurrency",
                 .product(name: "KamaalAuth", package: "kamaal-auth"),
                 "TCGSearch",
+                "TCGCardDetails",
                 "TCGClient",
                 "TCGDesignSystem",
+                "TCGListSupport",
                 "TCGSnapshotTesting",
+                "TCGWishlist",
                 .product(name: "HTTPTypes", package: "swift-http-types"),
                 .product(name: "OpenAPIRuntime", package: "swift-openapi-runtime"),
                 .product(name: "SnapshotTesting", package: "swift-snapshot-testing"),
             ],
+            exclude: ["__Snapshots__"],
+            swiftSettings: [
+                .enableUpcomingFeature("ApproachableConcurrency"),
+                .treatAllWarnings(as: .error),
+            ],
+        ),
+        .testTarget(
+            name: "TCGSetsTests",
+            dependencies: ["TCGSets", "TCGClient", "TCGDesignSystem", "TCGListSupport", "TCGSnapshotTesting"],
             exclude: ["__Snapshots__"],
             swiftSettings: [
                 .enableUpcomingFeature("ApproachableConcurrency"),

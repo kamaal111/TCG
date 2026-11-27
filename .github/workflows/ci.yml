@@ -66,11 +66,6 @@ jobs:
       - name: Run server quality checks
         run: just quality-server
 
-      - name: Run repository tooling checks
-        run: |
-          just check-versions
-          just typecheck-scripts
-
       - name: Configure Docker Hub mirror
         # Prefer cached images so shared runner IPs do not exhaust Docker Hub's pull limit.
         run: |
@@ -87,15 +82,6 @@ jobs:
 
       - name: Verify migration image against PostgreSQL
         run: just test-migration-image
-
-      - name: Set up Terraform for repository tooling
-        uses: jdx/mise-action@v5
-        with:
-          install_args: terraform
-
-      - name: Run repository tooling tests
-        if: needs.changes.outputs.app != 'true'
-        run: just test-scripts
 
   infrastructure:
     name: Infrastructure checks
@@ -118,6 +104,47 @@ jobs:
         uses: docker://rhysd/actionlint:1.7.12
         with:
           args: -shellcheck= -pyflakes=
+
+  tooling:
+    name: Repository tooling checks
+    needs: changes
+    if: needs.changes.outputs.server == 'true' || needs.changes.outputs.app == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/setup@v3
+        with:
+          node-version-file: .node-version
+          cache: true
+          require-lockfile: true
+      - uses: extractions/setup-just@v4
+      - uses: jdx/mise-action@v5
+        with:
+          install_args: terraform
+      - name: Run repository quality checks
+        run: |
+          just check-versions
+          just quality-tools
+      - name: Run repository tooling tests
+        run: just test-scripts
+
+  tooling-macos:
+    name: macOS release tooling checks
+    needs: changes
+    if: needs.changes.outputs.app == 'true'
+    runs-on: xcode-27
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/setup@v3
+        with:
+          node-version-file: .node-version
+          cache: true
+          require-lockfile: true
+      - uses: extractions/setup-just@v4
+      - name: Test app release and LaunchAgent tooling
+        run: |
+          just build-devportal-web
+          pnpm exec vitest run scripts/app-release-cli.test.ts server/devportal/agent.test.ts
 
   app-macos:
     name: macOS app checks
@@ -145,14 +172,6 @@ jobs:
       - name: Install xcbeautify if needed
         run: just install-xcbeautify
 
-      - name: Set up Terraform for repository tooling
-        uses: jdx/mise-action@v5
-        with:
-          install_args: terraform
-
-      - name: Run repository tooling tests
-        run: just test-scripts
-
       - name: Identify Swift toolchain
         id: swift-toolchain
         run: |
@@ -176,9 +195,6 @@ jobs:
 
       - name: Show Xcode version
         run: xcodebuild -version
-
-      - name: Run localization tooling quality checks
-        run: just quality-tools
 
       - name: Run app quality checks
         run: just quality-app

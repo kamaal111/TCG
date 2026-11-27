@@ -28,7 +28,7 @@ enum PricedCardMapper {
     }
 
     static func makePricedCard(_ card: Components.Schemas.PricedCard) -> PricedCard {
-        PricedCard(
+        var mapped = PricedCard(
             id: card.id,
             printingKey: card.printingKey,
             isWishlisted: card.isWishlisted,
@@ -60,6 +60,8 @@ enum PricedCardMapper {
             pricedOn: card.pricedOn,
             fetchedAt: card.fetchedAt
         )
+        mapped.catalogSets = card.catalogSets?.map { CatalogSetReference(id: $0.id, name: $0.name) }
+        return mapped
     }
 
     private static func makeHeadline(_ price: Components.Schemas.PriceHeadline) -> PriceHeadline {

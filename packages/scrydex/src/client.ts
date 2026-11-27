@@ -30,6 +30,16 @@ const CARD_INCLUDES = {
   [SCRYDEX_GAME_MAP.ONE_PIECE]: 'prices',
 } satisfies Record<ScrydexGame, string>;
 
+const CATALOG_FIELDS = {
+  [SCRYDEX_CATALOG_COLLECTION_MAP.CARDS]: 'id,name,number,printed_number,language_code,expansion,translation,variants',
+  [SCRYDEX_CATALOG_COLLECTION_MAP.EXPANSIONS]: 'id,name,code,translation',
+} satisfies Record<ScrydexCatalogCollection, string>;
+
+const SET_FIELDS = {
+  [SCRYDEX_CATALOG_COLLECTION_MAP.CARDS]: 'images',
+  [SCRYDEX_CATALOG_COLLECTION_MAP.EXPANSIONS]: 'language_code,release_date,logo,symbol',
+} satisfies Record<ScrydexCatalogCollection, string>;
+
 export interface ScrydexClientOptions {
   apiKey?: string;
   baseURL?: string;
@@ -64,10 +74,14 @@ export class ScrydexClient {
     return this.list(game, collection, page, {
       q: query,
       orderBy: 'id',
-      select:
-        collection === SCRYDEX_CATALOG_COLLECTION_MAP.CARDS
-          ? 'id,name,number,printed_number,language_code,expansion,translation,variants'
-          : 'id,name,code,translation',
+      select: CATALOG_FIELDS[collection],
+    });
+  }
+
+  listSetCatalog(game: ScrydexGame, collection: ScrydexCatalogCollection, page: number) {
+    return this.list(game, collection, page, {
+      orderBy: 'id',
+      select: `${CATALOG_FIELDS[collection]},${SET_FIELDS[collection]}`,
     });
   }
 

@@ -4,12 +4,18 @@ import path from 'node:path';
 import sqlite from 'node:sqlite';
 
 import type { CatalogPrinting } from '../src/card-pricing/catalog.ts';
-import { SQLiteCardCatalog, initializeCatalogSchema } from '../src/persistence/sqlite/card-catalog.ts';
+import {
+  SQLiteCardCatalog,
+  initializeCatalogSchema,
+  upgradeCatalogSchema,
+} from '../src/persistence/sqlite/card-catalog.ts';
+import type { SetInventory } from '../src/sets/catalog.ts';
 
 export async function writeCatalog(
   file: string,
   printings: readonly CatalogPrinting[],
   parent?: string,
+  inventory?: SetInventory,
 ): Promise<void> {
   const temporary = await fs.mkdtemp(path.join(path.dirname(file), '.catalog-'));
   const target = path.join(temporary, 'catalog.sqlite');
@@ -18,6 +24,7 @@ export async function writeCatalog(
     if (parent != null) {
       using _previous = new SQLiteCardCatalog(parent);
       await fs.copyFile(parent, target);
+      await fs.chmod(target, 0o600);
     }
 
     using db = new sqlite.DatabaseSync(target);
@@ -27,6 +34,32 @@ export async function writeCatalog(
     }
 
     db.exec('BEGIN');
+
+    if (inventory != null) {
+      upgradeCatalogSchema(db);
+      db.exec('DELETE FROM set_printing; DELETE FROM expansion;');
+      const insertExpansion = db.prepare('INSERT INTO expansion VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)');
+
+      for (const { game, id, name, aliases, code, language, releaseDate, logo, symbol } of inventory.expansions) {
+        insertExpansion.run(
+          game,
+          id,
+          name,
+          JSON.stringify(aliases),
+          code ?? null,
+          language ?? null,
+          releaseDate ?? null,
+          logo ?? null,
+          symbol ?? null,
+        );
+      }
+
+      const insertPrinting = db.prepare('INSERT INTO set_printing VALUES (?, ?, ?, ?, ?, ?, ?)');
+
+      for (const { game, setId, pricingId, number, name, printedNumber, image } of inventory.printings) {
+        insertPrinting.run(game, setId, pricingId, number, name, printedNumber, image ?? null);
+      }
+    }
 
     const insert = db.prepare(`
       INSERT INTO printing (game, pricing_id, provider_id, language, names, name_tokens, set_tokens,

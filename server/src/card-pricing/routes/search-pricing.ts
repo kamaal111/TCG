@@ -6,10 +6,10 @@ import { CONTENTFUL_STATUS_CODES } from '@tcg/http/status';
 import { requireSessionMiddleware } from '../../auth/module.ts';
 import { APP_API_ROUTE_NAME } from '../../constants/common.ts';
 import type { HonoEnvironment } from '../../context.ts';
-import { displayPricedCard } from '../../forex/display.ts';
 import { logDisplayPrices } from '../../forex/logging.ts';
 import { serializePage } from '../../schemas/pagination.ts';
 import { PRICING_OPENAPI_TAG, PRICING_ROUTE_NAME } from '../constants.ts';
+import { displayPricingResults } from '../display-results.ts';
 import { parseCardLanguages } from '../languages.ts';
 import { PRICING_EVENT_MAP, pricingLogger } from '../logging.ts';
 import { PricingSearchQuerySchema } from '../schemas/params.ts';
@@ -90,17 +90,8 @@ const searchPricingRoute = defineOpenAPIRoute<HonoEnvironment, typeof routeConfi
       throw display.error;
     }
 
-    const savedKeys = await c
-      .get('wishlistRepository')
-      .savedPrintingKeys(result.matches.flatMap(card => (card.printing_key != null ? [card.printing_key] : [])));
-
-    const response = serializePage(
-      result.matches.map(card => ({
-        ...displayPricedCard(card, display.value),
-        is_wishlisted: card.printing_key != null && savedKeys.has(card.printing_key),
-      })),
-      result.nextCursor,
-    );
+    const entries = await displayPricingResults(c, game, result.matches, display.value);
+    const response = serializePage(entries, result.nextCursor);
 
     logDisplayPrices(c, display.value, response.entries);
     pricingLogger(c).info(

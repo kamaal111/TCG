@@ -14,6 +14,20 @@ import Testing
 @Suite("Preview TCGClient Tests")
 struct PreviewTCGClientTests {
     @Test
+    func `Browses preview sets and opens a checklist card`() async throws {
+        let client = TCGClient.preview(hasValidCredentials: true).sets
+        let page = try await client.list(game: .pokemon, query: "Crown", inProgress: false, cursor: nil).get()
+        let set = try #require(page.entries.first)
+        let checklist = try await client.checklist(game: .pokemon, setID: set.id, filter: .missing, cursor: nil).get()
+        let card = try #require(checklist.cards.entries.first)
+        let details = try await client.detail(game: .pokemon, setID: set.id, number: card.number).get()
+
+        #expect(set.set.name == "Crown Zenith")
+        #expect(!card.owned)
+        #expect(details.first?.name == "Giratina VSTAR")
+    }
+
+    @Test
     func `Should report no valid credentials by default`() {
         let client = TCGClient.preview(hasValidCredentials: false)
 

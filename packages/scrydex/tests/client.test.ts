@@ -63,6 +63,23 @@ describe('Scrydex request construction', () => {
     });
   });
 
+  it.each([
+    {
+      collection: 'cards',
+      select: 'id,name,number,printed_number,language_code,expansion,translation,variants,images',
+    },
+    { collection: 'expansions', select: 'id,name,code,translation,language_code,release_date,logo,symbol' },
+  ] as const)('lists full $collection metadata for the set catalog without prices', async ({ collection, select }) => {
+    const transport = vi.fn<ScrydexFetch>().mockResolvedValue(Response.json({ data: [card], totalCount: 101 }));
+    const result = await makeClient(transport, {}).listSetCatalog('pokemon', collection, 2);
+    assert(result.isOk());
+    expect(result.value).toMatchObject({ cards: [card], catalogTotal: 101, hasMore: false });
+    const [input] = transport.mock.calls[0] ?? [];
+    assert(input instanceof URL);
+    expect(input.pathname).toBe(`/pokemon/v1/${collection}`);
+    expect(Object.fromEntries(input.searchParams)).toEqual({ orderBy: 'id', select, page: '2', page_size: '100' });
+  });
+
   it.each(['https://scrydex.test/proxy', 'https://scrydex.test/proxy/'])(
     'joins the configured base URL %s and uses the configured timeout',
     async baseURL => {

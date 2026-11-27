@@ -1,10 +1,11 @@
 import SwiftUI
 import TCGClient
+import TCGWishlist
 
-struct WishlistAcquisitionPrompt: ViewModifier {
+package struct WishlistAcquisitionPrompt: ViewModifier {
     @Environment(\.tcgWishlist) private var wishlist
-    @Binding var printingKey: String?
-    let onComplete: (String?) -> Void
+    @Binding private var printingKey: String?
+    private let onComplete: (String?) -> Void
 
     @State private var task: Task<Void, Never>?
     @State private var failedRemoval: RemovalFailure?
@@ -14,7 +15,12 @@ struct WishlistAcquisitionPrompt: ViewModifier {
         let error: WishlistError
     }
 
-    func body(content: Content) -> some View {
+    package init(printingKey: Binding<String?>, onComplete: @escaping (String?) -> Void) {
+        _printingKey = printingKey
+        self.onComplete = onComplete
+    }
+
+    package func body(content: Content) -> some View {
         content
             .disabled(task != nil)
             .onDisappear { task?.cancel() }

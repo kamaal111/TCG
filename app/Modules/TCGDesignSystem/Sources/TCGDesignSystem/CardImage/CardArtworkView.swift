@@ -11,6 +11,7 @@ public struct CardArtworkView: View {
 
     private let url: URL?
     private let isThumbnail: Bool
+    private var contentMode: ContentMode
     private let onLoad: (Bool) -> Void
     private var onExplore: (() -> Void)?
     private var onSizeChange: (CGSize) -> Void = { _ in }
@@ -20,9 +21,19 @@ public struct CardArtworkView: View {
         self.onExplore = onExplore
     }
 
+    public init(thumbnailURL: URL?) {
+        self.init(url: thumbnailURL, isThumbnail: true, onLoad: { _ in })
+    }
+
+    public init(logoURL: URL) {
+        self.init(thumbnailURL: logoURL)
+        contentMode = .fit
+    }
+
     init(url: URL?, isThumbnail: Bool, onLoad: @escaping (Bool) -> Void) {
         self.url = url
         self.isThumbnail = isThumbnail
+        contentMode = isThumbnail ? .fill : .fit
         self.onLoad = onLoad
         _phase = State(initialValue: url == nil ? .missingURL : .loading)
     }
@@ -115,7 +126,7 @@ public struct CardArtworkView: View {
 
     private func artwork(_ image: Image) -> some View {
         image.resizable()
-            .aspectRatio(contentMode: isThumbnail ? .fill : .fit)
+            .aspectRatio(contentMode: contentMode)
             .foregroundStyle(.tint)
             .onGeometryChange(for: CGSize.self) { geometry in
                 geometry.size

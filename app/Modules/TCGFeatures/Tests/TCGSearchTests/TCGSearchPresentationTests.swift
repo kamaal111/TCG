@@ -1,7 +1,9 @@
 import Foundation
 import SwiftUI
+import TCGListSupport
 import Testing
 
+@testable import TCGCardDetails
 @testable import TCGClient
 @testable import TCGSearch
 
@@ -17,7 +19,7 @@ struct TCGSearchPresentationTests {
         try await feature.search(.init(game: .pokemon, query: "Giratina", languages: [], mode: .card, cursor: nil))
             .get()
         let card = try #require(feature.results.first)
-        let model = TCGSearchScreenModel(preferences: nil, debounce: ModuleConfig.searchDebounce)
+        let model = TCGSearchScreenModel(preferences: nil, debounce: CardQueryConfiguration.queryDebounce)
         model.showDetails(of: .init(card: card, variants: [card]))
         feature.clear()
         #expect(model.presentedDetail?.card == card)
@@ -26,7 +28,7 @@ struct TCGSearchPresentationTests {
 
     @Test
     func `Opening and closing the image preserves the selected detail`() {
-        let model = TCGSearchScreenModel(preferences: nil, debounce: ModuleConfig.searchDebounce)
+        let model = TCGSearchScreenModel(preferences: nil, debounce: CardQueryConfiguration.queryDebounce)
         model.showDetails(of: .init(card: card, variants: [card]))
         model.exploreImage(of: .init(card: card, variants: [card]))
         #expect(model.presentedImage?.card == card)
@@ -36,7 +38,7 @@ struct TCGSearchPresentationTests {
 
     @Test
     func `Opening the image directly does not open details`() {
-        let model = TCGSearchScreenModel(preferences: nil, debounce: ModuleConfig.searchDebounce)
+        let model = TCGSearchScreenModel(preferences: nil, debounce: CardQueryConfiguration.queryDebounce)
         model.exploreImage(of: .init(card: card, variants: [card]))
         #expect(model.presentedImage?.directArtworkURL == card.imageURL)
         #expect(model.presentedDetail == nil)
@@ -44,7 +46,7 @@ struct TCGSearchPresentationTests {
 
     @Test
     func `Missing artwork does not open exploration`() {
-        let model = TCGSearchScreenModel(preferences: nil, debounce: ModuleConfig.searchDebounce)
+        let model = TCGSearchScreenModel(preferences: nil, debounce: CardQueryConfiguration.queryDebounce)
         let card = PricedCard(
             id: "no-image",
             printingKey: nil,
@@ -73,7 +75,7 @@ struct TCGSearchPresentationTests {
     @Test
     func `Grouped presentation retains every variant and resolves only the selected artwork`() throws {
         let group = try #require(SearchVariantFixtures.groups(count: 5).first)
-        let model = TCGSearchScreenModel(preferences: nil, debounce: ModuleConfig.searchDebounce)
+        let model = TCGSearchScreenModel(preferences: nil, debounce: CardQueryConfiguration.queryDebounce)
         model.showDetails(of: group)
         model.exploreImage(of: group)
         let image = try #require(model.presentedImage)
@@ -92,7 +94,7 @@ struct TCGSearchPresentationTests {
     func `Details hide the alternative artwork picker when the selected variant has an image`() {
         let foil = SearchVariantFixtures.variant(0, image: nil, hasArtwork: true, price: nil)
         let alternate = SearchVariantFixtures.variant(1, image: nil, hasArtwork: true, price: nil)
-        let group = SearchResultGroup(card: alternate, variants: [foil, alternate])
+        let group = CardVariantGroup(card: alternate, variants: [foil, alternate])
 
         #expect(!group.canExploreAlternativeArtwork)
     }
@@ -103,9 +105,9 @@ struct TCGSearchPresentationTests {
         let alternate = SearchVariantFixtures.variant(1, image: nil, hasArtwork: false, price: nil)
         let other = SearchVariantFixtures.variant(2, image: nil, hasArtwork: false, price: nil)
 
-        #expect(SearchResultGroup(card: alternate, variants: [foil, alternate]).canExploreAlternativeArtwork)
-        #expect(!SearchResultGroup(card: alternate, variants: [alternate, other]).canExploreAlternativeArtwork)
-        #expect(!SearchResultGroup(card: alternate, variants: [alternate]).canExploreAlternativeArtwork)
+        #expect(CardVariantGroup(card: alternate, variants: [foil, alternate]).canExploreAlternativeArtwork)
+        #expect(!CardVariantGroup(card: alternate, variants: [alternate, other]).canExploreAlternativeArtwork)
+        #expect(!CardVariantGroup(card: alternate, variants: [alternate]).canExploreAlternativeArtwork)
     }
 
     @Test
@@ -113,9 +115,9 @@ struct TCGSearchPresentationTests {
         let foil = SearchVariantFixtures.variant(0, image: nil, hasArtwork: true, price: nil)
         let alternate = SearchVariantFixtures.variant(1, image: nil, hasArtwork: true, price: nil)
         let refreshed = SearchVariantFixtures.variant(1, image: nil, hasArtwork: true, price: 250)
-        let group = SearchResultGroup(card: foil, variants: [foil, alternate])
+        let group = CardVariantGroup(card: foil, variants: [foil, alternate])
         #expect(group.destinationCard(selected: nil) == nil)
-        #expect(SearchResultGroup(card: foil, variants: [foil]).destinationCard(selected: nil) == foil)
+        #expect(CardVariantGroup(card: foil, variants: [foil]).destinationCard(selected: nil) == foil)
         let choice = group.destinationCard(selected: alternate)
         #expect(choice == alternate)
         #expect(TCGSearchDetailView<EmptyView>.latestCard(for: alternate, in: [foil]) == alternate)
@@ -203,8 +205,8 @@ struct TCGSearchPresentationTests {
 }
 
 enum SearchVariantFixtures {
-    static func groups(count: Int) -> [SearchResultGroup] {
-        SearchResultGroup.group((0..<count).map { variant($0, image: nil, hasArtwork: true, price: nil) })
+    static func groups(count: Int) -> [CardVariantGroup] {
+        CardVariantGroup.group((0..<count).map { variant($0, image: nil, hasArtwork: true, price: nil) })
     }
 
     static func variant(_ index: Int, image: Int?, hasArtwork: Bool, price: Double?) -> PricedCard {

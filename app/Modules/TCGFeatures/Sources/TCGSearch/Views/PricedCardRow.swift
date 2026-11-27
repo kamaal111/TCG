@@ -5,6 +5,7 @@
 
 import KamaalUI
 import SwiftUI
+import TCGCardDetails
 import TCGClient
 import TCGCurrency
 import TCGDesignSystem
@@ -12,7 +13,7 @@ import TCGDesignSystem
 struct PricedCardRow: View {
     @Environment(\.tcgCurrency) private var currencyState
     @Environment(\.tcgPricePrivacy) private var pricePrivacy
-    let group: SearchResultGroup
+    let group: CardVariantGroup
     let actions: Actions
 
     private var card: PricedCard { group.card }

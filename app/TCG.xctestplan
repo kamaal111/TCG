@@ -71,6 +71,13 @@
     {
       "target" : {
         "containerPath" : "container:Modules\/TCGFeatures",
+        "identifier" : "TCGSetsTests",
+        "name" : "TCGSetsTests"
+      }
+    },
+    {
+      "target" : {
+        "containerPath" : "container:Modules\/TCGFeatures",
         "identifier" : "TCGSettingsTests",
         "name" : "TCGSettingsTests"
       }
