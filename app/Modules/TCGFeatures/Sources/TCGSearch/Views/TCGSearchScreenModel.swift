@@ -6,20 +6,21 @@
 import Foundation
 import KamaalExtensions
 import Observation
+import TCGCardDetails
 import TCGClient
 import TCGDesignSystem
+import TCGListSupport
 
 @MainActor
 @Observable
 final class TCGSearchScreenModel {
-    private static let gamePreferenceKey = "TCGSearch.game"
 
     var query = ""
     var mode: ClientCardSearchMode = .card
     var setNames: Set<String> = []
     var game: ClientCardGame {
         didSet {
-            preferences?.set(game.rawValue, forKey: Self.gamePreferenceKey)
+            if gameSelection.game != game { gameSelection.game = game }
             languages = loadLanguages(for: game)
             if game != .pokemon { mode = .card }
         }
@@ -32,10 +33,21 @@ final class TCGSearchScreenModel {
 
     @ObservationIgnored private let preferences: UserDefaults?
 
-    init(preferences: UserDefaults?, debounce: Duration) {
+    let gameSelection: TCGGameSelection
+
+    convenience init(preferences: UserDefaults?, debounce: Duration) {
+        self.init(
+            preferences: preferences,
+            debounce: debounce,
+            gameSelection: TCGGameSelection(preferences: preferences)
+        )
+    }
+
+    init(preferences: UserDefaults?, debounce: Duration, gameSelection: TCGGameSelection) {
         self.preferences = preferences
         self.debounce = debounce
-        game = preferences?.string(forKey: Self.gamePreferenceKey).flatMap(ClientCardGame.init(rawValue:)) ?? .pokemon
+        self.gameSelection = gameSelection
+        game = gameSelection.game
         languages = loadLanguages(for: game)
     }
 
@@ -52,8 +64,8 @@ final class TCGSearchScreenModel {
         return selection
     }
 
-    var presentedDetail: SearchResultGroup?
-    var presentedImage: SearchResultGroup?
+    var presentedDetail: CardVariantGroup?
+    var presentedImage: CardVariantGroup?
 
     var pendingAddedPrintingKey: String?
     var acquiredPrintingKey: String?
@@ -66,11 +78,11 @@ final class TCGSearchScreenModel {
 
     private(set) var toast: Toast?
 
-    func showDetails(of group: SearchResultGroup) {
+    func showDetails(of group: CardVariantGroup) {
         presentedDetail = group
     }
 
-    func exploreImage(of group: SearchResultGroup) {
+    func exploreImage(of group: CardVariantGroup) {
         guard group.hasArtwork else { return }
         presentedImage = group
     }
@@ -111,6 +123,7 @@ final class TCGSearchScreenModel {
         guard value != game else { return }
         finishEditing(using: search)
         setNames = []
+        search.clear()
         game = value
         scheduleSearch(using: search)
     }
@@ -148,8 +161,8 @@ final class TCGSearchScreenModel {
         }
     }
 
-    func resultGroups(using search: TCGSearch) -> [SearchResultGroup] {
-        SearchResultGroup.group(filteredResults(using: search))
+    func resultGroups(using search: TCGSearch) -> [CardVariantGroup] {
+        CardVariantGroup.group(filteredResults(using: search))
     }
 
     func resumeSearchIfNeeded(using search: TCGSearch) {

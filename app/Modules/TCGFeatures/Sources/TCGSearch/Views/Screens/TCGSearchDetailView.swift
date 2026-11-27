@@ -2,168 +2,73 @@ import SwiftUI
 import TCGCardDetails
 import TCGClient
 import TCGCurrency
-import TCGDesignSystem
 
 struct TCGSearchDetailView<AddForm: View>: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.tcgCurrency) private var currencyState
+    @Environment(\.tcgOpenCatalogSet) private var openCatalogSet
     @Environment(TCGSearch.self) private var search
-    @Environment(\.tcgWishlist) private var wishlist
-    @State private var wishlistModel: WishlistDetailModel
-    @State private var cardToAdd: PricedCard?
-    @State private var didAddCard = false
-    @State private var imageGroup: SearchResultGroup?
 
-    private let isWishlistEntry: Bool
-    private let onWishlistRemoval: (() -> Void)?
-    private let card: PricedCard
-    private let variants: [PricedCard]
-    private let addForm: (PricedCard, @escaping () -> Void) -> AddForm
-
-    init(
-        card: PricedCard,
-        variants: [PricedCard],
-        isWishlistEntry: Bool,
-        onWishlistRemoval: (() -> Void)?,
-        addForm: @escaping (PricedCard, @escaping () -> Void) -> AddForm
-    ) {
-        self.isWishlistEntry = isWishlistEntry
-        self.onWishlistRemoval = onWishlistRemoval
-        _wishlistModel = State(initialValue: WishlistDetailModel(isWishlistEntry: isWishlistEntry))
-        self.card = card
-        self.variants = variants
-        self.addForm = addForm
-    }
+    let card: PricedCard
+    let variants: [PricedCard]
+    let isWishlistEntry: Bool
+    let onWishlistRemoval: (() -> Void)?
+    let addForm: (PricedCard, @escaping () -> Void) -> AddForm
 
     var body: some View {
-        cardContent
-            .tcgSheetWithIconActions(
-                Text("Card details", bundle: .module),
-                closeLabel: Text("Done", bundle: .module),
-                auxiliaryAction: wishlistButton,
-                primaryAction: addButton
-            )
-            .background(.background)
-            #if os(macOS)
-                .frame(minWidth: 480, idealWidth: 600, maxWidth: 760, minHeight: 560, idealHeight: 800)
-            #endif
-            .sheet(item: $cardToAdd, onDismiss: addFormDismissed) { card in
-                addForm(card) { didAddCard = true }
-            }
-            .modifier(SearchImagePresentation(group: $imageGroup))
-            .wishlistFeedback($wishlistModel.feedback)
-            .onDisappear { wishlistModel.cancel() }
-            .modifier(
-                WishlistAcquisitionPrompt(printingKey: $wishlistModel.acquiredPrintingKey) { removedKey in
-                    if removedKey != nil { didRemoveFromWishlist() }
-                    dismiss()
-                }
-            )
-            .alert(
-                Text("Wishlist unavailable", bundle: .module),
-                isPresented: $wishlistModel.showsError
-            ) {
-                Button {
-                    if let action = wishlistModel.retryAction { runWishlistAction(action) }
-                } label: {
-                    Text("Retry", bundle: .module)
-                }
-                Button(role: .cancel) {
-                } label: {
-                    Text("Cancel", bundle: .module)
-                }
-            } message: {
-                Text(wishlistModel.error?.localizedDescription ?? "")
-            }
+        PricedCardDetailView(
+            originalCard: card,
+            group: .init(card: selectedCard, variants: currentVariants),
+            displayedCard: displayedCard,
+            isWishlistEntry: isWishlistEntry,
+            onWishlistRemoval: onWishlistRemoval,
+            onWishlistMembershipChange: { key, saved in search.setWishlistMembership(saved, for: key) },
+            addForm: addForm,
+            header: { setLinks },
+            priceFallback: { priceFallback }
+        )
     }
 
-    private var cardContent: some View {
-        VStack(spacing: 0) {
-            if let exploreVariants {
-                Button(action: exploreVariants) {
-                    Text("Explore variant artwork", bundle: .module)
+    @ViewBuilder
+    private var priceFallback: some View {
+        if search.isSearching {
+            ProgressView()
+        } else {
+            Button {
+                Task { await search.refresh() }
+            } label: {
+                Text("Search again for current prices", bundle: .module)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var setLinks: some View {
+        if !isWishlistEntry, let openCatalogSet, let sets = selectedCard.catalogSets, !sets.isEmpty {
+            if sets.count == 1, let set = sets.first {
+                Button(set.name) {
+                    openCatalogSet(card.game, set)
+                    dismiss()
+                }
+                .padding(.vertical, 8)
+            } else {
+                Menu {
+                    ForEach(sets) { set in
+                        Button(set.name) {
+                            openCatalogSet(card.game, set)
+                            dismiss()
+                        }
+                    }
+                } label: {
+                    Text("View set checklist", bundle: .module)
                 }
                 .padding(.vertical, 8)
             }
-            CardDetailContent(
-                metadata: .init(card: displayedCard ?? selectedCard),
-                price: displayedCard,
-                ownedQuantities: nil
-            ) {
-                if displayedCard == nil && !isWishlistEntry {
-                    if search.isSearching {
-                        ProgressView()
-                    } else {
-                        Button {
-                            Task { await search.refresh() }
-                        } label: {
-                            Text("Search again for current prices", bundle: .module)
-                        }
-                    }
-                }
-            }
         }
-    }
-
-    private var wishlistButton: (some View)? {
-        let isWishlisted: Bool? =
-            if wishlist != nil, card.printingKey != nil {
-                wishlistModel.isWishlisted ?? selectedCard.isWishlisted
-            } else {
-                nil
-            }
-        return isWishlisted.map { saved in
-            TCGSheetIconButton(
-                systemImage: saved ? "heart.fill" : "heart",
-                title: wishlistActionTitle(saved: saved),
-                isLoading: false
-            ) {
-                runWishlistAction(.init(saved: !saved, dismissAfter: isWishlistEntry))
-            }
-            .disabled(wishlistModel.isWorking)
-        }
-    }
-
-    private func wishlistActionTitle(saved: Bool) -> Text {
-        saved ? Text("Remove from Wishlist", bundle: .module) : Text("Add to Wishlist", bundle: .module)
-    }
-
-    private var addButton: some View {
-        TCGSheetIconButton(
-            systemImage: "plus",
-            title: Text("Add \(card.name) to collection", bundle: .module),
-            isLoading: false
-        ) {
-            cardToAdd = displayedCard ?? selectedCard
-        }
-        .disabled(wishlistModel.isWorking)
-    }
-
-    private func addFormDismissed() {
-        guard didAddCard else { return }
-        didAddCard = false
-        if wishlist == nil || !wishlistModel.prepareAcquisition(for: selectedCard) { dismiss() }
-    }
-
-    private func runWishlistAction(_ action: WishlistDetailModel.Action) {
-        wishlistModel.run(action, for: selectedCard, using: wishlist) { outcome in
-            switch outcome {
-            case .removed:
-                didRemoveFromWishlist()
-                dismiss()
-            case .membershipChanged(let saved):
-                if let key = card.printingKey { search.setWishlistMembership(saved, for: key) }
-            }
-        }
-    }
-
-    private func didRemoveFromWishlist() {
-        if let key = card.printingKey { search.setWishlistMembership(false, for: key) }
-        onWishlistRemoval?()
     }
 
     private var currentVariants: [PricedCard] {
-        variants.map { variant in
+        return variants.map { variant in
             Self.latestCard(for: variant, in: search.results)
         }
     }
@@ -177,12 +82,6 @@ struct TCGSearchDetailView<AddForm: View>: View {
         results.first { candidate in
             candidate.id == card.id || (card.printingKey != nil && candidate.printingKey == card.printingKey)
         } ?? card
-    }
-
-    private var exploreVariants: (() -> Void)? {
-        let group = SearchResultGroup(card: selectedCard, variants: currentVariants)
-        guard group.canExploreAlternativeArtwork else { return nil }
-        return { imageGroup = group }
     }
 
     private var displayedCard: PricedCard? {

@@ -8,9 +8,12 @@ import KamaalAuth
 import SwiftUI
 import TCGCurrency
 import TCGDesignSystem
+import TCGListSupport
 import TCGSnapshotTesting
+import TCGWishlist
 import Testing
 
+@testable import TCGCardDetails
 @testable import TCGClient
 @testable import TCGSearch
 
@@ -26,7 +29,7 @@ struct TCGSearchScreenSnapshotTests {
         let group = try #require(SearchVariantFixtures.groups(count: 3).first)
         await assertScreenSnapshot(testName: #function, fileID: #fileID, file: #filePath, line: #line, column: #column)
         {
-            SearchVariantDestination(group: group, purpose: .details) { card in
+            CardVariantDestination(group: group, purpose: .details) { card in
                 Text(card.name)
             }
             .cardImageLoader(PreviewCardImageLoader(outcome: .success))
@@ -52,7 +55,7 @@ struct TCGSearchScreenSnapshotTests {
         let group = try #require(SearchVariantFixtures.groups(count: 3).first)
         await assertScreenSnapshot(testName: #function, fileID: #fileID, file: #filePath, line: #line, column: #column)
         {
-            SearchVariantPicker(variants: group.variants, purpose: .artwork, selectedID: group.card.id) { _ in }
+            CardVariantPicker(variants: group.variants, purpose: .artwork, selectedID: group.card.id) { _ in }
                 .cardImageLoader(PreviewCardImageLoader(outcome: .success))
         }
     }
@@ -65,7 +68,7 @@ struct TCGSearchScreenSnapshotTests {
             client: .preview(pricingOutcome: .success),
             history: TCGSearchHistoryStore(defaults: nil, now: Date.init)
         )
-        let model = TCGSearchScreenModel(preferences: nil, debounce: ModuleConfig.searchDebounce)
+        let model = TCGSearchScreenModel(preferences: nil, debounce: CardQueryConfiguration.queryDebounce)
         model.query = "Giratina"
         try await feature.search(.init(game: model.game, query: model.query, languages: [], mode: .card, cursor: nil))
             .get()
@@ -358,7 +361,7 @@ struct TCGSearchScreenSnapshotTests {
             client: .preview(pricingOutcome: .success),
             history: TCGSearchHistoryStore(defaults: nil, now: Date.init)
         )
-        let model = TCGSearchScreenModel(preferences: nil, debounce: ModuleConfig.searchDebounce)
+        let model = TCGSearchScreenModel(preferences: nil, debounce: CardQueryConfiguration.queryDebounce)
         model.mode = .illustrator
         model.query = "Akira Egawa"
         await model.performSearch(using: feature)
@@ -400,7 +403,7 @@ struct TCGSearchScreenSnapshotTests {
             ),
             history: TCGSearchHistoryStore(defaults: nil, now: Date.init)
         )
-        let model = TCGSearchScreenModel(preferences: nil, debounce: ModuleConfig.searchDebounce)
+        let model = TCGSearchScreenModel(preferences: nil, debounce: CardQueryConfiguration.queryDebounce)
         model.query = "Giratina"
         let initial = Task { await model.performSearch(using: feature) }
         await transport.waitUntilStarted(count: 1)
@@ -417,7 +420,7 @@ struct TCGSearchScreenSnapshotTests {
             client: .preview(pricingOutcome: .success),
             history: TCGSearchHistoryStore(defaults: nil, now: Date.init)
         )
-        let model = TCGSearchScreenModel(preferences: nil, debounce: ModuleConfig.searchDebounce)
+        let model = TCGSearchScreenModel(preferences: nil, debounce: CardQueryConfiguration.queryDebounce)
         model.query = "Giratina"
         model.game = .pokemon
         try await feature.search(.init(game: model.game, query: model.query, languages: [], mode: .card, cursor: nil))
@@ -498,7 +501,7 @@ struct TCGSearchScreenSnapshotTests {
             ),
             history: TCGSearchHistoryStore(defaults: nil, now: Date.init)
         )
-        let model = TCGSearchScreenModel(preferences: nil, debounce: ModuleConfig.searchDebounce)
+        let model = TCGSearchScreenModel(preferences: nil, debounce: CardQueryConfiguration.queryDebounce)
         model.query = "Giratina"
         await model.performSearch(using: feature)
         model.setNames = setNames
@@ -516,7 +519,7 @@ struct TCGSearchScreenSnapshotTests {
         {
             makeScreen(
                 feature: feature,
-                model: TCGSearchScreenModel(preferences: nil, debounce: ModuleConfig.searchDebounce)
+                model: TCGSearchScreenModel(preferences: nil, debounce: CardQueryConfiguration.queryDebounce)
             )
         }
     }
@@ -527,7 +530,7 @@ struct TCGSearchScreenSnapshotTests {
             client: .preview(pricingOutcome: .empty),
             history: TCGSearchHistoryStore(defaults: nil, now: Date.init)
         )
-        let model = TCGSearchScreenModel(preferences: nil, debounce: ModuleConfig.searchDebounce)
+        let model = TCGSearchScreenModel(preferences: nil, debounce: CardQueryConfiguration.queryDebounce)
         model.game = .onePiece
 
         await assertScreenSnapshot(testName: #function, fileID: #fileID, file: #filePath, line: #line, column: #column)
@@ -540,7 +543,7 @@ struct TCGSearchScreenSnapshotTests {
             client: .preview(pricingOutcome: .noResults),
             history: TCGSearchHistoryStore(defaults: nil, now: Date.init)
         )
-        let model = TCGSearchScreenModel(preferences: nil, debounce: ModuleConfig.searchDebounce)
+        let model = TCGSearchScreenModel(preferences: nil, debounce: CardQueryConfiguration.queryDebounce)
         model.query = "Missing card"
         try await feature.search(.init(game: model.game, query: model.query, languages: [], mode: .card, cursor: nil))
             .get()
@@ -555,7 +558,7 @@ struct TCGSearchScreenSnapshotTests {
             client: .preview(pricingOutcome: .noResults),
             history: TCGSearchHistoryStore(defaults: nil, now: Date.init)
         )
-        let model = TCGSearchScreenModel(preferences: nil, debounce: ModuleConfig.searchDebounce)
+        let model = TCGSearchScreenModel(preferences: nil, debounce: CardQueryConfiguration.queryDebounce)
         model.game = .onePiece
         model.query = "OP99-999"
         try await feature.search(.init(game: model.game, query: model.query, languages: [], mode: .card, cursor: nil))
@@ -571,7 +574,7 @@ struct TCGSearchScreenSnapshotTests {
             client: .preview(pricingOutcome: .empty),
             history: TCGSearchHistoryStore(defaults: nil, now: Date.init)
         )
-        let model = TCGSearchScreenModel(preferences: nil, debounce: ModuleConfig.searchDebounce)
+        let model = TCGSearchScreenModel(preferences: nil, debounce: CardQueryConfiguration.queryDebounce)
         model.languages = [.japanese]
 
         #expect(model.languages == [.japanese])
@@ -889,7 +892,7 @@ struct TCGSearchScreenSnapshotTests {
         {
             makeScreen(
                 feature: feature,
-                model: TCGSearchScreenModel(preferences: nil, debounce: ModuleConfig.searchDebounce)
+                model: TCGSearchScreenModel(preferences: nil, debounce: CardQueryConfiguration.queryDebounce)
             )
         }
     }
@@ -897,7 +900,7 @@ struct TCGSearchScreenSnapshotTests {
     @Test
     func `Renders matching history suggestions`() async throws {
         let feature = makeHistoryFeature()
-        let model = TCGSearchScreenModel(preferences: nil, debounce: ModuleConfig.searchDebounce)
+        let model = TCGSearchScreenModel(preferences: nil, debounce: CardQueryConfiguration.queryDebounce)
         model.query = "Gira"
         model.isSearchFocused = true
         try await feature.search(.init(game: .pokemon, query: model.query, languages: [], mode: .card, cursor: nil))
@@ -934,7 +937,7 @@ struct TCGSearchScreenSnapshotTests {
         {
             makeScreen(
                 feature: feature,
-                model: TCGSearchScreenModel(preferences: nil, debounce: ModuleConfig.searchDebounce)
+                model: TCGSearchScreenModel(preferences: nil, debounce: CardQueryConfiguration.queryDebounce)
             )
             .environment(\.dynamicTypeSize, .accessibility3)
         }

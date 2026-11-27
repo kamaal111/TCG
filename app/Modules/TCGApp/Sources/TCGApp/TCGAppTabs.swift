@@ -3,7 +3,11 @@ import SwiftUI
 import TCGCards
 import TCGClient
 import TCGCurrency
+import TCGDesignSystem
+import TCGListSupport
 import TCGSearch
+import TCGSets
+import TCGWishlist
 
 struct TCGAppTabs: View {
     let auth: KamaalAuth
@@ -11,17 +15,23 @@ struct TCGAppTabs: View {
     let collections: TCGCollections
     let currencyState: TCGCurrency
     let search: TCGSearch
+    let sets: TCGSets
     let wishlist: TCGWishlist?
     let offline: OfflineCollection
     let startup: StartupCollection
     let unlockCachedCards: () -> Void
     @Environment(\.scenePhase) private var scenePhase
     @State private var selectedTab: AppTab = .collections
+    @State private var gameSelection = TCGGameSelection(preferences: .standard)
+    @State private var setsPath: [CatalogSetDestination] = []
+    #if os(iOS)
+        @State private var showingSettings = false
+    #endif
 
     private enum AppTab {
         case collections
+        case sets
         case search
-        case settings
     }
 
     var body: some View {
@@ -36,30 +46,70 @@ struct TCGAppTabs: View {
                     }
                 }
 
+            setsTab
+                .id(auth.session?.email)
+                .tag(AppTab.sets)
+                .tabItem {
+                    Label {
+                        Text("Sets", bundle: .module)
+                    } icon: {
+                        Image(systemName: "rectangle.stack")
+                    }
+                }
+
             searchTab
                 .id(auth.session?.email)
                 .tag(AppTab.search)
                 .tabItem { Label("Search", systemImage: "magnifyingglass") }
-
-            #if !os(macOS)
-                NavigationStack { TCGAppSettings(cards: cards, offline: offline) }
-                    .tag(AppTab.settings)
-                    .tabItem { Label("Settings", systemImage: "gearshape") }
-            #endif
         }
         .environment(\.tcgCurrency, currencyState)
         .tcgCards(cards)
         .environment(\.tcgCollections, collections)
         .tcgSearch(search)
+        .tcgSets(sets)
         .environment(\.tcgWishlist, auth.isLoggedIn ? wishlist : nil)
         .environment(auth)
+        .environment(
+            \.tcgOpenCatalogSet,
+            OpenCatalogSetAction { game, set in
+                gameSelection.game = game
+                setsPath = [.init(game: game, set: set)]
+                selectedTab = .sets
+            }
+        )
+        #if os(iOS)
+            .overlay(alignment: .topTrailing) {
+                if !auth.isLoggedIn {
+                    TCGSettingsButton()
+                    .labelStyle(.iconOnly)
+                    .frame(minWidth: 44, minHeight: 44)
+                    .padding(.trailing)
+                }
+            }
+            .environment(\.tcgSettingsPresentation, $showingSettings)
+            .sheet(isPresented: $showingSettings) {
+                NavigationStack {
+                    TCGAppSettings(cards: cards, offline: offline)
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button {
+                                showingSettings = false
+                            } label: {
+                                Text("Done", bundle: .module)
+                            }
+                        }
+                    }
+                }
+            }
+        #endif
         .onChange(of: selectedTab, initial: true) { _, tab in
             startup.isCollectionsTabSelected = tab == .collections
         }
         .onChange(of: liveCollectionDisplayable) { _, ready in
             if ready { startup.dismiss() }
         }
-        .onChange(of: auth.session?.email, initial: true) { _, _ in
+        .onChange(of: auth.session?.email, initial: true) { previous, account in
+            if previous != account { setsPath.removeAll() }
             wishlist?.updateAccount()
         }
         .task { await currencyState.trackSession(auth) }
@@ -128,7 +178,13 @@ struct TCGAppTabs: View {
     @ViewBuilder
     private var liveCollections: some View {
         if auth.isLoggedIn, !liveCollectionReady {
-            ProgressView()
+            #if os(iOS)
+                NavigationStack {
+                    ProgressView().tcgRootSettingsButton()
+                }
+            #else
+                ProgressView()
+            #endif
         } else if auth.isLoggedIn, wishlist != nil {
             TCGCollectionsScreen {
                 TCGWishlistScreen(isVisible: selectedTab == .collections) { card, onAdded in
@@ -153,8 +209,21 @@ struct TCGAppTabs: View {
                 Text("Search will be available after sign-in.", bundle: .module)
             }
         } else {
-            TCGSearchTab().kamaalAuth(auth)
+            TCGSearchTab(gameSelection: gameSelection).kamaalAuth(auth)
         }
+    }
+
+    private var setsTab: some View {
+        TCGSetsScreen(
+            gameSelection: gameSelection,
+            path: $setsPath,
+            isVisible: selectedTab == .sets && auth.isLoggedIn,
+            collectionRevision: cards.collectionRevision,
+            onWishlistMembershipChange: { key, saved in search.setWishlistMembership(saved, for: key) }
+        ) { card, onAdded in
+            TCGCardFormScreen(pricedCard: card, onAdded: onAdded)
+        }
+        .kamaalAuth(auth)
     }
 
     private func collectionSeed(for account: String) -> (cards: [CardWithPrice], collections: [CardBinderCollection]) {
@@ -190,9 +259,11 @@ struct TCGAppTabs: View {
 }
 
 private struct TCGSearchTab: View {
+    let gameSelection: TCGGameSelection
+
     var body: some View {
         NavigationStack {
-            TCGSearchScreen { card, onAdded in
+            TCGSearchScreen(gameSelection: gameSelection) { card, onAdded in
                 TCGCardFormScreen(pricedCard: card, onAdded: onAdded)
             }
         }

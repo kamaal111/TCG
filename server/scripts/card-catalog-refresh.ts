@@ -3,7 +3,6 @@ import sqlite from 'node:sqlite';
 import { InternalServerError } from '@tcg/http/exceptions';
 import {
   SCRYDEX_CATALOG_COLLECTION_MAP,
-  SCRYDEX_FIRST_PAGE,
   type ScrydexClient,
   type ScrydexCatalogCollection,
   type ScrydexRawCard,
@@ -12,6 +11,7 @@ import { desc, eq } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/node-sqlite';
 import { z } from 'zod';
 
+import { catalogPages } from './catalog-pages.ts';
 import { catalogExpansions, catalogPrintings } from '../src/card-pricing/catalog-metadata.ts';
 import type { CatalogPrinting } from '../src/card-pricing/catalog.ts';
 import { buildScrydexIdBatches } from '../src/card-pricing/scrydex/query.ts';
@@ -31,6 +31,8 @@ const ExistingSetSchema = z.object({
 });
 
 const ListSchema = z.array(z.string());
+
+const ProviderIdSchema = z.string();
 
 interface CatalogRefreshOptions {
   parent: string;
@@ -54,54 +56,11 @@ export async function fetchCatalogDelta({
   using _catalog = new SQLiteCardCatalog(parent);
   using db = new sqlite.DatabaseSync(parent, { readOnly: true });
   const requestedExpansions = new Set(expansions.map(id => ScopedIdSchema.parse(id)));
-  let requests = 0;
+  const pages = catalogPages(budget);
 
-  async function fetchScope(collection: ScrydexCatalogCollection, query: string) {
-    const seen = new Set<string>();
-    const collected: ScrydexRawCard[] = [];
-    let total: number | undefined;
-
-    for (let page = SCRYDEX_FIRST_PAGE; ; page += 1) {
-      if (requests >= budget) {
-        throw new InternalServerError(undefined, { diagnosticMessage: 'Catalog request budget exhausted' });
-      }
-
-      requests += 1;
-      const result = await client.listCatalog(game, collection, query, page);
-
-      if (result.isErr()) {
-        throw new InternalServerError(undefined, { diagnosticMessage: result.error.message });
-      }
-
-      const { catalogTotal, rejectedCount, cards: records, hasMore } = result.value;
-      total ??= catalogTotal;
-
-      if (catalogTotal == null || catalogTotal !== total || records.length === 0 || rejectedCount !== 0) {
-        throw new InternalServerError(undefined, { diagnosticMessage: 'Incomplete scoped catalog response' });
-      }
-
-      for (const record of records) {
-        const id = z.string().trim().nonempty().parse(record.id);
-
-        if (seen.has(id)) {
-          throw new InternalServerError(undefined, { diagnosticMessage: 'Duplicate ID in scoped catalog response' });
-        }
-
-        collected.push(record);
-        seen.add(id);
-      }
-
-      if (hasMore ? seen.size >= catalogTotal : seen.size !== catalogTotal) {
-        throw new InternalServerError(undefined, {
-          diagnosticMessage: 'Scoped catalog count does not match the response pages',
-        });
-      }
-
-      if (!hasMore) {
-        return collected;
-      }
-    }
-  }
+  const fetchScope = (collection: ScrydexCatalogCollection, query: string) => {
+    return pages.fetchScope(page => client.listCatalog(game, collection, query, page));
+  };
 
   const rows: CatalogPrinting[] = [];
   const known = new Map<string, Pick<CatalogPrinting, 'setKey' | 'setName' | 'setIds' | 'setTokens'>>();
@@ -166,7 +125,7 @@ export async function fetchCatalogDelta({
   for (const { ids, query } of batches) {
     const records = await fetchScope(SCRYDEX_CATALOG_COLLECTION_MAP.CARDS, query);
 
-    if (records.length !== ids.size || records.some(record => !ids.has(z.string().parse(record.id)))) {
+    if (records.length !== ids.size || records.some(record => !ids.has(ProviderIdSchema.parse(record.id)))) {
       throw new InternalServerError(undefined, {
         diagnosticMessage: 'Scoped card response does not match the requested IDs',
       });
@@ -190,7 +149,7 @@ export async function fetchCatalogDelta({
 
     const needsName =
       !known.has(key) &&
-      records.every(record => z.string().safeParse(record.expansion?.id).data?.toLowerCase() !== key);
+      records.every(record => ProviderIdSchema.safeParse(record.expansion?.id).data?.toLowerCase() !== key);
 
     const metadata = needsName ? await fetchScope(SCRYDEX_CATALOG_COLLECTION_MAP.EXPANSIONS, `!id:${id}`) : [];
     const setIndex = catalogExpansions(metadata);
@@ -206,5 +165,5 @@ export async function fetchCatalogDelta({
     rows.push(...matches);
   }
 
-  return { rows, requests };
+  return { rows, requests: pages.requests };
 }

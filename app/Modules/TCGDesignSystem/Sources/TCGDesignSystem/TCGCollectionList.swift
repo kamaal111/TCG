@@ -3,6 +3,7 @@ import SwiftUI
 public struct TCGCollectionList<Controls: View, Rows: View, EmptyContent: View, Footer: View>: View {
     @Binding private var query: String
     private let title: Text
+    private let searchPrompt: Text
     private let hidesScrollBackground: Bool
     private let showsEmptyContent: Bool
     private let controls: Controls
@@ -20,6 +21,31 @@ public struct TCGCollectionList<Controls: View, Rows: View, EmptyContent: View, 
         @ViewBuilder emptyContent: () -> EmptyContent,
         @ViewBuilder footer: () -> Footer
     ) {
+        self.init(
+            title: title,
+            searchPrompt: Text("Search cards", bundle: .module),
+            query: query,
+            hidesScrollBackground: hidesScrollBackground,
+            showsEmptyContent: showsEmptyContent,
+            controls: controls,
+            rows: rows,
+            emptyContent: emptyContent,
+            footer: footer
+        )
+    }
+
+    public init(
+        title: Text,
+        searchPrompt: Text,
+        query: Binding<String>,
+        hidesScrollBackground: Bool,
+        showsEmptyContent: Bool,
+        @ViewBuilder controls: () -> Controls,
+        @ViewBuilder rows: () -> Rows,
+        @ViewBuilder emptyContent: () -> EmptyContent,
+        @ViewBuilder footer: () -> Footer
+    ) {
+        self.searchPrompt = searchPrompt
         self.title = title
         _query = query
         self.hidesScrollBackground = hidesScrollBackground
@@ -31,7 +57,7 @@ public struct TCGCollectionList<Controls: View, Rows: View, EmptyContent: View, 
     }
 
     public var body: some View {
-        TCGSearchKeyboardScope(query: $query, prompt: Text("Search cards", bundle: .module)) {
+        TCGSearchKeyboardScope(query: $query, prompt: searchPrompt) {
             list.navigationTitle(title)
         }
     }

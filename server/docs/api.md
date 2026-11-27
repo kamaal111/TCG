@@ -118,10 +118,11 @@ the same printing. The final word can be a prefix, such as `rom` in `nami rom`.
 Exact card numbers and language filters still apply. Pokémon set names made
 entirely of digits, such as `151`, can also match the corresponding set.
 
-Both `just release-server` and Devportal package the verified SQLite catalog
-pinned in `server/card-catalog.json`. The server opens it read-only before
-starting. For local real-mode development, `just dev-server` fetches the
-same artifact from private GHCR. Catalog searches only call Scrydex for
+Both `just release-server` and Devportal package the SQLite catalog pinned in
+`server/card-catalog.json`. Release builds verify the checksum, catalog version,
+and nonempty set checklists for Pokémon and One Piece before packaging it.
+The server opens it read-only before starting. For local real-mode development,
+`just dev-server` fetches the same artifact from private GHCR. Catalog searches only call Scrydex for
 uncached prices. Catalog updates are explicit operator actions.
 
 To build a new snapshot locally, start from the file staged by
@@ -142,6 +143,27 @@ Run `just publish-card-catalog next.sqlite release-2026-11-26` to push
 to the private catalog repository and print the new pin. Review the pin
 and update `server/card-catalog.json` in Git. The selected release revision
 determines the artifact shipped with the server.
+
+### Sets and checklists
+
+Authenticated clients can list expansions with `GET /app-api/sets?game=pokemon`, filter by
+`query`, and request only started, incomplete sets with `section=in_progress`.
+`GET /app-api/sets/pokemon/me2pt5/cards?filter=missing` returns collector-number slots and
+the full set summary. Both responses use `next_cursor` for subsequent pages. Ownership
+is calculated across the authenticated account's collections. List and checklist reads
+use local catalog metadata. Opening `/app-api/sets/pokemon/me2pt5/cards/1` loads the
+available priced printings for that slot.
+
+Refresh the set inventory explicitly, with a request limit, alongside the pinned
+search catalog. The operation copies the parent SQLite file before adding the set
+inventory. Provider rows without a collector number cannot fill a checklist slot.
+
+```sh
+just build-card-catalog --parent server/catalog.sqlite --sets --request-limit 800 --output next.sqlite
+```
+
+After verification, publish the resulting artifact and update the pin using the
+same procedure as a search catalog refresh.
 
 ### Search formats
 

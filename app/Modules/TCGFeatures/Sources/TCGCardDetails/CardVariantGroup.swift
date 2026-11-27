@@ -1,18 +1,23 @@
 import Foundation
 import TCGClient
 
-struct SearchResultGroup: Identifiable {
+package struct CardVariantGroup: Identifiable {
     private enum Key: Hashable {
         case printedNumber(String)
         case pricedCard(String)
     }
 
-    let card: PricedCard
-    let variants: [PricedCard]
+    package let card: PricedCard
+    package let variants: [PricedCard]
 
-    var id: String { card.id }
+    package init(card: PricedCard, variants: [PricedCard]) {
+        self.card = card
+        self.variants = variants
+    }
 
-    var collageURLs: [URL] {
+    package var id: String { card.id }
+
+    package var collageURLs: [URL] {
         var seen = Set<URL>()
         var preview: [URL] = []
         for variant in variants {
@@ -23,29 +28,29 @@ struct SearchResultGroup: Identifiable {
         return preview.count == 3 ? Array(preview.prefix(2)) : preview
     }
 
-    var hasArtwork: Bool { variants.contains { $0.imageURL != nil } }
+    package var hasArtwork: Bool { variants.contains { $0.imageURL != nil } }
 
-    var canExploreAlternativeArtwork: Bool {
+    package var canExploreAlternativeArtwork: Bool {
         card.imageURL == nil && variants.count > 1 && hasArtwork
     }
 
-    var directArtworkURL: URL? { variants.count == 1 ? variants.first?.imageURL : nil }
+    package var directArtworkURL: URL? { variants.count == 1 ? variants.first?.imageURL : nil }
 
-    func artworkURL(for variantID: String) -> URL? {
+    package func artworkURL(for variantID: String) -> URL? {
         variants.first { $0.id == variantID }?.imageURL
     }
 
-    func destinationCard(selected: PricedCard?) -> PricedCard? {
+    package func destinationCard(selected: PricedCard?) -> PricedCard? {
         variants.count < 2 ? card : selected
     }
 
-    static func group(_ cards: [PricedCard]) -> [SearchResultGroup] {
+    package static func group(_ cards: [PricedCard]) -> [CardVariantGroup] {
         let groups = Dictionary(grouping: cards, by: key)
         var seen = Set<Key>()
         return cards.compactMap { card in
             let key = key(for: card)
             guard seen.insert(key).inserted, let variants = groups[key] else { return nil }
-            return SearchResultGroup(card: card, variants: variants)
+            return CardVariantGroup(card: card, variants: variants)
         }
     }
 

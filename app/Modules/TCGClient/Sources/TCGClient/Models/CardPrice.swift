@@ -358,6 +358,7 @@ public struct PricedCard: Codable, Hashable, Identifiable, Sendable {
     public let id: String
     public let printingKey: String?
     public var isWishlisted: Bool?
+    public internal(set) var catalogSets: [CatalogSetReference]?
     public let game: ClientCardGame
     public let name: String
     public let setName: String?
@@ -487,6 +488,7 @@ public struct PricedCard: Codable, Hashable, Identifiable, Sendable {
         case id
         case printingKey = "printing_key"
         case isWishlisted = "is_wishlisted"
+        case catalogSets = "catalog_sets"
         case setName = "set_name"
         case illustrator
         case englishSearchAlias = "english_search_alias"

@@ -6,9 +6,12 @@
 import KamaalExtensions
 import KamaalUI
 import SwiftUI
+import TCGCardDetails
 import TCGClient
 import TCGDesignSystem
+import TCGListSupport
 import TCGModels
+import TCGWishlist
 
 public struct TCGSearchScreen<AddForm: View>: View {
     @Environment(TCGSearch.self) private var search
@@ -20,13 +23,24 @@ public struct TCGSearchScreen<AddForm: View>: View {
     @State private var isShowingHistory = false
     @State private var isConfirmingClear = false
     @State private var model: TCGSearchScreenModel
-    @State private var groupToAdd: SearchResultGroup?
+    @State private var groupToAdd: CardVariantGroup?
 
     private let addForm: (PricedCard, @escaping () -> Void) -> AddForm
 
     public init(@ViewBuilder addForm: @escaping (PricedCard, @escaping () -> Void) -> AddForm) {
+        self.init(gameSelection: TCGGameSelection(preferences: .standard), addForm: addForm)
+    }
+
+    public init(
+        gameSelection: TCGGameSelection,
+        @ViewBuilder addForm: @escaping (PricedCard, @escaping () -> Void) -> AddForm
+    ) {
         _model = State(
-            initialValue: TCGSearchScreenModel(preferences: .standard, debounce: ModuleConfig.searchDebounce)
+            initialValue: TCGSearchScreenModel(
+                preferences: .standard,
+                debounce: CardQueryConfiguration.queryDebounce,
+                gameSelection: gameSelection
+            )
         )
         self.addForm = addForm
     }
@@ -42,7 +56,14 @@ public struct TCGSearchScreen<AddForm: View>: View {
     public var body: some View {
         keyboardScopedContent
             .navigationTitle(Text("Card search", bundle: .module))
-            .onAppear { model.resumeSearchIfNeeded(using: search) }
+            .tcgRootSettingsButton()
+            .onAppear {
+                model.updateGame(model.gameSelection.game, using: search)
+                model.resumeSearchIfNeeded(using: search)
+            }
+            .onChange(of: model.gameSelection.game) { _, game in
+                model.updateGame(game, using: search)
+            }
             .onDisappear(perform: finishEditing)
             .onChange(of: isSearchFocused) { _, focused in model.isSearchFocused = focused }
             .onChange(of: scenePhase) { _, phase in
@@ -83,7 +104,7 @@ public struct TCGSearchScreen<AddForm: View>: View {
                 if let error { model.show(error) }
             }
             .sheet(item: $model.presentedDetail) { group in
-                SearchVariantDestination(group: group, purpose: .details) { card in
+                CardVariantDestination(group: group, purpose: .details) { card in
                     TCGSearchDetailView(
                         card: card,
                         variants: group.variants,
@@ -94,7 +115,7 @@ public struct TCGSearchScreen<AddForm: View>: View {
                 }
             }
             .sheet(item: $groupToAdd, onDismiss: model.checkAcquiredPrinting) { group in
-                SearchVariantDestination(group: group, purpose: .add) { card in
+                CardVariantDestination(group: group, purpose: .add) { card in
                     addForm(card) { recordAcquiredPrinting(card) }
                 }
             }
@@ -107,7 +128,7 @@ public struct TCGSearchScreen<AddForm: View>: View {
                 }
             )
             .wishlistFeedback($model.wishlistFeedback)
-            .modifier(SearchImagePresentation(group: $model.presentedImage))
+            .modifier(CardArtworkPresentation(group: $model.presentedImage))
             .cardArtworkCachePolicy(.search)
     }
 

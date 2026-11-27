@@ -102,6 +102,7 @@ if (tool === 'docker' && args[1] === 'build') {
 }
 if (tool === 'mise') {
   if (args.includes('scripts/stage-card-catalog.ts')) {
+    if (process.env.FAIL_CATALOG) process.exit(1);
     fs.mkdirSync(args.at(-1), { recursive: true });
     fs.writeFileSync(path.join(args.at(-1), 'catalog.sqlite'), 'fixture catalog');
     process.exit(0);
@@ -216,6 +217,18 @@ test('a local release makes build inputs readable while keeping its directory an
   expect(commands).toContain('"temporaryMode":448');
   expect(commands).toContain('"archiveMode":384');
   expect(await fs.readdir(f.runner)).toStrictEqual([]);
+});
+
+test('an invalid release catalog stops the pipeline before it builds or deploys images', async t => {
+  const f = await fixture(t);
+  const result = f.localRelease({ FAIL_CATALOG: 'true' }, []);
+  const commands = await f.commands();
+
+  expect(result.status).toBe(1);
+  expect(commands).toContain('scripts/stage-card-catalog.ts');
+  expect(commands).not.toContain('"args":["ready-server"]');
+  expect(commands).not.toContain('card-catalog=');
+  expect(commands).not.toContain('"tool":"ssh"');
 });
 
 test('a local release preserves shell variables over environment-file values', async t => {

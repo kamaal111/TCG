@@ -12,6 +12,8 @@ import TCGClient
 import TCGCurrency
 import TCGDesignSystem
 import TCGSearch
+import TCGSets
+import TCGWishlist
 
 public struct TCGScene: Scene {
     @State private var auth: KamaalAuth
@@ -22,6 +24,7 @@ public struct TCGScene: Scene {
     @State private var collections = TCGCollections(client: .default(), defaults: .standard)
     @State private var wishlist: TCGWishlist?
     @State private var search = TCGSearch.default()
+    @State private var sets: TCGSets
     @State private var offline = OfflineCollection(
         client: .default(),
         defaults: .standard,
@@ -33,8 +36,10 @@ public struct TCGScene: Scene {
     )
 
     public init() {
+        let client = TCGClient.default()
+        _sets = State(initialValue: TCGSets(client: client.sets))
         let auth = KamaalAuth(
-            client: TCGClient.default().auth,
+            client: client.auth,
             configuration: KamaalAuthConfiguration(
                 appName: String(localized: "Mintomo", bundle: .module),
                 storageNamespace: TCGClient.authenticationStorageNamespace
@@ -42,7 +47,7 @@ public struct TCGScene: Scene {
         )
         _auth = State(initialValue: auth)
         _wishlist = State(
-            initialValue: TCGClient.default().wishlist.map { client in
+            initialValue: client.wishlist.map { client in
                 TCGWishlist(client: client, accountID: { auth.session?.email })
             }
         )
@@ -62,6 +67,7 @@ public struct TCGScene: Scene {
                     collections: collections,
                     currencyState: currencyState,
                     search: search,
+                    sets: sets,
                     wishlist: wishlist,
                     offline: offline,
                     startup: startup,

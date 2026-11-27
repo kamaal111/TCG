@@ -503,6 +503,10 @@ export class CardPricingService {
       : serializeOwnedCardPrice(card.id, price);
   }
 
+  async priceSetPrinting(game: CardGame, pricingId: string) {
+    return await this.fetchPrintingById(game, pricingId, todayUTC());
+  }
+
   private async fetchPrintingById(
     game: CardGame,
     pricingCardId: string,

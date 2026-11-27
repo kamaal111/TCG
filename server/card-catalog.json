@@ -1,5 +1,5 @@
 {
-  "image": "ghcr.io/kamaal111/tcg-card-catalog@sha256:75bc9feb903115c3527566cd6b2267dbd6bc48fc2da568a6d24433d0d24b275d",
-  "sha256": "422f0e47d03ff4712fde4838acba125afdcd4e5cd24c4a9292e0a1421e5ab5db",
-  "version": "76b72586-65f1-435b-ab55-d5b9f6625a52"
+  "image": "ghcr.io/kamaal111/tcg-card-catalog@sha256:a749ba39ebed16cc0fff09f9105c5337df75113a6264e2eb2718f2a287208523",
+  "sha256": "ceadd2a1b4fe608614060a14cda01d93fd6a94176ddb200da7fc5b968b164c6d",
+  "version": "5d7bd223-68a3-487e-a05b-569ec69dbf7b"
 }

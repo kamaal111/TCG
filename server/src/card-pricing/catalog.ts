@@ -3,6 +3,7 @@ import { z } from 'zod';
 import type { buildCatalogQuery } from './catalog-query.ts';
 import type { CardLanguage } from './languages.ts';
 import { CARD_GAME_MAP, type CardGame } from './types.ts';
+import type { SetInventory } from '../sets/catalog.ts';
 
 export const CatalogPrintingSchema = z.object({
   game: z.enum(CARD_GAME_MAP),
@@ -31,6 +32,7 @@ export interface CatalogSearch {
 
 export interface CardCatalog {
   readonly version: string;
+  setInventory(game: CardGame): SetInventory | undefined;
   search(search: CatalogSearch): {
     printings: (Pick<CatalogPrinting, 'pricingId' | 'providerId'> & { setName: string | null })[];
     nextOffset: number | undefined;

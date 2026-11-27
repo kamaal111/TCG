@@ -2,11 +2,13 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+import sqlite from 'node:sqlite';
 
 import { ScrydexClient, type ScrydexFetch } from '@tcg/scrydex';
 
 import { writeCatalog } from '../../../scripts/card-catalog-file.ts';
 import { fetchCatalogDelta } from '../../../scripts/card-catalog-refresh.ts';
+import { verifyReleaseSetInventory } from '../../../scripts/card-catalog-release.ts';
 import { SQLiteCardCatalog } from '../../persistence/sqlite/card-catalog.ts';
 import { buildCatalogQuery } from '../catalog-query.ts';
 import type { CatalogPrinting } from '../catalog.ts';
@@ -69,6 +71,76 @@ it('merges local rows into a new snapshot without duplicating printings or chang
   ]);
   expect(current.version).not.toBe(previous.version);
   await expect(writeCatalog(output, [added], parent)).rejects.toMatchObject({ code: 'EEXIST' });
+});
+
+it('upgrades a version-one copy without changing the parent or its search results', async () => {
+  const { parent, output } = await makeFiles();
+
+  {
+    using db = new sqlite.DatabaseSync(parent);
+    db.exec('DROP TABLE set_printing; DROP TABLE expansion; PRAGMA user_version = 1');
+  }
+
+  await fs.chmod(parent, 0o400);
+  const before = await fs.readFile(parent);
+
+  const inventory = {
+    expansions: [{ game: CARD_GAME_MAP.ONE_PIECE, id: 'op01', name: 'Romance Dawn', aliases: [] }],
+    printings: [
+      {
+        game: CARD_GAME_MAP.ONE_PIECE,
+        setId: 'op01',
+        pricingId: 'OP01-016',
+        name: 'Nami',
+        number: 'OP01-016',
+        printedNumber: 'OP01-016',
+      },
+    ],
+  };
+
+  await writeCatalog(output, [], parent, inventory);
+  using previous = new SQLiteCardCatalog(parent);
+  using upgraded = new SQLiteCardCatalog(output);
+
+  const query = {
+    game: CARD_GAME_MAP.ONE_PIECE,
+    query: buildCatalogQuery(CARD_GAME_MAP.ONE_PIECE, 'nami romance'),
+    languages: [],
+    offset: 0,
+  };
+
+  expect(await fs.readFile(parent)).toEqual(before);
+  expect(previous.setInventory(CARD_GAME_MAP.ONE_PIECE)).toBeUndefined();
+  expect(upgraded.setInventory(CARD_GAME_MAP.ONE_PIECE)?.printings).toMatchObject(inventory.printings);
+  expect(upgraded.search(query)).toEqual(previous.search(query));
+  expect(upgraded.search(query).printings).toHaveLength(1);
+});
+
+it('rejects a searchable catalog without set printings for every game', async () => {
+  const { parent, output } = await makeFiles();
+
+  await writeCatalog(output, [], parent, {
+    expansions: [
+      { game: CARD_GAME_MAP.POKEMON, id: 'base', name: 'Base Set', aliases: [] },
+      { game: CARD_GAME_MAP.ONE_PIECE, id: 'op01', name: 'Romance Dawn', aliases: [] },
+    ],
+    printings: [
+      {
+        game: CARD_GAME_MAP.POKEMON,
+        setId: 'base',
+        pricingId: 'base-1',
+        name: 'Alakazam',
+        number: '1',
+        printedNumber: '1/102',
+      },
+    ],
+  });
+
+  using searchOnly = new SQLiteCardCatalog(parent);
+  using partial = new SQLiteCardCatalog(output);
+
+  expect(() => verifyReleaseSetInventory(searchOnly)).toThrow('Card catalog is missing set checklist data');
+  expect(() => verifyReleaseSetInventory(partial)).toThrow('Card catalog is missing set checklist data for one_piece');
 });
 
 it('stops after the allotted targeted metadata request and leaves the parent unchanged', async () => {

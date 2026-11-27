@@ -232,7 +232,7 @@ public final class TCGSearch {
         }
     }
 
-    func setWishlistMembership(_ saved: Bool, for printingKey: String) {
+    public func setWishlistMembership(_ saved: Bool, for printingKey: String) {
         for index in results.indices where results[index].printingKey == printingKey {
             results[index].isWishlisted = saved
         }

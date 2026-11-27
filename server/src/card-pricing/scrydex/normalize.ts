@@ -7,6 +7,7 @@ import {
 } from '@tcg/scrydex';
 import z from 'zod';
 
+import { frontCardImage } from './images.ts';
 import { CARD_CONDITION_MAP } from '../../cards/types.ts';
 import { CurrencySchema } from '../../forex/currencies.ts';
 import type { PricingSearchResult } from '../client.ts';
@@ -386,7 +387,7 @@ function normalizeCurrency(value: ScrydexRawPrice['currency']): Currency | undef
 }
 
 function imageURL(images: ScrydexRawCard['images']): string | undefined {
-  const front = images?.find(image => image.type === 'front') ?? images?.[0];
+  const front = frontCardImage(images);
 
   return stringValue(front?.large) ?? stringValue(front?.medium) ?? stringValue(front?.small);
 }

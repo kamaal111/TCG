@@ -1976,6 +1976,250 @@ paths:
       summary: Search card prices
       tags:
         - Pricing
+  /app-api/sets:
+    get:
+      operationId: getAppApiSets
+      parameters:
+        - schema:
+            type: string
+            enum:
+              - one_piece
+              - pokemon
+          required: true
+          name: game
+          in: query
+        - schema:
+            type: string
+            maxLength: 200
+          required: false
+          name: query
+          in: query
+        - schema:
+            type: string
+            enum:
+              - all
+              - in_progress
+          required: false
+          name: section
+          in: query
+        - schema:
+            type: string
+            pattern: ^[A-Za-z0-9_-]+$
+            maxLength: 2048
+          required: false
+          name: cursor
+          in: query
+      responses:
+        '200':
+          description: Matching sets
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  entries:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SetSummary'
+                  next_cursor:
+                    type:
+                      - string
+                      - 'null'
+                    description: >-
+                      Opaque cursor for the next page; null when this is the
+                      final page
+                    example: null
+                required:
+                  - entries
+                  - next_cursor
+        '400':
+          description: Invalid request or cursor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '401':
+          description: Authenticated session required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Set or card not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Catalog or pricing unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearerAuth: []
+      summary: List sets
+      tags:
+        - Sets
+  /app-api/sets/{game}/{set_id}/cards:
+    get:
+      operationId: getAppApiSetChecklist
+      parameters:
+        - schema:
+            type: string
+            enum:
+              - one_piece
+              - pokemon
+          required: true
+          name: game
+          in: path
+        - schema:
+            type: string
+            pattern: ^[a-z0-9_-]+$
+            maxLength: 200
+          required: true
+          name: set_id
+          in: path
+        - schema:
+            type: string
+            enum:
+              - all
+              - missing
+              - owned
+          required: false
+          name: filter
+          in: query
+        - schema:
+            type: string
+            pattern: ^[A-Za-z0-9_-]+$
+            maxLength: 2048
+          required: false
+          name: cursor
+          in: query
+      responses:
+        '200':
+          description: Checklist page
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  entries:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SetChecklistCard'
+                  next_cursor:
+                    type:
+                      - string
+                      - 'null'
+                    description: >-
+                      Opaque cursor for the next page; null when this is the
+                      final page
+                    example: null
+                  set:
+                    $ref: '#/components/schemas/SetSummary'
+                required:
+                  - entries
+                  - next_cursor
+                  - set
+        '400':
+          description: Invalid request or cursor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '401':
+          description: Authenticated session required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Set or card not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Catalog or pricing unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearerAuth: []
+      summary: List set checklist cards
+      tags:
+        - Sets
+  /app-api/sets/{game}/{set_id}/cards/{number}:
+    get:
+      operationId: getAppApiSetCardDetail
+      parameters:
+        - schema:
+            type: string
+            enum:
+              - one_piece
+              - pokemon
+          required: true
+          name: game
+          in: path
+        - schema:
+            type: string
+            pattern: ^[a-z0-9_-]+$
+            maxLength: 200
+          required: true
+          name: set_id
+          in: path
+        - schema:
+            type: string
+            minLength: 1
+            maxLength: 200
+          required: true
+          name: number
+          in: path
+      responses:
+        '200':
+          description: Priced printings for a checklist slot
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  printings:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PricedCard'
+                required:
+                  - printings
+        '400':
+          description: Invalid request or cursor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '401':
+          description: Authenticated session required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Set or card not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Catalog or pricing unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearerAuth: []
+      summary: Price a set checklist card
+      tags:
+        - Sets
   /app-api/wishlist:
     get:
       parameters:
@@ -3121,6 +3365,18 @@ components:
         printing_key:
           type: string
           pattern: ^[0-9a-f]{64}$
+        catalog_sets:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              name:
+                type: string
+            required:
+              - id
+              - name
         is_wishlisted:
           type: boolean
           description: Whether the search result is saved by this account
@@ -4329,6 +4585,57 @@ components:
       example:
         entries: []
         next_cursor: null
+    SetSummary:
+      type: object
+      properties:
+        collected:
+          type: integer
+          minimum: 0
+          maximum: 9007199254740991
+        total:
+          type: integer
+          minimum: 0
+          maximum: 9007199254740991
+        id:
+          type: string
+        name:
+          type: string
+        code:
+          type: string
+        language:
+          type: string
+        release_date:
+          type: string
+        logo:
+          type: string
+          format: uri
+        symbol:
+          type: string
+          format: uri
+      required:
+        - collected
+        - total
+        - id
+        - name
+    SetChecklistCard:
+      type: object
+      properties:
+        number:
+          type: string
+        printed_number:
+          type: string
+        name:
+          type: string
+        image_url:
+          type: string
+          format: uri
+        owned:
+          type: boolean
+      required:
+        - number
+        - printed_number
+        - name
+        - owned
   securitySchemes:
     bearerAuth:
       type: http

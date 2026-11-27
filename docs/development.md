@@ -319,8 +319,9 @@ default is `platform=iOS Simulator,OS=27.0,name=TCG Test iPhone`. Set
 `TCG_APP_CODE_SIGNING_ALLOWED=YES` if signed test builds are needed; the recipes
 default to unsigned builds (`NO`).
 
-[CI](../.github/workflows/ci.yml) detects affected areas for PRs. Server checks
-and the image smoke test run on Linux; macOS app tests and iOS snapshots run on
+[CI](../.github/workflows/ci.yml) detects affected areas for PRs. Server,
+infrastructure, and general repository tooling checks run on Linux. macOS app
+tests, iOS snapshots, and the separate macOS release tooling check run on
 `xcode-27`. Pushes to `main` run both areas. The
 [affected-area configuration](../.github/config/affected-areas.conf)
 determines which paths trigger each job. On PRs, files ending in `.md` do not

@@ -12,14 +12,7 @@ struct TCGSearchFilters: View {
     @Binding var setNames: Set<String>
 
     var body: some View {
-        TCGFilterMenu(gameTitle: Text(verbatim: gameSelection.title), summary: filterSummary) {
-            Picker(selection: $gameSelection) {
-                ForEach(CardGame.allCases, id: \.self) { game in
-                    Text(verbatim: game.title).tag(game)
-                }
-            } label: {
-                Text("Game", bundle: .module)
-            }
+        TCGGameFilter(selection: $gameSelection, summary: filterSummary) {
             Section {
                 ForEach(ClientCardLanguage.supported(for: game), id: \.self) { language in
                     Toggle(isOn: languageBinding(language)) {

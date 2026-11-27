@@ -1,5 +1,6 @@
 import Observation
 import TCGClient
+import TCGWishlist
 
 @MainActor
 @Observable

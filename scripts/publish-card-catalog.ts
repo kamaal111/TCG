@@ -7,6 +7,7 @@ import url from 'node:url';
 import { z } from 'zod';
 
 import { CardCatalogManifestSchema, cardCatalogSha256, readCardCatalogManifest } from './card-catalog-manifest.ts';
+import { verifyReleaseSetInventory } from '../server/scripts/card-catalog-release.ts';
 import { SQLiteCardCatalog } from '../server/src/persistence/sqlite/card-catalog.ts';
 
 const PublishArgumentsSchema = z.tuple([z.string().nonempty(), z.string().regex(/^[A-Za-z0-9][A-Za-z0-9_.-]{0,126}$/)]);
@@ -26,6 +27,8 @@ try {
   await fs.copyFile(source, file);
 
   using catalog = new SQLiteCardCatalog(file);
+  verifyReleaseSetInventory(catalog);
+
   const sha256 = await cardCatalogSha256(file);
 
   console.error('Publishing verified catalog version', catalog.version);

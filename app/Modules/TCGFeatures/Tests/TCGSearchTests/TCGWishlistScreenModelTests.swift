@@ -1,5 +1,6 @@
 import Foundation
 import TCGModels
+import TCGWishlist
 import Testing
 
 @testable import TCGClient

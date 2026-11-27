@@ -1,9 +1,13 @@
 import SwiftUI
 import TCGDesignSystem
 
-struct WishlistFeedback: Identifiable {
-    let id = UUID()
-    let saved: Bool
+package struct WishlistFeedback: Identifiable {
+    package let id = UUID()
+    private let saved: Bool
+
+    package init(saved: Bool) {
+        self.saved = saved
+    }
 
     var title: String {
         saved
@@ -13,7 +17,7 @@ struct WishlistFeedback: Identifiable {
 }
 
 extension View {
-    func wishlistFeedback(_ feedback: Binding<WishlistFeedback?>) -> some View {
+    package func wishlistFeedback(_ feedback: Binding<WishlistFeedback?>) -> some View {
         toast(
             isPresented: Binding(
                 get: { feedback.wrappedValue != nil },

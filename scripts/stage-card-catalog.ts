@@ -6,6 +6,7 @@ import { InternalServerError } from '@tcg/http/exceptions';
 
 import { cardCatalogSha256, readCardCatalogManifest } from './card-catalog-manifest.ts';
 import { writeCatalog } from '../server/scripts/card-catalog-file.ts';
+import { verifyReleaseSetInventory } from '../server/scripts/card-catalog-release.ts';
 import { CatalogPrintingSchema } from '../server/src/card-pricing/catalog.ts';
 import { SQLiteCardCatalog } from '../server/src/persistence/sqlite/card-catalog.ts';
 
@@ -38,27 +39,50 @@ if (mode === 'fixture') {
     printedNumber: '1',
   }));
 
-  await writeCatalog(file, fixture);
+  await writeCatalog(file, fixture, undefined, {
+    expansions: fixture.map(({ game, setKey: id, setName: name }) => ({ game, id, name, aliases: [] })),
+    printings: fixture.map(({ game, setKey: setId, pricingId, collectorNumber: number, printedNumber }) => ({
+      game,
+      setId,
+      pricingId,
+      number,
+      printedNumber,
+      name: 'Fixture card',
+    })),
+  });
+
+  using catalog = new SQLiteCardCatalog(file);
+  verifyReleaseSetInventory(catalog);
 } else {
   const manifest = await readCardCatalogManifest();
 
-  async function verified(path: string) {
+  async function openPinnedCatalog(path: string): Promise<SQLiteCardCatalog | undefined> {
     try {
       const digest = await cardCatalogSha256(path);
 
       if (digest !== manifest.sha256) {
-        return false;
+        return undefined;
       }
 
-      using catalog = new SQLiteCardCatalog(path);
+      const catalog = new SQLiteCardCatalog(path);
 
-      return catalog.version === manifest.version;
+      if (catalog.version === manifest.version) {
+        return catalog;
+      }
+
+      catalog[Symbol.dispose]();
     } catch {
-      return false;
+      return undefined;
     }
+
+    return undefined;
   }
 
-  if (!(await verified(file))) {
+  using cached = await openPinnedCatalog(file);
+
+  if (cached != null) {
+    verifyReleaseSetInventory(cached);
+  } else {
     const temporary = await fs.mkdtemp(path.join(destination, '.download-'));
     let container: string | undefined;
 
@@ -72,11 +96,15 @@ if (mode === 'fixture') {
       const staged = path.join(temporary, 'catalog.sqlite');
       childProcess.execFileSync('docker', ['cp', `${container}:/catalog.sqlite`, staged]);
 
-      if (!(await verified(staged))) {
+      using catalog = await openPinnedCatalog(staged);
+
+      if (catalog == null) {
         throw new InternalServerError(undefined, {
           diagnosticMessage: 'Pinned card catalog failed checksum or schema verification',
         });
       }
+
+      verifyReleaseSetInventory(catalog);
 
       await fs.chmod(staged, 0o600);
       await fs.rename(staged, file);

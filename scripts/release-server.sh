@@ -68,8 +68,8 @@ echo 'Verifying against isolated test services. Production migrations require a 
     cd "$context"
     export HUSKY=0 MISE_TRUSTED_CONFIG_PATHS="$context"
     mise exec --locked node pnpm -- pnpm install --frozen-lockfile
-    mise exec --locked node pnpm -- just ready-server
     mise exec --locked node -- node scripts/stage-card-catalog.ts pinned "$temporary/catalog"
+    mise exec --locked node pnpm -- just ready-server
 )
 
 publish() {

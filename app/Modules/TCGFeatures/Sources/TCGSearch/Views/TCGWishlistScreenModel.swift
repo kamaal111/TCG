@@ -1,8 +1,10 @@
 import Foundation
 import Observation
+import TCGCardDetails
 import TCGClient
 import TCGListSupport
 import TCGModels
+import TCGWishlist
 
 @MainActor
 @Observable
@@ -226,10 +228,7 @@ final class TCGWishlistScreenModel {
                 if pages.pagination.pageCount == 1 { self.checkedAt = wishlist.now() }
 
                 let snapshot = TCGWishlist.Snapshot(
-                    query: filters.query,
-                    game: filters.game,
-                    setNames: filters.setNames,
-                    illustrators: filters.illustrators,
+                    filters: filters,
                     availableSetNames: self.availableSetNames,
                     availableIllustrators: self.availableIllustrators,
                     entries: pages.rows,
