@@ -42,7 +42,16 @@ let package = Package(
         ),
         .testTarget(
             name: "TCGAppTests",
-            dependencies: ["TCGApp", .product(name: "KamaalLogger", package: "KamaalSwift")]
+            dependencies: [
+                "TCGApp",
+                "TCGClient",
+                .product(name: "KamaalAuth", package: "kamaal-auth"),
+                .product(name: "KamaalLogger", package: "KamaalSwift"),
+                .product(name: "TCGCards", package: "TCGFeatures"),
+                .product(name: "TCGCurrency", package: "TCGFeatures"),
+                .product(name: "TCGSnapshotTesting", package: "TCGFeatures"),
+            ],
+            exclude: ["__Snapshots__"]
         ),
     ]
 )

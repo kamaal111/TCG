@@ -26,6 +26,50 @@ public func assertScreenSnapshot<Screen: View>(
     column: UInt,
     @ViewBuilder screen: () -> Screen
 ) async {
+    await assertScreenSnapshot(
+        testName: testName,
+        fileID: fileID,
+        file: filePath,
+        line: line,
+        column: column,
+        includesPresentation: false,
+        screen: screen
+    )
+}
+
+#if os(iOS)
+    /// Captures a mounted presentation and records an issue if the sheet never appears.
+    @MainActor
+    public func assertPresentedScreenSnapshot<Screen: View>(
+        testName: String,
+        fileID: StaticString,
+        file filePath: StaticString,
+        line: UInt,
+        column: UInt,
+        @ViewBuilder screen: () -> Screen
+    ) async {
+        await assertScreenSnapshot(
+            testName: testName,
+            fileID: fileID,
+            file: filePath,
+            line: line,
+            column: column,
+            includesPresentation: true,
+            screen: screen
+        )
+    }
+#endif
+
+@MainActor
+private func assertScreenSnapshot<Screen: View>(
+    testName: String,
+    fileID: StaticString,
+    file filePath: StaticString,
+    line: UInt,
+    column: UInt,
+    includesPresentation: Bool,
+    @ViewBuilder screen: () -> Screen
+) async {
     await ScreenSnapshotQueue.acquire()
     defer { ScreenSnapshotQueue.release() }
 
@@ -56,12 +100,15 @@ public func assertScreenSnapshot<Screen: View>(
                         $0.animation = nil
                         $0.disablesAnimations = true
                     },
-                scheme: scheme
+                scheme: scheme,
+                includesPresentation: includesPresentation
             )
             let image = await capture.image()
             guard let image else {
                 Issue.record(
-                    "The mounted screen did not settle within twelve seconds.",
+                    includesPresentation
+                        ? "The mounted sheet did not appear and settle within twelve seconds."
+                        : "The mounted screen did not settle within twelve seconds.",
                     sourceLocation: SourceLocation(
                         fileID: "\(fileID)",
                         filePath: "\(filePath)",
@@ -150,12 +197,14 @@ private enum ScreenSnapshotQueue {
         private let controller: UIViewController
         private let hosting: UIViewController
         private let traits: UITraitCollection
+        private let includesPresentation: Bool
         private var settling = ScreenSnapshotSettling()
         private var completion: CheckedContinuation<UIImage?, Never>?
         private var deadline: CFTimeInterval?
 
-        init<Screen: View>(screen: Screen, scheme: ColorScheme) {
+        init<Screen: View>(screen: Screen, scheme: ColorScheme, includesPresentation: Bool) {
             let config = ViewImageConfig.iPhone13
+            self.includesPresentation = includesPresentation
             traits = config.traits.modifyingTraits {
                 $0.userInterfaceStyle = scheme == .dark ? .dark : .light
                 $0.activeAppearance = .active
@@ -209,19 +258,22 @@ private enum ScreenSnapshotQueue {
         // Observe one mounted hierarchy instead of restarting SwiftUI and UIKit
         // initialization on each frame. The reference never participates in settling.
         @objc private func captureFrame(_ displayLink: CADisplayLink) {
-            let view = hosting.view!
+            // Simulator startup can delay the first display callback.
+            let timestamp = CACurrentMediaTime()
+            if deadline == nil { deadline = timestamp + 12 }
+            guard let deadline, timestamp < deadline else {
+                finish(displayLink, image: nil)
+                return
+            }
+            if includesPresentation {
+                let presented = controller.presentedViewController ?? hosting.presentedViewController
+                guard presented?.viewIfLoaded?.window === window else { return }
+            }
+            let view: UIView = includesPresentation ? window : hosting.view
             view.layoutIfNeeded()
             let renderer = UIGraphicsImageRenderer(bounds: view.bounds, format: .init(for: traits))
             let image = renderer.image { view.layer.render(in: $0.cgContext) }
             guard let data = image.pngData() else {
-                finish(displayLink, image: nil)
-                return
-            }
-            // Simulator startup can delay the first frame. Bound settling from the
-            // first completed render so startup cannot consume its quiet interval.
-            let timestamp = CACurrentMediaTime()
-            if deadline == nil { deadline = timestamp + 12 }
-            guard let deadline, timestamp < deadline else {
                 finish(displayLink, image: nil)
                 return
             }

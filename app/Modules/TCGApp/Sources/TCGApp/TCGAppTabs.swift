@@ -62,13 +62,9 @@ struct TCGAppTabs: View {
                 .tag(AppTab.search)
                 .tabItem { Label("Search", systemImage: "magnifyingglass") }
         }
-        .environment(\.tcgCurrency, currencyState)
-        .tcgCards(cards)
-        .environment(\.tcgCollections, collections)
         .tcgSearch(search)
         .tcgSets(sets)
         .environment(\.tcgWishlist, auth.isLoggedIn ? wishlist : nil)
-        .environment(auth)
         .environment(
             \.tcgOpenCatalogSet,
             OpenCatalogSetAction { game, set in
@@ -78,29 +74,21 @@ struct TCGAppTabs: View {
             }
         )
         #if os(iOS)
-            .overlay(alignment: .topTrailing) {
-                if !auth.isLoggedIn {
-                    TCGSettingsButton()
-                    .labelStyle(.iconOnly)
-                    .frame(minWidth: 44, minHeight: 44)
-                    .padding(.trailing)
-                }
-            }
-            .environment(\.tcgSettingsPresentation, $showingSettings)
-            .sheet(isPresented: $showingSettings) {
-                NavigationStack {
-                    TCGAppSettings(cards: cards, offline: offline)
-                    .toolbar {
-                        ToolbarItem(placement: .cancellationAction) {
-                            Button {
-                                showingSettings = false
-                            } label: {
-                                Text("Done", bundle: .module)
-                            }
-                        }
-                    }
-                }
-            }
+            .modifier(
+                TCGAppSettingsSheet(
+                    isPresented: $showingSettings,
+                    auth: auth,
+                    cards: cards,
+                    collections: collections,
+                    currency: currencyState,
+                    offline: offline
+                )
+            )
+        #else
+            .environment(auth)
+            .tcgCards(cards)
+            .environment(\.tcgCollections, collections)
+            .environment(\.tcgCurrency, currencyState)
         #endif
         .onChange(of: selectedTab, initial: true) { _, tab in
             startup.isCollectionsTabSelected = tab == .collections

@@ -446,6 +446,7 @@ _snapshots-ios action *args:
     bash ../scripts/run-with-xcbeautify.sh "snapshots-ios-$action" ../scripts/with-ios-simulator-lock \
         "${selection_args[@]}" \
         -destination "{{ APP_IOS_TEST_DESTINATION }}" \
+        -only-testing:TCGAppTests/SettingsSheetSnapshotTests \
         -only-testing:TCGCardsTests/ScreenSnapshotSettlingTests \
         -only-testing:TCGCardsTests/TCGCardsListScreenSnapshotTests \
         -only-testing:TCGCardsTests/TCGCollectionsSnapshotTests \
