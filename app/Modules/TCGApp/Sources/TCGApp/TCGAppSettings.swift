@@ -5,6 +5,58 @@ import TCGCurrency
 import TCGDesignSystem
 import TCGSettings
 
+#if os(iOS)
+    struct TCGAppSettingsSheet: ViewModifier {
+        @Binding var isPresented: Bool
+        let auth: KamaalAuth
+        let cards: TCGCards
+        let collections: TCGCollections
+        let currency: TCGCurrency
+        let offline: OfflineCollection
+
+        func body(content: Content) -> some View {
+            content
+                .overlay(alignment: .topTrailing) {
+                    if !auth.isLoggedIn {
+                        TCGSettingsButton()
+                            .labelStyle(.iconOnly)
+                            .buttonStyle(SignedOutSettingsButtonStyle())
+                            .padding(.trailing)
+                    }
+                }
+                .environment(\.tcgSettingsPresentation, $isPresented)
+                .sheet(isPresented: $isPresented) {
+                    NavigationStack {
+                        TCGAppSettings(cards: cards, offline: offline)
+                            .toolbar {
+                                ToolbarItem(placement: .cancellationAction) {
+                                    Button {
+                                        isPresented = false
+                                    } label: {
+                                        Text("Done", bundle: .module)
+                                    }
+                                }
+                            }
+                    }
+                }
+                .environment(auth)
+                .tcgCards(cards)
+                .environment(\.tcgCollections, collections)
+                .environment(\.tcgCurrency, currency)
+        }
+
+        private struct SignedOutSettingsButtonStyle: ButtonStyle {
+            func makeBody(configuration: Configuration) -> some View {
+                configuration.label
+                    .frame(minWidth: 44, minHeight: 44)
+                    .contentShape(.rect)
+                    .foregroundStyle(.tint)
+                    .opacity(configuration.isPressed ? 0.65 : 1)
+            }
+        }
+    }
+#endif
+
 struct TCGAppSettings: View {
     let cards: TCGCards
     let offline: OfflineCollection
