@@ -4,6 +4,16 @@ import Foundation
 import KamaalLogger
 import Synchronization
 
+/// Controls how an image request competes for download capacity.
+public enum ImageRequestPriority: Equatable, Sendable {
+    /// Ordinary artwork that continues loading when its caller leaves.
+    case standard
+    /// The first image shown for a visible search result.
+    case searchLead
+    /// Additional artwork for a result that has already requested its lead image.
+    case searchSupplemental
+}
+
 /// Loads remote images from memory, persistent storage, or the network.
 public final class ImageLoader: Sendable {
     public static let shared = ImageLoader()
@@ -13,7 +23,6 @@ public final class ImageLoader: Sendable {
 
     private let memory: Mutex<[String: DecodedImage]> = Mutex([:])
     private let storage: ImageRequestCoordinator
-    private let limiter: ImageLoadLimiter
     private let maximumDecodedImageCount: Int
     private let retryDelay: @Sendable (Int, HTTPURLResponse?) async -> Void
     let transport: Transport
@@ -121,8 +130,11 @@ public final class ImageLoader: Sendable {
         precondition(maximumConcurrentLoads > 0, "maximumConcurrentLoads must be positive")
         self.transport = transport
         self.now = now
-        self.storage = ImageRequestCoordinator(root: root, now: now)
-        self.limiter = ImageLoadLimiter(maximumConcurrentLoads: maximumConcurrentLoads)
+        self.storage = ImageRequestCoordinator(
+            root: root,
+            now: now,
+            maximumConcurrentLoads: maximumConcurrentLoads
+        )
         self.maximumDecodedImageCount = maximumDecodedImageCount
         self.retryDelay = retryDelay
     }
@@ -140,10 +152,18 @@ public final class ImageLoader: Sendable {
     }
 
     public func image(for url: URL, policy: ImageCachePolicy) async -> LoadedImage? {
+        await image(for: url, policy: policy, priority: .standard)
+    }
+
+    public func image(for url: URL, policy: ImageCachePolicy, priority: ImageRequestPriority) async -> LoadedImage? {
         #if os(iOS)
             await prepareBackgroundTransfers()
         #endif
-        return await storage.image(for: Self.key(for: url), loader: self, url: url, policy: policy)
+        return await storage.image(for: Self.key(for: url), loader: self, url: url, policy: policy, priority: priority)
+    }
+
+    var waitingAttemptCount: Int {
+        get async { await storage.waitingAttemptCount }
     }
 
     public func removeExpiredImages() async {
@@ -213,20 +233,19 @@ public final class ImageLoader: Sendable {
         #endif
     }
 
-    func reserveRestoredTransfers(_ count: Int) async {
-        await limiter.reserveRestored(count)
-    }
-
     func download(
         _ url: URL,
         attempt: Int,
-        hasPermit: Bool,
-        fetch: @Sendable (Int) async throws -> (Data, URLResponse?)
+        fetch: @Sendable (Int) async throws -> (Data, URLResponse?),
+        prepareRetry: @Sendable () async -> Bool
     ) async -> DownloadedImage? {
-        if !hasPermit { await limiter.acquire() }
-        let result = await Self.loadImage(from: url, retryDelay: retryDelay, attempt: attempt, fetch: fetch)
-        await limiter.release()
-        return result
+        await Self.loadImage(
+            from: url,
+            retryDelay: retryDelay,
+            attempt: attempt,
+            fetch: fetch,
+            prepareRetry: prepareRetry
+        )
     }
 
     static func key(for url: URL) -> String {
@@ -239,8 +258,10 @@ public final class ImageLoader: Sendable {
         from url: URL,
         retryDelay: @Sendable (Int, HTTPURLResponse?) async -> Void,
         attempt: Int,
-        fetch: @Sendable (Int) async throws -> (Data, URLResponse?)
+        fetch: @Sendable (Int) async throws -> (Data, URLResponse?),
+        prepareRetry: @Sendable () async -> Bool
     ) async -> DownloadedImage? {
+        guard !Task.isCancelled else { return nil }
         let maximumAttempts = 10
         let responseData: (Data, URLResponse?)
         do {
@@ -250,12 +271,14 @@ public final class ImageLoader: Sendable {
         } catch let error as URLError where error.code == .cancelled {
             return nil
         } catch let error as URLError where error.code == .timedOut && attempt < maximumAttempts {
+            guard await prepareRetry() else { return nil }
             await retryDelay(attempt, nil)
             return await loadImage(
                 from: url,
                 retryDelay: retryDelay,
                 attempt: attempt + 1,
-                fetch: fetch
+                fetch: fetch,
+                prepareRetry: prepareRetry
             )
         } catch {
             logger.error(
@@ -297,12 +320,14 @@ public final class ImageLoader: Sendable {
         }
         let isRetryable = response.statusCode == 429 || response.statusCode == 503
         if isRetryable, attempt < maximumAttempts {
+            guard await prepareRetry() else { return nil }
             await retryDelay(attempt, response)
             return await loadImage(
                 from: url,
                 retryDelay: retryDelay,
                 attempt: attempt + 1,
-                fetch: fetch
+                fetch: fetch,
+                prepareRetry: prepareRetry
             )
         }
         logger.warning(
@@ -333,33 +358,4 @@ struct DownloadedImage: Sendable {
 private struct DecodedImage: Sendable {
     let image: LoadedImage
     let expiresAt: Date?
-}
-
-private actor ImageLoadLimiter {
-    private var availablePermits: Int
-    private var waiters: [CheckedContinuation<Void, Never>] = []
-
-    init(maximumConcurrentLoads: Int) {
-        availablePermits = maximumConcurrentLoads
-    }
-
-    func reserveRestored(_ count: Int) {
-        availablePermits -= count
-    }
-
-    func acquire() async {
-        if availablePermits > 0 {
-            availablePermits -= 1
-            return
-        }
-        await withCheckedContinuation { waiters.append($0) }
-    }
-
-    func release() {
-        if availablePermits >= 0, let waiter = waiters.popLast() {
-            waiter.resume()
-            return
-        }
-        availablePermits += 1
-    }
 }

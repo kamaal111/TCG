@@ -13,6 +13,9 @@ public enum CardArtworkCachePolicy: Sendable {
     }
 }
 
+/// Controls when card artwork is eligible to use a download slot.
+public typealias CardImageRequestPriority = ImageRequestPriority
+
 /// Loads and caches decoded card artwork for ``CardImageView``.
 ///
 /// - Example:
@@ -39,6 +42,8 @@ public protocol CardImageLoader: Sendable {
     func cachedImage(for url: URL, policy: CardArtworkCachePolicy) -> Image?
 
     func image(for url: URL, policy: CardArtworkCachePolicy) async -> Image?
+
+    func image(for url: URL, policy: CardArtworkCachePolicy, priority: CardImageRequestPriority) async -> Image?
 }
 
 extension CardImageLoader {
@@ -48,6 +53,11 @@ extension CardImageLoader {
 
     public func image(for url: URL, policy: CardArtworkCachePolicy) async -> Image? {
         await image(for: url)
+    }
+
+    public func image(for url: URL, policy: CardArtworkCachePolicy, priority: CardImageRequestPriority) async -> Image?
+    {
+        await image(for: url, policy: policy)
     }
 }
 
@@ -66,7 +76,13 @@ struct SharedCardImageLoader: CardImageLoader {
     }
 
     func image(for url: URL, policy: CardArtworkCachePolicy) async -> Image? {
-        await ImageLoader.shared.image(for: url, policy: policy.imageCachePolicy).map(Self.makeImage)
+        await image(for: url, policy: policy, priority: .standard)
+    }
+
+    func image(for url: URL, policy: CardArtworkCachePolicy, priority: CardImageRequestPriority) async -> Image? {
+        await ImageLoader.shared
+            .image(for: url, policy: policy.imageCachePolicy, priority: priority)
+            .map(Self.makeImage)
     }
 
     private static func makeImage(_ image: LoadedImage) -> Image {
