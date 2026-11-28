@@ -50,6 +50,7 @@ const ToolchainSchema = z.object({ Config: z.object({ Labels: z.record(z.string(
 interface CommandOptions {
   cwd: string;
   env: NodeJS.ProcessEnv;
+  failureMessage?: string;
 }
 
 export interface RuntimeOptions {
@@ -96,7 +97,11 @@ export async function runReleaseRuntime({
   await fs.writeFile(log, '', { mode: 0o600 });
   prompts.note(`Detailed output is saved privately in ${log}.`);
 
-  async function runCommand(program: string, args: string[], { cwd, env }: CommandOptions): Promise<string> {
+  async function runCommand(
+    program: string,
+    args: string[],
+    { cwd, env, failureMessage }: CommandOptions,
+  ): Promise<string> {
     const heartbeat = setInterval(() => console.log('Still running. This step can take several minutes.'), 30_000);
 
     await fs.appendFile(log, `\n${program} ${JSON.stringify(args)}\n`);
@@ -112,7 +117,7 @@ export async function runReleaseRuntime({
       if (result.success) {
         await fs.appendFile(log, result.data.stdout + result.data.stderr);
 
-        if (/unauthorized|denied|authentication|expired/i.test(result.data.stderr)) {
+        if (failureMessage == null && /\b(unauthorized|denied|authentication|expired)\b/i.test(result.data.stderr)) {
           prompts.note('A credential may have expired. Run just rotate-keys, then retry this release.');
           const credential = args[0]?.endsWith('/deployment-ssh.sh') ? 'download' : 'publishing';
 
@@ -123,7 +128,8 @@ export async function runReleaseRuntime({
       }
 
       throw new InfraFailure(
-        `This step failed. Read the private release log at ${log}, fix the cause, then rerun just release-server. Completed images can be reused; live state is checked again.`,
+        failureMessage ??
+          `This step failed. Read the private release log at ${log}, fix the cause, then rerun just release-server. Completed images can be reused; live state is checked again.`,
         1,
       );
     } finally {
@@ -255,6 +261,8 @@ export async function runReleaseRuntime({
     return runCommand('bash', [path.join(root, 'scripts/deployment-ssh.sh'), request], {
       cwd: root,
       env: environment,
+      failureMessage:
+        request === 'check' ? `Live release verification failed. See the private release log at ${log}.` : undefined,
     });
   }
 
