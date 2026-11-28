@@ -132,7 +132,10 @@ if (tool === 'ssh') {
    if (process.env.TCG_TEST_FAIL_DEPLOY) {console.error('Fixture deployment failure');process.exit(1);}
    state.runtime=request[1]; state.revision=process.env.TCG_TEST_SHA; fs.writeFileSync(process.env.TCG_TEST_STATE,JSON.stringify(state));
  }
- if (request[0] === 'check') console.log('Release checks passed.');
+ if (request[0] === 'check') {
+   if (process.env.TCG_TEST_FAIL_CHECK) {console.error('Fixture storage failure: access_denied');process.exit(1);}
+   console.log('Release checks passed.');
+ }
 }
 `;
 
@@ -231,6 +234,27 @@ test('a retry verifies saved images and live state without rebuilding or restart
   await f.run('origin/main', 'terminal');
   expect(await f.published()).toHaveLength(2);
   expect(await f.deployed()).toHaveLength(1);
+}, 15_000);
+
+test('a failed follow-up check reports that deployment already succeeded', async t => {
+  const f = await fixture(t);
+  vi.stubEnv('TCG_TEST_FAIL_CHECK', '1');
+
+  await expect(f.run('origin/main', 'terminal')).rejects.toThrow('Live release verification failed');
+
+  expect(await f.state()).toMatchObject({ runtime, revision: f.sha });
+  expect(f.note).toHaveBeenCalledWith(
+    expect.stringContaining(`Deployment of ${f.sha.slice(0, 12)} succeeded. The follow-up verification failed.`),
+    'Post-deployment verification',
+  );
+  expect(f.note).not.toHaveBeenCalledWith('Release checks passed.', 'Released');
+  expect(f.note).not.toHaveBeenCalledWith(expect.stringContaining('rotate-keys'));
+
+  const directory = path.join(f.configDirectory, 'releases');
+  const sessions = await fs.readdir(directory);
+  const session = z.string().parse(sessions.find(name => name.startsWith('.session-')));
+  const releaseLog = await fs.readFile(path.join(directory, session, 'release.log'), 'utf8');
+  expect(releaseLog).toContain('Fixture storage failure: access_denied');
 }, 15_000);
 
 test('a failed deployment resumes the pinned release even when main has advanced', async t => {

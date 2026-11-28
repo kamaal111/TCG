@@ -168,7 +168,16 @@ export async function runRelease(options: Pipeline): Promise<void> {
 
     await options.deploy(artifacts, reviewed);
     options.stage?.('verify');
-    await options.check();
+
+    try {
+      await options.check();
+    } catch (error) {
+      prompts.note(
+        `Deployment of ${options.sha.slice(0, 12)} succeeded. The follow-up verification failed. Run just deployment-check with your release settings to inspect the running release.`,
+        'Post-deployment verification',
+      );
+      throw error;
+    }
   }
 
   await options.complete();
