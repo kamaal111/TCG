@@ -11,6 +11,7 @@ import KamaalLogger
 import Observation
 import TCGClient
 import TCGCurrency
+import TCGDesignSystem
 import TCGListSupport
 
 @MainActor
@@ -51,6 +52,12 @@ public final class TCGCards {
 
     var isLoading: Bool { collectionState.status == .loading }
     var hasMoreCards: Bool { collectionState.nextCursor != nil }
+    var nextScrollPage: TCGScrollPageID<Int>? {
+        guard hasLoadedCurrentCollection, !isLoadingNextPage, nextPageError == nil,
+            let cursor = collectionState.nextCursor
+        else { return nil }
+        return .init(scope: collectionState.generation, cursor: cursor)
+    }
 
     var hasLoadedCurrentCollection: Bool { collectionState.status == .loaded }
 

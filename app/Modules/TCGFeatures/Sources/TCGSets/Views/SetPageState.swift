@@ -1,10 +1,12 @@
 import Foundation
 import TCGClient
+import TCGDesignSystem
 import TCGListSupport
 
 struct SetPageState<Entry: Identifiable & Sendable> {
     private var pages = Self.emptyPages()
     private var requestID: UUID?
+    private var pageScope: UUID?
     private(set) var failed = false
     private var retryFromStart = false
 
@@ -13,6 +15,10 @@ struct SetPageState<Entry: Identifiable & Sendable> {
     var hasLoaded: Bool { pages.pagination.pageCount > 0 }
     var canLoadMore: Bool { failed || pages.pagination.nextCursor != nil }
     var nextCursor: String? { retryFromStart ? nil : pages.pagination.nextCursor }
+    var nextScrollPage: TCGScrollPageID<UUID>? {
+        guard !isLoading, !failed, let pageScope, let nextCursor else { return nil }
+        return .init(scope: pageScope, cursor: nextCursor)
+    }
 
     mutating func begin() -> UUID {
         let id = UUID()
@@ -38,6 +44,7 @@ struct SetPageState<Entry: Identifiable & Sendable> {
                 return false
             }
             pages = updated
+            if replacing { pageScope = id }
             failed = false
             retryFromStart = false
             return true

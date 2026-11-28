@@ -321,6 +321,16 @@ public struct TCGSearchScreen<AddForm: View>: View {
                     .background(.background.secondary, in: RoundedRectangle(cornerRadius: 12))
                 #endif
             }
+            if !visibleResults.isEmpty, search.nextCursor != nil {
+                TCGScrollPaginationTrigger(pageID: search.nextScrollPage) { pageID in
+                    Task {
+                        guard search.nextScrollPage == pageID,
+                            !model.filteredResults(using: search).isEmpty
+                        else { return }
+                        await search.loadNextPage(pageID.cursor, retry: false)
+                    }
+                }
+            }
             if !search.isSearching, let cursor = search.nextCursor {
                 paginationFooter(cursor: cursor, canLoadAutomatically: !visibleResults.isEmpty)
                     .ktakeWidthEagerly()
@@ -344,12 +354,6 @@ public struct TCGSearchScreen<AddForm: View>: View {
             } label: {
                 Text("Load more", bundle: .module)
             }
-        } else {
-            ProgressView()
-                .onAppear {
-                    Task { await search.loadNextPage(cursor, retry: false) }
-                }
-                .id(cursor)
         }
     }
 

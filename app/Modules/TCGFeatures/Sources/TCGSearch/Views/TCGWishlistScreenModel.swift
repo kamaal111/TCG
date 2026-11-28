@@ -2,6 +2,7 @@ import Foundation
 import Observation
 import TCGCardDetails
 import TCGClient
+import TCGDesignSystem
 import TCGListSupport
 import TCGModels
 import TCGWishlist
@@ -18,13 +19,13 @@ final class TCGWishlistScreenModel {
     private(set) var entries: [PricedCard] = []
     private(set) var hasLoaded = false
     private(set) var isLoading = false
-    private(set) var isRefreshing = false
     private(set) var error: WishlistError?
     private(set) var loadingCursor: String?
     private(set) var failedCursor: String?
     private(set) var availableSetNames: Set<String> = []
     private(set) var availableIllustrators: Set<String> = []
     private var pagination = CursorPagination(nextCursor: nil, visitedCursors: [], pageCount: 0)
+    private var paginationScope: UUID?
     @ObservationIgnored private var requestID = UUID()
     @ObservationIgnored private var activeFilters: CardListFilters?
     @ObservationIgnored private var context: TCGWishlist.ReadContext?
@@ -34,6 +35,12 @@ final class TCGWishlistScreenModel {
     @ObservationIgnored private var requestedDepth = 1
 
     var cursor: String? { pagination.nextCursor }
+    var nextScrollPage: TCGScrollPageID<UUID>? {
+        guard !isLoading, error == nil, activeFilters == filterState.filters, let paginationScope, let cursor else {
+            return nil
+        }
+        return .init(scope: paginationScope, cursor: cursor)
+    }
 
     init(preferences: UserDefaults?) {
         filterState = CardListFilterState(preferences: preferences, preferenceScope: .wishlist)
@@ -116,6 +123,7 @@ final class TCGWishlistScreenModel {
         if let snapshot {
             entries = snapshot.entries
             pagination = snapshot.pagination
+            paginationScope = snapshot.version
             availableSetNames = snapshot.availableSetNames ?? []
             availableIllustrators = snapshot.availableIllustrators ?? []
             let hasChoices = snapshot.availableSetNames != nil && snapshot.availableIllustrators != nil
@@ -154,6 +162,7 @@ final class TCGWishlistScreenModel {
         invalidateRequest()
         entries = []
         pagination = CursorPagination(nextCursor: nil, visitedCursors: [], pageCount: 0)
+        paginationScope = nil
         checkedAt = nil
         snapshotVersion = nil
         failedCursor = nil
@@ -164,7 +173,6 @@ final class TCGWishlistScreenModel {
     private func invalidateRequest() {
         requestID = UUID()
         isLoading = false
-        isRefreshing = false
         loadingCursor = nil
     }
 
@@ -180,7 +188,6 @@ final class TCGWishlistScreenModel {
         requestID = id
         requestedDepth = depth
         isLoading = true
-        isRefreshing = initial.pagination.pageCount == 0
         loadingCursor = initial.pagination.nextCursor
         var canPersist = true
         defer {
@@ -225,7 +232,10 @@ final class TCGWishlistScreenModel {
                 self.hasLoaded = true
                 self.error = nil
                 self.failedCursor = nil
-                if pages.pagination.pageCount == 1 { self.checkedAt = wishlist.now() }
+                if pages.pagination.pageCount == 1 {
+                    self.checkedAt = wishlist.now()
+                    self.paginationScope = id
+                }
 
                 let snapshot = TCGWishlist.Snapshot(
                     filters: filters,

@@ -97,7 +97,7 @@ public struct TCGSetsScreen<AddForm: View>: View {
 
             Section {
                 rows(.all)
-                if all.entries.isEmpty && !all.failed {
+                if all.entries.isEmpty && !all.failed && !all.isLoading && !all.canLoadMore {
                     if all.hasLoaded {
                         Text("No sets found", bundle: .module)
                             .foregroundStyle(.secondary)
@@ -127,7 +127,7 @@ public struct TCGSetsScreen<AddForm: View>: View {
 
     private var showsInProgress: Bool {
         let page = model.page(for: .inProgress)
-        return !page.entries.isEmpty || page.failed
+        return !page.entries.isEmpty || page.canLoadMore
     }
 
     @ViewBuilder
@@ -140,13 +140,27 @@ public struct TCGSetsScreen<AddForm: View>: View {
                     .tcgCollectionListRow()
             }
         }
-        if page.canLoadMore {
+        if page.nextCursor != nil {
+            TCGScrollPaginationTrigger(pageID: nextScrollPage(for: section)) { pageID in
+                Task {
+                    guard nextScrollPage(for: section) == pageID else { return }
+                    await model.loadMore(section, for: request, using: sets)
+                }
+            }
+        }
+        if page.isLoading {
+            ProgressView()
+        } else if page.failed {
             Button {
                 Task { await model.loadMore(section, for: request, using: sets) }
             } label: {
-                Text(page.failed ? "Retry" : "Load more", bundle: .module)
+                Text("Retry", bundle: .module)
             }
-            .disabled(page.isLoading)
         }
+    }
+
+    private func nextScrollPage(for section: TCGSetsScreenModel.Section) -> TCGScrollPageID<UUID>? {
+        guard isVisible, path.isEmpty else { return nil }
+        return model.nextScrollPage(section, for: request)
     }
 }

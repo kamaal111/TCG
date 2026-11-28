@@ -101,6 +101,7 @@ public struct TCGCardsListScreen: View {
             query: $filterState.query,
             hidesScrollBackground: hidesScrollBackground,
             showsEmptyContent: cardCollection.cards.isEmpty && cardCollection.hasLoadedCurrentCollection
+                && !cardCollection.hasMoreCards
         ) {
             TCGCollectionFilters(
                 state: filterState,
@@ -116,6 +117,14 @@ public struct TCGCardsListScreen: View {
         } emptyContent: {
             emptyCollection
         } footer: {
+            if cardCollection.hasMoreCards {
+                TCGScrollPaginationTrigger(pageID: cardCollection.nextScrollPage) { pageID in
+                    Task {
+                        guard cardCollection.nextScrollPage == pageID else { return }
+                        _ = await cardCollection.loadNextPage()
+                    }
+                }
+            }
             TCGCollectionPaginationFooter(
                 isLoading: cardCollection.isLoadingNextPage,
                 errorDescription: cardCollection.nextPageError?.errorDescription,
@@ -125,18 +134,9 @@ public struct TCGCardsListScreen: View {
         }
     }
 
-    private func loadNextPageIfNeeded(after card: CardWithPrice) {
-        guard card.card.id == cardCollection.cards.last?.card.id else { return }
-        guard cardCollection.nextPageError == nil else { return }
-        guard cardCollection.hasMoreCards else { return }
-
-        Task { _ = await cardCollection.loadNextPage() }
-    }
-
     private var cardRows: some DynamicViewContent {
         ForEach(cardCollection.cards, id: \.card.id) { cardWithPrice in
             cardButton(for: cardWithPrice)
-                .onAppear { loadNextPageIfNeeded(after: cardWithPrice) }
                 .tcgCollectionListRow()
         }
     }
