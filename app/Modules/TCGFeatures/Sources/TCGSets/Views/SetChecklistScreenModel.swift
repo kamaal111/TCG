@@ -1,5 +1,7 @@
+import Foundation
 import Observation
 import TCGClient
+import TCGDesignSystem
 
 @MainActor
 @Observable
@@ -28,6 +30,11 @@ final class SetChecklistScreenModel {
     func search(_ request: Request, using sets: TCGSets) async {
         guard loadedRequest != request else { return }
         await refresh(request, using: sets)
+    }
+
+    func nextScrollPage(for request: Request) -> TCGScrollPageID<UUID>? {
+        guard loadedRequest == request, filter == request.filter else { return nil }
+        return page.nextScrollPage
     }
 
     func refresh(_ request: Request, using sets: TCGSets) async {

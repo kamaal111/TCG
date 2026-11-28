@@ -68,14 +68,18 @@ public struct TCGWishlistScreen<AddForm: View>: View {
             }
             ForEach(model.entries) { card in
                 wishlistRow(card)
-                    .task(id: paginationCursor(for: card)) {
-                        guard paginationCursor(for: card) != nil else { return }
-                        await model.loadNextPage(using: wishlist)
-                    }
             }
         } emptyContent: {
             emptyWishlist
         } footer: {
+            if model.cursor != nil {
+                TCGScrollPaginationTrigger(pageID: nextScrollPage) { pageID in
+                    Task {
+                        guard nextScrollPage == pageID else { return }
+                        await model.loadNextPage(using: wishlist)
+                    }
+                }
+            }
             pagination
         }
     }
@@ -95,11 +99,9 @@ public struct TCGWishlistScreen<AddForm: View>: View {
         )
     }
 
-    private func paginationCursor(for card: PricedCard) -> String? {
-        guard isVisible, scenePhase == .active, !model.isRefreshing, card.id == model.entries.last?.id else {
-            return nil
-        }
-        return model.cursor
+    private var nextScrollPage: TCGScrollPageID<UUID>? {
+        guard isVisible, scenePhase == .active else { return nil }
+        return model.nextScrollPage
     }
 
     @ViewBuilder
@@ -119,22 +121,13 @@ public struct TCGWishlistScreen<AddForm: View>: View {
         }
     }
 
-    @ViewBuilder
     private var pagination: some View {
-        if model.entries.isEmpty, model.cursor != nil, !model.isLoading, model.error == nil {
-            Button {
-                Task { await model.loadNextPage(using: wishlist) }
-            } label: {
-                Text("Load more", bundle: .module)
-            }
-        } else {
-            TCGCollectionPaginationFooter(
-                isLoading: model.loadingCursor != nil,
-                errorDescription: model.isLoading ? nil : model.error?.localizedDescription,
-                failureTitle: model.failedCursor == nil ? Text("Couldn't load wishlist", bundle: .module) : nil,
-                retry: { Task { await model.retry(using: wishlist) } }
-            )
-        }
+        TCGCollectionPaginationFooter(
+            isLoading: model.loadingCursor != nil,
+            errorDescription: model.isLoading ? nil : model.error?.localizedDescription,
+            failureTitle: model.failedCursor == nil ? Text("Couldn't load wishlist", bundle: .module) : nil,
+            retry: { Task { await model.retry(using: wishlist) } }
+        )
     }
 
     private func wishlistRow(_ card: PricedCard) -> some View {

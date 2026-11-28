@@ -9,6 +9,7 @@ import KamaalLogger
 import Observation
 import TCGClient
 import TCGCurrency
+import TCGDesignSystem
 
 @MainActor
 @Observable
@@ -20,6 +21,12 @@ public final class TCGSearch {
     private(set) var didFailToLoadNextPage = false
 
     var isLoadingNextPage: Bool { activePageID != nil }
+    var nextScrollPage: TCGScrollPageID<UUID>? {
+        guard !isSearching, !isLoadingNextPage, !didFailToLoadNextPage, let completedSearchID, let nextCursor else {
+            return nil
+        }
+        return .init(scope: completedSearchID, cursor: nextCursor)
+    }
     private(set) var completedSearch: SearchIdentity?
     private(set) var displayRefreshError: TCGSearchOperationError?
     let history: TCGSearchHistoryStore
@@ -42,6 +49,7 @@ public final class TCGSearch {
     private let client: TCGClient
     private let logger: KamaalLogger
     private var activeSearchID: UUID?
+    private var completedSearchID: UUID?
     private var activePageID: UUID?
     private var displayIdentity: TCGCurrency.DisplayIdentity?
     private var lastSearch: SearchIdentity?
@@ -140,6 +148,7 @@ public final class TCGSearch {
                 didFailToLoadNextPage = false
                 hasSearched = true
                 completedSearch = SearchIdentity(request)
+                completedSearchID = searchID
                 if request.cursor == nil {
                     logger.info(
                         "pricing.search.completed",
@@ -252,5 +261,6 @@ public final class TCGSearch {
         nextCursor = nil
         didFailToLoadNextPage = false
         completedSearch = nil
+        completedSearchID = nil
     }
 }

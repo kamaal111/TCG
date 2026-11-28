@@ -1,5 +1,6 @@
 import SwiftUI
 import TCGClient
+import TCGDesignSystem
 
 struct SetChecklistScreen<AddForm: View>: View {
     @Environment(TCGSets.self) private var sets
@@ -28,7 +29,7 @@ struct SetChecklistScreen<AddForm: View>: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
+            LazyVStack(alignment: .leading, spacing: 16) {
                 SetChecklistHeader(summary: model.summary, filter: $model.filter)
                 SetChecklistGrid(cards: model.page.entries) { model.selected = $0 }
                 pagination
@@ -53,15 +54,24 @@ struct SetChecklistScreen<AddForm: View>: View {
 
     @ViewBuilder
     private var pagination: some View {
-        if model.page.canLoadMore {
+        if model.page.nextCursor != nil {
+            TCGScrollPaginationTrigger(pageID: nextScrollPage) { pageID in
+                Task {
+                    guard nextScrollPage == pageID else { return }
+                    await model.loadMore(for: request, using: sets)
+                }
+            }
+        }
+        if model.page.isLoading {
+            ProgressView()
+        } else if model.page.failed {
             Button {
                 Task { await model.loadMore(for: request, using: sets) }
             } label: {
-                Text(model.page.failed ? "Retry" : "Load more", bundle: .module)
+                Text("Retry", bundle: .module)
                     .frame(maxWidth: .infinity)
             }
-            .disabled(model.page.isLoading)
-        } else if model.page.entries.isEmpty {
+        } else if model.page.entries.isEmpty && !model.page.canLoadMore {
             if model.page.hasLoaded {
                 Text("No cards in this view", bundle: .module)
                     .foregroundStyle(.secondary)
@@ -69,6 +79,11 @@ struct SetChecklistScreen<AddForm: View>: View {
                 ProgressView()
             }
         }
+    }
+
+    private var nextScrollPage: TCGScrollPageID<UUID>? {
+        guard isVisible else { return nil }
+        return model.nextScrollPage(for: request)
     }
 
     private var request: SetChecklistScreenModel.Request {

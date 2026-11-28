@@ -1,6 +1,7 @@
 import Foundation
 import Observation
 import TCGClient
+import TCGDesignSystem
 
 @MainActor
 @Observable
@@ -35,6 +36,11 @@ final class TCGSetsScreenModel {
 
     func page(for section: Section) -> SetPageState<CatalogSetSummary> {
         pages[section] ?? .init()
+    }
+
+    func nextScrollPage(_ section: Section, for request: Request) -> TCGScrollPageID<UUID>? {
+        guard loadedRequest == request else { return nil }
+        return page(for: section).nextScrollPage
     }
 
     func search(_ request: Request, using sets: TCGSets) async {
