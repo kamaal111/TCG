@@ -14,17 +14,17 @@ let package = Package(
         .package(url: "https://github.com/Kamaalio/KamaalSwift", .upToNextMajor(from: "3.6.0")),
         .package(url: "https://github.com/pointfreeco/swift-snapshot-testing", .upToNextMajor(from: "1.19.7")),
         .package(path: "../TCGModels"),
+        .package(path: "../TCGImageLoading"),
     ],
     targets: [
         .target(
             name: "TCGDesignSystem",
             dependencies: [
                 .product(name: "KamaalExtensions", package: "KamaalSwift"),
-                .product(name: "KamaalUtils", package: "KamaalSwift"),
                 .product(name: "KamaalPopUp", package: "KamaalSwift"),
-                .product(name: "KamaalLogger", package: "KamaalSwift"),
                 .product(name: "KamaalUI", package: "KamaalSwift"),
                 "TCGModels",
+                "TCGImageLoading",
             ],
             resources: [.process("Localizable.xcstrings")],
             swiftSettings: [
