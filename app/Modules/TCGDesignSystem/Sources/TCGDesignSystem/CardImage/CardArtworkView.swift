@@ -11,6 +11,9 @@ public struct CardArtworkView: View {
     private let url: URL?
     private let isThumbnail: Bool
     private var contentMode: ContentMode
+    private var priority: CardImageRequestPriority = .standard
+    private var loads = true
+    private var onSettled: (() -> Void)?
     private let onLoad: (Bool) -> Void
     private var onExplore: (() -> Void)?
     private var onSizeChange: (CGSize) -> Void = { _ in }
@@ -22,6 +25,13 @@ public struct CardArtworkView: View {
 
     public init(thumbnailURL: URL?) {
         self.init(url: thumbnailURL, isThumbnail: true, onLoad: { _ in })
+    }
+
+    init(thumbnailURL: URL?, priority: CardImageRequestPriority, loads: Bool, onSettled: (() -> Void)?) {
+        self.init(thumbnailURL: thumbnailURL)
+        self.priority = priority
+        self.loads = loads
+        self.onSettled = onSettled
     }
 
     public init(logoURL: URL) {
@@ -43,11 +53,13 @@ public struct CardArtworkView: View {
 
     public var body: some View {
         RemoteImage(
-            request: url.map { ArtworkRequest(url: $0, policy: cachePolicy) },
+            request: url.map { ArtworkRequest(url: $0, policy: cachePolicy, priority: priority) },
+            loads: loads,
             retriesOnForeground: retriesOnForeground,
             cachedImage: { loader.cachedImage(for: $0.url, policy: $0.policy) },
-            image: { await loader.image(for: $0.url, policy: $0.policy) },
+            image: { await loader.image(for: $0.url, policy: $0.policy, priority: $0.priority) },
             onLoad: onLoad,
+            onSettled: onSettled,
             content: { phase, retry in
                 content(phase, retry: retry)
             }
@@ -130,5 +142,6 @@ public struct CardArtworkView: View {
     private struct ArtworkRequest: Equatable {
         let url: URL
         let policy: CardArtworkCachePolicy
+        let priority: CardImageRequestPriority
     }
 }

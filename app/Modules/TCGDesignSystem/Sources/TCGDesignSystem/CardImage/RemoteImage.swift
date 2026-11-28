@@ -17,15 +17,18 @@ struct RemoteImage<Request: Equatable, Content: View>: View {
     @State private var foregroundRetry = RemoteImageForegroundRetry()
 
     let request: Request?
+    let loads: Bool
     let retriesOnForeground: Bool
     let cachedImage: (Request) -> Image?
     let image: (Request) async -> Image?
     let onLoad: (Bool) -> Void
+    let onSettled: (() -> Void)?
     @ViewBuilder let content: (RemoteImagePhase, @escaping () -> Void) -> Content
 
     var body: some View {
         content(displayedPhase, { requestNumber += 1 })
-            .task(id: Attempt(request: request, number: requestNumber)) {
+            .task(id: Attempt(request: request, number: requestNumber, loads: loads)) {
+                guard loads else { return }
                 await load()
             }
             .onAppear { isVisible = true }
@@ -42,6 +45,9 @@ struct RemoteImage<Request: Equatable, Content: View>: View {
 
     private var displayedPhase: RemoteImagePhase {
         guard let request else { return .missingURL }
+        if !loads {
+            return cachedImage(request).map(RemoteImagePhase.loaded) ?? .loading
+        }
         return currentRequest == request ? phase : .loading
     }
 
@@ -54,6 +60,7 @@ struct RemoteImage<Request: Equatable, Content: View>: View {
             phase = .loaded(cached)
             foregroundRetry.finishSuccessfully()
             onLoad(true)
+            onSettled?()
             return
         }
         phase = .loading
@@ -67,6 +74,7 @@ struct RemoteImage<Request: Equatable, Content: View>: View {
             phase = .failed
             retryAfterFailureIfNeeded()
         }
+        onSettled?()
     }
 
     private func retryAfterFailureIfNeeded() {
@@ -78,6 +86,7 @@ struct RemoteImage<Request: Equatable, Content: View>: View {
     private struct Attempt: Equatable {
         let request: Request?
         let number: Int
+        let loads: Bool
     }
 }
 
