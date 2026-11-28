@@ -2,10 +2,10 @@ import Foundation
 import Synchronization
 import Testing
 
-@testable import TCGDesignSystem
+@testable import TCGImageLoading
 
 @Suite("URL session card image loader tests", .serialized)
-struct URLSessionCardImageLoaderTests {
+struct ImageLoaderTests {
     private let directory = TemporaryArtworkDirectory()
     private var root: URL { directory.url }
 
@@ -19,7 +19,7 @@ struct URLSessionCardImageLoaderTests {
         let url = try #require(URL(string: "https://images.example.com/binder-card.png"))
 
         #expect(await makeLoader(now: Date.init, retryDelay: { _, _ in }).image(for: url) != nil)
-        #expect(await makeLoader(now: Date.init, retryDelay: { _, _ in }).image(for: url, policy: .search) != nil)
+        #expect(await makeLoader(now: Date.init, retryDelay: { _, _ in }).image(for: url, policy: .temporary) != nil)
         #expect(requests.value == 1)
     }
 
@@ -31,14 +31,14 @@ struct URLSessionCardImageLoaderTests {
             .http(status: 200, headers: [:], body: requests.increment() == 1 ? Data() : Self.png)
         }
         let url = try #require(URL(string: "https://images.example.com/corrupt.png"))
-        let file = root.appending(path: URLSessionCardImageLoader.key(for: url))
+        let file = root.appending(path: ImageLoader.key(for: url))
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         try corrupt.write(to: file)
         let loader = makeLoader(now: Date.init, retryDelay: { _, _ in })
 
-        #expect(await loader.image(for: url, policy: .search) == nil)
+        #expect(await loader.image(for: url, policy: .temporary) == nil)
         #expect(try Data(contentsOf: file) == corrupt)
-        #expect(await loader.image(for: url, policy: .search) != nil)
+        #expect(await loader.image(for: url, policy: .temporary) != nil)
         #expect(try Data(contentsOf: file) == Self.png)
         #expect(requests.value == 2)
     }
@@ -57,7 +57,7 @@ struct URLSessionCardImageLoaderTests {
         let loader = makeLoader(now: Date.init, retryDelay: { _, _ in })
 
         #expect(try await loader.inventory().isEmpty)
-        #expect(await loader.image(for: first, policy: .search) != nil)
+        #expect(await loader.image(for: first, policy: .temporary) != nil)
         #expect(await loader.image(for: second) != nil)
         let artwork = try await loader.inventory()
         #expect(artwork.map(\.byteCount).sorted() == [4096, 8192])
@@ -65,14 +65,14 @@ struct URLSessionCardImageLoaderTests {
         #expect(await loader.thumbnail(for: smaller) != nil)
 
         try await loader.delete(smaller)
-        #expect(loader.cachedImage(for: first, policy: .search) == nil)
+        #expect(loader.cachedImage(for: first, policy: .temporary) == nil)
         #expect(try await loader.inventory().map(\.byteCount) == [8192])
-        #expect(await loader.image(for: first, policy: .search) != nil)
+        #expect(await loader.image(for: first, policy: .temporary) != nil)
         #expect(requests.value == 3)
 
         try await loader.delete(nil)
         #expect(try await loader.inventory().isEmpty)
-        #expect(loader.cachedImage(for: first, policy: .search) == nil)
+        #expect(loader.cachedImage(for: first, policy: .temporary) == nil)
         #expect(loader.cachedImage(for: second) == nil)
     }
 
@@ -261,12 +261,12 @@ struct URLSessionCardImageLoaderTests {
         let loader = makeLoader(now: Date.init, retryDelay: { _, _ in })
         let url = try #require(URL(string: "https://images.example.com/shared.png"))
 
-        async let first = loader.image(for: url, policy: .search)
-        async let second = loader.image(for: url, policy: .collection)
+        async let first = loader.image(for: url, policy: .temporary)
+        async let second = loader.image(for: url, policy: .persistent)
         let images = await [first, second]
 
         #expect(images.allSatisfy { $0 != nil })
-        #expect(loader.cachedImage(for: url, policy: .collection) != nil)
+        #expect(loader.cachedImage(for: url, policy: .persistent) != nil)
         #expect(requests.value == 1)
     }
 
@@ -280,10 +280,10 @@ struct URLSessionCardImageLoaderTests {
         let clock = ArtworkTestClock()
         let now: @Sendable () -> Date = { clock.now }
         let url = try #require(URL(string: "https://images.example.com/search.png"))
-        let file = root.appending(path: URLSessionCardImageLoader.key(for: url))
+        let file = root.appending(path: ImageLoader.key(for: url))
         let loader = makeLoader(now: now, retryDelay: { _, _ in })
 
-        #expect(await loader.image(for: url, policy: .search) != nil)
+        #expect(await loader.image(for: url, policy: .temporary) != nil)
         let timestamp = try #require(
             file.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate
         )
@@ -292,14 +292,14 @@ struct URLSessionCardImageLoaderTests {
         let reopened = makeLoader(now: now, retryDelay: { _, _ in })
         clock.set(timestamp.addingTimeInterval(86_399))
 
-        #expect(await reopened.image(for: url, policy: .search) != nil)
+        #expect(await reopened.image(for: url, policy: .temporary) != nil)
         #expect(try await reopened.inventory().first?.expiresAt == deadline)
         #expect(requests.value == 1)
         clock.set(deadline)
 
-        #expect(reopened.cachedImage(for: url, policy: .search) == nil)
+        #expect(reopened.cachedImage(for: url, policy: .temporary) == nil)
         #expect(try await reopened.inventory().isEmpty)
-        #expect(await makeLoader(now: now, retryDelay: { _, _ in }).image(for: url, policy: .search) != nil)
+        #expect(await makeLoader(now: now, retryDelay: { _, _ in }).image(for: url, policy: .temporary) != nil)
         #expect(requests.value == 2)
     }
 
@@ -314,25 +314,25 @@ struct URLSessionCardImageLoaderTests {
         let now: @Sendable () -> Date = { clock.now }
         let url = try #require(URL(string: "https://images.example.com/promoted.png"))
         let legacy = try #require(URL(string: "https://images.example.com/legacy.png"))
-        let key = URLSessionCardImageLoader.key(for: url)
+        let key = ImageLoader.key(for: url)
         let file = root.appending(path: key)
-        let legacyFile = root.appending(path: URLSessionCardImageLoader.key(for: legacy))
+        let legacyFile = root.appending(path: ImageLoader.key(for: legacy))
         let loader = makeLoader(now: now, retryDelay: { _, _ in })
 
-        #expect(await loader.image(for: url, policy: .search) != nil)
+        #expect(await loader.image(for: url, policy: .temporary) != nil)
         try Self.png.write(to: legacyFile)
-        #expect(await loader.image(for: url, policy: .collection) != nil)
+        #expect(await loader.image(for: url, policy: .persistent) != nil)
         #expect(!FileManager.default.fileExists(atPath: file.path))
         #expect(FileManager.default.fileExists(atPath: legacyFile.path))
         let promoted = try #require(try await loader.inventory().first { $0.id == key })
         #expect(promoted.expiresAt == nil)
 
         clock.set(Date.now.addingTimeInterval(86_401))
-        await loader.removeExpiredArtwork()
+        await loader.removeExpiredImages()
 
         #expect(!FileManager.default.fileExists(atPath: legacyFile.path))
         #expect(try await loader.inventory().map(\.id) == [key])
-        #expect(await makeLoader(now: now, retryDelay: { _, _ in }).image(for: url, policy: .search) != nil)
+        #expect(await makeLoader(now: now, retryDelay: { _, _ in }).image(for: url, policy: .temporary) != nil)
         #expect(requests.value == 1)
     }
 
@@ -343,8 +343,8 @@ struct URLSessionCardImageLoaderTests {
         }
         let loader = makeLoader(now: Date.init, retryDelay: { _, _ in })
         let url = try #require(URL(string: "https://images.example.com/duplicate.png"))
-        let key = URLSessionCardImageLoader.key(for: url)
-        #expect(await loader.image(for: url, policy: .collection) != nil)
+        let key = ImageLoader.key(for: url)
+        #expect(await loader.image(for: url, policy: .persistent) != nil)
 
         let searchCopy = Self.png + Data(repeating: 0, count: 4096)
         try searchCopy.write(to: root.appending(path: key))
@@ -356,14 +356,108 @@ struct URLSessionCardImageLoaderTests {
         #expect(artwork.expiresAt == nil)
     }
 
+    #if os(iOS)
+        @Test(.timeLimit(.minutes(1)))
+        func `A collection request joins a restored search transfer and retains the image`() async throws {
+            let url = try #require(URL(string: "https://images.example.com/shared-background.png"))
+            let id = UUID()
+            let background = BackgroundImageTransferStub(restored: [
+                .init(
+                    id: id,
+                    request: .init(url: url, policy: .temporary, shouldCache: true, attempt: 1),
+                    response: nil
+                )
+            ])
+            defer { background.finish() }
+            let loader = makeLoader(background: background)
+            var requests = background.savedRequests.makeAsyncIterator()
+
+            let collection = Task { await loader.image(for: url, policy: .persistent) }
+            let promoted = await requests.next()
+            #expect(promoted?.policy == .persistent)
+            background.complete(id, response: try Self.backgroundResponse(url: url))
+
+            #expect(await collection.value != nil)
+            #expect(await loader.image(for: url, policy: .temporary) != nil)
+            #expect(background.startCount == 0)
+            let artwork = try await loader.inventory()
+            #expect(artwork.count == 1)
+            #expect(try #require(artwork.first).expiresAt == nil)
+        }
+
+        @Test(.timeLimit(.minutes(1)))
+        func `A staged completion populates the cache without a view waiting`() async throws {
+            let url = try #require(URL(string: "https://images.example.com/set-logo.png"))
+            let background = BackgroundImageTransferStub(restored: [
+                .init(
+                    id: UUID(),
+                    request: .init(url: url, policy: .persistent, shouldCache: true, attempt: 1),
+                    response: try Self.backgroundResponse(url: url)
+                )
+            ])
+            defer { background.finish() }
+            let loader = makeLoader(background: background)
+            var discarded = background.discardedTransfers.makeAsyncIterator()
+
+            await loader.prepareBackgroundTransfers()
+            #expect(await discarded.next() != nil)
+            #expect(loader.cachedImage(for: url) != nil)
+            #expect(try await loader.inventory().count == 1)
+            #expect(background.startCount == 0)
+        }
+
+        @Test(.timeLimit(.minutes(1)))
+        func `Clearing the cache invalidates the background write and leaves one transfer pending`() async throws {
+            let url = try #require(URL(string: "https://images.example.com/clear-background.png"))
+            let background = BackgroundImageTransferStub(restored: [])
+            defer { background.finish() }
+            let loader = makeLoader(background: background)
+            var starts = background.startedTransfers.makeAsyncIterator()
+            var requests = background.savedRequests.makeAsyncIterator()
+
+            let first = Task { await loader.image(for: url, policy: .temporary) }
+            let id = try #require(await starts.next())
+            _ = await requests.next()
+            try await loader.delete(nil)
+            let cleared = await requests.next()
+            #expect(cleared?.shouldCache == false)
+
+            let second = Task { await loader.image(for: url, policy: .persistent) }
+            let promoted = await requests.next()
+            #expect(promoted?.policy == .persistent)
+            #expect(promoted?.shouldCache == false)
+            background.complete(id, response: try Self.backgroundResponse(url: url))
+
+            #expect(await first.value != nil)
+            #expect(await second.value != nil)
+            #expect(background.startCount == 1)
+            #expect(try await loader.inventory().isEmpty)
+        }
+
+        private func makeLoader(background: BackgroundImageTransferStub) -> ImageLoader {
+            ImageLoader(
+                background: background,
+                root: root,
+                maximumConcurrentLoads: 2,
+                now: Date.init,
+                retryDelay: { _, _ in }
+            )
+        }
+
+        private static func backgroundResponse(url: URL) throws -> BackgroundImageTransfer.Response {
+            let response = try #require(HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: nil))
+            return .init(data: png, response: response)
+        }
+    #endif
+
     private func makeLoader(
         now: @escaping @Sendable () -> Date,
         retryDelay: @escaping @Sendable (Int, HTTPURLResponse?) async -> Void
-    ) -> URLSessionCardImageLoader {
+    ) -> ImageLoader {
 
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [StubURLProtocol.self]
-        return URLSessionCardImageLoader(
+        return ImageLoader(
             session: URLSession(configuration: configuration),
             root: root,
             maximumConcurrentLoads: 2,
@@ -458,3 +552,52 @@ private final class StubURLProtocol: URLProtocol, @unchecked Sendable {
 
     override func stopLoading() {}
 }
+
+#if os(iOS)
+    private final class BackgroundImageTransferStub: BackgroundImageTransferring {
+        let events: AsyncStream<BackgroundImageTransfer.Event>
+        let savedRequests: AsyncStream<BackgroundImageTransfer.Request>
+        let startedTransfers: AsyncStream<UUID>
+        let discardedTransfers: AsyncStream<UUID>
+
+        private let restored: [BackgroundImageTransfer.Restored]
+        private let delivery: AsyncStream<BackgroundImageTransfer.Event>.Continuation
+        private let saved: AsyncStream<BackgroundImageTransfer.Request>.Continuation
+        private let started: AsyncStream<UUID>.Continuation
+        private let discarded: AsyncStream<UUID>.Continuation
+        private let starts = Mutex(0)
+
+        init(restored: [BackgroundImageTransfer.Restored]) {
+            self.restored = restored
+            (events, delivery) = AsyncStream.makeStream()
+            (savedRequests, saved) = AsyncStream.makeStream()
+            (startedTransfers, started) = AsyncStream.makeStream()
+            (discardedTransfers, discarded) = AsyncStream.makeStream()
+        }
+
+        var startCount: Int { starts.withLock { $0 } }
+
+        func restore() async -> [BackgroundImageTransfer.Restored] { restored }
+
+        func save(_ request: BackgroundImageTransfer.Request, id: UUID) {
+            saved.yield(request)
+        }
+
+        func start(_ url: URL, id: UUID) {
+            starts.withLock { $0 += 1 }
+            started.yield(id)
+        }
+
+        func discard(_ id: UUID) {
+            discarded.yield(id)
+        }
+
+        func complete(_ id: UUID, response: BackgroundImageTransfer.Response) {
+            delivery.yield(.completed(id, .success(response)))
+        }
+
+        func finish() {
+            delivery.finish()
+        }
+    }
+#endif

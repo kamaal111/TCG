@@ -1,10 +1,11 @@
 import KamaalExtensions
 import SwiftUI
+import TCGImageLoading
 
 /// A Settings row that displays and manages saved card artwork.
 public struct CardArtworkCacheSettings: View {
-    private let loader = URLSessionCardImageLoader.shared
-    @State private var artworks: [CachedCardArtwork]?
+    private let loader = ImageLoader.shared
+    @State private var artworks: [CachedImage]?
     @State private var isShowingGallery = false
     @State private var isConfirmingDeleteAll = false
     @State private var isDeleting = false
@@ -92,7 +93,7 @@ public struct CardArtworkCacheSettings: View {
         .frame(minWidth: 320, minHeight: 360)
     }
 
-    private func artworkGrid(_ artworks: [CachedCardArtwork]) -> some View {
+    private func artworkGrid(_ artworks: [CachedImage]) -> some View {
         ScrollView {
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 92), spacing: 12, alignment: .top)], spacing: 16) {
                 ForEach(artworks) { artwork in
@@ -111,7 +112,7 @@ public struct CardArtworkCacheSettings: View {
                             .accessibilityLabel(Text("Delete cached image", bundle: .module))
                             .disabled(isDeleting)
                         }
-                        artwork.expiryMessage
+                        expiryMessage(for: artwork)
                             .font(.caption)
                             .foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
@@ -127,7 +128,7 @@ public struct CardArtworkCacheSettings: View {
         artworks = try? await loader.inventory()
     }
 
-    private func delete(_ artwork: CachedCardArtwork?) {
+    private func delete(_ artwork: CachedImage?) {
         isDeleting = true
         Task {
             defer { isDeleting = false }
@@ -138,11 +139,9 @@ public struct CardArtworkCacheSettings: View {
             }
         }
     }
-}
 
-extension CachedCardArtwork {
-    fileprivate var expiryMessage: Text {
-        expiresAt.map { date in
+    private func expiryMessage(for artwork: CachedImage) -> Text {
+        artwork.expiresAt.map { date in
             Text("Expires \(date, format: .dateTime.month(.abbreviated).day().hour().minute())", bundle: .module)
         } ?? Text("No expiry", bundle: .module)
     }
@@ -168,8 +167,8 @@ struct CardArtworkCacheRow: View {
 }
 
 private struct CachedCardArtworkThumbnail: View {
-    let artwork: CachedCardArtwork
-    let loader: URLSessionCardImageLoader
+    let artwork: CachedImage
+    let loader: ImageLoader
     @State private var image: Image?
 
     var body: some View {
@@ -186,7 +185,7 @@ private struct CachedCardArtworkThumbnail: View {
             }
             .accessibilityHidden(true)
             .task(id: artwork.byteCount) {
-                image = await loader.thumbnail(for: artwork)
+                image = await loader.thumbnail(for: artwork).map { Image(decorative: $0, scale: 1) }
             }
     }
 }

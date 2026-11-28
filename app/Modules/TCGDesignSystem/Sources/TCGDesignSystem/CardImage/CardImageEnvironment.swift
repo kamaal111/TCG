@@ -1,14 +1,28 @@
 import SwiftUI
+import TCGImageLoading
+
+private struct CardImageLoading {
+    let loader: any CardImageLoader
+    let retriesOnForeground: Bool
+}
 
 private struct CardImageLoaderKey: EnvironmentKey {
-    static let defaultValue: any CardImageLoader = URLSessionCardImageLoader.shared
+    static let defaultValue: CardImageLoading = {
+        #if os(iOS)
+            CardImageLoading(loader: SharedCardImageLoader(), retriesOnForeground: true)
+        #else
+            CardImageLoading(loader: SharedCardImageLoader(), retriesOnForeground: false)
+        #endif
+    }()
 }
 
 extension EnvironmentValues {
     public var cardImageLoader: any CardImageLoader {
-        get { self[CardImageLoaderKey.self] }
-        set { self[CardImageLoaderKey.self] = newValue }
+        get { self[CardImageLoaderKey.self].loader }
+        set { self[CardImageLoaderKey.self] = CardImageLoading(loader: newValue, retriesOnForeground: false) }
     }
+
+    var retriesCardImagesOnForeground: Bool { self[CardImageLoaderKey.self].retriesOnForeground }
 }
 
 extension View {
@@ -51,9 +65,9 @@ private struct CardArtworkCacheMaintenance: ViewModifier {
         content.task(id: scenePhase) {
             guard scenePhase == .active else { return }
 
-            let loader = URLSessionCardImageLoader.shared
+            let loader = ImageLoader.shared
             while !Task.isCancelled {
-                await loader.removeExpiredArtwork()
+                await loader.removeExpiredImages()
                 do {
                     // Space out disk scans while the app stays active. Cache reads enforce
                     // the 24-hour expiry even before the next scan removes the file.

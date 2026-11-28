@@ -9,6 +9,10 @@ import SwiftUI
 import TCGApp
 
 @main struct TCGApp: App {
+    #if os(iOS)
+        @UIApplicationDelegateAdaptor(TCGApplicationDelegate.self) private var applicationDelegate
+    #endif
+
     var body: some Scene {
         TCGApp::TCGScene()
     }

@@ -4,10 +4,9 @@ import SwiftUI
 public struct CardArtworkView: View {
     @Environment(\.cardImageLoader) private var loader
     @Environment(\.cardArtworkCachePolicy) private var cachePolicy
+    @Environment(\.retriesCardImagesOnForeground) private var retriesOnForeground
     @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
     @Environment(\.cardImageReduceMotionOverride) private var reduceMotionOverride
-    @State private var phase: LoadPhase
-    @State private var attempt = 0
 
     private let url: URL?
     private let isThumbnail: Bool
@@ -35,7 +34,6 @@ public struct CardArtworkView: View {
         self.isThumbnail = isThumbnail
         contentMode = isThumbnail ? .fill : .fit
         self.onLoad = onLoad
-        _phase = State(initialValue: url == nil ? .missingURL : .loading)
     }
 
     init(url: URL?, onLoad: @escaping (Bool) -> Void, onSizeChange: @escaping (CGSize) -> Void) {
@@ -44,32 +42,20 @@ public struct CardArtworkView: View {
     }
 
     public var body: some View {
-        content
-            .task(id: LoadRequest(url: url, policy: cachePolicy, attempt: attempt)) {
-                await loadImage()
+        RemoteImage(
+            request: url.map { ArtworkRequest(url: $0, policy: cachePolicy) },
+            retriesOnForeground: retriesOnForeground,
+            cachedImage: { loader.cachedImage(for: $0.url, policy: $0.policy) },
+            image: { await loader.image(for: $0.url, policy: $0.policy) },
+            onLoad: onLoad,
+            content: { phase, retry in
+                content(phase, retry: retry)
             }
-    }
-
-    private func loadImage() async {
-        onLoad(false)
-        guard let url else {
-            phase = .missingURL
-            return
-        }
-        if let image = loader.cachedImage(for: url, policy: cachePolicy) {
-            phase = .loaded(image)
-            onLoad(true)
-            return
-        }
-        phase = .loading
-        let image = await loader.image(for: url, policy: cachePolicy)
-        guard !Task.isCancelled else { return }
-        phase = image.map(LoadPhase.loaded) ?? .failed
-        onLoad(image != nil)
+        )
     }
 
     @ViewBuilder
-    private var content: some View {
+    private func content(_ phase: RemoteImagePhase, retry: @escaping () -> Void) -> some View {
         switch phase {
         case .loaded(let image):
             if let onExplore {
@@ -101,9 +87,7 @@ public struct CardArtworkView: View {
                 VStack(spacing: 12) {
                     Image(systemName: "photo.badge.exclamationmark").font(.largeTitle)
                     Text("Image could not be loaded.", bundle: .module)
-                    Button {
-                        attempt += 1
-                    } label: {
+                    Button(action: retry) {
                         Text("Retry", bundle: .module)
                     }
                 }
@@ -143,16 +127,8 @@ public struct CardArtworkView: View {
             .foregroundStyle(color)
     }
 
-    private enum LoadPhase {
-        case loading
-        case loaded(Image)
-        case failed
-        case missingURL
-    }
-
-    private struct LoadRequest: Equatable {
-        let url: URL?
+    private struct ArtworkRequest: Equatable {
+        let url: URL
         let policy: CardArtworkCachePolicy
-        let attempt: Int
     }
 }

@@ -88,6 +88,13 @@
         "identifier" : "TCGDesignSystemTests",
         "name" : "TCGDesignSystemTests"
       }
+    },
+    {
+      "target" : {
+        "containerPath" : "container:Modules\/TCGImageLoading",
+        "identifier" : "TCGImageLoadingTests",
+        "name" : "TCGImageLoadingTests"
+      }
     }
   ],
   "version" : 1

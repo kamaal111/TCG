@@ -16,6 +16,7 @@ let package = Package(
         .package(path: "../TCGFeatures"),
         .package(path: "../TCGClient"),
         .package(path: "../TCGDesignSystem"),
+        .package(path: "../TCGImageLoading"),
     ],
     targets: [
         .target(
@@ -34,6 +35,7 @@ let package = Package(
                 .product(name: "KamaalLogger", package: "KamaalSwift"),
                 "TCGClient",
                 "TCGDesignSystem",
+                "TCGImageLoading",
             ],
             swiftSettings: [
                 .enableUpcomingFeature("ApproachableConcurrency"),
